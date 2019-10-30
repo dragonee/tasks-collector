@@ -1,0 +1,6 @@
+django==2.1.7
+psycopg2-binary==2.7.4
+django-crispy-forms==1.7.2
+django-mail-templated==2.6.5
+django-model-utils==3.1.2
+django-extensions==2.1.6
