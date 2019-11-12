@@ -42,8 +42,11 @@ INSTALLED_APPS = [
     'mail_templated',
     'django_extensions',
 
+    'rest_framework',
+
     'tasks.apps.common',
-    'tasks.apps.hello_world'
+    'tasks.apps.hello_world',
+    'tasks.apps.tree'
 ]
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
@@ -136,3 +139,8 @@ LOGOUT_REDIRECT_URL = '/'
 FILE_UPLOAD_PERMISSIONS = 0o644
 
 AUTH_USER_MODEL = 'common.User'
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
+}

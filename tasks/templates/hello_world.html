@@ -10,3 +10,7 @@
 {% block extrajs %}
 {% render_js 'hello_world_mount' %}
 {% endblock %}
+
+{% block extrahead %}
+{% csrf_token %}
+{% endblock %}
