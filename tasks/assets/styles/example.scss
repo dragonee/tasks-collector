@@ -1,4 +1,115 @@
-h1 {
-    font-size: 20px;
-    color: red;
+
+
+* {
+    box-sizing: border-box;
+
+
+}
+
+
+body, html {
+    margin: 0;
+    font-family: 'Raleway', sans-serif;
+    font-size: 0.95rem;
+}
+
+.upper-pane {
+    height: $upper-pane;
+    padding: 3px 10px;
+
+    h1 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+        color: #999;
+    }
+
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+
+    border-bottom: 1px solid #efefef;
+}
+
+.lower-pane {
+    height: $lower-pane;
+    padding: 3px 10px;
+    background-color: #efefef;
+
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+}
+
+.tree > .tree-root {
+    margin: 0;
+}
+
+.on-right {
+    margin-left: auto;
+}
+
+@for $i from 1 through 3 {
+    .dots[data-dots="#{$i}"] {
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin-left: 1px;
+            margin-right: 1px;
+            border-radius: 6px;
+            border: 2px solid #999;
+        }
+    }
+}
+
+.dots[data-dots="4"] {
+    .dot{
+        display: none;
+    }
+
+    width: 32px;
+    height: 8px;
+    border-radius: 6px;
+    display: inline-block;
+    border: 2px solid #999;
+}
+
+
+.dots.weeksInList {
+    border-color: #4a7dfb;
+
+    .dot {
+        border-color: #4a7dfb;
+    }
+}
+
+.dots.important {
+    border-color: #ca3518;
+
+    .dot {
+        border-color: #ca3518;
+    }
+}
+
+.spacer {
+    display: inline-block;
+    width: 0.5rem;
+}
+
+.canBePostponed {
+    background-color: #31d0ff73;
+}
+
+.tree-text {
+    position: relative;
+}
+
+.has-finalizing {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 20px;
+    display: block;
+    height: 3px;
+    background-color: #9d06a7bf;
 }

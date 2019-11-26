@@ -92,6 +92,20 @@
           classes['indeterminate'] = state.indeterminate
         }
 
+        const markerMethods = [
+            'weeksInList',
+            'important',
+            'finalizing',
+            'canBeDoneOutsideOfWork',
+            'canBePostponed',
+            'postponedFor',
+            'hiddenWhenPostponed'
+        ];
+
+        markerMethods.forEach(name => {
+            classes[name] = !!this.node.data.meaningfulMarkers[name]
+        })
+
         return classes
       }
     },

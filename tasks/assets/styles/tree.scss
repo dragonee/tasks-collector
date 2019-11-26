@@ -12,6 +12,10 @@
 .tree > .tree-filter-empty {
   padding: 3px;
   box-sizing: border-box;
+
+  display: flex;
+  flex-flow: column wrap;
+  height: calc(100vh - #{$lower-pane} - #{$upper-pane});
 }
 
 .tree.tree--draggable .tree-node:not(.selected) > .tree-content:hover {
@@ -57,7 +61,9 @@
   transform: translateY(50%);
 }
 
-
+.tree-root > .tree-node {
+    max-width: 50%;
+}
 
 .tree-node {
   white-space: nowrap;
@@ -65,6 +71,10 @@
   flex-direction: column;
   position: relative;
   box-sizing: border-box;
+
+  min-width: 25%;
+
+  margin-right: 3px;
 }
 
 .tree-content {
@@ -77,11 +87,11 @@
 }
 
 .tree-node:not(.selected) > .tree-content:hover {
-  background: #f6f8fb;
+  //background: #f6f8fb;
 }
 
 .tree-node.selected > .tree-content {
-  background-color: #e7eef7;
+  //background-color: #e7eef7;
 }
 
 .tree-node.disabled > .tree-content:hover {
@@ -153,10 +163,17 @@
   content: "";
 }
 
+.tree-node.checked {
+    background-color: #8edc8078;
+    .tree-anchor {
+        color: #00000060;
+    }
+}
+
 .tree-checkbox.checked,
 .tree-checkbox.indeterminate {
-  background-color: #3a99fc;
-  border-color: #218eff;
+  background-color: #3eb536;
+  border-color: #35a22e;
 }
 
 .tree-checkbox.checked:after {
@@ -219,8 +236,13 @@
   height: 24px;
   line-height: 24px;
   outline: none;
-  border: 1px solid #3498db;
-  padding: 0 4px;
+  //border: 1px solid #3498db;
+  border: 0;
+  padding: 0 0px;
+  font-size: 0.95rem;
+
+  font-weight: 400;
+  font-family: Raleway, sans-serif;
 }
 
 .l-fade-enter-active, .l-fade-leave-active {

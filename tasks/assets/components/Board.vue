@@ -1,5 +1,9 @@
 <template>
     <div class="board">
+        <div class="upper-pane">
+            <h1>{{ startDate }}</h1>
+        </div>
+
         <tree
             :data="currentBoard.state"
             :options="options"
@@ -7,16 +11,16 @@
 
 
         >
-            <div
-                class="tree-text"
-                slot-scope="{ node }"
-            >
-                {{ node.text }}
-                {{ node.data.meaningfulMarkers.weeksInList }}
-            </div>
+            <template slot-scope="{ node }">
+                <node-content :node="node" class="tree-text">
+                </node-content>
+            </template>
         </tree>
 
-        <button @click.prevent="addItem">+</button>
+        <div class="lower-pane">
+            <button @click.prevent="addItem">+</button>
+            <button @click.prevent="commit" class="on-right">commit</button>
+        </div>
 
         <GlobalEvents
             v-if="normalContext"
@@ -32,11 +36,15 @@ import { createTreeItem, promisifyTimeout } from '../utils'
 
 import GlobalEvents from 'vue-global-events'
 
+import NodeContent from './NodeContent.vue'
+
+import moment from 'moment'
 
 export default {
 
     components: {
         GlobalEvents,
+        NodeContent
     },
 
     computed: {
@@ -46,6 +54,10 @@ export default {
 
         normalContext() {
             return !this.editingContext
+        },
+
+        startDate() {
+            return moment(this.currentBoard.start_date).format('YYYY-MM-DD')
         },
 
         options() {

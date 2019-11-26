@@ -170,6 +170,10 @@
             ];
 
             if (markerMethods.includes(method)) {
+                if (value === undefined) {
+                    value = !node.data.meaningfulMarkers[method]
+                }
+
                 node.data = changeMeaningfulMarker(node.data, {
                     [method]: value
                 })
