@@ -4,13 +4,12 @@ import HelloWorldComponent from './hello_world.vue'
 
 import store from '../store'
 
-import LiquorTree from 'liquor-tree'
+import LiquorTree from '../liquor-tree/src/main.js'
 
 Vue.use(LiquorTree)
 Vue.use(Vuex)
 
 import axios from 'axios'
-
 
 new Vue({
     render: h => h(HelloWorldComponent),

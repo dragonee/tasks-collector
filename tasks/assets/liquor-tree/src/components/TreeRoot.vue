@@ -28,16 +28,50 @@
       </ul>
     </template>
 
+    <vue-context ref="menu">
+        <template slot-scope="child">
+           <li class="v-context__sub">
+                <a>Importance</a>
+                <ul class="v-context">
+                    <li>
+                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 1 })">1</a>
+
+                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 2 })">2</a>
+
+                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 3 })">3</a>
+
+                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 0 })">Reset</a>
+                    </li>
+                </ul>
+            </li>
+
+            <li>
+                <a href="#" @click.prevent="onClick('finalizing', { ...child.data  })">Clearable</a>
+            </li>
+            <li>
+                <a href="#" @click.prevent="onClick('canBePostponed', { ...child.data  })">Postponable</a>
+            </li>
+
+            <li>
+                <a href="#" @click.prevent="onClick('remove', { ...child.data  })">Remove</a>
+            </li>
+
+       </template>
+   </vue-context>
+
     <DraggableNode v-if="draggableNode" :target="draggableNode" />
   </component>
 </template>
 
 <script>
-  import TreeNode from '@/components/TreeNode'
-  import DraggableNode from '@/components/DraggableNode'
-  import TreeMixin from '@/mixins/TreeMixin'
-  import TreeDnd from '@/mixins/DndMixin'
-  import Tree from '@/lib/Tree'
+  import TreeNode from './TreeNode'
+  import DraggableNode from './DraggableNode'
+  import TreeMixin from '../mixins/TreeMixin'
+  import TreeDnd from '../mixins/DndMixin'
+  import Tree from '../lib/Tree'
+
+  import { VueContext } from 'vue-context';
+
 
   const defaults = {
     direction: 'ltr',
@@ -58,6 +92,14 @@
     editing: false,
     onFetchError: function(err) { throw err }
   }
+
+  const changeMeaningfulMarker = (data, object) => ({
+      ...data,
+      meaningfulMarkers: {
+          ...data.meaningfulMarkers,
+          ...object,
+      }
+  });
 
   const filterDefaults = {
     emptyText: 'Nothing found!',
@@ -80,14 +122,18 @@
     name: 'Tree',
     components: {
       TreeNode,
-      DraggableNode
+      DraggableNode,
+      VueContext
     },
 
     mixins: [TreeMixin, TreeDnd],
 
-    provide: _ => ({
-      tree: null
-    }),
+    provide() {
+        return {
+            tree: null,
+            menu: () => this.$refs.menu,
+        }
+    },
 
     props: {
       data: {},
@@ -109,6 +155,30 @@
       filter (term) {
         this.tree.filter(term)
       }
+    },
+
+    methods: {
+        async onClick(method, { node, value }) {
+            const markerMethods = [
+                'weeksInList',
+                'important',
+                'finalizing',
+                'canBeDoneOutsideOfWork',
+                'canBePostponed',
+                'postponedFor',
+                'hiddenWhenPostponed'
+            ];
+
+            if (markerMethods.includes(method)) {
+                node.data = changeMeaningfulMarker(node.data, {
+                    [method]: value
+                })
+
+                this.$emit('LIQUOR_NOISE')
+            } else if (method === 'remove') {
+                node.remove()
+            }
+        }
     },
 
     data () {
@@ -135,63 +205,3 @@
   }
 </script>
 
-<style>
-  .tree {
-    overflow: auto;
-  }
-
-  .tree-root,
-  .tree-children {
-    list-style: none;
-    padding: 0;
-  }
-
-  .tree > .tree-root,
-  .tree > .tree-filter-empty {
-    padding: 3px;
-    box-sizing: border-box;
-  }
-
-  .tree.tree--draggable .tree-node:not(.selected) > .tree-content:hover {
-    background: transparent;
-  }
-
-  .drag-above,
-  .drag-below,
-  .drag-on {
-    position: relative;
-    z-index: 1;
-  }
-
-  .drag-on > .tree-content {
-    background: #fafcff;
-    outline: 1px solid #7baff2;
-  }
-
-  .drag-above > .tree-content::before, .drag-below > .tree-content::after {
-    display: block;
-    content: '';
-    position: absolute;
-    height: 8px;
-    left: 0;
-    right: 0;
-    z-index: 2;
-    box-sizing: border-box;
-    background-color: #3367d6;
-    border: 3px solid #3367d6;
-    background-clip: padding-box;
-    border-bottom-color: transparent;
-    border-top-color: transparent;
-    border-radius: 0;
-  }
-
-  .drag-above > .tree-content::before {
-    top: 0;
-    transform: translateY(-50%);
-  }
-
-  .drag-below > .tree-content::after {
-    bottom: 0;
-    transform: translateY(50%);
-  }
-</style>

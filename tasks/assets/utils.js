@@ -40,3 +40,9 @@ export function createBoard() {
         state: []
     }
 }
+
+export function promisifyTimeout(ms) {
+    return new Promise((resolve) => {
+        setTimeout(() => resolve(), ms)
+    })
+}

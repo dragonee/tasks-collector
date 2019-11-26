@@ -1,3 +1,8 @@
 // Load specific styles from styles/ here.
 
 @import './styles/example.scss';
+
+@import '~vue-context/src/sass/vue-context.scss';
+
+
+@import './styles/tree.scss';
