@@ -8,6 +8,7 @@ router = routers.DefaultRouter()
 router.register(r'boards', views.BoardViewSet)
 
 urlpatterns = [
+    path('boards/<int:id>/commit/', views.commit_board),
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]

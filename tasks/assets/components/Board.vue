@@ -19,7 +19,7 @@
 
         <div class="lower-pane">
             <button @click.prevent="addItem">+</button>
-            <button @click.prevent="commit" class="on-right">commit</button>
+            <button @click.prevent="close" class="on-right">commit</button>
         </div>
 
         <GlobalEvents
@@ -30,7 +30,7 @@
 </template>
 <script>
 
-import { mapGetters } from 'vuex'
+import { mapGetters, mapActions } from 'vuex'
 
 import { createTreeItem, promisifyTimeout } from '../utils'
 
@@ -57,7 +57,7 @@ export default {
         },
 
         startDate() {
-            return moment(this.currentBoard.start_date).format('YYYY-MM-DD')
+            return moment(this.currentBoard.date_started).format('YYYY-MM-DD')
         },
 
         options() {
@@ -110,7 +110,9 @@ export default {
             this.$refs.tree.find(node).startEditing()
         },
 
-
+        ...mapActions([
+            'close'
+        ]),
 
     }
 }

@@ -61,8 +61,12 @@ export default {
             commit('updateBoardInListResponse', board.data)
         },
 
-        async close({ commit }, payload) {
+        async close({ commit, getters }, payload) {
+            const oldBoard = getters.currentBoard
 
+            const board = await axios.post(`/boards/${oldBoard.id}/commit/`)
+
+            commit('updateBoardInListResponse', board.data)
         }
     }
 }
