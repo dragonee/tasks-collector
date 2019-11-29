@@ -1,5 +1,5 @@
 <template>
-  <li class="tree-node" :data-id="node.id" :class="nodeClass" @mousedown="handleMouseDown" @contextmenu.stop.prevent="openMenu">
+  <li class="tree-node" :data-id="node.id" :class="nodeClass" @mousedown.stop="handleMouseDown" @contextmenu.stop.prevent="openMenu">
     <div class="tree-content" :style="[options.direction == 'ltr' ? {'padding-left': padding} : {'padding-right': padding}]" @click="select">
       <i
         class="tree-arrow"
