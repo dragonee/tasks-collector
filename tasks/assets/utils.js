@@ -20,7 +20,6 @@ export function createTreeItem(text="") {
                 canBePostponed: false,
                 // 0+
                 postponedFor: 0,
-                hiddenWhenPostponed: false,
             },
 
             state: "open",

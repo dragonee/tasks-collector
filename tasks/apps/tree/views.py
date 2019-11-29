@@ -26,7 +26,6 @@ def transition_markers_in_tree_item(markers):
         "canBeDoneOutsideOfWork": markers['canBeDoneOutsideOfWork'],
         "canBePostponed": markers['canBePostponed'],
         "postponedFor": max(0, markers['postponedFor'] - 1),
-        "hiddenWhenPostponed": markers['hiddenWhenPostponed'] if markers['postponedFor'] > 1 else False,
     }
 
 def transition_data_in_tree_item(item):
@@ -37,7 +36,11 @@ def transition_data_in_tree_item(item):
         "data": {
             "text": item['data']['text'],
             "state": item['data']['state'],
-            "meaningfulMarkers": transition_markers_in_tree_item(item['data']['meaningfulMarkers'])
+            "meaningfulMarkers": transition_markers_in_tree_item(item['data']['meaningfulMarkers']),
+        },
+
+        'state': {
+            'visible': True if item['data']['meaningfulMarkers']['postponedFor'] == 1 else item['state']['visible']
         }
     }
 

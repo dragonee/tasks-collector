@@ -113,3 +113,15 @@ body, html {
     height: 3px;
     background-color: #9d06a7bf;
 }
+
+.v-context.v-context-inline > li > a,
+.v-context.v-context-inline ul > li > a {
+    display: inline-block;
+    padding: .5rem 1rem;
+    font-weight: 400;
+    color: #212529;
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: transparent;
+    border: 0;
+}

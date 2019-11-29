@@ -32,7 +32,7 @@
         <template slot-scope="child">
            <li class="v-context__sub">
                 <a>Importance</a>
-                <ul class="v-context">
+                <ul class="v-context v-context-inline">
                     <li>
                          <a href="#" @click.prevent="onClick('important', {... child.data, value: 1 })">1</a>
 
@@ -51,6 +51,19 @@
             <li>
                 <a href="#" @click.prevent="onClick('canBePostponed', { ...child.data  })">Postponable</a>
             </li>
+
+            <li class="v-context__sub">
+                 <a>Postpone for</a>
+                 <ul class="v-context v-context-inline">
+                     <li>
+                          <a href="#" @click.prevent="onClick('postponedFor', {... child.data, value: 1 })">1</a>
+
+                          <a href="#" @click.prevent="onClick('postponedFor', {... child.data, value: 2 })">2</a>
+
+                          <a href="#" @click.prevent="onClick('postponedFor', {... child.data, value: 3 })">3</a>
+                     </li>
+                 </ul>
+             </li>
 
             <li>
                 <a href="#" @click.prevent="onClick('remove', { ...child.data  })">Remove</a>
@@ -166,7 +179,6 @@
                 'canBeDoneOutsideOfWork',
                 'canBePostponed',
                 'postponedFor',
-                'hiddenWhenPostponed'
             ];
 
             if (markerMethods.includes(method)) {
@@ -177,6 +189,10 @@
                 node.data = changeMeaningfulMarker(node.data, {
                     [method]: value
                 })
+
+                if (method === 'postponedFor') {
+                    node.hide()
+                }
 
                 this.$emit('LIQUOR_NOISE')
             } else if (method === 'remove') {
