@@ -36,6 +36,7 @@ export function createBoard() {
         date_closed: null,
         date_started: null,
         id: null,
+        focus: "",
         state: []
     }
 }

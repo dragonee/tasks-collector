@@ -11,5 +11,7 @@ class Board(models.Model):
 
     state = JSONField(default=default_state, blank=True)
 
+    focus = models.CharField(max_length=255, null=True, blank=True)
+
     class Meta:
         ordering = ('-date_started',)

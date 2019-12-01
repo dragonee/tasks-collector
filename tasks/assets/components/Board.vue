@@ -1,7 +1,7 @@
 <template>
     <div class="board">
         <div class="upper-pane">
-            <h1>{{ startDate }}</h1>
+            <h1>{{ startDate }}: <input v-model="focus" @blur="saveState"></h1>
         </div>
 
         <tree
@@ -72,7 +72,10 @@ export default {
                     store: this.$store,
                     getter: () => this.$store.getters.currentBoard.state,
                     dispatcher: (tree) => {
-                        return this.$store.dispatch('save', tree)
+                        return this.$store.dispatch('save', {
+                            state: tree,
+                            focus: this.focus,
+                        })
                     }
                 }
             }
@@ -81,6 +84,7 @@ export default {
 
     data: () => ({
         editingContext: false,
+        focus: "",
     }),
 
     mounted() {
@@ -97,6 +101,13 @@ export default {
 
             //this.$store.dispatch('save', this.$refs.tree.toJSON())
         })
+
+        this.$store.watch(
+            (state, getters) => getters.currentBoard.focus,
+            () => {
+                this.focus = this.currentBoard.focus
+            }
+        )
     },
 
     methods: {
@@ -111,8 +122,15 @@ export default {
         },
 
         ...mapActions([
-            'close'
+            'close',
         ]),
+
+        saveState() {
+            this.$store.dispatch('save', {
+                state: this.$refs.tree.toJSON(),
+                focus: this.focus
+            })
+        }
 
     }
 }

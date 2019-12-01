@@ -47,10 +47,10 @@ export default {
         async save({ commit, getters }, payload) {
             const newBoard = {
                 ...getters.currentBoard,
-                state: payload
+                ...payload
             }
 
-            if (equal(payload, getters.currentBoard.state)) {
+            if (equal(payload.state, getters.currentBoard.state) && payload.focus === getters.currentBoard.focus) {
                 return;
             }
 
