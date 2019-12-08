@@ -99,6 +99,7 @@
             'canBeDoneOutsideOfWork',
             'canBePostponed',
             'postponedFor',
+            'madeProgress',
         ];
 
         markerMethods.forEach(name => {

@@ -2,8 +2,17 @@
     <div>
         {{ node.text }}
 
-
-        <span v-if="markers.weeksInList > 0">
+        <span v-if="markers.madeProgress">
+            <span class="spacer"></span>
+            <span
+                class="dots full madeProgress"
+                data-dots="1"
+                title="1">
+                    <span class="dot">
+                    </span>
+            </span>
+        </span>
+        <span v-else-if="markers.weeksInList > 0">
             <span class="spacer"></span>
 
             <span

@@ -49,6 +49,9 @@
                 <a href="#" @click.prevent="onClick('finalizing', { ...child.data  })">Clearable</a>
             </li>
             <li>
+                <a href="#" @click.prevent="onClick('madeProgress', { ...child.data  })">Made progress</a>
+            </li>
+            <li>
                 <a href="#" @click.prevent="onClick('canBePostponed', { ...child.data  })">Postponable</a>
             </li>
 
@@ -179,6 +182,7 @@
                 'canBeDoneOutsideOfWork',
                 'canBePostponed',
                 'postponedFor',
+                'madeProgress'
             ];
 
             if (markerMethods.includes(method)) {

@@ -20,12 +20,13 @@ class BoardViewSet(viewsets.ModelViewSet):
 
 def transition_markers_in_tree_item(markers):
     return {
-        "weeksInList": markers['weeksInList'] + 1,
+        "weeksInList": 0 if markers.get('madeProgress', False) else markers['weeksInList'] + 1,
         "important": markers['important'],
         "finalizing": markers['finalizing'],
         "canBeDoneOutsideOfWork": markers['canBeDoneOutsideOfWork'],
         "canBePostponed": markers['canBePostponed'],
         "postponedFor": max(0, markers['postponedFor'] - 1),
+        "madeProgress": False,
     }
 
 def transition_data_in_tree_item(item):
