@@ -2,7 +2,7 @@ from django.shortcuts import render
 
 from rest_framework import viewsets
 
-from .serializers import BoardSerializer
+from .serializers import BoardSerializer, BoardSummary
 from .models import Board
 
 from rest_framework.views import APIView
@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 class BoardViewSet(viewsets.ModelViewSet):
     """
@@ -63,3 +64,13 @@ def commit_board(request, id=None):
     new_board.save()
 
     return Response(BoardSerializer(new_board).data)
+
+def board_summary(request, id):
+    board = get_object_or_404(Board, pk=id)
+
+    summary = BoardSummary(board)
+
+    return render(request, 'summary.html', {
+        'board': board,
+        'summary': summary,
+    })
