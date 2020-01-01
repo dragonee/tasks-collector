@@ -19,6 +19,11 @@
 
         <div class="lower-pane">
             <button @click.prevent="addItem">+</button>
+            <select @change="changeThread($event)">
+                <option v-for="thread in threads" :key="thread.id" :value="thread.id" :selected="thread.id == currentThreadId">
+                    {{ thread.name }}
+                </option>
+            </select>
             <button @click.prevent="close" class="on-right">commit</button>
         </div>
 
@@ -30,7 +35,7 @@
 </template>
 <script>
 
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters, mapActions, mapState } from 'vuex'
 
 import { createTreeItem, promisifyTimeout } from '../utils'
 
@@ -49,7 +54,12 @@ export default {
 
     computed: {
         ...mapGetters([
-            'currentBoard'
+            'currentBoard',
+            'threads',
+        ]),
+
+        ...mapState([
+            'currentThreadId'
         ]),
 
         normalContext() {
@@ -130,6 +140,13 @@ export default {
                 state: this.$refs.tree.toJSON(),
                 focus: this.focus
             })
+        },
+
+        async changeThread(ev) {
+            await this.$store.dispatch(
+                'changeThread',
+                ev.target.value
+            )
         }
 
     }

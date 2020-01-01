@@ -1,13 +1,21 @@
 from rest_framework import serializers
 
-from .models import Board
+from .models import Board, Thread
 
 from functools import partial
 
+class ThreadSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Thread
+        fields = ['id', 'name']
+
 class BoardSerializer(serializers.HyperlinkedModelSerializer):
+    thread = ThreadSerializer(read_only=True)
+
     class Meta:
         model = Board
-        fields = ['id', 'date_started', 'date_closed', 'state', 'focus']
+        fields = ['id', 'date_started', 'date_closed', 'state', 'focus', 'thread']
+
 
 class tree_iterator:
     """Preorder traversal tree iterator"""

@@ -7,6 +7,8 @@ import equal from 'deep-equal'
 export default {
     state: {
         listResponse: null,
+        threads: null,
+        currentThreadId: 0,
     },
 
     getters: {
@@ -15,6 +17,19 @@ export default {
                 ? state.listResponse.results[0]
                 : createBoard()
         },
+
+        // empty?
+        currentThread(state) {
+            return state.threads && state.threads.count
+                ? state.threads.results.find(x => x.id == state.currentThreadId)
+                : null;
+        },
+
+        threads(state) {
+            return  state.threads && state.threads.count
+                ? state.threads.results
+                : [];
+        }
     },
 
     mutations: {
@@ -34,14 +49,40 @@ export default {
             }
 
             state.listResponse.count = state.listResponse.results.length
+        },
+
+        setThreads(state, {threads, current}) {
+            state.threads = threads
+            // default thread
+            state.currentThreadId = current || threads.results[0].id
+        },
+
+        setCurrentThreadId(state, threadId) {
+            state.currentThreadId = threadId
         }
     },
 
     actions: {
-        async init({ commit }) {
-            const listResponse = await axios.get('/boards/')
+        async init({ commit, dispatch, getters }) {
+            const threadResponse = await axios.get('/threads/')
+
+            commit('setThreads', {
+                threads: threadResponse.data
+            })
+
+            await dispatch('loadBoardsForThread', getters.currentThread.id)
+        },
+
+        async loadBoardsForThread({ commit, getters }, threadId) {
+            const listResponse = await axios.get(`/boards/?thread=${threadId}`)
 
             commit('setListResponse', listResponse.data)
+        },
+
+        async changeThread({ dispatch, commit }, threadId) {
+            commit('setCurrentThreadId', threadId)
+
+            await dispatch('loadBoardsForThread', threadId)
         },
 
         async save({ commit, getters }, payload) {

@@ -2,8 +2,8 @@ from django.shortcuts import render
 
 from rest_framework import viewsets
 
-from .serializers import BoardSerializer, BoardSummary
-from .models import Board
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer
+from .models import Board, Thread
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -16,8 +16,24 @@ class BoardViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows boards to be viewed or edited.
     """
-    queryset = Board.objects.all()
+
+    def get_queryset(self):
+        queryset = Board.objects.all()
+        thread_id = self.request.query_params.get('thread', None)
+
+        if thread_id is not None:
+            queryset = queryset.filter(thread_id=thread_id)
+
+        return queryset
+
     serializer_class = BoardSerializer
+
+class ThreadViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows boards to be viewed or edited.
+    """
+    queryset = Thread.objects.all()
+    serializer_class = ThreadSerializer
 
 def transition_markers_in_tree_item(markers):
     return {
@@ -56,6 +72,7 @@ def commit_board(request, id=None):
     board = Board.objects.get(pk=id)
 
     new_board = Board()
+    new_board.thread = board.thread
 
     new_board.state = transition_data_between_boards(board.state)
     board.date_closed = timezone.now()

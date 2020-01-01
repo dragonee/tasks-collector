@@ -5,7 +5,9 @@ from rest_framework import routers
 from . import views
 
 router = routers.DefaultRouter()
-router.register(r'boards', views.BoardViewSet)
+router.register(r'boards', views.BoardViewSet, basename='boards')
+router.register(r'threads', views.ThreadViewSet)
+
 
 urlpatterns = [
     path('boards/<int:id>/summary/', views.board_summary),
