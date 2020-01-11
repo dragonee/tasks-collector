@@ -2,8 +2,8 @@ from django.shortcuts import render
 
 from rest_framework import viewsets
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer
-from .models import Board, Thread
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer
+from .models import Board, Thread, Plan, Reflection
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -27,6 +27,14 @@ class BoardViewSet(viewsets.ModelViewSet):
         return queryset
 
     serializer_class = BoardSerializer
+
+class PlanViewSet(viewsets.ModelViewSet):
+    queryset = Plan.objects.all()
+    serializer_class = PlanSerializer
+
+class ReflectionViewSet(viewsets.ModelViewSet):
+    queryset = Reflection.objects.all()
+    serializer_class = ReflectionSerializer
 
 class ThreadViewSet(viewsets.ModelViewSet):
     """

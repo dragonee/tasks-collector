@@ -24,6 +24,10 @@
                     {{ thread.name }}
                 </option>
             </select>
+
+            <router-link to="/">Board</router-link>
+            <router-link to="/journal">Journal</router-link>
+
             <button @click.prevent="close" class="on-right">commit</button>
         </div>
 
@@ -95,6 +99,7 @@ export default {
     data: () => ({
         editingContext: false,
         focus: "",
+        unwatch: null,
     }),
 
     mounted() {
@@ -112,12 +117,20 @@ export default {
             //this.$store.dispatch('save', this.$refs.tree.toJSON())
         })
 
-        this.$store.watch(
+        this.unwatch = this.$store.watch(
             (state, getters) => getters.currentBoard.focus,
             () => {
                 this.focus = this.currentBoard.focus
             }
         )
+
+        if (this.$store.getters.currentBoard) {
+            this.focus = this.$store.getters.currentBoard.focus
+        }
+    },
+
+    beforeDestroy() {
+        this.unwatch()
     },
 
     methods: {

@@ -1,15 +1,10 @@
 <template>
     <div class="app">
-        <board></board>
+        <router-view></router-view>
     </div>
 </template>
 <script>
 
-import Board from './Board'
-
 export default {
-    components: {
-        Board
-    }
 }
 </script>

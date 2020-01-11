@@ -7,6 +7,8 @@ from . import views
 router = routers.DefaultRouter()
 router.register(r'boards', views.BoardViewSet, basename='boards')
 router.register(r'threads', views.ThreadViewSet)
+router.register(r'plans', views.PlanViewSet)
+router.register(r'reflections', views.ReflectionViewSet)
 
 
 urlpatterns = [

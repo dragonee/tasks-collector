@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Board, Thread
+from .models import Board, Thread, Plan, Reflection
 
 from functools import partial
 
@@ -8,6 +8,16 @@ class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
         fields = ['id', 'name']
+
+class PlanSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Plan
+        fields = ['id', 'pub_date', 'want', 'focus', 'in_sync']
+
+class ReflectionSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Reflection
+        fields = ['id', 'pub_date', 'good', 'better', 'best']
 
 class BoardSerializer(serializers.HyperlinkedModelSerializer):
     thread = ThreadSerializer(read_only=True)
