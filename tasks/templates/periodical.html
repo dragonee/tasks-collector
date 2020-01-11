@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+{% load listize %}
+
+{% block content %}
+<!-- Vue entry-point -->
+
+<div class="summary">
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                {% for date in combined.plan__pub_date %}
+                    <td>{{ date }}</td>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th>Focus</th>
+                {% for focus in combined.plan__focus %}
+                    <td>{{ focus|listize }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th>Good</th>
+                {% for good in combined.reflection__good %}
+                    <td>{{ good|listize }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <th>Want</th>
+                {% for want in combined.plan__want %}
+                    <td>{{ want|listize }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <th>Better</th>
+                {% for better in combined.reflection__better %}
+                    <td>{{ better|listize }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <th>Best</th>
+                {% for best in combined.reflection__best %}
+                    <td>{{ best|listize }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th>In sync</th>
+                {% for in_sync in combined.plan__in_sync %}
+                    <td>{% if in_sync %}
+                        ☑
+                    {% else %}
+                        ☐
+                    {% endif %}</td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+
+</div>
+
+{% endblock %}
+
+<!-- Load Vue app -->
+{% block extrajs %}
+{% endblock %}
+

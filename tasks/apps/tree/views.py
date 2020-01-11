@@ -12,6 +12,8 @@ from rest_framework.decorators import api_view
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
+import datetime
+
 class BoardViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows boards to be viewed or edited.
@@ -98,4 +100,46 @@ def board_summary(request, id):
     return render(request, 'summary.html', {
         'board': board,
         'summary': summary,
+    })
+
+def period_from_request(request, days=7):
+    return (
+        request.GET.get('from', datetime.date.today() - datetime.timedelta(days=days)),
+        request.GET.get('to', datetime.date.today())
+    )
+
+
+# XXX this does not account for missing day entries
+# as of now this is not required. However, it might change
+# solution: wrap plans and reflections with additional period-aware utility iterator
+class Periodical:
+    def __init__(self, plans, reflections):
+        self.plans = plans
+        self.reflections = reflections
+
+    def __iter__(self):
+        return zip(self.plans, self.reflections)
+
+    def __len__(self):
+        return len(self.plans)
+
+    def __getattr__(self, attr):
+        attr1, attr2 = attr.split('__')
+
+        return map(lambda x: getattr(x, attr2), getattr(self, attr1 + 's'))
+
+
+def periodical(request):
+    period = period_from_request(request)
+
+    plans = Plan.objects.filter(pub_date__range=period).order_by('pub_date')
+    reflections = Reflection.objects.filter(pub_date__range=period).order_by('pub_date')
+
+    summaries = map(lambda x: BoardSummary(x), Board.objects.filter(date_closed__range=period).order_by('date_closed'))
+
+    return render(request, 'periodical.html', {
+        'plans': plans,
+        'reflections': reflections,
+        'combined': Periodical(plans, reflections),
+        'summaries': summaries
     })

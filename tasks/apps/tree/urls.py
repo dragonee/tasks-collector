@@ -14,6 +14,7 @@ router.register(r'reflections', views.ReflectionViewSet)
 urlpatterns = [
     path('boards/<int:id>/summary/', views.board_summary),
     path('boards/<int:id>/commit/', views.commit_board),
+    path('periodical/', views.periodical),
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]
