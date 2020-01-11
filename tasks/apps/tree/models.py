@@ -7,6 +7,9 @@ def default_state():
 class Thread(models.Model):
     name = models.CharField(max_length=255)
 
+    def __str__(self):
+        return self.name
+
 class Board(models.Model):
     date_started = models.DateTimeField(auto_now_add=True)
 
@@ -31,6 +34,8 @@ class Board(models.Model):
 class Reflection(models.Model):
     pub_date = models.DateField()
 
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
+
     good = models.TextField(null=True, blank=True)
     better = models.TextField(null=True, blank=True)
     best = models.TextField(null=True, blank=True)
@@ -39,11 +44,13 @@ class Reflection(models.Model):
         ordering = ('-pub_date', )
 
     def __str__(self):
-        return "{}".format(self.pub_date)
+        return "{} ({})".format(self.pub_date, self.thread)
 
 
 class Plan(models.Model):
     pub_date = models.DateField()
+
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
     focus = models.TextField(null=True, blank=True)
     want = models.TextField(null=True, blank=True)
@@ -53,4 +60,4 @@ class Plan(models.Model):
         ordering = ('-pub_date', )
 
     def __str__(self):
-        return "{}".format(self.pub_date)
+        return "{} ({})".format(self.pub_date, self.thread)

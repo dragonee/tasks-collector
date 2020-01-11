@@ -135,11 +135,14 @@ def periodical(request):
     plans = Plan.objects.filter(pub_date__range=period).order_by('pub_date')
     reflections = Reflection.objects.filter(pub_date__range=period).order_by('pub_date')
 
-    summaries = map(lambda x: BoardSummary(x), Board.objects.filter(date_closed__range=period).order_by('date_closed'))
+    thread = request.GET.get('thread')
+
+    if thread:
+        plans = plans.filter(thread_id=thread)
+        reflections = reflections.filter(thread_id=thread)
 
     return render(request, 'periodical.html', {
         'plans': plans,
         'reflections': reflections,
         'combined': Periodical(plans, reflections),
-        'summaries': summaries
     })
