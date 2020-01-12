@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+{% load listize %}
+
+{% block content %}
+<!-- Vue entry-point -->
+
+<div class="summary">
+
+    <div class="upper-pane">
+        <h1>Periodical</h1>
+    </div>
+
+    <table class="table periodical lists">
+        <thead>
+            <tr>
+                <th>Focus</th>
+                <th>Want</th>
+                <th>Good</th>
+                <th>Better</th>
+                <th>Best</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="focus">
+                    {% for plan in combined.plans %}
+                        <span class="date {{ plan.thread|slugify }}">{{ plan.pub_date }} {% if plan.thread_id != 1 %}({{ plan.thread }}){% endif %}</span>
+                        {{ plan.focus|listize }}
+                    {% endfor %}
+                </td>
+
+                <td class="want">
+                    {% for plan in combined.plans %}
+                        <span class="date {{ plan.thread|slugify }}">{{ plan.pub_date }} {% if plan.thread_id != 1 %}({{ plan.thread }}){% endif %}</span>
+                        {{ plan.want|listize }}
+                    {% endfor %}
+                </td>
+                <td class="good">
+                    {% for reflection in combined.reflections %}
+                        <span class="date {{ reflection.thread|slugify }}">{{ reflection.pub_date }} {% if reflection.thread_id != 1 %}({{ reflection.thread }}){% endif %}</span>
+                        {{ reflection.good|listize }}
+                    {% endfor %}
+                </td>
+                <td class="better">
+                    {% for reflection in combined.reflections %}
+                        <span class="date {{ reflection.thread|slugify }}">{{ reflection.pub_date }} {% if reflection.thread_id != 1 %}({{ reflection.thread }}){% endif %}</span>
+                        {{ reflection.better|listize }}
+                    {% endfor %}
+                </td>
+                <td class="best">
+                    {% for reflection in combined.reflections %}
+                        <span class="date {{ reflection.thread|slugify }}">{{ reflection.pub_date }} {% if reflection.thread_id != 1 %}({{ reflection.thread }}){% endif %}</span>
+                        {{ reflection.best|listize }}
+                    {% endfor %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+
+</div>
+
+{% endblock %}
+
+<!-- Load Vue app -->
+{% block extrajs %}
+{% endblock %}
+

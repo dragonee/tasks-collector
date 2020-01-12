@@ -132,8 +132,13 @@ class Periodical:
 def periodical(request):
     period = period_from_request(request)
 
-    plans = Plan.objects.filter(pub_date__range=period).order_by('pub_date')
-    reflections = Reflection.objects.filter(pub_date__range=period).order_by('pub_date')
+    plans = Plan.objects.filter(pub_date__range=period) \
+        .order_by('pub_date') \
+        .select_related('thread')
+
+    reflections = Reflection.objects.filter(pub_date__range=period) \
+        .order_by('pub_date') \
+        .select_related('thread')
 
     thread = request.GET.get('thread')
 
@@ -141,7 +146,14 @@ def periodical(request):
         plans = plans.filter(thread_id=thread)
         reflections = reflections.filter(thread_id=thread)
 
-    return render(request, 'periodical.html', {
+    view = request.GET.get('view', 'list')
+
+    if view not in ('list', 'table'):
+        view = 'list'
+
+    template = 'periodical_{}.html'.format(view)
+
+    return render(request, template, {
         'plans': plans,
         'reflections': reflections,
         'combined': Periodical(plans, reflections),
