@@ -148,7 +148,7 @@ body, html {
             color: #14a3d0;
             border-bottom-color: #14a3d0;
 
-            ~ ul {
+            + ul {
                 font-weight: 500;
                 color: darken(#14a3d0, 10%);
             }
