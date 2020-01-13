@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.postgres.fields import JSONField
 
+from django.utils.translation import ugettext_lazy as _
+from django.utils.text import Truncator
+
 def default_state():
     return []
 
@@ -36,9 +39,9 @@ class Reflection(models.Model):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    good = models.TextField(null=True, blank=True)
-    better = models.TextField(null=True, blank=True)
-    best = models.TextField(null=True, blank=True)
+    good = models.TextField(help_text=_("What did you do well today?"), null=True, blank=True)
+    better = models.TextField(help_text=_("How could you improve? What could you do better?"), null=True, blank=True)
+    best = models.TextField(help_text=_("What do you need to do if you want to be the best version of yourself?"), null=True, blank=True)
 
     class Meta:
         ordering = ('-pub_date', )
@@ -52,8 +55,8 @@ class Plan(models.Model):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    focus = models.TextField(null=True, blank=True)
-    want = models.TextField(null=True, blank=True)
+    focus = models.TextField(help_text=_("What is your primary focus?"), null=True, blank=True)
+    want = models.TextField(help_text=_("What feelings/thoughts/desires are currently on your mind?"), null=True, blank=True)
     in_sync = models.BooleanField(default=False)
 
     class Meta:
@@ -61,3 +64,32 @@ class Plan(models.Model):
 
     def __str__(self):
         return "{} ({})".format(self.pub_date, self.thread)
+
+class ObservationType(models.Model):
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255)
+
+    def __str__(self):
+        return self.name
+
+
+class Observation(models.Model):
+    pub_date = models.DateField()
+
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
+    type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
+
+    situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
+    interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
+    approach = models.TextField(help_text=_("How should I approach it in the future?"), null=True, blank=True)
+
+    class Meta:
+        ordering = ('-pub_date', )
+
+    def __str__(self):
+        return "{}: {} ({})".format(
+            self.pub_date,
+            Truncator(self.situation).words(6),
+            self.thread
+        )
+
