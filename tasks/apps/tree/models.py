@@ -13,6 +13,9 @@ class Thread(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        ordering = ('name', )
+
 class Board(models.Model):
     date_started = models.DateTimeField(auto_now_add=True)
 
