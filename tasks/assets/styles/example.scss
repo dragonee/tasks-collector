@@ -253,7 +253,7 @@ body.page-daily {
     background: #f9f9f9;
 }
 
-.daily {
+.page-daily .daily {
 
     width: 75%;
 
@@ -323,5 +323,52 @@ body.page-daily {
 
     &:hover, &:active {
         color: lighten(#205e7d, 25%);
+    }
+}
+
+h1 + .menu a:first-child {
+    margin-left: 40px;
+}
+
+.observations {
+    width: 50rem;
+
+    font-size: 1.1rem;
+
+    margin: auto;
+
+    article {
+        margin: 2rem 0;
+
+        padding: 14px 20px;
+
+        background: #fff;
+
+        border-radius: 3px;
+
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .strong {
+        color: #444;
+        font-weight: bold;
+
+        margin: 1rem 0;
+    }
+
+    .label {
+        color: #999;
+        margin-top: 1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .meta {
+        color: #999;
+        font-size: 1rem;
+        font-style: italic;
+    }
+
+    .type {
+        color: #ca8911;
     }
 }

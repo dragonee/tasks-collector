@@ -28,6 +28,14 @@
             <router-link class="menulink" to="/">Board</router-link>
             <router-link class="menulink" to="/journal">Journal</router-link>
 
+            <span class="menulink">/</span>
+
+            <a class="menulink" href="/">Daily</a>
+            <a class="menulink" href="/hello/world/">Tasks</a>
+            <a class="menulink" href="/observations/">Observations</a>
+            <a class="menulink" href="/admin/tree/observation/add/">+Observation</a>
+            <a class="menulink" href="/periodical/">Periodical</a>
+
             <button @click.prevent="close" class="on-right">commit</button>
         </div>
 

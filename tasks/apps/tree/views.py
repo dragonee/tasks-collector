@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect
 from rest_framework import viewsets
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer
-from .models import Board, Thread, Plan, Reflection
+from .models import Board, Thread, Plan, Reflection, Observation
 from .forms import PlanForm, ReflectionForm
 
 from rest_framework.views import APIView
@@ -12,6 +12,8 @@ from rest_framework.decorators import api_view
 
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+
+from django.views.generic.list import ListView
 
 import datetime
 
@@ -231,3 +233,9 @@ def today(request):
 
         'thread': thread,
     })
+
+class ObservationListView(ListView):
+    model = Observation
+    queryset = Observation.objects.select_related('thread', 'type')
+    paginate_by = 100
+

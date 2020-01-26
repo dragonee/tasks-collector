@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block content %}
+<!-- Vue entry-point -->
+
+
+<div class="observations">
+    <div class="cont">
+        <p class="menu">
+            <a href="/">Daily</a> 
+            <a href="/hello/world/">Tasks</a>
+            <a href="/observations/">Observations</a>
+            <a href="/admin/tree/observation/add/">+Observation</a>
+            <a href="/periodical/">Periodical</a>
+        </p>
+    </div>
+        {% for observation in object_list %}
+        <article class="observation">
+
+            <div class="meta">{{ observation.pub_date }} (<span class="type">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span>)</div>
+            <div class="strong">{{ observation.situation }}</div>
+
+            <div class="label">How you saw it, what you felt?</div>
+            <div>{{ observation.interpretation }}</div>
+            <div class="label">How should you approach it in the future?</div>
+            <div>{{ observation.approach }}</div>
+        </article>
+
+        {% empty %}
+        <div class="empty">
+            No articles yet.
+        </div>
+        {% endfor %}
+</div>
+
+{% endblock %}
+
+<!-- Load Vue app -->
+{% block extrajs %}
+{% endblock %}
+

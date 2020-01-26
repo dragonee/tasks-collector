@@ -84,7 +84,7 @@ class Observation(models.Model):
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
-    approach = models.TextField(help_text=_("How should I approach it in the future?"), null=True, blank=True)
+    approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
 
     class Meta:
         ordering = ('-pub_date', )

@@ -10,7 +10,13 @@
 <div class="daily">
     <div class="cont">
         <h2>{{ today }}: {{ thread }}</h2>
-        <p class="menu"><a href="/hello/world/">Tasks</a> <a href="/admin/tree/observation/">Observations</a></p>
+        <p class="menu">
+            <a href="/">Daily</a>
+            <a href="/hello/world/">Tasks</a>
+            <a href="/observations/">Observations</a>
+            <a href="/admin/tree/observation/add/">+Observation</a>
+            <a href="/periodical/">Periodical</a>
+        </p>
     </div>
     <form action="" method="POST">
         {% csrf_token %}
