@@ -1,0 +1,12 @@
+add routines?
+
+idea 1: model z checkboxami.
+idea 2: template model + model z listą checkboxów
+idea 3: template model który nakłada się na commit na liście tasków
+
+idea 3 jest spoko, jeśli rozliczenia tasków będą odbywać się cotygodniowo
+idea 4: Board + template do boarda.
+
+generalnie, przespać się z tematem
+
+idea 5: generalnie, zrobić odhaczalną jednopoziomową listę i generator schema do niej

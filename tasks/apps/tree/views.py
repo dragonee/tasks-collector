@@ -1,9 +1,10 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 
 from rest_framework import viewsets
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer
 from .models import Board, Thread, Plan, Reflection
+from .forms import PlanForm, ReflectionForm
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -157,4 +158,76 @@ def periodical(request):
         'plans': plans,
         'reflections': reflections,
         'combined': Periodical(plans, reflections),
+    })
+
+def today(request):
+    thread = Thread.objects.get(name=request.GET.get('thread', 'Daily'))
+
+    try:
+        now = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
+        today = now.date()
+    except KeyError:
+        now = timezone.now()
+
+        today = now.date()
+
+        if 0 <= now.hour < 12:
+            today -= datetime.timedelta(days=1)
+
+    try:
+        today_plan = Plan.objects.get(pub_date=today)
+    except Plan.DoesNotExist:
+        today_plan = Plan(pub_date=today, thread=thread)
+
+    tomorrow = today + datetime.timedelta(days=1)
+
+    try:
+        tomorrow_plan = Plan.objects.get(pub_date=tomorrow)
+    except Plan.DoesNotExist:
+        tomorrow_plan = Plan(pub_date=tomorrow, thread=thread)
+
+    try:
+        reflection = Reflection.objects.get(pub_date=today)
+    except Reflection.DoesNotExist:
+        reflection = Reflection(pub_date=today, thread=thread)
+
+    if request.method == 'POST':
+        today_plan_form = PlanForm(request.POST, instance=today_plan, prefix="today_plan")
+        today_valid = today_plan_form.is_valid()
+
+        if today_valid:
+            today_plan_form.save()
+
+
+        tomorrow_plan_form = PlanForm(request.POST, instance=tomorrow_plan, prefix="tomorrow_plan")
+        tomorrow_valid = tomorrow_plan_form.is_valid()
+
+        if tomorrow_valid:
+            tomorrow_plan_form.save()
+
+        reflection_form = ReflectionForm(request.POST, instance=reflection, prefix="reflection")
+        reflection_valid = reflection_form.is_valid()
+
+        if reflection_valid:
+            reflection_form.save()
+
+        if all((today_valid, tomorrow_valid, reflection_valid)):
+            return redirect(request.get_full_path())
+
+    else:
+        today_plan_form = PlanForm(instance=today_plan, prefix="today_plan")
+        tomorrow_plan_form = PlanForm(instance=tomorrow_plan, prefix="tomorrow_plan")
+        reflection_form = ReflectionForm(instance=reflection, prefix="reflection")
+
+    return render(request, 'today.html', {
+        'today': today,
+        'today_plan': today_plan,
+        'tomorrow_plan': tomorrow_plan,
+        'reflection': reflection,
+
+        'today_plan_form': today_plan_form,
+        'tomorrow_plan_form': tomorrow_plan_form,
+        'reflection_form': reflection_form,
+
+        'thread': thread,
     })

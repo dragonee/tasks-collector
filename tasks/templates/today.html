@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block content %}
+<!-- Vue entry-point -->
+
+
+<div class="daily">
+    <div class="cont">
+        <h2>{{ today }}: {{ thread }}</h2>
+        <p class="menu"><a href="/hello/world/">Tasks</a> <a href="/admin/tree/observation/">Observations</a></p>
+    </div>
+    <form action="" method="POST">
+        {% csrf_token %}
+
+        <div class="left">
+            <div class="plan">
+            <h3>Today's plan</h3>
+            {{ today_plan_form.as_p }}
+            </div>
+
+            <div class="tomorrow">
+            <h3>Tomorrow's plan</h3>
+            {{ tomorrow_plan_form.as_p }}
+            </div>
+        </div>
+
+        <div class="right">
+
+            <div class="reflection">
+            <h3>Today's reflection</h3>
+            {{ reflection_form.as_p }}
+            </div>
+
+            <button>Submit</button>
+        </div>
+
+    </form>
+</div>
+
+{% endblock %}
+
+<!-- Load Vue app -->
+{% block extrajs %}
+{% endblock %}
+

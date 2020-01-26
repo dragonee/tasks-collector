@@ -248,3 +248,80 @@ body, html {
     background-color: transparent;
     border: 0;
 }
+
+body.page-daily {
+    background: #f9f9f9;
+}
+
+.daily {
+
+    width: 75%;
+
+    min-width: 1140px;
+    margin: auto;
+
+    padding-top: 1px;
+
+    .cont {
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+
+    h2, h3 {
+        color: #999;
+    }
+
+    form {
+        display: flex;
+
+    }
+
+    .left, .right {
+        margin: 0 20px;
+        flex: 1;
+    }
+
+    label {
+        display: block;
+    }
+
+    textarea {
+        width: 100%;
+        border: 1px solid #f4f9f9;
+
+        &:focus, &:hover {
+            border: 1px solid #eee;
+        }
+
+        outline:none;
+
+        font-size: 1rem;
+        font-family: 'Raleway', sans-serif;
+
+        color: #205e7d;
+
+        padding: 0.45rem 0.75rem;
+
+
+    }
+
+    .helptext {
+        font-size: 0.9em;
+        color: #999;
+    }
+}
+
+.menu a, .menulink {
+    color: #205e7d;
+    text-decoration: none;
+
+    margin-left: 10px;
+
+    &:first-child {
+        margin-left: 0;
+    }
+
+    &:hover, &:active {
+        color: lighten(#205e7d, 25%);
+    }
+}

@@ -25,8 +25,8 @@
                 </option>
             </select>
 
-            <router-link to="/">Board</router-link>
-            <router-link to="/journal">Journal</router-link>
+            <router-link class="menulink" to="/">Board</router-link>
+            <router-link class="menulink" to="/journal">Journal</router-link>
 
             <button @click.prevent="close" class="on-right">commit</button>
         </div>
