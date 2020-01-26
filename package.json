@@ -6,7 +6,9 @@
   "scripts": {
     "build": "webpack --config config/webpack.local.js --mode development",
     "build-dist": "webpack --config config/webpack.dist.js --mode production --progress --colors && sed -i -e 's?'`pwd`'?/home/sites/vhosts/tasks.makimo.pl?g' webpack-stats.dist.json",
-    "watch": "webpack --config config/webpack.local.js --watch --mode development"
+    "watch-assets": "webpack --config config/webpack.local.js --watch --mode development",
+    "watch-python": "./manage.py runserver 0.0.0.0:8000",
+    "dev": "concurrently npm:watch-*"
   },
   "author": "Makimo",
   "license": "UNLICENSED",
@@ -27,7 +29,8 @@
     "webpack-assets-manifest": "^3.1.1",
     "webpack-cli": "^3.1.0",
     "webpack-merge": "^4.1.4",
-    "webpack-notifier": "^1.7.0"
+    "webpack-notifier": "^1.7.0",
+    "concurrently": "^5.0.0"
   },
   "dependencies": {
     "axios": "^0.18.0",

@@ -1,3 +1,19 @@
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'tasks',
+        'USER': 'tasks',
+        'PASSWORD': 'secret',
+        'HOST': 'tasks-db',
+        'PORT': '5432',
+        'TEST': {
+            'CHARSET': 'UTF8',
+            'NAME': 'tasks-test'
+        }
+    }
+}
+
+
 from .base import *
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

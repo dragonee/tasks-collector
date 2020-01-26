@@ -87,7 +87,15 @@ WSGI_APPLICATION = 'tasks.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 
-from .db import *
+# From now on the db module is optional for devlopment. To use the
+# docker setup the defaults provided in local module are sufficient. To
+# use outside the docker enviroment please proceed as usual: copy
+# `db.py.base` to `db.py` and set up the values according to your
+# system.
+try:
+    from .db import *
+except ImportError:
+    pass
 
 # Password validation
 # https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators

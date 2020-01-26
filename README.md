@@ -4,6 +4,8 @@ A template for projects used in Makimo.
 
 ## Installation
 
+> Note: if you are a lazy hog, please scroll down to the "Docker" section.
+
 ### Prerequisites
 
 #### Database
@@ -44,7 +46,7 @@ pip install -r requirements/local.txt // or requirements/dist.txt in production 
 ### JS Stack
 ```
 npm install
-npm run watch // or npm run build for one-time compilation
+npm run watch-assets // or npm run build for one-time compilation
 ```
 
 If you want to build production assets, use:
@@ -89,3 +91,43 @@ This project was created using `django-template` tool.
 For more information, see:
 https://bitbucket.org/makimo/django-template/src/master/.
 If you find a bug, create an issue as a subtask of IWM-47.
+
+
+## Docker
+
+### Prerequisites
+
+To run this project in dockerized development environment the following
+dependencies must be present in the system:
+
+* `docker` (18.06.0+)
+* `docker-compose` (1.22.0+)
+
+### Running the project in development mode
+
+This project supports dockerized development environment, so you
+actually don't need to do any of the above steps. To run the project in
+dockerized mode enter the `docker/development` directory and run:
+
+```
+docker-compose up
+```
+
+The application will be available at `http://localhost:8000`. The
+database will be spawned, the migrations will be run automatically, all
+deps installed (for both Python and JS) and the code will be
+automatically reloaded when changes occur (for both assets and backend code).
+
+### Running commands in the container
+
+To run commands in the running container (for instance: installing new
+packages, running tests, running Django commands etc.) please run in the
+separate terminal window (while `docker-compose up` is running) the
+following command:
+
+```
+docker-compose exec tasks-backend bash
+```
+
+This will start interactive `bash` session that will allow running all
+the commands within running container.

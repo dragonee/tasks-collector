@@ -9,6 +9,8 @@
 
 # Created by https://www.gitignore.io/api/vim,node,linux,macos,django,python,windows,notepadpp,sublimetext
 
+/src
+
 ### Django ###
 *.log
 *.pot

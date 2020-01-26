@@ -2,7 +2,7 @@ import json
 import os
 
 from django.conf import settings
-from django.contrib.staticfiles.templatetags.staticfiles import static
+from django.templatetags.static import static
 
 
 _manifest_contents = None

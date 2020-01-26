@@ -26,7 +26,7 @@
 /*
  * List commands that will be sent as text to all terminals, each in
  * single or double quotes.
- * 
+ *
  * These commands are used in particular to make sure that your coding
  * environment stays consistent.
  *
@@ -42,7 +42,7 @@ ALLTERMS = [
 ]
 
 /*
- * Define specific tabs here. 
+ * Define specific tabs here.
  *
  * Each tab definition can be either:
  *  - a null, meaning that no further commands except for directory
@@ -50,7 +50,7 @@ ALLTERMS = [
  *    terminal,
  *  - a single command in single or double quotes,
  *  - or a list of commands in single or double quotes.
- *  
+ *
  *  You can name terminal tabs with a `title('name')` function, which is a
  *  short wrapper that echoes a specific ANSI escape sequence. That way
  *  your terminal tabs are easily discernible.
@@ -76,7 +76,7 @@ ALLTERMS = [
 TERMS = [
     title('main'),
     'env/bin/python manage.py runserver 0.0.0.0:8000',
-    'npm run watch',
+    'npm run watch-assets',
     ['psql tasks', '\\dt'],
 ]
 
