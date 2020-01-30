@@ -15,6 +15,11 @@ from django.shortcuts import get_object_or_404
 
 from django.views.generic.list import ListView
 
+from functools import reduce, partial
+from collections import OrderedDict
+
+from copy import deepcopy
+
 import datetime
 
 class BoardViewSet(viewsets.ModelViewSet):
@@ -49,7 +54,7 @@ class ThreadViewSet(viewsets.ModelViewSet):
     serializer_class = ThreadSerializer
 
 def transition_markers_in_tree_item(markers):
-    return {
+    new_markers = {
         "weeksInList": 0 if markers.get('madeProgress', False) else markers['weeksInList'] + 1,
         "important": markers['important'],
         "finalizing": markers['finalizing'],
@@ -58,6 +63,13 @@ def transition_markers_in_tree_item(markers):
         "postponedFor": max(0, markers['postponedFor'] - 1),
         "madeProgress": False,
     }
+
+    value = markers.get('transition')
+
+    if value:
+        new_markers['transition'] = value
+
+    return new_markers
 
 def transition_data_in_tree_item(item):
     return {
@@ -80,6 +92,67 @@ def transition_data_between_boards(state):
 
     return list(map(transition_data_in_tree_item, items))
 
+def recursively(collection, f, c, key='children'):
+    return c([c((recursively(item[key], f, c), f(item))) for item in collection])
+
+def unionize_sets(items):
+    return reduce(lambda x, y: x.union(y if isinstance(y, set) else set([y])), items, set())
+
+def make_board(thread_name):
+    thread=Thread.objects.get(name=thread_name)
+
+    try:
+        return Board.objects.filter(thread=thread)[0]
+    except IndexError:
+        return Board(thread=thread)
+
+def cut_leaves(board_state, thread_name, implied=False):
+    new_board_state = []
+
+    for item in board_state:
+        # None or string
+        item_thread_name = item['data']['meaningfulMarkers'].get('transition')
+
+        new_implied = item_thread_name or implied
+
+        children = cut_leaves(item['children'], thread_name, implied=new_implied)
+
+        if children or (item_thread_name == thread_name and implied == False) or implied == thread_name:
+            try:
+                del item['data']['meaningfulMarkers']['transition']
+            except KeyError:
+                pass
+
+            new_board_state.append(item)
+
+        item['children'] = children
+
+    return new_board_state
+
+def merge(a, b):
+    names_a = OrderedDict((item['data']['text'], index) for index,item in enumerate(a))
+
+    names_b = OrderedDict((item['data']['text'], index) for index,item in enumerate(b))
+
+    print(names_a, names_b)
+
+    common = set(names_a.keys()).intersection(names_b.keys())
+
+    in_b = set(names_b.keys()).difference(names_a.keys())
+
+    for key in common:
+        item_a = a[names_a[key]]
+        item_b = b[names_b[key]]
+
+        item_a['children'] = merge(item_a['children'], item_b['children'])
+
+    return a + [b[names_b[key]] for key in in_b]
+
+def pprint(board_state, level=0):
+    for item in board_state:
+        print("  " * level, item['data']['text'], flush=True)
+        pprint(item['children'], level + 1)
+
 @api_view(['POST'])
 def commit_board(request, id=None):
     board = Board.objects.get(pk=id)
@@ -88,8 +161,33 @@ def commit_board(request, id=None):
     new_board.thread = board.thread
 
     new_board.state = transition_data_between_boards(board.state)
-    board.date_closed = timezone.now()
+    # recursively find all boards referenced by "transition fields"
+    thread_names = recursively(
+        new_board.state,
+        lambda item: item['data']['meaningfulMarkers'].get('transition'),
+        unionize_sets
+    )
 
+    other_boards = list(map(make_board, thread_names.difference({None})))
+
+    # dfs with leaf-cutting
+    for other_board in other_boards:
+        other_board.state = merge(other_board.state, cut_leaves(deepcopy(new_board.state), other_board.thread.name))
+
+
+    #print(thread_names.difference({None}))
+    new_board.state = cut_leaves(new_board.state, None)
+
+    # merge boards
+    for other_board in other_boards:
+        #print("Board ({})".format(other_board.thread.name))
+        #pprint(other_board.state)
+        #print('------------------', flush=True)
+        other_board.save()
+
+    #pprint(new_board.state)
+
+    board.date_closed = timezone.now()
     board.save()
     new_board.save()
 

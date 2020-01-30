@@ -237,6 +237,12 @@ body, html {
     background-color: #9d06a7bf;
 }
 
+.transition {
+    color: #999;
+    font-size: 0.8em;
+    padding-left: 10px;
+}
+
 .v-context.v-context-inline > li > a,
 .v-context.v-context-inline ul > li > a {
     display: inline-block;

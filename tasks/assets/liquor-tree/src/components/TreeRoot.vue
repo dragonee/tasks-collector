@@ -68,6 +68,21 @@
                  </ul>
              </li>
 
+             <li class="v-context__sub" v-if="currentThread">
+                  <a>Move to</a>
+
+                  <ul class="v-context">
+                      <li>
+                           <a href="#" v-if="currentThread.name != 'Sidetrack'" @click.prevent="onClick('transition', {... child.data, value: 'Sidetrack' })">Sidetrack</a>
+                       </li>
+<li>
+                           <a href="#" v-if="currentThread.name != 'Daily'" @click.prevent="onClick('transition', {... child.data, value: 'Daily' })">Daily</a>
+</li>
+<li>
+                           <a href="#" @click.prevent="onClick('transition', {... child.data, value: UNSET })">Clear</a>
+                      </li>
+                  </ul>
+            </li>
             <li>
                 <a href="#" @click.prevent="onClick('remove', { ...child.data  })">Remove</a>
             </li>
@@ -88,6 +103,9 @@
 
   import { VueContext } from 'vue-context';
 
+  import { mapGetters } from 'vuex';
+
+  const UNSET = '__UNSET';
 
   const defaults = {
     direction: 'ltr',
@@ -116,6 +134,17 @@
           ...object,
       }
   });
+
+  const clearMeaningfulMarker = (data, key) => {
+      let markers = {...data.meaningfulMarkers}
+
+      delete markers[key]
+
+      return {
+          ...data,
+          meaningfulMarkers: markers,
+      };
+  };
 
   const filterDefaults = {
     emptyText: 'Nothing found!',
@@ -182,7 +211,8 @@
                 'canBeDoneOutsideOfWork',
                 'canBePostponed',
                 'postponedFor',
-                'madeProgress'
+                'madeProgress',
+                'transition',
             ];
 
             if (markerMethods.includes(method)) {
@@ -190,9 +220,13 @@
                     value = !node.data.meaningfulMarkers[method]
                 }
 
-                node.data = changeMeaningfulMarker(node.data, {
-                    [method]: value
-                })
+                if (value === UNSET) {
+                    node.data = clearMeaningfulMarker(node.data, method)
+                } else {
+                    node.data = changeMeaningfulMarker(node.data, {
+                        [method]: value
+                    })
+                }
 
                 if (method === 'postponedFor') {
                     node.hide()
@@ -203,6 +237,10 @@
                 node.remove()
             }
         }
+    },
+
+    computed: {
+        ...mapGetters(['currentThread']),
     },
 
     data () {
@@ -223,7 +261,8 @@
         loading: false,
         opts,
         matches: [],
-        draggableNode: null
+        draggableNode: null,
+        UNSET,
       }
     }
   }

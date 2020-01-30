@@ -39,6 +39,9 @@
         <span v-if="markers.finalizing" class="has-finalizing">
         </span>
 
+        <span v-if="markers.transition" class="transition">
+            ⇒ {{ markers.transition }}
+        </span>
 
 
     </div>
