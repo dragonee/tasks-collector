@@ -4,18 +4,25 @@
 {% block content %}
 <!-- Vue entry-point -->
 
+{% for summary in summaries %}
+
 <div class="summary">
-    <h2>Finished</h2>
+    <h2>{{ summary.board.date_closed|date }} ({{ summary.board.thread }})</h2>
+
+    <h3>Finished</h3>
     {% for item in summary.finished %}
     <p>{{ item.data.text }}</p>
     {% endfor %}
-    <h2>Postponed</h2>
+    <h3>Postponed</h3>
     {% for item in summary.postponed %}
     <p>{{ item.data.text }}</p>
     {% endfor %}
 </div>
 
+{% endfor %}
+
 {% endblock %}
+
 
 <!-- Load Vue app -->
 {% block extrajs %}

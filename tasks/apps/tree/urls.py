@@ -13,6 +13,8 @@ router.register(r'reflections', views.ReflectionViewSet)
 
 urlpatterns = [
     path('boards/<int:id>/summary/', views.board_summary),
+    path('summaries/', views.summaries),
+
     path('boards/<int:id>/commit/', views.commit_board),
     path('periodical/', views.periodical),
     path('observations/', views.ObservationListView.as_view(), name='observation-list'),

@@ -199,8 +199,8 @@ def board_summary(request, id):
     summary = BoardSummary(board)
 
     return render(request, 'summary.html', {
-        'board': board,
-        'summary': summary,
+        'boards': [board],
+        'summaries': [summary],
     })
 
 def period_from_request(request, days=7):
@@ -209,6 +209,17 @@ def period_from_request(request, days=7):
         request.GET.get('to', datetime.date.today())
     )
 
+def summaries(request):
+    period = period_from_request(request)
+
+    boards = Board.objects.filter(date_closed__range=period)
+
+    summaries = [BoardSummary(board) for board in boards]
+
+    return render(request, 'summary.html', {
+        'boards': boards,
+        'summaries': summaries,
+    })
 
 # XXX this does not account for missing day entries
 # as of now this is not required. However, it might change
