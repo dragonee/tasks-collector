@@ -336,6 +336,70 @@ h1 + .menu a:first-child {
     margin-left: 40px;
 }
 
+.summaries {
+    width: 75%;
+
+    min-width: 1140px;
+
+    margin: auto;
+
+    h2, h3 {
+        color: #999;
+    }
+
+    h2 {
+        border-bottom: 1px solid #eee;
+    }
+
+    article {
+        margin: 2rem 0;
+
+        .boxes {
+            display: flex;
+        }
+
+        .left, .right {
+            margin: 0 20px;
+            flex: 1;
+        }
+
+        ol {
+            li {
+                margin: 4px 0;
+
+
+                padding: 9px 10px;
+
+                position: relative;
+            }
+        }
+
+        .dots .dot {
+            margin: 0 -1px;
+        }
+
+        .finished li {
+            border-left: 32px solid #8edc8078;
+
+        }
+
+        .postponed li {
+            border-left: 32px solid #31d0ff73;
+        }
+
+        .has-finalizing {
+            left: 10px;
+        }
+    }
+
+    .focus {
+        color: #666;
+        font-weight: 400;
+
+        margin-left: 6px;
+    }
+}
+
 .observations {
     width: 50rem;
 

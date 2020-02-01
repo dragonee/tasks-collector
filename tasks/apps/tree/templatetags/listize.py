@@ -17,3 +17,10 @@ from django.template.defaultfilters import slugify as _slugify
 def slugify(value):
     return _slugify(unidecode(str(value)))
 
+@register.filter
+def dots(value, max=3):
+    return mark_safe("<span class=\"dot\"></span> " * min(max, value))
+
+@register.filter
+def max(value, max=4):
+    return min(max, value)

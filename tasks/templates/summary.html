@@ -4,22 +4,45 @@
 {% block content %}
 <!-- Vue entry-point -->
 
-{% for summary in summaries %}
+<div class="summaries">
 
-<div class="summary">
-    <h2>{{ summary.board.date_closed|date }} ({{ summary.board.thread }})</h2>
+    <div class="cont">
+        <p class="menu">
+            <a href="/">Daily</a>
+            <a href="/hello/world/">Tasks</a>
+            <a href="/observations/">Observations</a>
+            <a href="/admin/tree/observation/add/">+Observation</a>
+            <a href="/periodical/">Periodical</a>
+            <a href="/summaries/">Summaries</a>
 
-    <h3>Finished</h3>
-    {% for item in summary.finished %}
-    <p>{{ item.data.text }}</p>
-    {% endfor %}
-    <h3>Postponed</h3>
-    {% for item in summary.postponed %}
-    <p>{{ item.data.text }}</p>
+        </p>
+    </div>
+
+    {% for summary in summaries %}
+
+    <article class="summary">
+        <h2>{{ summary.board.date_closed|date }} ({{ summary.board.thread }}): <span class="focus">{{ summary.board.focus }}</span></h2>
+
+        <div class="boxes">
+            <div class="left">
+                <ol class="finished">
+                    {% for item in summary.finished %}
+                        {% include "item.html" %}
+                    {% endfor %}
+                </ol>
+            </div>
+            <div class="right">
+                <ol class="postponed">
+                    {% for item in summary.postponed %}
+                        {% include "item.html" %}
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+    </article>
+
     {% endfor %}
 </div>
-
-{% endfor %}
 
 {% endblock %}
 

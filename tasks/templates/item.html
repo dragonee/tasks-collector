@@ -1,0 +1,55 @@
+{% load listize %}
+
+<li>
+    {{ item.data.text }}
+
+    {% if item.data.meaningfulMarkers.madeProgress %}
+    <span>
+        <span class="spacer"></span>
+        <span
+            class="dots full madeProgress"
+            data-dots="1"
+            title="1">
+                <span class="dot">
+                </span>
+        </span>
+    </span>
+    {% elif item.data.meaningfulMarkers.weeksInList > 0 %}
+    <span>
+        <span class="spacer"></span>
+
+        <span
+            class="dots weeksInList"
+            data-dots="{{ item.data.meaningfulMarkers.weeksInList|max }}"
+            title="{{ item.data.meaningfulMarkers.weeksInList }}">
+                {{ item.data.meaningfulMarkers.weeksInList|dots }}
+        </span>
+
+    </span>
+
+    {% endif %}
+
+    {% if item.data.meaningfulMarkers.important > 0 %}
+    <span v-if="markers.important > 0">
+        <span class="spacer"></span>
+
+        <span
+            class="dots important"
+            data-dots="{{ item.data.meaningfulMarkers.important|max }}"
+            title="{{ item.data.meaningfulMarkers.important }}">
+            {{ item.data.meaningfulMarkers.important|dots }}
+        </span>
+    </span>
+    {% endif %}
+
+    {% if item.data.meaningfulMarkers.finalizing %}
+    <span class="has-finalizing">
+    </span>
+    {% endif %}
+
+    {% if item.data.meaningfulMarkers.transition %}
+    <span class="transition">
+        ⇒ {{ item.data.meaningfulMarkers.transition }}
+    </span>
+    {% endif %}
+</li>
