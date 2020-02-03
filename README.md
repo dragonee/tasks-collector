@@ -1,6 +1,6 @@
-# Tasks
+# Tasks Collector 
 
-A template for projects used in Makimo.
+My own approach to keep track of my life.
 
 ## Installation
 
@@ -83,15 +83,6 @@ then run the rest of the commands.
 1. Ensure that `DJANGODIR` in `bin/gunicorn.base` is proper.
 2. Ensure that paths in `webpack-stats.dist.json` are proper (path is
 configured in `package.json`).
-
-
-#### More information
-This project was created using `django-template` tool.
-
-For more information, see:
-https://bitbucket.org/makimo/django-template/src/master/.
-If you find a bug, create an issue as a subtask of IWM-47.
-
 
 ## Docker
 
