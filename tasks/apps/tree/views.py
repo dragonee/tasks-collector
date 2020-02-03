@@ -286,19 +286,19 @@ def today(request):
             today -= datetime.timedelta(days=1)
 
     try:
-        today_plan = Plan.objects.get(pub_date=today)
+        today_plan = Plan.objects.get(pub_date=today, thread=thread)
     except Plan.DoesNotExist:
         today_plan = Plan(pub_date=today, thread=thread)
 
     tomorrow = today + datetime.timedelta(days=1)
 
     try:
-        tomorrow_plan = Plan.objects.get(pub_date=tomorrow)
+        tomorrow_plan = Plan.objects.get(pub_date=tomorrow, thread=thread)
     except Plan.DoesNotExist:
         tomorrow_plan = Plan(pub_date=tomorrow, thread=thread)
 
     try:
-        reflection = Reflection.objects.get(pub_date=today)
+        reflection = Reflection.objects.get(pub_date=today, thread=thread)
     except Reflection.DoesNotExist:
         reflection = Reflection(pub_date=today, thread=thread)
 
