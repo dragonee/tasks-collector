@@ -153,6 +153,16 @@ body, html {
                 color: darken(#14a3d0, 10%);
             }
         }
+
+        &.big-picture {
+            color: #d08614;
+            border-bottom-color: #d08614;
+
+            + ul {
+                font-weight: 500;
+                color: darken(#d08614, 10%);
+            }
+        }
     }
 }
 
