@@ -47,7 +47,7 @@
                 </td>
                 <td class="good">
                     {% for reflection in combined.reflections %}
-                        <span class="date {{ reflection.thread|slugify }}">{{ reflection.pub_date }} {% if reflection.thread_id != 1 %}({{ reflection.thread }}){% endif %}</span>
+                        <span class="date {{ reflection.thread|slugify }}">{{ reflection.pub_date }} {% if reflection.thread_id != 1 %}({{ reflection.thread }}){% endif %} {% if reflection.dreamstate %}☁{% endif %}</span> 
                         {{ reflection.good|listize }}
                     {% endfor %}
                 </td>

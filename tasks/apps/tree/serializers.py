@@ -17,7 +17,7 @@ class PlanSerializer(serializers.HyperlinkedModelSerializer):
 class ReflectionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Reflection
-        fields = ['id', 'pub_date', 'good', 'better', 'best']
+        fields = ['id', 'pub_date', 'good', 'better', 'best', 'dreamstate']
 
 class BoardSerializer(serializers.HyperlinkedModelSerializer):
     thread = ThreadSerializer(read_only=True)
