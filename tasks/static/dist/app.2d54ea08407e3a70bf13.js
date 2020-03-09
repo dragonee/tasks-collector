@@ -1,0 +1,1 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([[1],{"./app.js":function(p,s,n){n("./app.scss")},"./app.scss":function(p,s,n){}},[["./app.js",0]]]);

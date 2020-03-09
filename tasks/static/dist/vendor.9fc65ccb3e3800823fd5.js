@@ -1,0 +1,1 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([[4],{"./vendor.js":function(n,e,o){o("./vendor/example.js")},"./vendor/example.js":function(n,e){}},[["./vendor.js",0]]]);
