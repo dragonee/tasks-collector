@@ -5,11 +5,11 @@ DEBUG = False
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-ALLOWED_HOSTS = ['tasks.makimo.pl', 'localhost']
+ALLOWED_HOSTS = ['tasks.polybrain.org', 'localhost']
 
 # Admins
 ADMINS = (
-    ('Mateusz Papiernik', 'biuro@makimo.pl'),
+    ('Michał Moroz', 'michal@makimo.pl'),
 )
 
 MANAGERS = ADMINS
