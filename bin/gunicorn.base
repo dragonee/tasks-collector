@@ -1,7 +1,7 @@
 #!/bin/bash
 
 NAME="tasks"
-DJANGODIR="/home/sites/vhosts/tasks"
+DJANGODIR="/home/sites/vhosts/tasks.polybrain.org"
 USER=sites
 GROUP=sites
 NUM_WORKERS=5
