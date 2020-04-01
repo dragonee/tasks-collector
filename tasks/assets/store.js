@@ -4,6 +4,8 @@ import { createTreeItem, createBoard } from './utils'
 
 import equal from 'deep-equal'
 
+const DEFAULT_NAME = 'Daily'
+
 export default {
     state: {
         listResponse: null,
@@ -54,7 +56,9 @@ export default {
         setThreads(state, {threads, current}) {
             state.threads = threads
             // default thread
-            state.currentThreadId = current || threads.results[0].id
+            state.currentThreadId = current || threads.results.find(
+                item => item.name == DEFAULT_NAME
+            ).id || threads.results[0].id
         },
 
         setCurrentThreadId(state, threadId) {
