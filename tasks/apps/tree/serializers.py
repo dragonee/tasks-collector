@@ -111,3 +111,6 @@ class BoardSummary(object):
 
     def task_count(self):
         return ilen(tree_iterator(self.board.state))
+
+    def days(self):
+        return (self.board.date_closed - self.board.date_started).days

@@ -9,7 +9,10 @@
 
 <div class="daily">
     <div class="cont">
-        <h2>{{ today }}: {{ thread }}</h2>
+        <h2>
+            <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}">&lt;</a> {{ today }}: {{ thread }}
+            <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d"  }}">&gt;</a>
+        </h2>
         <p class="menu">
             <a href="/">Daily</a>
             <a href="/hello/world/">Tasks</a>
@@ -23,7 +26,14 @@
     <form action="" method="POST">
         {% csrf_token %}
 
+
+
         <div class="left">
+            <div class="navigation">
+
+
+            </div>
+
             <div class="plan">
             <h3>Today's plan</h3>
             {{ today_plan_form.as_p }}
