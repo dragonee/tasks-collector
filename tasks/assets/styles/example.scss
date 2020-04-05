@@ -333,6 +333,8 @@ body.page-daily {
 
     margin-left: 10px;
 
+    font-weight: normal;
+
     &:first-child {
         margin-left: 0;
     }
@@ -340,6 +342,10 @@ body.page-daily {
     &:hover, &:active {
         color: lighten(#205e7d, 25%);
     }
+}
+
+h2 .menulink {
+    margin-left: 0;
 }
 
 h1 + .menu a:first-child {

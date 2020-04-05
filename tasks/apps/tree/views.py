@@ -331,7 +331,9 @@ def today(request):
         reflection_form = ReflectionForm(instance=reflection, prefix="reflection")
 
     return render(request, 'today.html', {
+        'yesterday': today - datetime.timedelta(days=1),
         'today': today,
+        'tomorrow': today + datetime.timedelta(days=1),
         'today_plan': today_plan,
         'tomorrow_plan': tomorrow_plan,
         'reflection': reflection,
