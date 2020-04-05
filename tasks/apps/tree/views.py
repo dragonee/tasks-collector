@@ -206,7 +206,7 @@ def board_summary(request, id):
 def period_from_request(request, days=7, start=None, end=None):
     return (
         request.GET.get('from', start or datetime.date.today() - datetime.timedelta(days=days)),
-        request.GET.get('to', end or datetime.date.today())
+        request.GET.get('to', end or datetime.date.today() + datetime.timedelta(days=1))
     )
 
 def summaries(request):
