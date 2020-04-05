@@ -8,7 +8,13 @@
 <div class="summary">
 
     <div class="upper-pane">
-        <h1>Periodical</h1>
+        <h1>
+            Periodical
+            <span class="focus"><small>
+                [{{ period.0 }} – {{ period.1 }}]
+            </small></span>
+        </h1>
+    </h1>
         <p class="menu">
             <a href="/">Daily</a>
             <a href="/hello/world/">Tasks</a>
@@ -47,7 +53,7 @@
                 </td>
                 <td class="good">
                     {% for reflection in combined.reflections %}
-                        <span class="date {{ reflection.thread|slugify }}">{{ reflection.pub_date }} {% if reflection.thread_id != 1 %}({{ reflection.thread }}){% endif %} {% if reflection.dreamstate %}☁{% endif %}</span> 
+                        <span class="date {{ reflection.thread|slugify }}">{{ reflection.pub_date }} {% if reflection.thread_id != 1 %}({{ reflection.thread }}){% endif %} {% if reflection.dreamstate %}☁{% endif %}</span>
                         {{ reflection.good|listize }}
                     {% endfor %}
                 </td>

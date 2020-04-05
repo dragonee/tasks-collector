@@ -203,10 +203,10 @@ def board_summary(request, id):
         'summaries': [summary],
     })
 
-def period_from_request(request, days=7):
+def period_from_request(request, days=7, start=None, end=None):
     return (
-        request.GET.get('from', datetime.date.today() - datetime.timedelta(days=days)),
-        request.GET.get('to', datetime.date.today())
+        request.GET.get('from', start or datetime.date.today() - datetime.timedelta(days=days)),
+        request.GET.get('to', end or datetime.date.today())
     )
 
 def summaries(request):
@@ -245,7 +245,20 @@ class Periodical:
 
 
 def periodical(request):
-    period = period_from_request(request)
+    try:
+        last_big_picture_reflection = Reflection.objects.filter(
+            thread__name='big-picture'
+        ).order_by('-pub_date')[0]
+
+        period = period_from_request(
+            request,
+            start=last_big_picture_reflection.pub_date
+        )
+    except IndexError:
+        period = period_from_request(
+            request,
+            days=14
+        )
 
     plans = Plan.objects.filter(pub_date__range=period) \
         .order_by('pub_date') \
@@ -269,6 +282,7 @@ def periodical(request):
     template = 'periodical_{}.html'.format(view)
 
     return render(request, template, {
+        'period': period,
         'plans': plans,
         'reflections': reflections,
         'combined': Periodical(plans, reflections),
