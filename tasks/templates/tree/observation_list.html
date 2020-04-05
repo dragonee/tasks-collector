@@ -23,12 +23,12 @@
         <article class="observation">
 
             <div class="meta">{{ observation.pub_date }} (<span class="type">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span>)</div>
-            <div class="strong">{{ observation.situation }}</div>
+            <div class="strong">{{ observation.situation|linebreaks }}</div>
 
             <div class="label">How you saw it, what you felt?</div>
-            <div>{{ observation.interpretation }}</div>
+            <div>{{ observation.interpretation|linebreaks }}</div>
             <div class="label">How should you approach it in the future?</div>
-            <div>{{ observation.approach }}</div>
+            <div>{{ observation.approach|linebreaks }}</div>
         </article>
 
         {% empty %}
