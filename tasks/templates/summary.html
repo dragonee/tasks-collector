@@ -21,7 +21,19 @@
     {% for summary in summaries %}
 
     <article class="summary">
-        <h2>{{ summary.board.date_closed|date }} ({{ summary.board.thread }}): <span class="focus">{{ summary.board.focus }}</span></h2>
+        <h2>
+            {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
+            <span class="focus">
+                {{ summary.board.focus }}
+
+
+                <small>
+                    [{{ summary.board.date_started|date:"Y-m-d" }} –
+                    {{ summary.board.date_closed|date:"Y-m-d" }},
+                    {{ summary.days }} days]
+                </small>
+            </span>
+        </h2>
 
         <div class="boxes">
             <div class="left">

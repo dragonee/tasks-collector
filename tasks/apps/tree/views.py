@@ -210,9 +210,12 @@ def period_from_request(request, days=7):
     )
 
 def summaries(request):
-    period = period_from_request(request)
+    period = period_from_request(request, days=30)
 
     boards = Board.objects.filter(date_closed__range=period)
+
+    if boards.count() == 0:
+        boards = Board.objects.filter(date_closed__isnull=False).order_by('-date_closed')[:1]
 
     summaries = [BoardSummary(board) for board in boards]
 
