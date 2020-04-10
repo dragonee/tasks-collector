@@ -250,9 +250,14 @@ def periodical(request):
             thread__name='big-picture'
         ).order_by('-pub_date')[0]
 
+        start_date = min([
+            last_big_picture_reflection.pub_date,
+            datetime.date.today() - datetime.timedelta(days=14)
+        ])
+
         period = period_from_request(
             request,
-            start=last_big_picture_reflection.pub_date
+            start=start_date
         )
     except IndexError:
         period = period_from_request(
