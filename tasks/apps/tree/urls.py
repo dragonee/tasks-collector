@@ -9,6 +9,7 @@ router.register(r'boards', views.BoardViewSet, basename='boards')
 router.register(r'threads', views.ThreadViewSet)
 router.register(r'plans', views.PlanViewSet)
 router.register(r'reflections', views.ReflectionViewSet)
+router.register(r'observation-api', views.ObservationViewSet)
 
 
 urlpatterns = [
