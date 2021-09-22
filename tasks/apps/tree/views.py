@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 
 from rest_framework import viewsets
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer
 from .models import Board, Thread, Plan, Reflection, Observation
 from .forms import PlanForm, ReflectionForm
 
@@ -45,6 +45,10 @@ class PlanViewSet(viewsets.ModelViewSet):
 class ReflectionViewSet(viewsets.ModelViewSet):
     queryset = Reflection.objects.all()
     serializer_class = ReflectionSerializer
+
+class ObservationViewSet(viewsets.ModelViewSet):
+    queryset = Observation.objects.all()
+    serializer_class = ObservationSerializer
 
 class ThreadViewSet(viewsets.ModelViewSet):
     """
