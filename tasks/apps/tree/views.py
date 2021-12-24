@@ -91,8 +91,17 @@ def transition_data_in_tree_item(item):
         }
     }
 
+def filter_out_checked_items(x):
+    """Return True if should be filtered out"""
+
+    if x.get('data', {}).get('meaningfulMarkers', {}).get('canBePostponed', False):
+        return False
+
+    return x.get('state', {}).get('checked', False)
+
+
 def transition_data_between_boards(state):
-    items = filter(lambda x: not x.get('state', {'checked': False })['checked'], state)
+    items = filter(lambda x: not filter_out_checked_items(x), state)
 
     return list(map(transition_data_in_tree_item, items))
 

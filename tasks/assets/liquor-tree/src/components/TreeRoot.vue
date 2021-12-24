@@ -52,7 +52,7 @@
                 <a href="#" @click.prevent="onClick('madeProgress', { ...child.data  })">Made progress</a>
             </li>
             <li>
-                <a href="#" @click.prevent="onClick('canBePostponed', { ...child.data  })">Postponable</a>
+                <a href="#" @click.prevent="onClick('canBePostponed', { ...child.data  })">⟳ Repeat</a>
             </li>
 
             <li class="v-context__sub">

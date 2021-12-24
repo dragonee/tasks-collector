@@ -12,7 +12,8 @@
                     </span>
             </span>
         </span>
-        <span v-else-if="markers.weeksInList > 0" class="weeksInListSpan">
+
+        <span v-else-if="markers.weeksInList > 0 && !markers.canBePostponed" class="weeksInListSpan">
             <span class="spacer"></span>
 
             <span
@@ -37,6 +38,10 @@
         </span>
 
         <span v-if="markers.finalizing" class="has-finalizing">
+        </span>
+
+        <span v-if="markers.canBePostponed" class="transition">
+            ⟳
         </span>
 
         <span v-if="markers.transition" class="transition">
