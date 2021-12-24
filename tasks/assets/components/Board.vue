@@ -1,7 +1,7 @@
 <template>
     <div class="board">
         <div class="upper-pane">
-            <h1>{{ startDate }}: <input v-model="focus" @blur="saveState"></h1>
+            <h1>{{ startDate }}: <input v-model="focus" @blur="saveState" @keyup.stop></h1>
         </div>
 
         <tree
@@ -147,11 +147,16 @@ export default {
         async addItem() {
             const node = this.$refs.tree.append(createTreeItem('Hi'))
 
-            node.select()
-
+            /*
             await promisifyTimeout(500)
 
-            this.$refs.tree.find(node).startEditing()
+            node.vm.$el.querySelector('.tree-anchor')
+                .dispatchEvent(new Event('dblclick'))
+
+            //node.select()
+
+            //this.$refs.tree.find(node).startEditing()
+            */
         },
 
         ...mapActions([

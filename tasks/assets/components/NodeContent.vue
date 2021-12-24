@@ -12,7 +12,7 @@
                     </span>
             </span>
         </span>
-        <span v-else-if="markers.weeksInList > 0">
+        <span v-else-if="markers.weeksInList > 0" class="weeksInListSpan">
             <span class="spacer"></span>
 
             <span
