@@ -32,7 +32,7 @@ class Board(models.Model):
 
     def __str__(self):
         if not self.focus:
-            return self.date_started
+            return str(self.date_started)
 
         return "{} {}".format(self.focus, self.date_started)
 

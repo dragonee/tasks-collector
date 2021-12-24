@@ -18,6 +18,10 @@
   height: calc(100vh - #{$lower-pane} - #{$upper-pane});
 }
 
+.tree-node.has-child > .tree-content > .tree-checkbox {
+  display: none;
+}
+
 .tree.tree--draggable .tree-node:not(.selected) > .tree-content:hover {
   background: transparent;
 }
