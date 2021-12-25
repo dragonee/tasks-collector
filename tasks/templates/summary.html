@@ -51,6 +51,28 @@
                 </ol>
             </div>
         </div>
+        
+        {% with observations=summary.observations %}
+        {% if observations %}
+        <div class="observations">
+            <h3>Obserwacje</h3>
+            <ul>
+            {% for item in observations %}
+                <li>
+                    <strong>{{ item.situation }}</strong> 
+                    <em>
+                        <small>
+                                ({{item.type}}, 
+                                {{ item.thread }}
+                                <a href="/admin/tree/observation/{{ item.pk }}/change/">#</a>)
+                        </small>
+                    </em>
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% endwith %}
     </article>
 
     {% endfor %}

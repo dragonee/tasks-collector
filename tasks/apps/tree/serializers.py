@@ -128,3 +128,11 @@ class BoardSummary(object):
 
     def days(self):
         return (self.board.date_closed - self.board.date_started).days
+
+    def observations(self):
+        # XXX TODO optimize N-question problem
+
+        return Observation.objects.filter(pub_date__range=(
+            self.board.date_started, 
+            self.board.date_closed
+        ))
