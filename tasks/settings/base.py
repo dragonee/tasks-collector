@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django_extensions',
 
     'rest_framework',
+    'django_filters',
 
     'tasks.apps.common',
     'tasks.apps.hello_world',

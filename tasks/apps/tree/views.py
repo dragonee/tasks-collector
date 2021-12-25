@@ -20,6 +20,10 @@ from collections import OrderedDict
 
 from itertools import groupby
 
+from django_filters import rest_framework as filters
+from django_filters.rest_framework import DjangoFilterBackend
+
+
 from copy import deepcopy
 
 import datetime
@@ -48,9 +52,19 @@ class ReflectionViewSet(viewsets.ModelViewSet):
     queryset = Reflection.objects.all()
     serializer_class = ReflectionSerializer
 
+class ObservationFilter(filters.FilterSet):
+    class Meta:
+        model = Observation
+        fields = {
+            'pub_date': ('gte', 'lte')
+        }
+
 class ObservationViewSet(viewsets.ModelViewSet):
     queryset = Observation.objects.all()
     serializer_class = ObservationSerializer
+
+    filter_backends = [DjangoFilterBackend]
+    filter_class = ObservationFilter
 
 class ThreadViewSet(viewsets.ModelViewSet):
     """
