@@ -56,7 +56,8 @@ class ObservationFilter(filters.FilterSet):
     class Meta:
         model = Observation
         fields = {
-            'pub_date': ('gte', 'lte')
+            'pub_date': ('gte', 'lte'),
+            'date_closed': ('isnull', ),
         }
 
 class ObservationViewSet(viewsets.ModelViewSet):
@@ -398,6 +399,26 @@ def today(request):
 
 class ObservationListView(ListView):
     model = Observation
-    queryset = Observation.objects.select_related('thread', 'type')
+    queryset = Observation.objects.filter(date_closed__isnull=True).select_related('thread', 'type')
     paginate_by = 100
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['open_count'] = len(Observation.objects.filter(date_closed__isnull=True))
+        context['closed_count'] = len(Observation.objects.filter(date_closed__isnull=False))
+
+        return context
+
+class ObservationClosedListView(ListView):
+    model = Observation
+    queryset = Observation.objects.filter(date_closed__isnull=False).select_related('thread', 'type')
+    paginate_by = 100
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['open_count'] = len(Observation.objects.filter(date_closed__isnull=True))
+        context['closed_count'] = len(Observation.objects.filter(date_closed__isnull=False))
+
+        return context

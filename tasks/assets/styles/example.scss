@@ -340,6 +340,36 @@ body.page-daily {
     }
 }
 
+.menu.observation {
+
+    margin-top: 3rem;
+    margin-bottom: -1.3rem;
+
+    a {
+        background: white;
+        border-radius: 3px;
+
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+
+        padding: 10px 1rem 10px;
+    }
+}
+
+.badge {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    display: inline-block;
+    width: 1.2rem;
+    height: 1.2rem;
+
+    text-align: center;
+
+    font-size: 0.9em;
+}
+
 h2 .menulink {
     margin-left: 0;
 }
@@ -460,5 +490,15 @@ h1, h2 {
 
     .type {
         color: #ca8911;
+    }
+}
+
+.observation-list {
+    li {
+        line-height: 1.4;
+    }
+
+    .closed {
+        opacity: 50%;
     }
 }

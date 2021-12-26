@@ -88,6 +88,8 @@ class Observation(models.Model):
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
 
+    date_closed = models.DateField(help_text=_("Closed"), null=True, blank=True)
+
     class Meta:
         ordering = ('-pub_date', )
 

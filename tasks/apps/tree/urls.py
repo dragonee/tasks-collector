@@ -19,6 +19,8 @@ urlpatterns = [
     path('boards/<int:id>/commit/', views.commit_board),
     path('periodical/', views.periodical),
     path('observations/', views.ObservationListView.as_view(), name='observation-list'),
+    path('observations/closed/', views.ObservationClosedListView.as_view(), name='observation-list-closed'),
+
     path('', views.today),
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))

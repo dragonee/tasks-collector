@@ -54,17 +54,21 @@
         
         {% with observations=summary.observations %}
         {% if observations %}
-        <div class="observations">
+        <div class="observation-list">
             <h3>Obserwacje</h3>
             <ul>
             {% for item in observations %}
-                <li>
+                <li {% if item.date_closed %}class="closed" {% endif %}>
                     <strong>{{ item.situation }}</strong> 
                     <em>
                         <small>
                                 ({{item.type}}, 
                                 {{ item.thread }}
-                                <a href="/observations/#observation-{{ item.pk }}">#</a>)
+                                {% if item.date_closed %}
+                                    <a href="/observations/closed/#observation-{{ item.pk }}">#</a>)
+                                {% else %}
+                                    <a href="/observations/#observation-{{ item.pk }}">#</a>)
+                                {% endif %}
                         </small>
                     </em>
                 </li>
