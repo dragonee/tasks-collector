@@ -39,7 +39,7 @@ class ObservationSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Observation
-        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach']
+        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'date_closed']
 
 class tree_iterator:
     """Preorder traversal tree iterator"""
