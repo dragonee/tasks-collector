@@ -35,9 +35,25 @@
             <div class="label">How should you approach it in the future?</div>
             <div>{{ observation.approach|linebreaks }}</div>
 
+            {% if observation.update_set.all %}
+                <hr class="just-line">
+
+                {% for update in observation.update_set.all %}
+                    <div class="update">
+                        <p class="label">Updated on {{ update.pub_date|date:"Y-m-d" }}</p>
+                        <div>
+                            {{ update.comment | linebreaks }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
             {% if observation.date_closed %}
-            <div class="closed">
-                <small><em>Closed on {{ observation.date_closed }}</em></small>
+
+            <hr class="just-line">
+
+            <div class="closed meta">
+                <em>Closed on {{ observation.date_closed }}</em>
             </div>
             {% endif %}
         </article>

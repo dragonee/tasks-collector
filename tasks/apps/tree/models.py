@@ -100,3 +100,13 @@ class Observation(models.Model):
             self.thread
         )
 
+
+class Update(models.Model):
+    pub_date = models.DateField(auto_now_add=True)
+
+    observation = models.ForeignKey(Observation, on_delete=models.CASCADE)
+
+    comment = models.TextField(help_text=_("Update"))
+
+    def __str__(self):
+        return self.comment

@@ -502,3 +502,10 @@ h1, h2 {
         opacity: 50%;
     }
 }
+
+.just-line {
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    margin: 1rem 0;
+    height: 1px;
+}
