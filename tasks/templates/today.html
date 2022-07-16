@@ -8,9 +8,32 @@
 
 
 <div class="daily">
+<form action="" method="POST">
+    {% csrf_token %}
     <div class="cont">
         <h2>
-            <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}">&lt;</a> {{ today }}: {{ thread }}
+            <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}">&lt;</a>
+            {{ today }}:
+
+            <select name="thread" id="thread">
+                {% for a_thread in threads %}
+                <option
+                    value="{{ a_thread.name }}"
+                    {% if a_thread.name == thread.name %}
+                        selected
+                    {% endif %}
+                >{{ a_thread }}</option>
+                {% endfor %}
+            </select>
+            <script type="text/javascript">
+                function setThread(ev) {
+                    window.location.search = '?thread=' + ev.target.value;
+                }
+
+                document
+                    .getElementById('thread')
+                    .addEventListener('change', setThread);
+            </script>
             <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d"  }}">&gt;</a>
         </h2>
         <p class="menu">
@@ -23,9 +46,8 @@
 
         </p>
     </div>
-    <form action="" method="POST">
-        {% csrf_token %}
 
+    <div class="form">
 
 
         <div class="left">
@@ -54,8 +76,8 @@
 
             <button>Submit</button>
         </div>
-
-    </form>
+    </div>
+</form>
 </div>
 
 {% endblock %}

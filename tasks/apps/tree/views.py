@@ -324,7 +324,12 @@ def periodical(request):
     })
 
 def today(request):
-    thread = Thread.objects.get(name=request.GET.get('thread', 'Daily'))
+    if request.method == 'POST':
+        thread_name = request.POST.get('thread')
+    else:
+        thread_name = request.GET.get('thread', 'Daily')
+
+    thread = Thread.objects.get(name=thread_name)
 
     try:
         now = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
@@ -395,6 +400,7 @@ def today(request):
         'reflection_form': reflection_form,
 
         'thread': thread,
+        'threads': Thread.objects.all(),
     })
 
 class ObservationListView(ListView):
