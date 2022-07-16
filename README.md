@@ -51,7 +51,7 @@ npm run watch-assets // or npm run build for one-time compilation
 
 If you want to build production assets, use:
 ```
-npm run build-dist
+make static
 ```
 
 #### Django
