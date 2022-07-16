@@ -5,3 +5,4 @@
 3. I forgot how to make static files because README was not updated
 4. There's no deployment script. I'm not saying automated pipeline (as it's a bit costly)
 5. There's a lot of time since I set up this repository. There's probably no fixtures for starting the repository fresh
+6. Doing two things inside one container is most likely bad choice
