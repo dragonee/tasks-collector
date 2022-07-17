@@ -454,6 +454,8 @@ h1, h2 {
     margin: auto;
 
     article {
+        position: relative;
+
         margin: 2rem 0;
 
         padding: 14px 20px;
@@ -463,6 +465,50 @@ h1, h2 {
         border-radius: 3px;
 
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
+        .expand {
+            display: none;
+        }
+
+        &.open .expand {
+            display: block;
+        }
+
+        .observation-hide {
+            color: #4a7dfb;
+            cursor: pointer;
+
+            &::after {
+                display: block;
+
+                content: "More";
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                padding: 4px 6px;
+            }
+
+            &:hover {
+                color: darken(#4a7dfb, 20%);
+            }
+        }
+
+        &.open .observation-hide {
+            &::after {
+                content: "Less";
+            }
+
+            &::before {
+                display: block;
+
+                content: "Less";
+                position: absolute;
+                top: 0;
+                right: 0;
+                padding: 4px 6px;
+            }
+        }
+
     }
 
     .strong {

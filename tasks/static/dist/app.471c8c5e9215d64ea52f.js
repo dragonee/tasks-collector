@@ -1,0 +1,1 @@
+(window.webpackJsonp=window.webpackJsonp||[]).push([[1],{"./app.js":function(s,e,n){n("./app.scss");[...document.querySelectorAll("article.observation")].forEach(s=>{const e=document.createElement("span");e.classList.add("observation-hide"),e.addEventListener("click",()=>{s.classList.toggle("open")}),s.appendChild(e)})},"./app.scss":function(s,e,n){}},[["./app.js",0]]]);
