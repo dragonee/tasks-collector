@@ -47,7 +47,8 @@ INSTALLED_APPS = [
 
     'tasks.apps.common',
     'tasks.apps.hello_world',
-    'tasks.apps.tree'
+    'tasks.apps.tree',
+    'tasks.apps.rewards',
 ]
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
