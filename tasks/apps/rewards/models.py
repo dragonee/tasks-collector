@@ -23,6 +23,7 @@ from dataclasses_json import dataclass_json
 class ClaimedReward:
     name: str
     description: str
+    emoji: str
     count: int
 
     def __eq__(self, __o: object) -> bool:
@@ -52,6 +53,8 @@ class CRJsonDecoder(json.JSONDecoder):
 class Reward(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255)
+
+    emoji = models.CharField(max_length=4, null=True, blank=True)
 
     description = models.TextField(
         help_text=_("Describe the reward"),
@@ -125,6 +128,7 @@ def claim_reward(reward: Reward, count: int = 1) -> List[ClaimedReward]:
             name=reward.name,
             description=reward.description,
             count=count,
+            emoji=reward.emoji,
         )
     ] if reward.description else []
 

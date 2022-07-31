@@ -10,7 +10,7 @@ class RewardTableInline(admin.TabularInline):
 class RewardAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
-    list_display = ('__str__', 'slug', 'has_table',)
+    list_display = ('__str__', 'slug', 'emoji', 'has_table',)
 
     inlines = [
         RewardTableInline

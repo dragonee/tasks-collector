@@ -5,20 +5,57 @@
 
 {% block content %}
 
-<div class="claim">
-    Reward from: {{ claim.claimed_date }}
-</div>
 
-{% for item in claim.claimed %}
-    <div class="item">
-        <h3>
-            <span class="number">{{ item.count }}</span> 
-            {{ item.name }}
-        </h3>
-        <div class="description">
-            {{ item.description }}
-        </div>
+<div class="observations">
+    <div class="cont">
+        <p class="menu">
+            <a href="/">Daily</a>
+            <a href="/hello/world/">Tasks</a>
+            <a href="/observations/">Observations</a>
+            <a href="/admin/tree/observation/add/">+Observation</a>
+            <a href="/periodical/">Periodical</a>
+            <a href="/summaries/">Summaries</a>
+            <a href="/quests/view/">Quests</a>
+
+        </p>
     </div>
-{% endfor %}
+
+
+    <div class="claimed-header">
+        <h1>Your reward</h1>
+
+        <span class="meta">
+            Claimed on {{ claim.claimed_date }}
+        </span>
+    </div>
+
+    <div class="claim claimed">
+        {% for item in claim.claimed %}
+            <article class="item {% if item.emoji %} has-emoji{% endif %}">
+                <span class="number">{{ item.count }}</span> 
+                <div class="emoji">
+                    {% if item.emoji %}
+                        <span>
+                            {{ item.emoji }}
+                        </span>
+                    {% else %}
+                        <span>
+                            🎁
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="rest">
+                    <h3>
+                        {{ item.name }}
+                    </h3>
+                    <div class="reward">
+                        {{ item.description }}
+                    </div>
+                </div>
+            </article>
+        {% endfor %}
+        </div>
+</div>
 
 {% endblock %}

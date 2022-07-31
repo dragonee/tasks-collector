@@ -5,17 +5,34 @@
 
 {% block content %}
 
-Would you like to claim this reward?
 
-{% if claim.rewarded_for %}
-<div class="description">
-    {{ claim.rewared_for }}
+<div class="observations">
+    <div class="cont">
+        <p class="menu">
+            <a href="/">Daily</a>
+            <a href="/hello/world/">Tasks</a>
+            <a href="/observations/">Observations</a>
+            <a href="/admin/tree/observation/add/">+Observation</a>
+            <a href="/periodical/">Periodical</a>
+            <a href="/summaries/">Summaries</a>
+            <a href="/quests/view/">Quests</a>
+
+        </p>
+    </div>
+    <h1>Draw your reward!</h1>
+
+    <article class="claim">
+        {% if claim.rewarded_for %}
+        <div class="description">
+            {{ claim.rewarded_for }}
+        </div>
+        {% endif %}
+
+        <form action="" method="post">
+            {% csrf_token %}
+            <button type="submit">Get your reward ⚜️</button>
+        </form>
+    </article>
 </div>
-{% endif %}
-
-<form action="" method="post">
-    {% csrf_token %}
-    <button type="submit">Claim Reward</button>
-</form>
 
 {% endblock %}
