@@ -1,4 +1,15 @@
 from django.contrib import admin
-from .models import Quest
+from .models import Quest, QuestJournal
 
-admin.site.register(Quest)
+class QuestJournalInline(admin.TabularInline):
+    model = QuestJournal
+
+
+class QuestAdmin(admin.ModelAdmin):
+    model = Quest
+
+    inlines = [
+        QuestJournalInline
+    ]
+
+admin.site.register(Quest, QuestAdmin)

@@ -13,6 +13,9 @@ class Quest(models.Model):
 
     date_closed = models.DateField(help_text=_("Closed"), null=True, blank=True)
 
+    def __str__(self):
+        return self.name
+
     def get_absolute_url(self):
         return reverse("show_quest", kwargs={"slug": self.slug})
     

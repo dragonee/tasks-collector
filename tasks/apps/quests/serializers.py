@@ -41,6 +41,28 @@ class QuestJournalSerializer(serializers.HyperlinkedModelSerializer):
     
     quest = SimpleQuestSerializer()
 
+    def validate(self, data):
+        if not data['stage']:
+            return data
+
+        try:
+            quest = Quest.objects.get(slug=data['quest']['slug'])
+            QuestJournal.objects.get(
+                quest=quest,
+                stage=data['stage'],
+            )
+            
+            raise serializers.ValidationError(
+                "QuestJournal for quest {} and stage {} already exists".format(
+                    data['quest']['slug'],
+                    data['stage'],
+                )
+            )
+        except (Quest.DoesNotExist, QuestJournal.DoesNotExist):
+            pass
+
+        return data
+
     def create(self, validated_data):
         quest_data = validated_data['quest']
 
