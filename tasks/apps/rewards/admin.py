@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Reward, RewardTableItem
+from .models import Reward, RewardTableItem, Claim, Claimed
 
 
 class RewardTableInline(admin.TabularInline):
@@ -17,3 +17,5 @@ class RewardAdmin(admin.ModelAdmin):
     ]
 
 admin.site.register(Reward, RewardAdmin)
+admin.site.register(Claim)
+admin.site.register(Claimed)

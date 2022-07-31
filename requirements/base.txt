@@ -9,3 +9,4 @@ djangorestframework==3.11.2
 unicode==2.7
 Unidecode==1.1.1
 django-filter==21.1
+dataclasses_json==0.5.7

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block content %}
+
+<div class="claim">
+    Reward from: {{ claim.claimed_date }}
+</div>
+
+{% for item in claim.claimed %}
+    <div class="item">
+        <h3>
+            <span class="number">{{ item.count }}</span> 
+            {{ item.name }}
+        </h3>
+        <div class="description">
+            {{ item.description }}
+        </div>
+    </div>
+{% endfor %}
+
+{% endblock %}

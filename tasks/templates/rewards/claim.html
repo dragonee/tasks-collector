@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block content %}
+
+Would you like to claim this reward?
+
+{% if claim.rewarded_for %}
+<div class="description">
+    {{ claim.rewared_for }}
+</div>
+{% endif %}
+
+<form action="" method="post">
+    {% csrf_token %}
+    <button type="submit">Claim Reward</button>
+</form>
+
+{% endblock %}
