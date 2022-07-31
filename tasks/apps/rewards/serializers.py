@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Claim, Claimed, ClaimedReward
+from .models import Claim, Claimed, ClaimedReward, Reward
 
 import dataclasses
 
@@ -15,7 +15,17 @@ class CRField(serializers.Field):
 class ClaimSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Claim
-        fields = ['id', 'reward', 'rewarded_for']
+        fields = ['id', 'reward', 'rewarded_for', 'url']
+    
+    reward = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Reward.objects.all()
+    )
+
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        return obj.get_absolute_url()
 
 
 class ClaimedSerializer(serializers.HyperlinkedModelSerializer):
