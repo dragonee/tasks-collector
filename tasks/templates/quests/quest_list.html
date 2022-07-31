@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block content %}
+<!-- Vue entry-point -->
+
+
+<div class="observations">
+    <div class="cont">
+        <p class="menu">
+            <a href="/">Daily</a>
+            <a href="/hello/world/">Tasks</a>
+            <a href="/observations/">Observations</a>
+            <a href="/admin/tree/observation/add/">+Observation</a>
+            <a href="/periodical/">Periodical</a>
+            <a href="/summaries/">Summaries</a>
+            <a href="/quests/view/">Quests</a>
+
+        </p>
+    </div>
+    {% for quest in object_list %}
+    <article class="quest {% if quest.date_closed %}completed{% endif %}" id="observation-{{ quest.pk }}">
+        <a class="main" href="{{ quest.get_absolute_url }}">{{ quest.name }}</a>
+
+        <span class="meta">
+            {% if quest.date_closed %}
+                🏆 on {{ quest.date_closed }} 
+            {% else %} 
+                stage {{ quest.stage }}
+            {% endif %} 
+            | <a href="/admin/quests/quest/{{ quest.pk }}/change/">edit</a>
+        </span>
+
+        {% with quest.questjournal_set.last as update %}
+        {% if update %}
+            <hr class="just-line">
+
+            <div class="update">
+                <p class="label">Updated on {{ update.pub_date|date:"Y-m-d" }}</p>
+                <div>
+                    {{ update.text | linebreaks }}
+                </div>
+            </div>
+        {% endif %}        
+        {% endwith %}
+    </article>
+
+    {% empty %}
+    <div class="empty">
+        No articles yet.
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+<!-- Load Vue app -->
+{% block extrajs %}
+{% endblock %}
+

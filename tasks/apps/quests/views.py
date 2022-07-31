@@ -1,6 +1,8 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpRequest
 
+from django.views.generic import ListView
+
 from rest_framework import viewsets
 from rest_framework.exceptions import MethodNotAllowed
 
@@ -30,3 +32,8 @@ def show_quest(request: HttpRequest, slug: str):
     return render(request, "quests/single.html", {
         "quest": get_object_or_404(Quest, slug=slug),
     })
+
+class QuestListView(ListView):
+    model = Quest
+
+    paginate_by = 100

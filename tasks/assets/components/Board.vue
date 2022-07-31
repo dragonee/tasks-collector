@@ -36,7 +36,7 @@
             <a class="menulink" href="/admin/tree/observation/add/">+Observation</a>
             <a class="menulink" href="/periodical/">Periodical</a>
             <a class="menulink" href="/summaries/">Summaries</a>
-
+            <a class="menulink" href="/quests/view/">Quests</a>
 
             <button @click.prevent="close" class="on-right">commit</button>
         </div>

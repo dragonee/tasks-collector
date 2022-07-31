@@ -5,30 +5,51 @@
 
 {% block content %}
 
-<div class="quest">
-    <h1>{{ quest.name }}</h1>
-    {% if quest.date_closed %}
-        <div class="date-closed">
-            Closed on {{ quest.date_closed }}
-        </div>
-    {% endif %}
-</div>
 
-{% for item in quest.questjournal_set.all %}
-    <div class="item">
-        <div class="date">
-            {{ item.pub_date|date:"Y-m-d" }} {{ item.pub_date|date:"H:i" }}
-        </div>
-        {% if item.stage > 0 %}
-            <div class="stage">
-                {{ item.stage }}
-            </div>
-        {% endif %}
+<div class="observations">
+    <div class="cont">
+        <p class="menu">
+            <a href="/">Daily</a>
+            <a href="/hello/world/">Tasks</a>
+            <a href="/observations/">Observations</a>
+            <a href="/admin/tree/observation/add/">+Observation</a>
+            <a href="/periodical/">Periodical</a>
+            <a href="/summaries/">Summaries</a>
+            <a href="/quests/view/">Quests</a>
 
-        <div class="text">
-            {{ item.text|linebreaks }}
+        </p>
+    </div>
+
+    <div class="quest quest-single">
+        <h1>{{ quest.name }}</h1>
+        <div class="meta">
+            {% if quest.date_closed %}
+                🏆 on {{ quest.date_closed }} 
+            {% else %} 
+                stage <strong>{{ quest.stage }}</strong>
+            {% endif %} 
+            | <a href="/admin/quests/quest/{{ quest.pk }}/change/">edit</a>
         </div>
     </div>
-{% endfor %}
 
+    {% for item in quest.questjournal_set.all %}
+        <article class="quest-single-item">
+            <div class="date">
+                {{ item.pub_date|date:"F, Y-m-d" }}; {{ item.pub_date|date:"H:i" }}
+            </div>
+            {% if item.stage > 0 %}
+                <div class="stage">
+                    {{ item.stage }}
+                </div>
+            {% endif %}
+
+            <div class="text">
+                {{ item.text|linebreaks }}
+            </div>
+        </article>
+    {% endfor %}
+
+    <div class="vh60">
+    </div>
+</div>
 {% endblock %}
