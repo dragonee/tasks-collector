@@ -8,5 +8,6 @@ router.register(r'entries', views.QuestViewSet)
 router.register(r'journal', views.QuestJournalViewSet)
 
 urlpatterns = [
+    path('view/<slug:slug>/', views.show_quest, name='show_quest'),
     path('', include(router.urls)),
 ]

@@ -1,3 +1,6 @@
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpRequest
+
 from rest_framework import viewsets
 from rest_framework.exceptions import MethodNotAllowed
 
@@ -22,3 +25,8 @@ class QuestJournalViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, pk=None):
         raise MethodNotAllowed(request.method)
+
+def show_quest(request: HttpRequest, slug: str):
+    return render(request, "quests/single.html", {
+        "quest": get_object_or_404(Quest, slug=slug),
+    })

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block content %}
+
+<div class="quest">
+    <h1>{{ quest.name }}</h1>
+    {% if quest.date_closed %}
+        <div class="date-closed">
+            Closed on {{ quest.date_closed }}
+        </div>
+    {% endif %}
+</div>
+
+{% for item in quest.questjournal_set.all %}
+    <div class="item">
+        <div class="date">
+            {{ item.pub_date|date:"Y-m-d" }} {{ item.pub_date|date:"H:i" }}
+        </div>
+        {% if item.stage > 0 %}
+            <div class="stage">
+                {{ item.stage }}
+            </div>
+        {% endif %}
+
+        <div class="text">
+            {{ item.text|linebreaks }}
+        </div>
+    </div>
+{% endfor %}
+
+{% endblock %}
