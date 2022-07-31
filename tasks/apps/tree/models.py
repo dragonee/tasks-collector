@@ -1,5 +1,4 @@
 from django.db import models
-from django.contrib.postgres.fields import JSONField
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.text import Truncator
@@ -21,7 +20,7 @@ class Board(models.Model):
 
     date_closed = models.DateTimeField(null=True, blank=True)
 
-    state = JSONField(default=default_state, blank=True)
+    state = models.JSONField(default=default_state, blank=True)
 
     focus = models.CharField(max_length=255, null=True, blank=True)
 
