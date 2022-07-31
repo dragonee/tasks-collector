@@ -1,6 +1,15 @@
 from rest_framework import serializers
 
-from .models import Claim, Claimed, DataclassJSONEncoder
+from .models import Claim, Claimed, ClaimedReward
+
+import dataclasses
+
+class CRField(serializers.Field):
+    def to_representation(self, value):
+        return [dataclasses.asdict(a) for a in value]
+
+    def to_internal_value(self, data):
+        return [ClaimedReward(**a) for a in data]
 
 
 class ClaimSerializer(serializers.HyperlinkedModelSerializer):
@@ -14,6 +23,4 @@ class ClaimedSerializer(serializers.HyperlinkedModelSerializer):
         model = Claimed
         fields = ['id', 'claimed', 'claimed_date']
     
-    claimed = serializers.JSONField(
-        encoder=DataclassJSONEncoder,
-    )
+    claimed = CRField()
