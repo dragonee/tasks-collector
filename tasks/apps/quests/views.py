@@ -41,3 +41,10 @@ class QuestListView(ListView):
     ).order_by('-last_id')
 
     paginate_by = 100
+
+class QuestJournalListView(ListView):
+    model = QuestJournal
+
+    queryset = QuestJournal.objects.order_by('-pk')
+
+    paginate_by = 400

@@ -693,3 +693,33 @@ article.quest {
         }
     }
 }
+
+.mt-0 {
+    margin-top: 0 !important;
+}
+
+.quest-meta {
+    margin: 3rem 20px .25rem;
+    opacity: 40%;
+
+    transition: 0.4s all ease-in-out;
+
+    &:hover {
+        opacity: 100%;
+    }
+
+    a.main {
+        text-decoration: none;
+        color: rgb(158, 38, 1);
+
+        font-weight: 600;
+
+        margin-right: 2em;
+    }
+
+    &.completed {
+        a.main {
+            color: rgb(139, 153, 111);
+        }
+    }
+}
