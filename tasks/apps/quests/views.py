@@ -3,14 +3,14 @@ from django.http import HttpRequest
 
 from django.views.generic import ListView
 
+from django.db.models import Max
+
 from rest_framework import viewsets
 from rest_framework.exceptions import MethodNotAllowed
 
 from .models import QuestJournal, Quest
 from .serializers import QuestSerializer, QuestJournalSerializer
 
-def disabled_method(*args, **kwargs):
-    raise MethodNotAllowed(request.method)
 
 
 class QuestViewSet(viewsets.ModelViewSet):
@@ -35,5 +35,9 @@ def show_quest(request: HttpRequest, slug: str):
 
 class QuestListView(ListView):
     model = Quest
+
+    queryset = Quest.objects.all().annotate(
+        last_id=Max('questjournal__pk'),
+    ).order_by('-last_id')
 
     paginate_by = 100
