@@ -9,16 +9,7 @@
 
 <div class="observations">
     <div class="cont">
-        <p class="menu">
-            <a href="/">Daily</a>
-            <a href="/hello/world/">Tasks</a>
-            <a href="/observations/">Observations</a>
-            <a href="/admin/tree/observation/add/">+Observation</a>
-            <a href="/periodical/">Periodical</a>
-            <a href="/summaries/">Summaries</a>
-            <a href="/quests/view/">Quests</a>
-
-        </p>
+        {% include "menu.html" %}
 
         <p class="menu observation with-badges">
             <a href="/observations/">Open <span class="badge">{{ open_count }}</span></a>

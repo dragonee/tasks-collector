@@ -9,8 +9,8 @@ router.register(r'journal', views.QuestJournalViewSet)
 
 urlpatterns = [
     path('view/<slug:slug>/', views.show_quest, name='show_quest'),
-    path('view/', views.QuestListView.as_view(), name='quest-list'),
-    path('journal/', views.QuestJournalListView.as_view(), name='questjournal-list'),
+    path('', views.QuestListView.as_view(), name='quest-list'),
+    path('view/', views.QuestJournalListView.as_view(), name='questjournal-list'),
 
     path('', include(router.urls)),
 ]

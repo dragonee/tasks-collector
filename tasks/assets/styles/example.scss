@@ -374,7 +374,7 @@ h2 .menulink {
     margin-left: 0;
 }
 
-h1 + .menu a:first-child {
+h1 + .cont .menu a:first-child {
     margin-left: 40px;
 }
 
@@ -722,4 +722,9 @@ article.quest {
             color: rgb(139, 153, 111);
         }
     }
+}
+
+.cont .cont {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }

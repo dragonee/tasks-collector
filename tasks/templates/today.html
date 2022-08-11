@@ -36,16 +36,9 @@
             </script>
             <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d"  }}">&gt;</a>
         </h2>
-        <p class="menu">
-            <a href="/">Daily</a>
-            <a href="/hello/world/">Tasks</a>
-            <a href="/observations/">Observations</a>
-            <a href="/admin/tree/observation/add/">+Observation</a>
-            <a href="/periodical/">Periodical</a>
-            <a href="/summaries/">Summaries</a>
-            <a href="/quests/view/">Quests</a>
+        
+        {% include "menu.html" %}
 
-        </p>
     </div>
 
     <div class="form">
