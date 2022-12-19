@@ -42,7 +42,10 @@ module.exports = {
             },
             {
                 test: /\.(png|jpe?g|gif|ico)$/,
-                loader: 'file-loader?name=assets/images/[name].[hash].[ext]'
+                loader: 'file-loader',
+                options: {
+                    name: "assets/images/[name].[hash].[ext]"
+                }
             },
             {
                 test: /\.(eot|svg|ttf|woff|woff2)$/,
@@ -92,7 +95,6 @@ module.exports = {
     optimization: {
         // Extract shared runtime code.
         runtimeChunk: 'single',
-        namedModules: true,
         noEmitOnErrors: true
     },
     // If multiple files share the same name but have different extensions, webpack
