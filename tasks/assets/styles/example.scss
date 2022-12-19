@@ -461,6 +461,21 @@ article.quest {
             color: rgb(139, 153, 111);
         }
     }
+
+    &.fall {
+        margin: 0;
+        padding: 14px 20px;
+
+        border-radius: 0;
+
+        .meta {
+            float: right;
+        }
+    }
+}
+
+.cont + article.quest.fall {
+    margin-top: 2rem;
 }
 
 .quest-single-item {

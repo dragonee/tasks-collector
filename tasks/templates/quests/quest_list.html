@@ -11,7 +11,7 @@
     {% include "menu.html" %}
     
     {% for quest in object_list %}
-    <article class="quest {% if quest.date_closed %}completed{% endif %}" id="observation-{{ quest.pk }}">
+    <article class="quest fall {% if quest.date_closed %}completed{% endif %}" id="observation-{{ quest.pk }}">
         <a class="main" href="{{ quest.get_absolute_url }}">{{ quest.name }}</a>
 
         <span class="meta">
@@ -22,19 +22,6 @@
             {% endif %} 
             | <a href="/admin/quests/quest/{{ quest.pk }}/change/">edit</a>
         </span>
-
-        {% with quest.questjournal_set.last as update %}
-        {% if update %}
-            <hr class="just-line">
-
-            <div class="update">
-                <p class="label">Updated on {{ update.pub_date|date:"Y-m-d" }}</p>
-                <div>
-                    {{ update.text | linebreaks }}
-                </div>
-            </div>
-        {% endif %}        
-        {% endwith %}
     </article>
 
     {% empty %}
