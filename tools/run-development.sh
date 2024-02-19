@@ -11,4 +11,5 @@ pip3 install -r $REQUIREMENTS
 npm install
 $WAIT_FOR $DATABASE_HOST -- echo 'Database ready'
 $MANAGE_PY migrate
+$MANAGE_PY loaddata tasks/fixtures/dev/initial_state.json
 npm run dev
