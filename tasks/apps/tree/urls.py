@@ -17,6 +17,7 @@ urlpatterns = [
     path('summaries/', views.summaries),
 
     path('boards/<int:id>/commit/', views.commit_board),
+    path('boards/append/', views.add_task),
     path('periodical/', views.periodical),
     path('observations/', views.ObservationListView.as_view(), name='observation-list'),
     path('observations/closed/', views.ObservationClosedListView.as_view(), name='observation-list-closed'),

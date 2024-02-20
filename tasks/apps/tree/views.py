@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
 
 from rest_framework import viewsets
+from rest_framework import status
+
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer
 from .models import Board, Thread, Plan, Reflection, Observation
@@ -222,6 +224,40 @@ def commit_board(request, id=None):
     new_board.save()
 
     return Response(BoardSerializer(new_board).data)
+
+@api_view(['POST'])
+def add_task(request):
+    item = request.data
+
+    # XXX hackish
+    if not 'text' in item or not 'thread-name' in item:
+        return Response({'errors': 'no thread-name and text'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    thread = get_object_or_404(Thread, name=item['thread-name'])
+    board = Board.objects.filter(thread=thread).order_by('-date_started').first()
+
+    board.state.append({
+        'children': [],
+        'data': {
+            'state': 'open',
+            'text': item['text'],
+            'meaningfulMarkers': {
+                "weeksInList": 0,
+                "important": False,
+                "finalizing": False,
+                "canBeDoneOutsideOfWork": False,
+                "canBePostponed": False,
+                "postponedFor": 0,
+                "madeProgress": False,
+            }
+        },
+        'text': item['text'],
+    })
+
+    board.save()
+
+    return Response(BoardSerializer(board).data)
+
 
 def board_summary(request, id):
     board = get_object_or_404(Board, pk=id)
