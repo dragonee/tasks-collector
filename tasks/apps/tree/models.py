@@ -70,8 +70,6 @@ class Reflection(models.Model):
     better = models.TextField(help_text=_("How could you improve? What could you do better?"), null=True, blank=True)
     best = models.TextField(help_text=_("What do you need to do if you want to be the best version of yourself?"), null=True, blank=True)
 
-    dreamstate = models.BooleanField(help_text=_("Were you in a dream-like state, away from the real?"), default=False)
-
     class Meta:
         ordering = ('-pub_date', )
 
