@@ -37,6 +37,10 @@ class BoardCommitted(Event):
 
     date_started = models.DateTimeField(default=timezone.now)
 
+    @property
+    def date_closed(self):
+        return self.published
+
 
 class Board(models.Model):
     date_started = models.DateTimeField(default=timezone.now)
