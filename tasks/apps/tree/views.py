@@ -5,7 +5,7 @@ from rest_framework import status
 
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer
-from .models import Board, Thread, Plan, Reflection, Observation
+from .models import Board, Thread, Plan, Reflection, Observation, BoardCommitted, default_state
 from .forms import PlanForm, ReflectionForm
 from .commit import merge, calculate_changes_per_board, pprint
 
@@ -89,12 +89,23 @@ def commit_board(request, id=None):
     #     pprint(changes)
     #     print('------------------', flush=True)
 
-    new_board = Board()
-    new_board.thread = board.thread
-
     if None in changeset:
-        new_board.state = changeset[None]
+        new_state = changeset[None]
         del changeset[None]
+    else:
+        new_state = default_state()
+
+    now = timezone.now()
+
+    BoardCommitted.objects.create(
+        published=now,
+        thread=board.thread,
+        focus=board.focus or '',
+        before=board.state,
+        after=new_state,
+        transitions=changeset,
+        date_started=board.date_started,
+    )
 
     other_boards = list(map(make_board, changeset.keys()))
 
@@ -102,11 +113,11 @@ def commit_board(request, id=None):
         other_board.state = merge(other_board.state, changeset[other_board.thread.name])    
         other_board.save()
 
-    board.date_closed = timezone.now()
+    board.state = new_state
+    board.date_started = now
     board.save()
-    new_board.save()
 
-    return Response(BoardSerializer(new_board).data)
+    return Response(BoardSerializer(board).data)
 
 @api_view(['POST'])
 def add_task(request):

@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
 
+    'polymorphic',
+
     'tasks.apps.common',
     'tasks.apps.hello_world',
     'tasks.apps.tree',

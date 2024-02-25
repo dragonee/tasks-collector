@@ -3,6 +3,11 @@ from django.db import models
 from django.utils.translation import ugettext_lazy as _
 from django.utils.text import Truncator
 
+from django.utils import timezone
+
+def empty_dict():
+    return {}
+
 def default_state():
     return []
 
@@ -15,9 +20,29 @@ class Thread(models.Model):
     class Meta:
         ordering = ('name', )
 
-class Board(models.Model):
-    date_started = models.DateTimeField(auto_now_add=True)
 
+class Event(models.Model):
+    published = models.DateTimeField(auto_now_add=True)
+
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
+
+
+class BoardCommitted(Event):
+    focus = models.CharField(max_length=255)
+
+    before = models.JSONField(default=default_state)
+    after = models.JSONField(default=default_state)
+
+    transitions = models.JSONField(default=empty_dict)
+
+    date_started = models.DateTimeField(default=timezone.now)
+
+
+class Board(models.Model):
+    # deprecated
+    date_started = models.DateTimeField(default=timezone.now)
+
+    # deprecated
     date_closed = models.DateTimeField(null=True, blank=True)
 
     state = models.JSONField(default=default_state, blank=True)
