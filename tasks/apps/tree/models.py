@@ -84,7 +84,6 @@ class Plan(models.Model):
 
     focus = models.TextField(help_text=_("What is your primary focus?"), null=True, blank=True)
     want = models.TextField(help_text=_("What feelings/thoughts/desires are currently on your mind?"), null=True, blank=True)
-    in_sync = models.BooleanField(default=False)
 
     class Meta:
         ordering = ('-pub_date', )
