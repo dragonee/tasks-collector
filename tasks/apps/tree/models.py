@@ -39,11 +39,7 @@ class BoardCommitted(Event):
 
 
 class Board(models.Model):
-    # deprecated
     date_started = models.DateTimeField(default=timezone.now)
-
-    # deprecated
-    date_closed = models.DateTimeField(null=True, blank=True)
 
     state = models.JSONField(default=default_state, blank=True)
 
@@ -56,9 +52,9 @@ class Board(models.Model):
 
     def __str__(self):
         if not self.focus:
-            return str(self.date_started)
+            return str(self.thread)
 
-        return "{} {}".format(self.focus, self.date_started)
+        return "{} {}".format(self.focus, self.thread)
 
 
 class Reflection(models.Model):

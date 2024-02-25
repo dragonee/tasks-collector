@@ -24,7 +24,7 @@ class BoardSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Board
-        fields = ['id', 'date_started', 'date_closed', 'state', 'focus', 'thread']
+        fields = ['id', 'date_started', 'state', 'focus', 'thread']
 
 class ObservationSerializer(serializers.HyperlinkedModelSerializer):
     type = serializers.SlugRelatedField(
@@ -104,6 +104,7 @@ def marker(key, default=None):
 def ilen(iter):
     return sum(1 for _ in iter)
 
+### XXX TODO
 class BoardSummary(object):
     def __init__(self, board):
         self.board = board
