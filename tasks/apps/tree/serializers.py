@@ -104,13 +104,12 @@ def marker(key, default=None):
 def ilen(iter):
     return sum(1 for _ in iter)
 
-### XXX TODO
 class BoardSummary(object):
     def __init__(self, board):
         self.board = board
 
     def filter_tree(self, pred):
-        return filter(pred, tree_iterator(self.board.state))
+        return filter(pred, tree_iterator(self.board.before))
 
     def finished(self):
         return self.filter_tree(state('checked'))
@@ -125,10 +124,10 @@ class BoardSummary(object):
         return ilen(self.postponed())
 
     def task_count(self):
-        return ilen(tree_iterator(self.board.state))
+        return ilen(tree_iterator(self.board.before))
 
     def days(self):
-        return (self.board.date_closed - self.board.date_started).days
+        return (self.board.published - self.board.date_started).days
 
     def observations(self):
         # XXX TODO optimize N-question problem
@@ -139,5 +138,5 @@ class BoardSummary(object):
 
         return Observation.objects.filter(pub_date__range=(
             self.board.date_started, 
-            self.board.date_closed
+            self.board.published
         ))

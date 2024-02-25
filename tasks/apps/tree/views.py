@@ -154,7 +154,7 @@ def add_task(request):
 
 # XXX TODO
 def board_summary(request, id):
-    board = get_object_or_404(Board, pk=id)
+    board = get_object_or_404(BoardCommitted, pk=id)
 
     summary = BoardSummary(board)
 
@@ -173,10 +173,7 @@ def period_from_request(request, days=7, start=None, end=None):
 def summaries(request):
     period = period_from_request(request, days=30)
 
-    boards = Board.objects.filter(date_closed__range=period).order_by('-date_closed')
-
-    if boards.count() == 0:
-        boards = Board.objects.filter(date_closed__isnull=False).order_by('-date_closed')[:1]
+    boards = BoardCommitted.objects.filter(published__range=period).order_by('-published')
 
     summaries = [BoardSummary(board) for board in boards]
 
