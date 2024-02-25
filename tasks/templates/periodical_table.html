@@ -59,17 +59,6 @@
                     <td>{{ best|listize }}</td>
                 {% endfor %}
             </tr>
-
-            <tr>
-                <th>In sync</th>
-                {% for in_sync in combined.plan__in_sync %}
-                    <td class="in-sync">{% if in_sync %}
-                        ☑
-                    {% else %}
-                        ☐
-                    {% endif %}</td>
-                {% endfor %}
-            </tr>
         </tbody>
     </table>
 

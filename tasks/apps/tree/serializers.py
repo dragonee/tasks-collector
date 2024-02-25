@@ -12,7 +12,7 @@ class ThreadSerializer(serializers.HyperlinkedModelSerializer):
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Plan
-        fields = ['id', 'pub_date', 'want', 'focus', 'in_sync']
+        fields = ['id', 'pub_date', 'want', 'focus']
 
 class ReflectionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
