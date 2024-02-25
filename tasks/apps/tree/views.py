@@ -152,7 +152,7 @@ def add_task(request):
 
     return Response(BoardSerializer(board).data)
 
-
+# XXX TODO
 def board_summary(request, id):
     board = get_object_or_404(Board, pk=id)
 
@@ -169,6 +169,7 @@ def period_from_request(request, days=7, start=None, end=None):
         request.GET.get('to', end or datetime.date.today() + datetime.timedelta(days=1))
     )
 
+# XXX TODO
 def summaries(request):
     period = period_from_request(request, days=30)
 

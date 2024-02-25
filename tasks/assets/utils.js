@@ -34,7 +34,6 @@ export function createTreeItem(text="") {
 
 export function createBoard() {
     return {
-        date_closed: null,
         date_started: null,
         id: null,
         focus: "",
