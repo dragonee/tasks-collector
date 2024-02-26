@@ -1,4 +1,4 @@
-pip==21.1
+pip==23.3
 django==3.2.16
 psycopg2-binary
 django-crispy-forms==1.8.1
