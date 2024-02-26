@@ -74,7 +74,7 @@
                     <p>
                     {% for item in tracked_habits %}
                         <span>
-                        {% if item.occured %}☑{% else %}☐{% endif %}
+                        {% if item.occured %}<input type="checkbox" readonly checked disabled>{% else %}<input type="checkbox" readonly disabled>{% endif %}
                         {{ item.habit }}: {{ item.note }}
                         </span><br>
                     {% endfor %}
