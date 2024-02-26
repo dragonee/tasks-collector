@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
             name='Event',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('published', models.DateTimeField(auto_now_add=True)),
+                ('published', models.DateTimeField(default=django.utils.timezone.now)),
                 ('thread', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='tree.thread')),
             ],
         ),

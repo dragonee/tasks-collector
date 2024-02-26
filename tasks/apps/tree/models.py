@@ -5,6 +5,9 @@ from django.utils.text import Truncator
 
 from django.utils import timezone
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 def empty_dict():
     return {}
 
@@ -22,7 +25,7 @@ class Thread(models.Model):
 
 
 class Event(models.Model):
-    published = models.DateTimeField(auto_now_add=True)
+    published = models.DateTimeField(default=timezone.now)
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
@@ -42,6 +45,37 @@ class BoardCommitted(Event):
         return self.published
 
 
+class Habit(models.Model):
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ('name', )
+
+
+class HabitTracked(Event):
+    habit = models.ForeignKey(Habit, on_delete=models.CASCADE)
+
+    occured = models.BooleanField(default=True)
+
+    note = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return "{} {}".format(self.habit, self.published)
+
+
+class EditableHabitsLine(models.Model):
+    pub_date = models.DateField()
+
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
+
+    line = models.TextField(blank=True)
+
+    def __str__(self):
+        return "{}: {}".format(self.pub_date, self.line)
+    
 class Board(models.Model):
     date_started = models.DateTimeField(default=timezone.now)
 

@@ -68,9 +68,26 @@
             {{ reflection_form.as_p }}
             </div>
 
+            <div class="habits">
+                <h3>Habits</h3>
+                {% if tracked_habits %}
+                    <p>
+                    {% for item in tracked_habits %}
+                        <span>
+                        {% if item.occured %}☑{% else %}☐{% endif %}
+                        {{ item.habit }}: {{ item.note }}
+                        </span><br>
+                    {% endfor %}
+                    </p>
+                {% else %}
+                    {{ habit_line_form.as_p }}
+                {% endif %}
+            </div>
+
             <button>Submit</button>
         </div>
     </div>
+
 </form>
 </div>
 
