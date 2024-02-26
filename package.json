@@ -33,7 +33,7 @@
     "webpack-notifier": "^1.15.0"
   },
   "dependencies": {
-    "axios": "^0.21.4",
+    "axios": "^0.28.0",
     "bootstrap": "^4.6.2",
     "deep-equal": "^1.1.1",
     "jquery": "^3.6.0",
