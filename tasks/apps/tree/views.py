@@ -5,9 +5,10 @@ from rest_framework import status
 
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer
-from .models import Board, Thread, Plan, Reflection, Observation, BoardCommitted, default_state
-from .forms import PlanForm, ReflectionForm
+from .models import Board, Thread, Plan, Reflection, Observation, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine
+from .forms import PlanForm, ReflectionForm, EditableHabitsLineForm
 from .commit import merge, calculate_changes_per_board, pprint
+from .habits import habits_line_to_habits_tracked
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -20,6 +21,8 @@ from django.views.generic.list import ListView
 
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
+
+from django.db import transaction
 
 import datetime
 
@@ -258,7 +261,7 @@ def today(request):
     thread = Thread.objects.get(name=thread_name)
 
     try:
-        now = datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d')
+        now = timezone.make_aware(datetime.datetime.strptime(request.GET['date'], '%Y-%m-%d'))
         today = now.date()
     except KeyError:
         now = timezone.now()
@@ -267,6 +270,12 @@ def today(request):
 
         if 0 <= now.hour < 12:
             today -= datetime.timedelta(days=1)
+
+    day_start = timezone.make_aware(datetime.datetime.combine(today, datetime.datetime.min.time()))
+    day_end = timezone.make_aware(datetime.datetime.combine(today, datetime.datetime.max.time()))
+
+    if not day_start <= now <= day_end:
+        now = day_end
 
     try:
         today_plan = Plan.objects.get(pub_date=today, thread=thread)
@@ -285,6 +294,16 @@ def today(request):
     except Reflection.DoesNotExist:
         reflection = Reflection(pub_date=today, thread=thread)
 
+    habits = Habit.objects.all()
+    tracked_habits = HabitTracked.objects.filter(
+         published__range=(day_start, day_end)
+    )
+
+    try:
+        habit_line = EditableHabitsLine.objects.get(pub_date=today, thread=thread)
+    except EditableHabitsLine.DoesNotExist:
+        habit_line = EditableHabitsLine(pub_date=today, thread=thread)
+  
     if request.method == 'POST':
         today_plan_form = PlanForm(request.POST, instance=today_plan, prefix="today_plan")
         today_valid = today_plan_form.is_valid()
@@ -305,13 +324,34 @@ def today(request):
         if reflection_valid:
             reflection_form.save()
 
-        if all((today_valid, tomorrow_valid, reflection_valid)):
+        habit_line_form = EditableHabitsLineForm(request.POST, instance=habit_line, prefix="habit_line")
+        habit_line_form_valid = habit_line_form.is_valid()
+        
+        if habit_line_form_valid and habit_line_form.cleaned_data['line'] != '':
+            with transaction.atomic():
+                instance = habit_line_form.save()
+                triplets = habits_line_to_habits_tracked(instance.line)
+
+                for occured, habit, note in triplets:
+                    HabitTracked.objects.create(
+                        occured=occured,
+                        habit=habit,
+                        note=note,
+                        published=now,
+                        thread=thread,
+                    )
+            
+        if all((today_valid, tomorrow_valid, reflection_valid, habit_line_form_valid)):
             return redirect(request.get_full_path())
 
     else:
         today_plan_form = PlanForm(instance=today_plan, prefix="today_plan")
         tomorrow_plan_form = PlanForm(instance=tomorrow_plan, prefix="tomorrow_plan")
         reflection_form = ReflectionForm(instance=reflection, prefix="reflection")
+        habit_line_form = EditableHabitsLineForm(instance=habit_line, prefix="habit_line")
+        
+        if habit_line.pk:
+            habit_line_form.fields['line'].widget.attrs['readonly'] = True
 
     return render(request, 'today.html', {
         'yesterday': today - datetime.timedelta(days=1),
@@ -324,6 +364,10 @@ def today(request):
         'today_plan_form': today_plan_form,
         'tomorrow_plan_form': tomorrow_plan_form,
         'reflection_form': reflection_form,
+        'habit_line_form': habit_line_form,
+
+        'habits': habits,
+        'tracked_habits': tracked_habits,
 
         'thread': thread,
         'threads': Thread.objects.all(),
