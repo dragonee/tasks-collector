@@ -4,8 +4,8 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer
-from .models import Board, Thread, Plan, Reflection, Observation, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, UpdateSerializer
+from .models import Board, Thread, Plan, Reflection, Observation, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, Update
 from .forms import PlanForm, ReflectionForm, EditableHabitsLineForm
 from .commit import merge, calculate_changes_per_board, pprint
 from .habits import habits_line_to_habits_tracked
@@ -64,6 +64,10 @@ class ObservationViewSet(viewsets.ModelViewSet):
 
     filter_backends = [DjangoFilterBackend]
     filter_class = ObservationFilter
+
+class UpdateViewSet(viewsets.ModelViewSet):
+    queryset = Update.objects.all()
+    serializer_class = UpdateSerializer
 
 class ThreadViewSet(viewsets.ModelViewSet):
     """

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Board, Thread, Plan, Reflection, Observation, ObservationType
+from .models import Board, Thread, Plan, Reflection, Observation, ObservationType, Update
 
 from functools import partial
 
@@ -40,6 +40,13 @@ class ObservationSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Observation
         fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'date_closed']
+
+class UpdateSerializer(serializers.HyperlinkedModelSerializer):
+    observation = ObservationSerializer(read_only=True)
+
+    class Meta:
+        model = Update
+        fields = [ 'id', 'comment', 'pub_date', 'observation_id', 'observation' ]
 
 class tree_iterator:
     """Preorder traversal tree iterator"""
