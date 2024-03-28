@@ -1,5 +1,17 @@
 from .base import *
-from .email import *
+
+try:
+    from .email import *
+except ImportError:
+    EMAIL_USE_TLS = False
+    EMAIL_HOST = '127.0.0.1'
+    EMAIL_PORT = 25
+    EMAIL_HOST_USER = '[host]'
+    EMAIL_HOST_PASSWORD = '[password]'
+
+    DEFAULT_FROM_EMAIL = '[default]'
+    SERVER_EMAIL = '[server]'
+
 
 DEBUG = False
 

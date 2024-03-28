@@ -1,1 +1,0 @@
-(self.webpackChunk=self.webpackChunk||[]).push([[143],{5062:()=>{},5389:(e,s,t)=>{t(5062),[...document.querySelectorAll("article.observation")].forEach((e=>{const s=document.createElement("span");s.classList.add("observation-hide"),s.addEventListener("click",(()=>{e.classList.toggle("open")})),e.appendChild(s)}))}},e=>{e(e.s=5389)}]);
