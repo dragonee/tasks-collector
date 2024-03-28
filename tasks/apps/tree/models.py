@@ -7,6 +7,8 @@ from django.utils import timezone
 
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from polymorphic.models import PolymorphicModel
+
 
 def empty_dict():
     return {}
@@ -24,7 +26,7 @@ class Thread(models.Model):
         ordering = ('name', )
 
 
-class Event(models.Model):
+class Event(PolymorphicModel):
     published = models.DateTimeField(default=timezone.now)
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
