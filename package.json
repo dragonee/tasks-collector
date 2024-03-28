@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "webpack --config config/webpack.local.js --mode development",
-    "build-dist": "webpack --config config/webpack.dist.js --mode production --progress --colors && sed -i -e 's?'`pwd`'?/home/sites/vhosts/tasks.makimo.pl?g' webpack-stats.dist.json",
+    "build-dist": "webpack --config config/webpack.dist.js --mode production --progress && sed -i -e 's?'`pwd`'?/home/sites/vhosts/tasks.makimo.pl?g' webpack-stats.dist.json",
     "watch-assets": "webpack --config config/webpack.local.js --watch --mode development",
     "watch-python": "./manage.py runserver 0.0.0.0:8000",
     "dev": "concurrently npm:watch-*"
