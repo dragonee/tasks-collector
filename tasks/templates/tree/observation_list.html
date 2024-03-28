@@ -28,12 +28,12 @@
             <div class="label">How should you approach it in the future?</div>
             <div>{{ observation.approach|linebreaks }}</div>
 
-            {% if observation.update_set.all %}
+            {% if observation.observationupdated_set.all %}
                 <hr class="just-line">
 
-                {% for update in observation.update_set.all %}
+                {% for update in observation.observationupdated_set.all %}
                     <div class="update">
-                        <p class="label">Updated on {{ update.pub_date|date:"Y-m-d" }}</p>
+                        <p class="label">Updated on {{ update.published|date:"Y-m-d" }}</p>
                         <div>
                             {{ update.comment | linebreaks }}
                         </div>

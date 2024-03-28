@@ -4,8 +4,8 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, UpdateSerializer
-from .models import Board, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, Update
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer
+from .models import Board, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, ObservationUpdated
 from .forms import PlanForm, ReflectionForm, EditableHabitsLineForm, ObservationForm
 from .commit import merge, calculate_changes_per_board, pprint
 from .habits import habits_line_to_habits_tracked
@@ -71,9 +71,9 @@ class ObservationViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filter_class = ObservationFilter
 
-class UpdateViewSet(viewsets.ModelViewSet):
-    queryset = Update.objects.all()
-    serializer_class = UpdateSerializer
+class ObservationUpdatedViewSet(viewsets.ModelViewSet):
+    queryset = ObservationUpdated.objects.all()
+    serializer_class = ObservationUpdatedSerializer
 
 class ThreadViewSet(viewsets.ModelViewSet):
     """
@@ -388,7 +388,7 @@ class ObservationListView(ListView):
     queryset = Observation.objects \
         .filter(date_closed__isnull=True) \
         .select_related('thread', 'type') \
-        .prefetch_related('update_set')
+        .prefetch_related('observationupdated_set')
 
     paginate_by = 100
 
@@ -405,7 +405,7 @@ class ObservationClosedListView(ListView):
     queryset = Observation.objects \
         .filter(date_closed__isnull=False) \
         .select_related('thread', 'type') \
-        .prefetch_related('update_set')
+        .prefetch_related('observationupdated_set')
 
     paginate_by = 100
 
@@ -424,11 +424,11 @@ def observation_edit(request, observation_id=None):
     else:
         observation = Observation()
 
-    UpdateFormSet = inlineformset_factory(Observation, Update, fields=('comment',))
+    ObservationUpdatedFormSet = inlineformset_factory(Observation, ObservationUpdated, fields=('comment',), extra=3)
 
     if request.method == "POST":
-        form = ObservationForm(request.POST, instance=observation)
-        formset = UpdateFormSet(request.POST, instance=observation)
+        form = ObservationForm(request.POST, instance=observation,)
+        formset = ObservationUpdatedFormSet(request.POST, instance=observation)
     
         if form.is_valid() and formset.is_valid():
             form.save()
@@ -441,7 +441,7 @@ def observation_edit(request, observation_id=None):
             'type': ObservationType.objects.first(),
             'thread': Thread.objects.get(name='big-picture')
         })
-        formset = UpdateFormSet(instance=observation)
+        formset = ObservationUpdatedFormSet(instance=observation)
 
     return render(request, "tree/observation_edit.html", {
         "form": form,
