@@ -157,7 +157,7 @@ class Observation(models.Model):
 
 
 class Update(models.Model):
-    pub_date = models.DateField(auto_now_add=True)
+    pub_date = models.DateField()
 
     observation = models.ForeignKey(Observation, on_delete=models.CASCADE)
 
