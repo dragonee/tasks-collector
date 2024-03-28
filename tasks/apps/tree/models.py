@@ -165,3 +165,12 @@ class Update(models.Model):
 
     def __str__(self):
         return self.comment
+
+
+class ObservationUpdated(Event):
+    observation = models.ForeignKey(Observation, on_delete=models.CASCADE)
+
+    comment = models.TextField(help_text=_("Update"))
+
+    def __str__(self):
+        return self.comment

@@ -5,10 +5,12 @@ from rest_framework import status
 
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, UpdateSerializer
-from .models import Board, Thread, Plan, Reflection, Observation, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, Update
-from .forms import PlanForm, ReflectionForm, EditableHabitsLineForm
+from .models import Board, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, Update
+from .forms import PlanForm, ReflectionForm, EditableHabitsLineForm, ObservationForm
 from .commit import merge, calculate_changes_per_board, pprint
 from .habits import habits_line_to_habits_tracked
+
+from datetime import date
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -23,6 +25,10 @@ from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 
 from django.db import transaction
+from django.forms import inlineformset_factory
+
+from django.urls import reverse
+
 
 import datetime
 
@@ -410,3 +416,36 @@ class ObservationClosedListView(ListView):
         context['closed_count'] = len(Observation.objects.filter(date_closed__isnull=False))
 
         return context
+
+
+def observation_edit(request, observation_id=None):
+    if observation_id is not None:
+        observation = get_object_or_404(Observation, id=observation_id)        
+    else:
+        observation = Observation()
+
+    UpdateFormSet = inlineformset_factory(Observation, Update, fields=('comment',))
+
+    if request.method == "POST":
+        form = ObservationForm(request.POST, instance=observation)
+        formset = UpdateFormSet(request.POST, instance=observation)
+    
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            return redirect(reverse('public-observation-list'))
+
+    else:
+        form = ObservationForm(instance=observation, initial={
+            'pub_date': date.today(),
+            'type': ObservationType.objects.first(),
+            'thread': Thread.objects.get(name='big-picture')
+        })
+        formset = UpdateFormSet(instance=observation)
+
+    return render(request, "tree/observation_edit.html", {
+        "form": form,
+        "formset": formset,
+        "instance": observation,
+        "thread_as_link": True,
+    })

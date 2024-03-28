@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}
+    {% if instance.situation %}
+        {{ instance.situation_truncated }}
+    {% else %}
+        Add an observation
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Vue entry-point -->
+
+
+<div class="observations">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+<div class="observation-edit page">
+<form action="" method="POST">
+    {% csrf_token %}
+
+    <div class="form">
+
+        <div class="left">
+            <h3>Observation</h3>
+            <p class="meta">Provide situation, then interpretation and approach.</p>
+            {{ form.as_p }}
+        
+            <div class="submit">
+                <button class="submit">Submit</button>
+            </div>            
+        </div>
+
+        <div class="right">
+            <h3>Updates</h3>
+            <p class="meta">Optional. All existing updates and up to 3 extra are here.</p>
+            {{ formset }}
+
+            <div class="submit">
+                <button class="submit">Submit</button>
+            </div>
+        </div>
+    </div>
+</form>
+</div>
+
+</div>
+{% endblock %}
+
+<!-- Load Vue app -->
+{% block extrajs %}
+{% endblock %}
+

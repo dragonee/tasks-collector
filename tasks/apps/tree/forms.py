@@ -2,7 +2,7 @@ from django import forms
 
 from django.core.exceptions import ValidationError
 
-from .models import Plan, Reflection, EditableHabitsLine
+from .models import Plan, Reflection, EditableHabitsLine, Observation
 from .habits import habits_line_to_habits_tracked
 
 class PlanForm(forms.ModelForm):
@@ -30,3 +30,10 @@ class EditableHabitsLineForm(forms.ModelForm):
             raise ValidationError(str(e), code="invalid")
     
         return self.cleaned_data['line']
+
+class ObservationForm(forms.ModelForm):
+    class Meta:
+        model = Observation
+        fields = [
+            "situation", "interpretation", "approach", "pub_date", "type", "date_closed", "thread"
+        ]

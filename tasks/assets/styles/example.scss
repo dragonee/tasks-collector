@@ -747,3 +747,163 @@ article.quest {
     margin-left: 0 !important;
     margin-right: 0 !important;
 }
+
+
+.observation-edit {
+
+    h2, h3 {
+        color: #999;
+    }
+
+    .form {
+        display: flex;
+        margin-left: -20px;
+        margin-right: -20px;
+    }
+
+    .left, .right {
+        margin: 0 20px;
+        flex: 1;
+    }
+
+    label {
+        display: block;
+    }
+
+    textarea {
+        width: 100%;
+        border: 1px solid #f4f9f9;
+
+        &:focus, &:hover {
+            border: 1px solid #eee;
+        }
+
+        outline:none;
+
+        font-size: 1rem;
+        font-family: 'Raleway', sans-serif;
+        font-weight: 700;
+
+        color: #205e7d;
+
+        padding: 0.45rem 0.75rem;
+    }
+
+    .form {
+        display: flex;
+    }
+
+    .left, .right {
+        margin: 0 20px 4rem;
+        flex: 1;
+    }
+
+    @media screen and (max-width: 767px) {
+        .form {
+            flex-wrap: wrap;
+        }
+
+        .left, .right {
+            width: 100%;
+            flex: 0 0 calc(100% - 40px);
+        }
+    }
+
+    label {
+        display: inline-block;
+    }
+
+    .left {
+        label {
+            display: block;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.45rem 0.75rem;
+
+            border: 1px solid #f4f9f9;
+
+            &:focus, &:hover {
+                border: 1px solid #eee;
+            }
+
+            background: #fff;
+
+            outline: none;
+        }
+    }
+
+    .right {
+        .helptext {
+            display: none;
+        }
+
+        input[type=hidden] + label {
+            display: block;
+            margin-top: 1rem;
+        }
+    }
+
+    textarea {
+        width: 100%;
+        border: 1px solid #f4f9f9;
+
+        &:focus, &:hover {
+            border: 1px solid #eee;
+        }
+
+        outline:none;
+
+        font-size: 1rem;
+        font-family: 'Raleway', sans-serif;
+
+        color: #205e7d;
+
+        padding: 0.45rem 0.75rem;
+
+
+    }
+
+    .helptext, .meta {
+        font-size: 0.9em;
+        color: #999;
+    }
+
+    .meta {
+        font-style: italic;
+        margin-top: -1rem;
+    }
+
+    label[for=id_pub_date] {
+        margin-top: 4rem;
+    }
+
+    div.submit {
+        margin: 2rem 0;
+    }
+
+    button.submit {
+        font-family: Raleway, sans-serif;
+        font-weight: 700;
+        color: #fff;
+        background-color: #205e7d;
+        padding: 10px 30px;
+        border: 2px solid darken(#205e7d, 10%);
+        border-radius: 10px;
+        transform: translateY(0);
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        cursor: pointer;
+
+        &:hover {
+            transition : 1000ms;
+            padding: 10px 50px;
+            transform : translateY(-0px);
+            background-color: #fff;
+            color: darken(#205e7d, 5%);
+            border: solid 2px darken(#205e7d, 10%);
+        }
+    }
+}

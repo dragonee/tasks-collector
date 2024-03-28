@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 
 from rest_framework import routers
@@ -20,8 +20,10 @@ urlpatterns = [
     path('boards/<int:id>/commit/', views.commit_board),
     path('boards/append/', views.add_task),
     path('periodical/', views.periodical),
-    path('observations/', views.ObservationListView.as_view(), name='observation-list'),
-    path('observations/closed/', views.ObservationClosedListView.as_view(), name='observation-list-closed'),
+    path('observations/add/', views.observation_edit, name='public-observation-add'),
+    re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/$', views.observation_edit, name='public-observation-edit'),
+    path('observations/', views.ObservationListView.as_view(), name='public-observation-list'),
+    path('observations/closed/', views.ObservationClosedListView.as_view(), name='public-observation-list-closed'),
 
     path('', views.today),
     path('', include(router.urls)),
