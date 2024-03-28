@@ -5,7 +5,7 @@ from django.utils.text import Truncator
 
 from django.utils import timezone
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 def empty_dict():
@@ -155,18 +155,6 @@ class Observation(models.Model):
             self.thread
         )
 
-
-class Update(models.Model):
-    pub_date = models.DateField()
-
-    observation = models.ForeignKey(Observation, on_delete=models.CASCADE)
-
-    comment = models.TextField(help_text=_("Update"))
-
-    def __str__(self):
-        return self.comment
-
-
 class ObservationUpdated(Event):
     observation = models.ForeignKey(Observation, on_delete=models.CASCADE)
 
@@ -174,3 +162,9 @@ class ObservationUpdated(Event):
 
     def __str__(self):
         return self.comment
+    
+
+@receiver(pre_save, sender=ObservationUpdated)
+def my_callback(sender, instance, *args, **kwargs):
+    if not instance.thread_id and instance.observation:
+        instance.thread_id = instance.observation.thread_id
