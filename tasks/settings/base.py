@@ -33,6 +33,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
+    'polymorphic',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -45,7 +46,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
 
-    'polymorphic',
 
     'tasks.apps.common',
     'tasks.apps.hello_world',
