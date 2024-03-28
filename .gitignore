@@ -4,7 +4,8 @@
 /tasks/settings/email.py
 /tasks/uploads/*
 /node_modules/
-/logs/*
+/tasks/logs/*
+!/tasks/logs/.gitkeep
 /webpack-stats.local.json
 
 # Created by https://www.gitignore.io/api/vim,node,linux,macos,django,python,windows,notepadpp,sublimetext
@@ -69,7 +70,6 @@ Temporary Items
 
 ### Node ###
 # Logs
-logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
