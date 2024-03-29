@@ -31,6 +31,13 @@ class Event(PolymorphicModel):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
+    def __str__(self):
+        return "[{cls}] #{pk}".format(
+            published=self.published, 
+            cls=self.get_real_instance_class().__name__, 
+            pk=self.pk
+        )
+
 
 class BoardCommitted(Event):
     focus = models.CharField(max_length=255)
