@@ -165,13 +165,29 @@ class ObservationUpdated(Event):
         return self.comment
 
 @receiver(pre_save, sender=ObservationUpdated)
-def my_callback(sender, instance, *args, **kwargs):
+def copy_thread_to_updates(sender, instance, *args, **kwargs):
     if not instance.thread_id and instance.observation:
         instance.thread_id = instance.observation.thread_id
 
+@receiver(pre_save, sender=Observation)
+def update_thread_on_updates(sender, instance, *args, **kwargs):
+    try:
+        old = Observation.objects.get(pk=instance.pk)
+        if old.thread_id == instance.thread_id:
+            # do nothing
+            return
+    except Observation.DoesNotExist:
+        pass
+
+    ObservationUpdated.objects.filter(
+        observation=instance
+    ).update(
+        thread=instance.thread
+    )
 
 class JournalAdded(Event):
     comment = models.TextField(help_text=_("Update"))
 
     def __str__(self):
         return self.comment
+
