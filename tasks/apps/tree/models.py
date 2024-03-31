@@ -9,6 +9,9 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
 
+import uuid
+
+from .uuid_generators import board_event_stream_id
 
 def empty_dict():
     return {}
@@ -30,6 +33,18 @@ class Event(PolymorphicModel):
     published = models.DateTimeField(default=timezone.now)
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
+
+    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['published']),
+            models.Index(fields=['event_stream_id', 'published'])
+        ]
+
+        ordering = (
+            'published',
+        )
 
     def __str__(self):
         return "[{cls}] #{pk}".format(
@@ -84,8 +99,9 @@ class Board(models.Model):
 
     focus = models.CharField(max_length=255, null=True, blank=True)
 
-    thread = models.ForeignKey(Thread, on_delete=models.CASCADE, null=True)
+    event_stream_id = models.UUIDField(editable=False, null=True)
 
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE, null=True)
     class Meta:
         ordering = ('-date_started',)
 
@@ -94,6 +110,10 @@ class Board(models.Model):
             return str(self.thread)
 
         return "{} {}".format(self.focus, self.thread)
+
+@receiver(pre_save, sender=Board)
+def set_board_event_stream_id(sender, instance, *args, **kwargs):
+    instance.event_stream_id = board_event_stream_id(instance)
 
 
 class Reflection(models.Model):
@@ -140,6 +160,8 @@ class Observation(models.Model):
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
+    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
@@ -157,7 +179,7 @@ class Observation(models.Model):
         )
 
 class ObservationUpdated(Event):
-    observation = models.ForeignKey(Observation, on_delete=models.CASCADE)
+    observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True)
 
     comment = models.TextField(help_text=_("Update"))
 
@@ -165,9 +187,12 @@ class ObservationUpdated(Event):
         return self.comment
 
 @receiver(pre_save, sender=ObservationUpdated)
-def copy_thread_to_updates(sender, instance, *args, **kwargs):
+def copy_observation_to_update_events(sender, instance, *args, **kwargs):
     if not instance.thread_id and instance.observation:
         instance.thread_id = instance.observation.thread_id
+
+    instance.event_stream_id = instance.observation.event_stream_id
+
 
 @receiver(pre_save, sender=Observation)
 def update_thread_on_updates(sender, instance, *args, **kwargs):

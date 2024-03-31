@@ -425,7 +425,7 @@ def observation_edit(request, observation_id=None):
     ObservationUpdatedFormSet = inlineformset_factory(Observation, ObservationUpdated, fields=('comment',), extra=3)
 
     if request.method == "POST":
-        form = ObservationForm(request.POST, instance=observation,)
+        form = ObservationForm(request.POST, instance=observation)
         formset = ObservationUpdatedFormSet(request.POST, instance=observation)
     
         if form.is_valid() and formset.is_valid():
