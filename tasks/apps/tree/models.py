@@ -99,7 +99,7 @@ class Board(models.Model):
 
     focus = models.CharField(max_length=255, null=True, blank=True)
 
-    event_stream_id = models.UUIDField(editable=False, null=True)
+    event_stream_id = models.UUIDField(editable=False)
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE, null=True)
     class Meta:
