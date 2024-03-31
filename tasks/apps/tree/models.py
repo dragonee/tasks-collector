@@ -178,6 +178,37 @@ class Observation(models.Model):
             self.thread
         )
 
+class ObservationEventMixin:
+    @property
+    def observation(self):
+        return Observation.objects.get(event_stream_id=self.event_stream_id)
+
+class ObservationMade(Event, ObservationEventMixin):
+    type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
+
+    situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
+    interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
+    approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
+
+    @staticmethod
+    def from_observation(observation, published=None):
+        return ObservationMade(
+            published=published or observation.pub_date,
+            event_stream_id=observation.event_stream_id,
+            thread=observation.thread,
+            type=observation.type,
+            situation=observation.situation,
+            interpretation=observation.interpretation,
+            approach=observation.approach,
+        )
+
+    def __str__(self):
+        return "{}: {} ({})".format(
+            self.published,
+            Truncator(self.situation).words(6),
+            self.thread
+        )
+
 class ObservationUpdated(Event):
     observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True)
 
@@ -185,6 +216,68 @@ class ObservationUpdated(Event):
 
     def __str__(self):
         return self.comment
+
+class ObservationRecontextualized(Event, ObservationEventMixin):
+    old_situation = models.TextField(blank=True)
+    situation = models.TextField()
+
+    @staticmethod
+    def from_observation(observation, old, published=None):
+        return ObservationRecontextualized(
+            published=published or observation.pub_date,
+            event_stream_id=observation.event_stream_id,
+            thread=observation.thread,
+            old_situation=old,
+            situation=observation.situation,
+        )
+
+class ObservationReinterpreted(Event, ObservationEventMixin):
+    old_interpretation = models.TextField(blank=True)
+    interpretation = models.TextField()
+
+    @staticmethod
+    def from_observation(observation, old, published=None):
+        return ObservationReinterpreted(
+            published=published or observation.pub_date,
+            event_stream_id=observation.event_stream_id,
+            thread=observation.thread,
+            old_interpretation=old,
+            interpretation=observation.interpretation,
+        )
+
+class ObservationReflectedUpon(Event, ObservationEventMixin):
+    old_approach = models.TextField(blank=True)
+    approach = models.TextField()
+
+    @staticmethod
+    def from_observation(observation, old, published=None):
+        return ObservationReflectedUpon(
+            published=published or observation.pub_date,
+            event_stream_id=observation.event_stream_id,
+            thread=observation.thread,
+            old_approach=old,
+            approach=observation.approach,
+        )
+
+class ObservationClosed(Event, ObservationEventMixin):
+    type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
+
+    situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
+    interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
+    approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
+
+    @staticmethod
+    def from_observation(observation, published=None):
+        return ObservationClosed(
+            published=published or observation.pub_date,
+            event_stream_id=observation.event_stream_id,
+            thread=observation.thread,
+            type=observation.type,
+            situation=observation.situation,
+            interpretation=observation.interpretation,
+            approach=observation.approach,
+        )
+
 
 @receiver(pre_save, sender=ObservationUpdated)
 def copy_observation_to_update_events(sender, instance, *args, **kwargs):

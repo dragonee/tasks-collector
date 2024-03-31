@@ -1,6 +1,5 @@
 from django.contrib import admin
-
-from .models import Board, BoardCommitted, Thread, Plan, Reflection, Observation, ObservationType, Habit, HabitTracked, ObservationUpdated, JournalAdded, Event
+from .models import Board, BoardCommitted, Thread, Plan, Reflection, Observation, ObservationType, Habit, HabitTracked, ObservationUpdated, JournalAdded, Event, ObservationMade, ObservationRecontextualized, ObservationReinterpreted, ObservationReflectedUpon, ObservationClosed
 
 from datetime import datetime
 
@@ -44,8 +43,15 @@ class EventAdmin(PolymorphicParentModelAdmin):
     child_models = [
         HabitTracked,
         BoardCommitted,
-        ObservationUpdated
+        ObservationUpdated,
+        ObservationMade,
+        ObservationClosed,
+        ObservationRecontextualized,
+        ObservationReflectedUpon,
+        ObservationReinterpreted,
     ]
+
+    ordering = ['-published', '-pk']
 
 class HabitTrackedAdmin(PolymorphicChildModelAdmin):
     base_model = HabitTracked
@@ -56,12 +62,32 @@ class ObservationUpdatedAdmin(PolymorphicChildModelAdmin):
 class BoardCommittedAdmin(PolymorphicChildModelAdmin):
     base_model = BoardCommitted
 
+class ObservationMadeAdmin(PolymorphicChildModelAdmin):
+    base_model = ObservationMade
+
+class ObservationRecontextualizedAdmin(PolymorphicChildModelAdmin):
+    base_model = ObservationRecontextualized
+
+class ObservationReinterpretedAdmin(PolymorphicChildModelAdmin):
+    base_model = ObservationReinterpreted
+
+class ObservationReflectedUponAdmin(PolymorphicChildModelAdmin):
+    base_model = ObservationReflectedUpon
+
+class ObservationClosedAdmin(PolymorphicChildModelAdmin):
+    base_model = ObservationClosed
+
 admin.site.register(Board)
 admin.site.register(Thread)
 admin.site.register(Plan)
 admin.site.register(Reflection)
 admin.site.register(Observation, ObservationAdmin)
 admin.site.register(ObservationType, ObservationTypeAdmin)
+admin.site.register(ObservationMade, ObservationMadeAdmin)
+admin.site.register(ObservationRecontextualized, ObservationRecontextualizedAdmin)
+admin.site.register(ObservationReinterpreted, ObservationReinterpretedAdmin)
+admin.site.register(ObservationReflectedUpon, ObservationReflectedUponAdmin)
+admin.site.register(ObservationClosed, ObservationClosedAdmin)
 admin.site.register(BoardCommitted, BoardCommittedAdmin)
 admin.site.register(Habit)
 admin.site.register(HabitTracked, HabitTrackedAdmin)

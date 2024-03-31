@@ -1,8 +1,11 @@
 from rest_framework import serializers
 
-from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, ObservationUpdated
+from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted
 
 from functools import partial
+
+from django.utils import timezone
+from operator import itemgetter
 
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -26,6 +29,70 @@ class BoardSerializer(serializers.HyperlinkedModelSerializer):
         model = Board
         fields = ['id', 'date_started', 'state', 'focus', 'thread']
 
+
+def spawn_observation_events(previous, current, published=None):
+    if not published:
+        published = timezone.now()
+
+    def was_changed(x):
+        return getattr(current, x) != getattr(previous, x)
+    
+    def was_set(x):
+        return getattr(previous, x) is None and getattr(current, x) is not None
+
+    def filter_func(t):
+        x, f = t
+
+        return f(x)
+
+    changed_checks = [
+        ('pk', was_set),
+        ('date_closed',  was_set), 
+        ('situation', was_changed), 
+        ('interpretation', was_changed),
+        ('approach', was_changed),
+    ]
+
+    changed_data = list(map(itemgetter(0), filter(filter_func, changed_checks)))
+
+    print(previous.interpretation, current.interpretation)
+    print("CHANGED_DATA", changed_data, flush=True)
+
+    if 'pk' in changed_data:
+        observation_made = ObservationMade.from_observation(current, published=published)
+
+        return [observation_made]
+    
+    if 'date_closed' in changed_data:
+        observation_closed = ObservationClosed.from_observation(current, published=published)
+
+        return [observation_closed]
+
+    events = []
+
+    if 'situation' in changed_data:
+        obj = ObservationRecontextualized.from_observation(current, previous.situation, published=published)
+        events.append(obj)
+    
+    if 'interpretation' in changed_data:
+        obj = ObservationReinterpreted.from_observation(current, previous.interpretation, published=published)
+        events.append(obj)
+    
+    if 'approach' in changed_data:
+        obj = ObservationReflectedUpon.from_observation(current, previous, published=published)
+        events.append(obj)
+    
+    return events
+
+def get_unsaved_object(model, obj):
+    if not obj:
+        return model()
+    
+    try:
+        return model.objects.get(pk=obj.pk)
+    except model.DoesNotExist:
+        return model()
+
 class ObservationSerializer(serializers.HyperlinkedModelSerializer):
     type = serializers.SlugRelatedField(
         queryset=ObservationType.objects.all(),
@@ -40,6 +107,21 @@ class ObservationSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Observation
         fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'date_closed']
+    
+    def save(self, *args, **kwargs):
+        old_obj = get_unsaved_object(Observation, self.instance)
+        new_obj = super().save(*args, **kwargs)
+
+        events = spawn_observation_events(
+            old_obj,
+            new_obj,
+            published=timezone.now()
+        )
+
+        for event in events:
+            event.save()
+        
+        return new_obj
 
 class ObservationUpdatedSerializer(serializers.ModelSerializer):
     observation_fields = ObservationSerializer(read_only=True)

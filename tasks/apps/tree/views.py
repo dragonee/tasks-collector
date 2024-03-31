@@ -4,8 +4,8 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, JournalAddedSerializer
-from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer
+from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted
 from .forms import PlanForm, ReflectionForm, ObservationForm
 from .commit import merge, calculate_changes_per_board, pprint
 from .habits import habits_line_to_habits_tracked
@@ -28,7 +28,6 @@ from django.db import transaction
 from django.forms import inlineformset_factory
 
 from django.urls import reverse
-
 
 import datetime
 
@@ -422,14 +421,32 @@ def observation_edit(request, observation_id=None):
     else:
         observation = Observation()
 
+    previous = Observation(
+        pk=observation.pk,
+        pub_date=observation.pub_date,
+        thread_id=observation.thread_id,
+
+        situation=observation.situation,
+        interpretation=observation.interpretation,
+        approach=observation.approach,
+
+        date_closed=observation.date_closed
+    )
+
     ObservationUpdatedFormSet = inlineformset_factory(Observation, ObservationUpdated, fields=('comment',), extra=3)
 
     if request.method == "POST":
         form = ObservationForm(request.POST, instance=observation)
         formset = ObservationUpdatedFormSet(request.POST, instance=observation)
-    
+
         if form.is_valid() and formset.is_valid():
-            form.save()
+            obj = form.save(commit=False)
+            obj.save()
+            
+            events = spawn_observation_events(previous, obj)
+            for event in events:
+                event.save()
+
             formset.save()
             return redirect(reverse('public-observation-list'))
 
