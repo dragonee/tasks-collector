@@ -35,7 +35,7 @@ class ObservationAdmin(admin.ModelAdmin):
 class EventAdmin(PolymorphicParentModelAdmin):
     base_model = Event
 
-    list_display = ('__str__', 'published', 'thread')
+    list_display = ('__str__', 'published', 'thread', 'event_stream_id')
 
     child_models = [
         HabitTracked,
