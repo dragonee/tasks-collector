@@ -88,6 +88,14 @@
         </div>
     </div>
 
+    <div class="journals">
+        {% for journal in journals %}
+            <div class="single-journal">
+                {{ journal.comment }}
+            </div>
+        {% endfor %}
+    </div>
+
 </form>
 </div>
 

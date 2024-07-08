@@ -368,6 +368,10 @@ def today(request):
         if habit_line.pk:
             habit_line_form.fields['line'].widget.attrs['readonly'] = True
 
+    journals = JournalAdded.objects.filter(
+        published__gte=today - datetime.timedelta(days=1),
+    ).order_by('published')
+
     return render(request, 'today.html', {
         'yesterday': today - datetime.timedelta(days=1),
         'today': today,
@@ -386,6 +390,8 @@ def today(request):
 
         'thread': thread,
         'threads': Thread.objects.all(),
+
+        'journals': journals,
     })
 
 class ObservationListView(ListView):
