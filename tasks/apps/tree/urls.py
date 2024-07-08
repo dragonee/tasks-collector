@@ -11,6 +11,7 @@ router.register(r'plans', views.PlanViewSet)
 router.register(r'reflections', views.ReflectionViewSet)
 router.register(r'observation-api', views.ObservationViewSet)
 router.register(r'updates', views.ObservationUpdatedViewSet)
+router.register(r'journal', views.JournalAddedViewSet)
 
 
 urlpatterns = [

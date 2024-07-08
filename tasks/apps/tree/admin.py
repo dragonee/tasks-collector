@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Board, BoardCommitted, Thread, Plan, Reflection, Observation, ObservationType, Habit, HabitTracked, EditableHabitsLine, ObservationUpdated
+from .models import Board, BoardCommitted, Thread, Plan, Reflection, Observation, ObservationType, Habit, HabitTracked, EditableHabitsLine, ObservationUpdated, JournalAdded
 
 from datetime import datetime
 
@@ -30,6 +30,10 @@ class ObservationAdmin(admin.ModelAdmin):
         ObservationUpdatedInline
     ]
 
+class JournalAddedAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'thread', 'published')
+
+
 admin.site.register(Board)
 admin.site.register(Thread)
 admin.site.register(Plan)
@@ -41,3 +45,4 @@ admin.site.register(Habit)
 admin.site.register(HabitTracked)
 admin.site.register(EditableHabitsLine)
 admin.site.register(ObservationUpdated)
+admin.site.register(JournalAdded, JournalAddedAdmin)

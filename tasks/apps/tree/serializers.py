@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Board, Thread, Plan, Reflection, Observation, ObservationType, ObservationUpdated
+from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, ObservationUpdated
 
 from functools import partial
 
@@ -47,6 +47,17 @@ class ObservationUpdatedSerializer(serializers.ModelSerializer):
     class Meta:
         model = ObservationUpdated
         fields = [ 'id', 'comment', 'published', 'observation_fields', 'observation' ]
+
+class JournalAddedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+
+    class Meta:
+        model = JournalAdded
+        fields = [ 'id', 'comment', 'published', 'thread', ]
+
 
 class tree_iterator:
     """Preorder traversal tree iterator"""

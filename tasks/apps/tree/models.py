@@ -164,9 +164,15 @@ class ObservationUpdated(Event):
 
     def __str__(self):
         return self.comment
-    
 
 @receiver(pre_save, sender=ObservationUpdated)
 def my_callback(sender, instance, *args, **kwargs):
     if not instance.thread_id and instance.observation:
         instance.thread_id = instance.observation.thread_id
+
+
+class JournalAdded(Event):
+    comment = models.TextField(help_text=_("Update"))
+
+    def __str__(self):
+        return self.comment

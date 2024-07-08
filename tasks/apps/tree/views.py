@@ -4,8 +4,8 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer
-from .models import Board, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, ObservationUpdated
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, JournalAddedSerializer
+from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, ObservationUpdated
 from .forms import PlanForm, ReflectionForm, EditableHabitsLineForm, ObservationForm
 from .commit import merge, calculate_changes_per_board, pprint
 from .habits import habits_line_to_habits_tracked
@@ -74,6 +74,11 @@ class ObservationViewSet(viewsets.ModelViewSet):
 class ObservationUpdatedViewSet(viewsets.ModelViewSet):
     queryset = ObservationUpdated.objects.all()
     serializer_class = ObservationUpdatedSerializer
+
+
+class JournalAddedViewSet(viewsets.ModelViewSet):
+    queryset = JournalAdded.objects.all()
+    serializer_class = JournalAddedSerializer
 
 class ThreadViewSet(viewsets.ModelViewSet):
     """
