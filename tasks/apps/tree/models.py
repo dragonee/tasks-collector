@@ -56,6 +56,8 @@ class Habit(models.Model):
     class Meta:
         ordering = ('name', )
 
+    def as_hashtag(self):
+        return '#{}'.format(self.name.lower())
 
 class HabitTracked(Event):
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE)
