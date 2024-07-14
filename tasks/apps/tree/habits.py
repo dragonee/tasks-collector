@@ -39,7 +39,8 @@ def note_to_habit_tracked_tuple(item, habit_names, habits):
 
     print("occured:", occured, "habit:", habit)
     
-    return (occured, habit, item)
+    # Assume first line is actually important for the habit tracked note
+    return (occured, habit, item.split("\n")[0])
 
 
 def habits_line_to_habits_tracked(line):

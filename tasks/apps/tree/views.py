@@ -80,6 +80,20 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
     queryset = JournalAdded.objects.all()
     serializer_class = JournalAddedSerializer
 
+    @transaction.atomic
+    def perform_create(self, serializer):
+        journal_added = serializer.save()
+        triplets = habits_line_to_habits_tracked(journal_added.comment)
+
+        for occured, habit, note in triplets:
+            HabitTracked.objects.create(
+                occured=occured,
+                habit=habit,
+                note=note,
+                published=timezone.now(),
+                thread=Thread.objects.get(name='Daily'),
+            )
+
 class ThreadViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows boards to be viewed or edited.
