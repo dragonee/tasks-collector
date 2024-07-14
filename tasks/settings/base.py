@@ -46,9 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
 
-
     'tasks.apps.common',
-    'tasks.apps.hello_world',
     'tasks.apps.tree',
     'tasks.apps.rewards',
     'tasks.apps.quests',

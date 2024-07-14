@@ -9,7 +9,6 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
-    url(r'^hello/', include('tasks.apps.hello_world.urls')),
     url(r'^rewards/', include('tasks.apps.rewards.urls')),
     url(r'^quests/', include('tasks.apps.quests.urls')),
     url(r'^', include('tasks.apps.tree.urls'))

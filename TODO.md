@@ -1,0 +1,1 @@
+- a weekly report could list out count and a summary of all items as email (for example)
