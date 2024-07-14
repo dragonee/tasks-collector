@@ -1,9 +1,6 @@
 import re
 
-from .models import Habit, HabitTracked
-
-from datetime import datetime
-from django.utils import timezone
+from .models import Habit
 
 PATTERN = re.compile(r'(?<=\s)(?=[#!])', re.MULTILINE)
 

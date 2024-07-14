@@ -46,6 +46,17 @@
             </div>
         </div>
     </div>
+    <div class="updates">
+        {% for event in events %}
+            <div class="event">
+                {% if event.template %}
+                    {% include event.template %}
+                {% else %}
+                    {{ event }}
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
 </form>
 </div>
 

@@ -55,7 +55,7 @@ def forwards_func(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tree', '0024_auto_20240328_2122'),
+        ('tree', '0027_delete_editablehabitsline'),
     ]
 
     operations = [

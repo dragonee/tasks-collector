@@ -1,0 +1,19 @@
+    <div class="event-meta">
+        <strong>Reinterpreted</strong> <time>{{ event.published|date }} {{ event.published|time }}</time>
+    </div>
+
+    <div class="minus">
+        {% if not event.old_interpretation %}
+            <del class="empty">empty</del>
+        {% else %}
+            <del>{{ event.old_interpretation|linebreaks }}</del>
+        {% endif %}
+    </div>
+
+    <div class="plus">
+        {% if not event.interpretation %}
+            <ins class="empty">empty</ins>
+        {% else %}
+            <ins>{{ event.interpretation|linebreaks }}</ins>
+        {% endif %}
+    </div>

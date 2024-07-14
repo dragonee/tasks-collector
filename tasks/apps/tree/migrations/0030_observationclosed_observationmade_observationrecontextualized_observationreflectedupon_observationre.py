@@ -8,7 +8,7 @@ import tasks.apps.tree.models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tree', '0026_alter_board_event_stream_id'),
+        ('tree', '0029_alter_board_event_stream_id'),
     ]
 
     operations = [

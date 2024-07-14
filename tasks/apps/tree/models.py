@@ -5,7 +5,7 @@ from django.utils.text import Truncator
 
 from django.utils import timezone
 
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
 
@@ -48,7 +48,6 @@ class Event(PolymorphicModel):
 
     def __str__(self):
         return "[{cls}] #{pk}".format(
-            published=self.published, 
             cls=self.get_real_instance_class().__name__, 
             pk=self.pk
         )
@@ -169,13 +168,34 @@ class Observation(models.Model):
     date_closed = models.DateField(help_text=_("Closed"), null=True, blank=True)
 
     class Meta:
-        ordering = ('-pub_date', )
+        ordering = ('-pub_date', '-pk')
 
     def __str__(self):
         return "{}: {} ({})".format(
             self.pub_date,
             Truncator(self.situation).words(6),
             self.thread
+        )
+    
+    def copy(self, as_new=True):
+        kwargs = {}
+
+        if not as_new:
+            kwargs['pk'] = self.pk
+            kwargs['event_stream_id'] = self.event_stream_id
+
+        return Observation(
+            pub_date=self.pub_date,
+            thread_id=self.thread_id,
+            type_id=self.type_id,
+
+            situation=self.situation,
+            interpretation=self.interpretation,
+            approach=self.approach,
+
+            date_closed=self.date_closed,
+
+            **kwargs
         )
 
 class ObservationEventMixin:
@@ -212,6 +232,8 @@ class ObservationMade(Event, ObservationEventMixin):
 class ObservationUpdated(Event):
     observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True)
 
+    ### TODO add template
+
     comment = models.TextField(help_text=_("Update"))
 
     def __str__(self):
@@ -220,6 +242,8 @@ class ObservationUpdated(Event):
 class ObservationRecontextualized(Event, ObservationEventMixin):
     old_situation = models.TextField(blank=True)
     situation = models.TextField()
+
+    ### TODO add template
 
     @staticmethod
     def from_observation(observation, old, published=None):
@@ -235,6 +259,8 @@ class ObservationReinterpreted(Event, ObservationEventMixin):
     old_interpretation = models.TextField(blank=True)
     interpretation = models.TextField()
 
+    template = "tree/events/observation_reinterpreted.html"
+
     @staticmethod
     def from_observation(observation, old, published=None):
         return ObservationReinterpreted(
@@ -248,6 +274,8 @@ class ObservationReinterpreted(Event, ObservationEventMixin):
 class ObservationReflectedUpon(Event, ObservationEventMixin):
     old_approach = models.TextField(blank=True)
     approach = models.TextField()
+
+    ### TODO add template
 
     @staticmethod
     def from_observation(observation, old, published=None):
@@ -266,6 +294,8 @@ class ObservationClosed(Event, ObservationEventMixin):
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
 
+    ### TODO add template
+
     @staticmethod
     def from_observation(observation, published=None):
         return ObservationClosed(
@@ -277,7 +307,6 @@ class ObservationClosed(Event, ObservationEventMixin):
             interpretation=observation.interpretation,
             approach=observation.approach,
         )
-
 
 @receiver(pre_save, sender=ObservationUpdated)
 def copy_observation_to_update_events(sender, instance, *args, **kwargs):
@@ -297,8 +326,11 @@ def update_thread_on_updates(sender, instance, *args, **kwargs):
     except Observation.DoesNotExist:
         pass
 
-    ObservationUpdated.objects.filter(
-        observation=instance
+    if instance.event_stream_id is None:
+        return
+
+    Event.objects.filter(
+        event_stream_id=instance.event_stream_id
     ).update(
         thread=instance.thread
     )

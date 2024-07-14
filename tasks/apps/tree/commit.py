@@ -74,7 +74,7 @@ def cut_leaves(board_state, thread_name, implied=False):
 
         children = cut_leaves(item['children'], thread_name, implied=new_implied)
 
-        if children or (item_thread_name == thread_name and implied == False) or implied == thread_name:
+        if children or (item_thread_name == thread_name and not implied) or implied == thread_name:
             try:
                 del item['data']['meaningfulMarkers']['transition']
             except KeyError:
