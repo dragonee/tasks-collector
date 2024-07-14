@@ -81,8 +81,6 @@ Alternatively, copy the `tasks/settings/email.py.base` to
 then run the rest of the commands.
 
 1. Ensure that `DJANGODIR` in `bin/gunicorn.base` is proper.
-2. Ensure that paths in `webpack-stats.dist.json` are proper (path is
-configured in `package.json`).
 
 ## Docker
 

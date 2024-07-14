@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "webpack --config config/webpack.local.js --mode development",
-    "build-dist": "webpack --config config/webpack.dist.js --mode production --progress && sed -i -e 's?'`pwd`'?/home/sites/vhosts/tasks.makimo.pl?g' webpack-stats.dist.json",
-    "watch-assets": "webpack --config config/webpack.local.js --watch --mode development",
+    "build-dist": "webpack --config config/webpack.dist.js --mode production --progress",
+    "watch-assets": "webpack --config config/webpack.local.js --mode development --watch",
     "watch-python": "./manage.py runserver 0.0.0.0:8000",
     "dev": "concurrently npm:watch-*"
   },

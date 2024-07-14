@@ -1,0 +1,43 @@
+name: Deploy to specific server
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docker/**'
+      - '**.md'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install backend packages
+        run: pip install -r requirements/dist.txt
+      - name: Install frontend packages
+        run: npm install
+      - name: Build production assets
+        run: npm run build-dist
+      - name: Copy static assets
+        run: python3 manage.dist.py collectstatic --noinput
+      - name: Copy files to the server
+        uses: burnett01/rsync-deployments@5.2
+        with:
+          switches: -avzr --delete --include-from=.github/workflows/rsync.include --exclude-from=.github/workflows/rsync.exclude
+          remote_path: ${{ secrets.DEPLOY_PATH }}
+          remote_host: ${{ secrets.DEPLOY_HOST }}
+          remote_port: ${{ secrets.DEPLOY_PORT }}
+          remote_user: ${{ secrets.DEPLOY_USER }}
+          remote_key: ${{ secrets.DEPLOY_KEY }}
+      - name: Clear cache and run migrations 
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            ${{ secrets.DEPLOY_PATH }}/env/bin/pip install -r ${{ secrets.DEPLOY_PATH }}/requirements/dist.txt
+            ${{ secrets.DEPLOY_PATH }}/env/bin/python ${{ secrets.DEPLOY_PATH }}/manage.dist.py migrate
+            supervisorctl restart pbtasks
