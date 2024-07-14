@@ -1,5 +1,8 @@
-- a weekly report could list out count and a summary of all items as email (for example)
+# TODO. A backlog of ideas
+
+- [ ] a weekly report could list out count and a summary of all items as email (for example)
 - [x] No need for editable habit lines
   - [x] A journal suffices for that and doesn't have any shenanigans
   - [x] Implement a migration and then remove it altogether
 - [ ] Add journal to the `today` view
+- [ ] Move tools from random-tools to tasks-collector-tools

@@ -32,9 +32,6 @@ class ObservationAdmin(admin.ModelAdmin):
         ObservationUpdatedInline
     ]
 
-class JournalAddedAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'thread', 'published')
-
 class EventAdmin(PolymorphicParentModelAdmin):
     base_model = Event
 
@@ -49,6 +46,7 @@ class EventAdmin(PolymorphicParentModelAdmin):
         ObservationRecontextualized,
         ObservationReflectedUpon,
         ObservationReinterpreted,
+        JournalAdded,
     ]
 
     ordering = ['-published', '-pk']
@@ -77,6 +75,11 @@ class ObservationReflectedUponAdmin(PolymorphicChildModelAdmin):
 class ObservationClosedAdmin(PolymorphicChildModelAdmin):
     base_model = ObservationClosed
 
+class JournalAddedAdmin(PolymorphicChildModelAdmin):
+    base_model = JournalAdded
+    
+    list_display = ('__str__', 'thread', 'published')
+
 admin.site.register(Board)
 admin.site.register(Thread)
 admin.site.register(Plan)
@@ -92,6 +95,5 @@ admin.site.register(BoardCommitted, BoardCommittedAdmin)
 admin.site.register(Habit)
 admin.site.register(HabitTracked, HabitTrackedAdmin)
 admin.site.register(ObservationUpdated, ObservationUpdatedAdmin)
-admin.site.register(ObservationUpdated)
 admin.site.register(JournalAdded, JournalAddedAdmin)
 admin.site.register(Event, EventAdmin)

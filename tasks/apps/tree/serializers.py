@@ -7,6 +7,8 @@ from functools import partial
 from django.utils import timezone
 from operator import itemgetter
 
+from django.db import transaction
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
@@ -35,7 +37,12 @@ def spawn_observation_events(previous, current, published=None):
         published = timezone.now()
 
     def was_changed(x):
-        return getattr(current, x) != getattr(previous, x)
+        new = getattr(current, x)
+        old = getattr(previous, x)
+
+        not_changing_null_into_empty = bool(old) or bool(new)
+
+        return old != new and not_changing_null_into_empty
     
     def was_set(x):
         return getattr(previous, x) is None and getattr(current, x) is not None
@@ -79,7 +86,7 @@ def spawn_observation_events(previous, current, published=None):
         events.append(obj)
     
     if 'approach' in changed_data:
-        obj = ObservationReflectedUpon.from_observation(current, previous, published=published)
+        obj = ObservationReflectedUpon.from_observation(current, previous.approach, published=published)
         events.append(obj)
     
     return events
@@ -108,6 +115,7 @@ class ObservationSerializer(serializers.HyperlinkedModelSerializer):
         model = Observation
         fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'date_closed']
     
+    @transaction.atomic
     def save(self, *args, **kwargs):
         old_obj = get_unsaved_object(Observation, self.instance)
         new_obj = super().save(*args, **kwargs)

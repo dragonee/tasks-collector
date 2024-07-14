@@ -5,14 +5,13 @@ from rest_framework import status
 
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer
-from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted
+from .models import Event, Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted
 from .forms import PlanForm, ReflectionForm, ObservationForm
-from .commit import merge, calculate_changes_per_board, pprint
+from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
 from datetime import date
 
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
@@ -75,6 +74,7 @@ class ObservationUpdatedViewSet(viewsets.ModelViewSet):
     serializer_class = ObservationUpdatedSerializer
 
 
+# XXX should we permit only POST here?
 class JournalAddedViewSet(viewsets.ModelViewSet):
     queryset = JournalAdded.objects.all()
     serializer_class = JournalAddedSerializer
@@ -155,7 +155,7 @@ def add_task(request):
     item = request.data
 
     # XXX hackish
-    if not 'text' in item or not 'thread-name' in item:
+    if 'text' not in item or 'thread-name' not in item:
         return Response({'errors': 'no thread-name and text'}, status=status.HTTP_400_BAD_REQUEST)
     
     thread = get_object_or_404(Thread, name=item['thread-name'])
@@ -421,17 +421,12 @@ def observation_edit(request, observation_id=None):
     else:
         observation = Observation()
 
-    previous = Observation(
-        pk=observation.pk,
-        pub_date=observation.pub_date,
-        thread_id=observation.thread_id,
+    previous = observation.copy(as_new=False)
 
-        situation=observation.situation,
-        interpretation=observation.interpretation,
-        approach=observation.approach,
-
-        date_closed=observation.date_closed
-    )
+    # XXX TODO add ability to set events on a specific day... OR NOT
+    # We can actually add the date attribute to an event
+    # And because of that we can still set published date always to the current date
+    # And leave out affected
 
     ObservationUpdatedFormSet = inlineformset_factory(Observation, ObservationUpdated, fields=('comment',), extra=3)
 
@@ -439,26 +434,46 @@ def observation_edit(request, observation_id=None):
         form = ObservationForm(request.POST, instance=observation)
         formset = ObservationUpdatedFormSet(request.POST, instance=observation)
 
-        if form.is_valid() and formset.is_valid():
-            obj = form.save(commit=False)
-            obj.save()
-            
-            events = spawn_observation_events(previous, obj)
-            for event in events:
-                event.save()
+        now = timezone.now()
 
-            formset.save()
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                obj = form.save(commit=False)
+                obj.save()
+                
+                events = spawn_observation_events(previous, obj, published=now)
+                for event in events:
+                    event.save()
+
+                updates = formset.save(commit=False)
+                for update in updates:
+                    update.published = now
+                    update.save()
+
             return redirect(reverse('public-observation-list'))
 
     else:
-        form = ObservationForm(instance=observation, initial={
-            'pub_date': date.today(),
-            'type': ObservationType.objects.first(),
-            'thread': Thread.objects.get(name='big-picture')
-        })
+        initial_dict = {}
+
+        if not observation.pub_date:
+            initial_dict['pub_date'] = date.today()
+        
+        if not observation.type_id:
+            initial_dict['type'] = ObservationType.objects.first()
+        
+        if not observation.thread_id:
+            initial_dict['thread'] = Thread.objects.get(name='big-picture')
+
+        form = ObservationForm(instance=observation, initial=initial_dict)
         formset = ObservationUpdatedFormSet(instance=observation)
+    
+    if observation.event_stream_id:
+        events = Event.objects.filter(event_stream_id=observation.event_stream_id)
+    else:
+        events = []
 
     return render(request, "tree/observation_edit.html", {
+        "events": events,
         "form": form,
         "formset": formset,
         "instance": observation,
