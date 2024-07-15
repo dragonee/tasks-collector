@@ -92,7 +92,7 @@
     <div class="journals">
         {% for journal in journals %}
             <div class="single-journal">
-                {{ journal.comment }}
+                [{{ journal.published | date:"l" }} {{ journal.published | time:"H:i" }}] {{ journal.comment }}
             </div>
         {% endfor %}
     </div>
