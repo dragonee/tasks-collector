@@ -1,1 +1,4 @@
 - a weekly report could list out count and a summary of all items as email (for example)
+- I don't need editable habit lines
+  - A journal suffices for that and doesn't have any shenanigans
+  - Implement a migration and then remove it altogether
