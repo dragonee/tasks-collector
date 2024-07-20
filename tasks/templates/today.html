@@ -70,7 +70,10 @@
 
             <div class="habits">
                 <h3>Habits</h3>
-                <p><small>{% for habit in habits %}{{ habit.as_hashtag }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></p>
+                <p>
+                    Use the <code>journal</code> tool to add habits to the application. Use the following tags:<br>
+                    <small>{% for habit in habits %}{{ habit.as_hashtag }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>
+                </p>
                 {% if tracked_habits %}
                     <p>
                     {% for item in tracked_habits %}
@@ -81,7 +84,7 @@
                     {% endfor %}
                     </p>
                 {% else %}
-                    {{ habit_line_form.as_p }}
+                    <p>No habits found.</p>
                 {% endif %}
             </div>
 

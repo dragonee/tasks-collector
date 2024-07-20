@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Board, BoardCommitted, Thread, Plan, Reflection, Observation, ObservationType, Habit, HabitTracked, EditableHabitsLine, ObservationUpdated, JournalAdded
+from .models import Board, BoardCommitted, Thread, Plan, Reflection, Observation, ObservationType, Habit, HabitTracked, ObservationUpdated, JournalAdded
 
 from datetime import datetime
 
@@ -43,6 +43,5 @@ admin.site.register(ObservationType, ObservationTypeAdmin)
 admin.site.register(BoardCommitted)
 admin.site.register(Habit)
 admin.site.register(HabitTracked)
-admin.site.register(EditableHabitsLine)
 admin.site.register(ObservationUpdated)
 admin.site.register(JournalAdded, JournalAddedAdmin)
