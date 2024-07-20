@@ -5,8 +5,8 @@ from rest_framework import status
 
 
 from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, JournalAddedSerializer
-from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, EditableHabitsLine, ObservationUpdated
-from .forms import PlanForm, ReflectionForm, EditableHabitsLineForm, ObservationForm
+from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated
+from .forms import PlanForm, ReflectionForm, ObservationForm
 from .commit import merge, calculate_changes_per_board, pprint
 from .habits import habits_line_to_habits_tracked
 
@@ -327,11 +327,6 @@ def today(request):
     tracked_habits = HabitTracked.objects.filter(
          published__range=(day_start, day_end)
     )
-
-    try:
-        habit_line = EditableHabitsLine.objects.get(pub_date=today, thread=thread)
-    except EditableHabitsLine.DoesNotExist:
-        habit_line = EditableHabitsLine(pub_date=today, thread=thread)
   
     if request.method == 'POST':
         today_plan_form = PlanForm(request.POST, instance=today_plan, prefix="today_plan")
@@ -352,35 +347,14 @@ def today(request):
 
         if reflection_valid:
             reflection_form.save()
-
-        habit_line_form = EditableHabitsLineForm(request.POST, instance=habit_line, prefix="habit_line")
-        habit_line_form_valid = habit_line_form.is_valid()
-        
-        if habit_line_form_valid and habit_line_form.cleaned_data['line'] != '':
-            with transaction.atomic():
-                instance = habit_line_form.save()
-                triplets = habits_line_to_habits_tracked(instance.line)
-
-                for occured, habit, note in triplets:
-                    HabitTracked.objects.create(
-                        occured=occured,
-                        habit=habit,
-                        note=note,
-                        published=now,
-                        thread=thread,
-                    )
             
-        if all((today_valid, tomorrow_valid, reflection_valid, habit_line_form_valid)):
+        if all((today_valid, tomorrow_valid, reflection_valid)):
             return redirect(request.get_full_path())
 
     else:
         today_plan_form = PlanForm(instance=today_plan, prefix="today_plan")
         tomorrow_plan_form = PlanForm(instance=tomorrow_plan, prefix="tomorrow_plan")
         reflection_form = ReflectionForm(instance=reflection, prefix="reflection")
-        habit_line_form = EditableHabitsLineForm(instance=habit_line, prefix="habit_line")
-        
-        if habit_line.pk:
-            habit_line_form.fields['line'].widget.attrs['readonly'] = True
 
     journals = JournalAdded.objects.filter(
         published__gte=today - datetime.timedelta(days=1),
@@ -397,7 +371,6 @@ def today(request):
         'today_plan_form': today_plan_form,
         'tomorrow_plan_form': tomorrow_plan_form,
         'reflection_form': reflection_form,
-        'habit_line_form': habit_line_form,
 
         'habits': habits,
         'tracked_habits': tracked_habits,
