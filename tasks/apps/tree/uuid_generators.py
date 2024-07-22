@@ -15,3 +15,4 @@ def board_event_stream_id_from_thread(thread):
     return thread_event_stream_id(BOARD_URL, thread)
 
 # XXX TODO add habittracked event_stream_id based on the habit slug
+# also fix migration for that

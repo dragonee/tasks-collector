@@ -13,6 +13,8 @@ import uuid
 
 from .uuid_generators import board_event_stream_id
 
+from .utils.datetime import aware_from_date
+
 def empty_dict():
     return {}
 
@@ -213,7 +215,7 @@ class ObservationMade(Event, ObservationEventMixin):
     @staticmethod
     def from_observation(observation, published=None):
         return ObservationMade(
-            published=published or observation.pub_date,
+            published=published or aware_from_date(observation.pub_date),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
             type=observation.type,
@@ -248,7 +250,7 @@ class ObservationRecontextualized(Event, ObservationEventMixin):
     @staticmethod
     def from_observation(observation, old, published=None):
         return ObservationRecontextualized(
-            published=published or observation.pub_date,
+            published=published or timezone.now(),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
             old_situation=old,
@@ -264,7 +266,7 @@ class ObservationReinterpreted(Event, ObservationEventMixin):
     @staticmethod
     def from_observation(observation, old, published=None):
         return ObservationReinterpreted(
-            published=published or observation.pub_date,
+            published=published or timezone.now(),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
             old_interpretation=old,
@@ -280,7 +282,7 @@ class ObservationReflectedUpon(Event, ObservationEventMixin):
     @staticmethod
     def from_observation(observation, old, published=None):
         return ObservationReflectedUpon(
-            published=published or observation.pub_date,
+            published=published or timezone.now(),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
             old_approach=old,
@@ -299,7 +301,7 @@ class ObservationClosed(Event, ObservationEventMixin):
     @staticmethod
     def from_observation(observation, published=None):
         return ObservationClosed(
-            published=published or observation.pub_date,
+            published=published or aware_from_date(observation.date_closed),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
             type=observation.type,
