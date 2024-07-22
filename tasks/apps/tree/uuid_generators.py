@@ -4,6 +4,10 @@ import uuid
 
 BOARD_URL = 'https://schemas.polybrain.org/tasks/boards/{}'
 
+HABIT_URL = 'https://schemas.polybrain.org/tasks/habits/{}'
+
+JOURNAL_URL = 'https://schemas.polybrain.org/tasks/journals/{}'
+
 def thread_event_stream_id(url, thread):
     return uuid.uuid5(uuid.NAMESPACE_URL, name=url.format(slugify(thread.name)))
 
@@ -14,5 +18,17 @@ def board_event_stream_id(board):
 def board_event_stream_id_from_thread(thread):
     return thread_event_stream_id(BOARD_URL, thread)
 
-# XXX TODO add habittracked event_stream_id based on the habit slug
-# also fix migration for that
+
+def journal_added_event_stream_id(obj):
+    if hasattr(obj, 'thread_id'):
+        obj = obj.thread
+
+    return thread_event_stream_id(JOURNAL_URL, obj)
+
+
+def habit_event_stream_id(obj):
+    if hasattr(obj, 'habit_id'):
+        obj = obj.habit
+
+    return uuid.uuid5(uuid.NAMESPACE_URL, name=HABIT_URL.format(slugify(obj.name)))
+

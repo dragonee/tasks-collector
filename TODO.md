@@ -7,9 +7,10 @@
 - [ ] Add journal to the `today` view
 - [ ] Move tools from random-tools to tasks-collector-tools
 - Observation-Event migration
-  - [ ] Migrate observations to have their own ObservationMade/ObservationClosed events
+  - [x] Migrate observations to have their own ObservationMade/ObservationClosed events
   - [ ] Remove `date_closed` on observations
-  - [ ] Fix event_stream_id on habittracked
+  - [x] Fix event_stream_id on habittracked
+    - [ ] Implement signals event_stream_id saving on change etc for JournalAdded, HabitTracked...
   - [ ] Check once more whether the data and editing capabilities are preserved
   - [ ] See if `spawn_observation_events` should be done all around the application or not
   - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
