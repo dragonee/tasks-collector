@@ -2,12 +2,8 @@
 
 from django.db import migrations
 
-from django.utils import timezone
+from tasks.apps.tree.utils.datetime import aware_from_date
 
-from datetime import datetime
-
-def aware_from_date(d):
-    return timezone.make_aware(datetime.combine(d, datetime.min.time()))
 
 def forwards_func(apps, schema_editor):
     ObservationUpdated = apps.get_model("tree", "ObservationUpdated")
