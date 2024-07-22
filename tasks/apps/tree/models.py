@@ -1,7 +1,7 @@
 from django.db import models
 
 from django.utils.translation import ugettext_lazy as _
-from django.utils.text import Truncator
+from django.utils.text import Truncator, slugify
 
 from django.utils import timezone
 
@@ -11,7 +11,7 @@ from polymorphic.models import PolymorphicModel
 
 import uuid
 
-from .uuid_generators import board_event_stream_id
+from .uuid_generators import board_event_stream_id, habit_event_stream_id
 
 from .utils.datetime import aware_from_date
 
@@ -80,7 +80,15 @@ class Habit(models.Model):
         ordering = ('name', )
 
     def as_hashtag(self):
-        return '#{}'.format(self.name.lower())
+        return '#{}'.format(self.slug)
+    
+    @property
+    def slug(self):
+        return slugify(self.name)
+    
+    @property
+    def event_stream_id(self):
+        return habit_event_stream_id(self)
 
 class HabitTracked(Event):
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE)

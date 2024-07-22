@@ -4,17 +4,18 @@ from django.db import migrations, models
 import django.db.models.deletion
 import uuid
 
-from tasks.apps.tree.uuid_generators import board_event_stream_id_from_thread
+from tasks.apps.tree.uuid_generators import board_event_stream_id_from_thread, habit_event_stream_id, journal_added_event_stream_id
 
 def forwards_func(apps, schema_editor):
     Board = apps.get_model('tree', 'Board')
     Observation = apps.get_model('tree', 'Observation')
     Thread = apps.get_model('tree', 'Thread')
-
+    Habit = apps.get_model('tree', 'Habit')
 
     BoardCommitted = apps.get_model('tree', 'BoardCommitted')
     HabitTracked = apps.get_model('tree', 'HabitTracked')
     ObservationUpdated = apps.get_model('tree', 'ObservationUpdated')
+    JournalAdded = apps.get_model('tree', 'JournalAdded')
 
     ContentType = apps.get_model('contenttypes', 'ContentType')
 
@@ -22,6 +23,7 @@ def forwards_func(apps, schema_editor):
 
     for thread in Thread.objects.using(db_alias).all():
         stream_id = board_event_stream_id_from_thread(thread)
+        journal_stream_id = journal_added_event_stream_id(thread)
 
         Board.objects.using(db_alias).filter(
             thread=thread,
@@ -33,6 +35,12 @@ def forwards_func(apps, schema_editor):
             thread=thread,
         ).update(
             event_stream_id=stream_id
+        )
+
+        JournalAdded.objects.using(db_alias).filter(
+            thread=thread,
+        ).update(
+            event_stream_id=journal_stream_id
         )
 
     for observation in Observation.objects.using(db_alias).all():
@@ -47,10 +55,14 @@ def forwards_func(apps, schema_editor):
             event_stream_id=stream_id
         )
     
-    for tracked in HabitTracked.objects.using(db_alias).all():
-        tracked.event_stream_id = uuid.uuid4()
-        tracked.save()
+    for habit in Habit.objects.using(db_alias).all():
+        stream_id = habit_event_stream_id(habit)
 
+        HabitTracked.objects.using(db_alias).filter(
+            habit=habit
+        ).update(
+            event_stream_id=stream_id
+        )
 
 class Migration(migrations.Migration):
 
