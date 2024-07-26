@@ -175,8 +175,6 @@ class Observation(models.Model):
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
 
-    date_closed = models.DateField(help_text=_("Closed"), null=True, blank=True)
-
     class Meta:
         ordering = ('-pub_date', '-pk')
 
@@ -202,8 +200,6 @@ class Observation(models.Model):
             situation=self.situation,
             interpretation=self.interpretation,
             approach=self.approach,
-
-            date_closed=self.date_closed,
 
             **kwargs
         )
@@ -309,7 +305,7 @@ class ObservationClosed(Event, ObservationEventMixin):
     @staticmethod
     def from_observation(observation, published=None):
         return ObservationClosed(
-            published=published or aware_from_date(observation.date_closed),
+            published=published or timezone.now(),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
             type=observation.type,

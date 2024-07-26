@@ -18,5 +18,5 @@ class ObservationForm(forms.ModelForm):
     class Meta:
         model = Observation
         fields = [
-            "situation", "interpretation", "approach", "pub_date", "type", "date_closed", "thread"
+            "situation", "interpretation", "approach", "pub_date", "type", "thread"
         ]

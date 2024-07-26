@@ -32,7 +32,7 @@ def forwards_func(apps, schema_editor):
         if not observation.date_closed:
             continue
 
-        ObservationClosed.objects.create(
+        ObservationClosed.objects.using(db_alias).create(
             published=aware_from_date(observation.date_closed),
             event_stream_id=observation.event_stream_id,
             thread_id=observation.thread_id,
@@ -43,12 +43,30 @@ def forwards_func(apps, schema_editor):
             polymorphic_ctype=observationclosed_ct,
         )
 
+        observation.delete()
 
 def reverse_func(apps, schema_editor):
     ObservationMade = apps.get_model("tree", "ObservationMade")
     ObservationClosed = apps.get_model("tree", "ObservationClosed")
+    Observation = apps.get_model("tree", "Observation")
 
     db_alias = schema_editor.connection.alias
+
+    for observation_closed in ObservationClosed.objects.using(db_alias).all():
+        observation_made = ObservationMade.objects.using(db_alias).get(
+            event_stream_id=observation_closed.event_stream_id
+        )
+
+        Observation.objects.using(db_alias).create(
+            event_stream_id=observation_closed.event_stream_id,
+            thread_id=observation_closed.thread_id,
+            type_id=observation_closed.type_id,
+            situation=observation_closed.situation,
+            interpretation=observation_closed.interpretation,
+            approach=observation_closed.approach,
+            date_closed=observation_closed.published.date(),
+            pub_date=observation_made.published.date(),
+        )
 
     ObservationMade.objects.using(db_alias).all().delete()
     ObservationClosed.objects.using(db_alias).all().delete()

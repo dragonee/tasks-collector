@@ -54,7 +54,6 @@ def spawn_observation_events(previous, current, published=None):
 
     changed_checks = [
         ('pk', was_set),
-        ('date_closed',  was_set), 
         ('situation', was_changed), 
         ('interpretation', was_changed),
         ('approach', was_changed),
@@ -62,18 +61,10 @@ def spawn_observation_events(previous, current, published=None):
 
     changed_data = list(map(itemgetter(0), filter(filter_func, changed_checks)))
 
-    print(previous.interpretation, current.interpretation)
-    print("CHANGED_DATA", changed_data, flush=True)
-
     if 'pk' in changed_data:
         observation_made = ObservationMade.from_observation(current, published=published)
 
         return [observation_made]
-    
-    if 'date_closed' in changed_data:
-        observation_closed = ObservationClosed.from_observation(current, published=published)
-
-        return [observation_closed]
 
     events = []
 
@@ -113,7 +104,7 @@ class ObservationSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Observation
-        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'date_closed']
+        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach']
     
     @transaction.atomic
     def save(self, *args, **kwargs):

@@ -5,15 +5,24 @@ from datetime import datetime
 
 from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin
 
+from django.db import transaction
+
 # Register your models here.
 
 class ObservationTypeAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
+
 @admin.action(description='Close selected observations')
 def close_observations(modeladmin, request, queryset):
-    queryset.update(date_closed=datetime.today())
+    for observation in queryset:
 
+        observation_closed = ObservationClosed.from_observation(observation)
+
+        with transaction.atomic():
+            observation_closed.save()
+
+            observation.delete()
 
 class ObservationUpdatedInline(admin.StackedInline):
     model = ObservationUpdated
@@ -22,9 +31,7 @@ class ObservationUpdatedInline(admin.StackedInline):
     readonly_fields = ('published',)
 
 class ObservationAdmin(admin.ModelAdmin):
-    list_filter = ('date_closed',)
-
-    list_display = ('__str__', 'date_closed', 'thread', 'type')
+    list_display = ('__str__', 'thread', 'type')
 
     actions = [close_observations]
 
