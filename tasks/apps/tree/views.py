@@ -59,7 +59,6 @@ class ObservationFilter(filters.FilterSet):
         model = Observation
         fields = {
             'pub_date': ('gte', 'lte'),
-            'date_closed': ('isnull', ),
         }
 
 class ObservationViewSet(viewsets.ModelViewSet):
@@ -383,7 +382,6 @@ def today(request):
 class ObservationListView(ListView):
     model = Observation
     queryset = Observation.objects \
-        .filter(date_closed__isnull=True) \
         .select_related('thread', 'type') \
         .prefetch_related('observationupdated_set')
 
@@ -392,25 +390,24 @@ class ObservationListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context['open_count'] = len(Observation.objects.filter(date_closed__isnull=True))
-        context['closed_count'] = len(Observation.objects.filter(date_closed__isnull=False))
+        context['open_count'] = Observation.objects.count()
+        context['closed_count'] = ObservationClosed.objects.count()
 
         return context
 
 class ObservationClosedListView(ListView):
-    model = Observation
-    queryset = Observation.objects \
-        .filter(date_closed__isnull=False) \
+    model = ObservationClosed
+    queryset = ObservationClosed.objects \
         .select_related('thread', 'type') \
-        .prefetch_related('observationupdated_set')
-
+        .order_by('-published')
+    
     paginate_by = 100
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context['open_count'] = len(Observation.objects.filter(date_closed__isnull=True))
-        context['closed_count'] = len(Observation.objects.filter(date_closed__isnull=False))
+        context['open_count'] = Observation.objects.count()
+        context['closed_count'] = ObservationClosed.objects.count()
 
         return context
 
@@ -479,3 +476,20 @@ def observation_edit(request, observation_id=None):
         "instance": observation,
         "thread_as_link": True,
     })
+
+
+@api_view(['POST'])
+def observation_close(request, observation_id):
+    observation = get_object_or_404(Observation, pk=observation_id)
+
+    observation_closed = ObservationClosed.from_observation(observation)
+
+    with transaction.atomic():
+        observation_closed.save()
+
+        observation.delete()
+
+    response = Response({'ok': True}, status=status.HTTP_200_OK)
+    response['HX-Redirect'] = reverse('public-observation-list')
+    
+    return response

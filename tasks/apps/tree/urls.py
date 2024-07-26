@@ -25,6 +25,8 @@ urlpatterns = [
     path('observations/', views.ObservationListView.as_view(), name='public-observation-list'),
     path('observations/closed/', views.ObservationClosedListView.as_view(), name='public-observation-list-closed'),
 
+    re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/close/$', views.observation_close, name='public-observation-close'),
+
     path('', views.today),
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))

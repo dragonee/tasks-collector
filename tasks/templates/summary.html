@@ -53,11 +53,7 @@
                         <small>
                                 ({{item.type}}, 
                                 {{ item.thread }}
-                                {% if item.date_closed %}
-                                    <a href="/observations/closed/#observation-{{ item.pk }}">#</a>)
-                                {% else %}
-                                    <a href="/observations/#observation-{{ item.pk }}">#</a>)
-                                {% endif %}
+                                <a href="/observations/#observation-{{ item.pk }}">#</a>)
                         </small>
                     </em>
                 </li>
