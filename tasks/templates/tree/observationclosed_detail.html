@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}
+    {{ instance.situation_truncated }}
+{% endblock %}
+
+{% block content %}
+<!-- Vue entry-point -->
+
+
+<div class="observations">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+<div class="observation-edit page">
+    <div class="form">
+
+        <div class="left">
+            <h3>Observation</h3>
+            <p class="meta">Opened for {{ time_to_closed }}</p>
+            <div class="situation">
+                {{ instance.situation|linebreaks }}
+            </div>
+            <div class="interpretation">
+                {{ instance.interpretation|linebreaks }}
+            </div>
+            <div class="approach">
+                {{ instance.approach|linebreaks }}
+            </div>       
+        </div>
+
+        <div class="right">
+            <h3>Updates</h3>
+            <p class="meta"></p>
+            {% for update in updates %}
+                <div class="update">
+                    {{ update.comment|linebreaks }}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="updates">
+        <p class="meta">{{ events|length }} events total</p>
+
+        {% for event in events %}
+            <div class="event">
+                {% if event.template %}
+                    {% include event.template %}
+                {% else %}
+                    {{ event }}
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+</div>
+{% endblock %}
+
+<!-- Load Vue app -->
+{% block extrajs %}
+{% endblock %}
+

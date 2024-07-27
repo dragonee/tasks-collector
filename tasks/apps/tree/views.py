@@ -10,7 +10,7 @@ from .forms import PlanForm, ReflectionForm, ObservationForm
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
-from datetime import date
+from datetime import date, timedelta
 
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -411,6 +411,21 @@ class ObservationClosedListView(ListView):
 
         return context
 
+def observation_closed_detail(request, event_stream_id):
+    observation_closed = get_object_or_404(ObservationClosed, event_stream_id=event_stream_id)
+    
+    events = list(Event.objects.filter(
+        event_stream_id=observation_closed.event_stream_id
+    ).order_by('published'))
+
+    time_to_closed = events[-1].published - events[0].published
+
+    return render(request, 'tree/observationclosed_detail.html', {
+        'instance': observation_closed,
+        'events': events,
+        'updates': filter(lambda x: isinstance(x, ObservationUpdated), events),
+        'time_to_closed': time_to_closed
+    })
 
 def observation_edit(request, observation_id=None):
     if observation_id is not None:
