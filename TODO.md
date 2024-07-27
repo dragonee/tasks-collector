@@ -15,6 +15,10 @@
   - [ ] See if `spawn_observation_events` should be done all around the application or not
   - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
   - [x] Drop closed observations (migration + replace view in code)
-  - [ ] Add `event_stream_id` page showing for example, past observations
+  - [x] Add `event_stream_id` page showing for example, past observations
   - [ ] Test and implement
 - [ ] Add post-it boards for ideas
+- [ ] Observation Closed History View
+  - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)
+  - [ ] Event timeline component
+  - [ ] Better styling

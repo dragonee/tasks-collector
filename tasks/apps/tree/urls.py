@@ -24,6 +24,7 @@ urlpatterns = [
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/$', views.observation_edit, name='public-observation-edit'),
     path('observations/', views.ObservationListView.as_view(), name='public-observation-list'),
     path('observations/closed/', views.ObservationClosedListView.as_view(), name='public-observation-list-closed'),
+    re_path(r'^observations/closed/(?P<event_stream_id>[a-f0-9\-]+)/$', views.observation_closed_detail, name='public-observation-closed-detail'),
 
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/close/$', views.observation_close, name='public-observation-close'),
 
