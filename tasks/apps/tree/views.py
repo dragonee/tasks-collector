@@ -471,7 +471,7 @@ def observation_edit(request, observation_id=None):
             initial_dict['pub_date'] = date.today()
         
         if not observation.type_id:
-            initial_dict['type'] = ObservationType.objects.first()
+            initial_dict['type'] = ObservationType.objects.get(name='Observation')
         
         if not observation.thread_id:
             initial_dict['thread'] = Thread.objects.get(name='big-picture')
