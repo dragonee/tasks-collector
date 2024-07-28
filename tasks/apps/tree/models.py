@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 from django.db import models
 
 from django.utils.translation import ugettext_lazy as _
@@ -11,7 +13,7 @@ from polymorphic.models import PolymorphicModel
 
 import uuid
 
-from .uuid_generators import board_event_stream_id, habit_event_stream_id
+from .uuid_generators import board_event_stream_id, habit_event_stream_id, journal_added_event_stream_id, board_event_stream_id_from_thread
 
 from .utils.datetime import aware_from_date
 
@@ -22,6 +24,8 @@ def default_state():
     return []
 
 class Thread(models.Model):
+    # readonly-once-set
+    # if you need to change name, a migration needs to be run
     name = models.CharField(max_length=255)
 
     def __str__(self):
@@ -36,7 +40,7 @@ class Event(PolymorphicModel):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    event_stream_id = models.UUIDField(editable=False)
 
     class Meta:
         indexes = [
@@ -56,6 +60,9 @@ class Event(PolymorphicModel):
 
 
 class BoardCommitted(Event):
+    # thread set manually from board
+    # event_stream_id <- thread
+
     focus = models.CharField(max_length=255)
 
     before = models.JSONField(default=default_state)
@@ -69,8 +76,13 @@ class BoardCommitted(Event):
     def date_closed(self):
         return self.published
 
+@receiver(pre_save, sender=BoardCommitted)
+def update_board_committed_event_stream_id(sender, instance, *args, **kwargs):
+    instance.event_stream_id = board_event_stream_id_from_thread(instance.thread)
+
 
 class Habit(models.Model):
+    # readonly-once-set
     name = models.CharField(max_length=255)
 
     def __str__(self):
@@ -90,7 +102,44 @@ class Habit(models.Model):
     def event_stream_id(self):
         return habit_event_stream_id(self)
 
+
+Diff = namedtuple('Diff', ['old', 'new'])
+
+def field_has_changed(instance, field):
+    model = type(instance)
+
+    new_value = getattr(instance, field)
+
+    try:
+        old = model.objects.get(pk=instance.pk)
+
+        old_value = getattr(old, field)
+
+        if getattr(old, field) == getattr(instance, field):
+            return False
+        
+        return Diff(old=old_value, new=new_value)
+    except model.DoesNotExist:
+        return Diff(old=None, new=new_value)
+
+
+@receiver(pre_save, sender=Habit)
+def on_habit_name_change_update_event_stream_id(sender, instance, *args, **kwargs):
+    changed = field_has_changed(instance, 'event_stream_id')
+
+    if not changed or not changed.old:
+        return
+    
+    Event.objects.filter(
+        event_stream_id=changed.old
+    ).update(
+        event_stream_id=changed.new
+    )
+
 class HabitTracked(Event):
+    # thread must be set manually
+    # event_stream_id <- habit.name
+
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE)
 
     occured = models.BooleanField(default=True)
@@ -100,6 +149,10 @@ class HabitTracked(Event):
     def __str__(self):
         return "{} {}".format(self.habit, self.published)
 
+@receiver(pre_save, sender=HabitTracked)
+def update_habit_tracked_event_stream_id(sender, instance, *args, **kwargs):
+    instance.event_stream_id = habit_event_stream_id(instance)
+
     
 class Board(models.Model):
     date_started = models.DateTimeField(default=timezone.now)
@@ -107,8 +160,6 @@ class Board(models.Model):
     state = models.JSONField(default=default_state, blank=True)
 
     focus = models.CharField(max_length=255, null=True, blank=True)
-
-    event_stream_id = models.UUIDField(editable=False)
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE, null=True)
     class Meta:
@@ -119,10 +170,10 @@ class Board(models.Model):
             return str(self.thread)
 
         return "{} {}".format(self.focus, self.thread)
-
-@receiver(pre_save, sender=Board)
-def set_board_event_stream_id(sender, instance, *args, **kwargs):
-    instance.event_stream_id = board_event_stream_id(instance)
+    
+    @property
+    def event_stream_id(self):
+        return board_event_stream_id(self)
 
 
 class Reflection(models.Model):
@@ -210,6 +261,9 @@ class ObservationEventMixin:
         return Observation.objects.get(event_stream_id=self.event_stream_id)
 
 class ObservationMade(Event, ObservationEventMixin):
+    # event_stream_id <- Observation
+    # thread <- Observation (can be updated)
+
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
@@ -314,8 +368,20 @@ class ObservationClosed(Event, ObservationEventMixin):
             approach=observation.approach,
         )
 
-@receiver(pre_save, sender=ObservationUpdated)
+observation_event_types = (
+    ObservationMade,
+    ObservationClosed,
+    ObservationRecontextualized,
+    ObservationReflectedUpon,
+    ObservationReinterpreted,
+    ObservationUpdated,
+)
+
+@receiver(pre_save)
 def copy_observation_to_update_events(sender, instance, *args, **kwargs):
+    if not isinstance(instance, observation_event_types):
+        return
+
     if not instance.thread_id and instance.observation:
         instance.thread_id = instance.observation.thread_id
 
@@ -323,14 +389,11 @@ def copy_observation_to_update_events(sender, instance, *args, **kwargs):
 
 
 @receiver(pre_save, sender=Observation)
-def update_thread_on_updates(sender, instance, *args, **kwargs):
-    try:
-        old = Observation.objects.get(pk=instance.pk)
-        if old.thread_id == instance.thread_id:
-            # do nothing
-            return
-    except Observation.DoesNotExist:
-        pass
+def on_observation_thread_change_update_events(sender, instance, *args, **kwargs):
+    changed = field_has_changed(instance, 'thread_id')
+
+    if not changed or not changed.old:
+        return
 
     if instance.event_stream_id is None:
         return
@@ -347,3 +410,6 @@ class JournalAdded(Event):
     def __str__(self):
         return self.comment
 
+@receiver(pre_save, sender=JournalAdded)
+def update_journal_added_event_stream_id(sender, instance, *args, **kwargs):
+    instance.event_stream_id = journal_added_event_stream_id(instance)
