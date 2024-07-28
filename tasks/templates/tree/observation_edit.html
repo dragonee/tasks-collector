@@ -33,9 +33,11 @@
         
             <div class="submit">
                 <button class="submit">Submit</button>
+                {% if instance.pk %}
                 <button class="close" hx-post="{% url 'public-observation-close' instance.pk %}">
                     Close observation
                 </button>
+                {% endif %}
             </div>            
         </div>
 

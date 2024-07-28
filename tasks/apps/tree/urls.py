@@ -1,7 +1,11 @@
 from django.urls import include, path, re_path
+from django.views.generic import TemplateView
+
 
 from rest_framework import routers
 from . import views
+
+from django.urls import include, path
 
 router = routers.DefaultRouter()
 router.register(r'boards', views.BoardViewSet, basename='boards')
@@ -30,5 +34,7 @@ urlpatterns = [
 
     path('', views.today),
     path('', include(router.urls)),
+    path('todo/', TemplateView.as_view(template_name='tree/tasks.html')),
+
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]

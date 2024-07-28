@@ -31,7 +31,7 @@
             <span class="menulink">/</span>
 
             <a class="menulink" href="/">Daily</a>
-            <a class="menulink" href="/hello/world/">Tasks</a>
+            <a class="menulink" href="/todo/">Tasks</a>
             <a class="menulink" href="/observations/">Observations</a>
             <a class="menulink" href="/admin/tree/observation/add/">+Observation</a>
             <a class="menulink" href="/periodical/">Periodical</a>

@@ -10,13 +10,15 @@
   - [x] Migrate observations to have their own ObservationMade/ObservationClosed events
   - [x] Remove `date_closed` on observations
   - [x] Fix event_stream_id on habittracked
-    - [ ] Implement signals event_stream_id saving on change etc for JournalAdded, HabitTracked...
-  - [ ] Check once more whether the data and editing capabilities are preserved
-  - [ ] See if `spawn_observation_events` should be done all around the application or not
+    - [x] Implement signals event_stream_id saving on change etc for JournalAdded, HabitTracked...
   - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
   - [x] Drop closed observations (migration + replace view in code)
   - [x] Add `event_stream_id` page showing for example, past observations
-  - [ ] Test and implement
+  - [ ] Check once more whether the data and editing capabilities are preserved
+    - [ ] See if `spawn_observation_events` should be done all around the application or not
+    - [ ] List out required and secondary use cases
+  - [ ] Check if migrations are really reversible
+- [x] Bring back tasks view
 - [ ] Add post-it boards for ideas
 - [ ] Observation Closed History View
   - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)

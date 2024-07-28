@@ -7,10 +7,16 @@ from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModel
 
 from django.db import transaction
 
-# Register your models here.
 
 class ObservationTypeAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
+
+class ThreadAdmin(admin.ModelAdmin):
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return self.readonly_fields + ('name', )
+        
+        return self.readonly_fields
 
 
 @admin.action(description='Close selected observations')
@@ -66,6 +72,8 @@ class ObservationUpdatedAdmin(PolymorphicChildModelAdmin):
 
 class BoardCommittedAdmin(PolymorphicChildModelAdmin):
     base_model = BoardCommitted
+    list_display = ('__str__', 'event_stream_id',)
+
 
 class ObservationMadeAdmin(PolymorphicChildModelAdmin):
     base_model = ObservationMade
@@ -88,7 +96,7 @@ class JournalAddedAdmin(PolymorphicChildModelAdmin):
     list_display = ('__str__', 'thread', 'published')
 
 admin.site.register(Board)
-admin.site.register(Thread)
+admin.site.register(Thread, ThreadAdmin)
 admin.site.register(Plan)
 admin.site.register(Reflection)
 admin.site.register(Observation, ObservationAdmin)
