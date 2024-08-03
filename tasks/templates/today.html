@@ -92,10 +92,11 @@
         </div>
     </div>
 
-    <div class="journals">
+    <div class="journal-section">
         {% for journal in journals %}
             <div class="single-journal">
-                [{{ journal.published | date:"l" }} {{ journal.published | time:"H:i" }}] {{ journal.comment|linebreaks }}
+                <div class="meta">{{ journal.published | date:"l" }} {{ journal.published | time:"H:i" }}</div>
+                {{ journal.comment|linebreaks }}
             </div>
         {% endfor %}
     </div>

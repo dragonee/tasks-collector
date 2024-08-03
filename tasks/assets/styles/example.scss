@@ -908,8 +908,29 @@ article.quest {
     }
 }
 
+.journal-section {
+    background-color: white;
+    padding: 0.5rem 0.75rem;
+
+    margin: 0 20px 3rem;
+
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
+
+
+}
+
 .single-journal {
     margin: 0.5em 0;
+
+    .meta {
+        font-weight: 600;
+        color: #333833;
+        font-size: 0.875em;
+    }
+
+    .meta + p {
+        margin-top: 0.25rem;
+    }
 }
 
 
