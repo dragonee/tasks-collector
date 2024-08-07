@@ -3,7 +3,7 @@ import Vuex from 'vuex'
 import VueRouter from 'vue-router'
 import HelloWorldComponent from './hello_world.vue'
 import Board from './Board.vue'
-import Journal from './Journal.vue'
+import Blackboard from './Blackboard.vue'
 
 import store from '../store'
 
@@ -17,8 +17,7 @@ import axios from 'axios'
 
 const routes = [
     { path: '/', component: Board },
-    { path: '/board/:slug', component: Board }, 
-    { path: '/journal/:date', component: Journal },
+    { path: '/board', component: Blackboard },
 ]
 
 const router = new VueRouter({

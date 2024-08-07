@@ -25,8 +25,8 @@
                 </option>
             </select>
 
-            <router-link class="menulink" to="/">Board</router-link>
-            <router-link class="menulink" to="/journal">Journal</router-link>
+            <router-link class="menulink" to="/">List</router-link>
+            <router-link class="menulink" to="/board">Board</router-link>
 
             <span class="menulink">/</span>
 

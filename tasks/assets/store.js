@@ -27,6 +27,14 @@ const id_ptr = (id) => ({
     },
 });
 
+function preorder(tree, name='children') {
+    return [
+        tree,
+        ...tree[name].map((x) => preorder(x)).flat()
+            // filter only leaves
+            .filter((x) => !(x.children?.length))
+    ];
+}
 
 export default {
     state: {
@@ -40,6 +48,14 @@ export default {
             return state.listResponse && state.listResponse.count
                 ? state.listResponse.results[0]
                 : createBoard()
+        },
+
+        currentBoardFlat(state, getters) {
+            return {
+                ...getters.currentBoard,
+                // preorder traverse tree
+                state: preorder({ children: getters.currentBoard.state }).slice(1),
+            }; 
         },
 
         // empty?
