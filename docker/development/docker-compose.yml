@@ -15,6 +15,10 @@ services:
         networks:
             - tasks
 
+    tasks-queue:
+        image: redis:7-alpine
+        networks:
+          - tasks
     tasks-backend:
         build:
             context: ../..
