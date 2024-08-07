@@ -17,7 +17,18 @@
 - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
 - [x] Bring back tasks view
 - [ ] Add post-it boards for ideas
+  - Use the tasks backend
+  - Add another view (with two components – a "shelf" and a "board")
+  - Put things from shelf to board
+    - Coordinates update
+  - Put things back from board to shelf
+    - Coordinates remove
+  - [ ] ability to move board around
 - [ ] Observation Closed History View
   - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)
   - [ ] Event timeline component
   - [ ] Better styling
+- [ ] Quick notes
+  - [ ] Can add via mobile (URL: /q, for example)
+  - [ ] Removed after 24 hours
+  - [ ] Can be put into a journal comment as list of points quote before comment section
