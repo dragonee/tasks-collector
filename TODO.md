@@ -32,3 +32,7 @@
   - [ ] Can add via mobile (URL: /q, for example)
   - [ ] Removed after 24 hours
   - [ ] Can be put into a journal comment as list of points quote before comment section
+- [ ] Habit summaries
+  - [ ] Quick summary - since / from
+  - [ ] Lines (days)
+  - [ ] Calendar
