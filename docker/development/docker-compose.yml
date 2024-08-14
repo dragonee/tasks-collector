@@ -14,15 +14,37 @@ services:
             - "./db:/var/lib/postgresql/data"
         networks:
             - tasks
-
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U tasks"]
+            interval: 2s
+            timeout: 2s
+            retries: 10
     tasks-queue:
         image: redis:7-alpine
         networks:
           - tasks
+    tasks-celery:
+        image: "python:3.10-alpine"
+        volumes:
+            - "../..:/app"
+        networks:
+            - tasks
+        depends_on:
+            - tasks-queue
+        command: "/app/tools/run-celery.sh"
+        working_dir: /app
+    tasks-celery-beat:
+        image: "python:3.10-alpine"
+        volumes:
+            - "../..:/app"
+        networks:
+            - tasks
+        depends_on:
+            - tasks-queue
+        command: "/app/tools/run-celery-beat.sh"
+        working_dir: /app
     tasks-backend:
-        build:
-            context: ../..
-            dockerfile: docker/development/Dockerfile
+        image: "python:3.10-alpine"
         volumes:
             - "../..:/app"
         ports:
@@ -30,5 +52,13 @@ services:
         networks:
             - tasks
         depends_on:
-            - tasks-db
+            tasks-db:
+                condition: service_healthy
         command: "/app/tools/run-development.sh"
+        working_dir: /app
+    tasks-frontend:
+        image: "node:22-alpine"
+        volumes:
+            - "../..:/app"
+        command: "/app/tools/run-frontend.sh"
+        working_dir: /app
