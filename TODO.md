@@ -31,6 +31,9 @@
 - [ ] Quick notes
   - [ ] Can add via mobile (URL: /q, for example)
   - [ ] Removed after 24 hours
+    - [ ] Add autoreload for celery
+    - [x] Use standard Python images for celery
+    - [x] Celery does not need to wait on PostgreSQL
   - [ ] Can be put into a journal comment as list of points quote before comment section
 - [ ] Habit summaries
   - [ ] Quick summary - since / from

@@ -6,9 +6,7 @@
   "scripts": {
     "build": "webpack --config config/webpack.local.js --mode development",
     "build-dist": "webpack --config config/webpack.dist.js --mode production --progress",
-    "watch-assets": "webpack --config config/webpack.local.js --mode development --watch",
-    "watch-python": "./manage.py runserver 0.0.0.0:8000",
-    "dev": "concurrently npm:watch-*"
+    "dev": "webpack --config config/webpack.local.js --mode development --watch"
   },
   "author": "Makimo",
   "license": "UNLICENSED",
