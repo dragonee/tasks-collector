@@ -17,15 +17,6 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
 
-
-@app.on_after_finalize.connect
-def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(
-        crontab(minute="*/1"),
-        debug_task.s("arg"),
-    )
-
-
-@app.task(ignore_result=True)
-def debug_task(arg):
-    print(f'Request: {arg}')
+# Scheduler configuration can be set in the Django settings
+# as CELERY_BEAT_SCHEDULE setting, see
+# https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html#crontab-schedules

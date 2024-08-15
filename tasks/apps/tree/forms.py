@@ -2,7 +2,7 @@ from django import forms
 
 from django.core.exceptions import ValidationError
 
-from .models import Plan, Reflection, Observation
+from .models import Plan, Reflection, Observation, QuickNote
 
 class PlanForm(forms.ModelForm):
     class Meta:
@@ -19,4 +19,11 @@ class ObservationForm(forms.ModelForm):
         model = Observation
         fields = [
             "situation", "interpretation", "approach", "pub_date", "type", "thread"
+        ]
+
+class QuickNoteForm(forms.ModelForm):
+    class Meta:
+        model = QuickNote
+        fields = [
+            "note"
         ]

@@ -29,8 +29,8 @@
   - [ ] Event timeline component
   - [ ] Better styling
 - [ ] Quick notes
-  - [ ] Can add via mobile (URL: /q, for example)
-  - [ ] Removed after 24 hours
+  - [x] Can add via mobile (URL: /q, for example)
+  - [x] Removed after 24 hours
     - [x] Add autoreload for celery
     - [x] Use standard Python images for celery
     - [x] Celery does not need to wait on PostgreSQL

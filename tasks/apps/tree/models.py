@@ -413,3 +413,9 @@ class JournalAdded(Event):
 @receiver(pre_save, sender=JournalAdded)
 def update_journal_added_event_stream_id(sender, instance, *args, **kwargs):
     instance.event_stream_id = journal_added_event_stream_id(instance)
+
+
+class QuickNote(models.Model):
+    published = models.DateTimeField(default=timezone.now)
+
+    note = models.TextField()

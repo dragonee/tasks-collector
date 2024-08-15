@@ -964,3 +964,63 @@ article.quest {
         padding: 0.2em 0;
     }
 }
+
+body.quick-notes {
+    background-color: #f3f4f5;
+    max-width: 50rem;
+
+    font-size: 1.1rem;
+
+    margin: auto;
+
+    #form label {
+        display: none;
+    }
+
+    #form textarea {
+        height: 6.5rem;
+        width: 100%;
+        font-size: 1.6rem;
+    }
+
+    #form button[type=submit] {
+        font-size: 1.4rem;
+        padding: 0.5rem 1rem;
+
+        float: right;
+    }
+
+    .quick-note-list {
+
+        background-color: #fff;
+        padding: 0.4rem 0.5rem;
+        
+        .note {
+            margin: 1rem 0;
+
+            .timesince {
+                font-size: 0.86em;
+                font-weight: bold;
+                color: #666;
+            }
+
+            .content {
+                p:first-child {
+                    margin-top: 0;
+                }
+
+                p:last-child {
+                    margin-bottom: 0;
+                }
+            }
+        }
+
+        .note:first-child {
+            margin-top: 0;
+        }
+
+        .note:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
