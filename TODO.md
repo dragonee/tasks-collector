@@ -28,13 +28,13 @@
   - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)
   - [ ] Event timeline component
   - [ ] Better styling
-- [ ] Quick notes
+- [x] Quick notes
   - [x] Can add via mobile (URL: /q, for example)
   - [x] Removed after 24 hours
     - [x] Add autoreload for celery
     - [x] Use standard Python images for celery
     - [x] Celery does not need to wait on PostgreSQL
-  - [ ] Can be put into a journal comment as list of points quote before comment section
+  - [x] Can be put into a journal comment as list of points quote before comment section
 - [ ] Habit summaries
   - [ ] Quick summary - since / from
   - [ ] Lines (days)
