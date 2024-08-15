@@ -25,8 +25,6 @@ def setup_periodic_tasks(sender, **kwargs):
         debug_task.s("arg"),
     )
 
-    print("Periodic tasks added")
-
 
 @app.task(ignore_result=True)
 def debug_task(arg):
