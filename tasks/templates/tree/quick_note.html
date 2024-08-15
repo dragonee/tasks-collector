@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}quick-notes{% endblock %}
+
+{% block content %}
+
+<section class="quick-notes">
+    <form hx-post="{% url 'quick-note-add' %}" id="form">
+        {% include "tree/quick_note/form.html" %}
+    </form>
+
+    <div class="quick-note-list">
+        {% for note in notes %}
+            <div class="note">
+                <div class="meta timesince">{{ note.published|timesince }} ago</div>
+                <div class="content">
+                    {{ note.note|linebreaks }}
+                </div>
+            </div>
+        {% empty %}
+            <div class="empty">
+                Add a new note...
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+{% endblock %}
+
+
+{% block extrajs %}
+{% endblock %}
+

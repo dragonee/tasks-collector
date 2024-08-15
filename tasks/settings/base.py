@@ -62,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_htmx.middleware.HtmxMiddleware',
 ]
 
 ROOT_URLCONF = 'tasks.urls'
@@ -157,3 +158,11 @@ REST_FRAMEWORK = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+CELERY_BEAT_SCHEDULE = {
+    'remove-stale-quick-notes': {
+        'task': 'tasks.apps.tree.tasks.remove_quick_notes_after',
+        'schedule': 600.0,
+        'kwargs': {'minutes': 1440},
+    }
+}

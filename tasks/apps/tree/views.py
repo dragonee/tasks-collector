@@ -4,15 +4,19 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer
-from .models import Event, Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted
-from .forms import PlanForm, ReflectionForm, ObservationForm
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer, QuickNoteSerializer
+from .models import Event, Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted, QuickNote
+from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
 from datetime import date, timedelta
 
-from rest_framework.response import Response
+from django.http import HttpResponse
+from django.views.decorators.http import require_POST
+from django_htmx.http import retarget, HttpResponseClientRefresh
+
+from rest_framework.response import Response as RestResponse
 from rest_framework.decorators import api_view
 
 from django.utils import timezone
@@ -92,10 +96,11 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
                 thread=Thread.objects.get(name='Daily'),
             )
 
+class QuickNoteViewSet(viewsets.ModelViewSet):
+    queryset = QuickNote.objects.order_by('published')
+    serializer_class = QuickNoteSerializer
+
 class ThreadViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint that allows boards to be viewed or edited.
-    """
     queryset = Thread.objects.all()
     serializer_class = ThreadSerializer
 
@@ -147,7 +152,7 @@ def commit_board(request, id=None):
     board.date_started = now
     board.save()
 
-    return Response(BoardSerializer(board).data)
+    return RestResponse(BoardSerializer(board).data)
 
 @api_view(['POST'])
 def add_task(request):
@@ -155,7 +160,7 @@ def add_task(request):
 
     # XXX hackish
     if 'text' not in item or 'thread-name' not in item:
-        return Response({'errors': 'no thread-name and text'}, status=status.HTTP_400_BAD_REQUEST)
+        return RestResponse({'errors': 'no thread-name and text'}, status=status.HTTP_400_BAD_REQUEST)
     
     thread = get_object_or_404(Thread, name=item['thread-name'])
     board = Board.objects.filter(thread=thread).order_by('-date_started').first()
@@ -180,7 +185,7 @@ def add_task(request):
 
     board.save()
 
-    return Response(BoardSerializer(board).data)
+    return RestResponse(BoardSerializer(board).data)
 
 def board_summary(request, id):
     board = get_object_or_404(BoardCommitted, pk=id)
@@ -504,7 +509,39 @@ def observation_close(request, observation_id):
 
         observation.delete()
 
-    response = Response({'ok': True}, status=status.HTTP_200_OK)
+    response = RestResponse({'ok': True}, status=status.HTTP_200_OK)
     response['HX-Redirect'] = reverse('public-observation-list')
     
     return response
+
+@require_POST
+def add_quick_note_hx(request):
+    if not request.htmx:
+        return HttpResponse("Only HTMX allowed", status=status.HTTP_400_BAD_REQUEST)
+
+    form = QuickNoteForm(request.POST)
+
+    if not form.is_valid():
+        response = render(request, "tree/quick_note/form.html", {
+            'form': form,
+        })
+
+        retarget(response, "#form")
+
+        return response
+    
+    form.save()
+
+    return HttpResponseClientRefresh()
+
+
+def quick_notes(request):
+    return render(request, "tree/quick_note.html", {
+        'notes': QuickNote.objects.order_by('published'),
+        'form': QuickNoteForm(),
+    })
+
+
+### XXX TODO 
+### finish the editing views
+### add auto-delete mechanism

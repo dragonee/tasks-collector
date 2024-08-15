@@ -15,6 +15,7 @@ router.register(r'reflections', views.ReflectionViewSet)
 router.register(r'observation-api', views.ObservationViewSet)
 router.register(r'updates', views.ObservationUpdatedViewSet)
 router.register(r'journal', views.JournalAddedViewSet)
+router.register(r'quick-notes', views.QuickNoteViewSet)
 
 
 urlpatterns = [
@@ -35,6 +36,8 @@ urlpatterns = [
     path('', views.today),
     path('', include(router.urls)),
     path('todo/', TemplateView.as_view(template_name='tree/tasks.html')),
+    path('q/', views.quick_notes, name='quick-notes'),
+    path('q/post/', views.add_quick_note_hx, name='quick-note-add'),
 
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]

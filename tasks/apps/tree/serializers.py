@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted
+from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted, QuickNote
 
 from functools import partial
 
@@ -139,6 +139,10 @@ class JournalAddedSerializer(serializers.ModelSerializer):
         model = JournalAdded
         fields = [ 'id', 'comment', 'published', 'thread', ]
 
+class QuickNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuickNote
+        fields = [ 'id', 'published', 'note']
 
 class tree_iterator:
     """Preorder traversal tree iterator"""
