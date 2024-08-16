@@ -163,6 +163,6 @@ CELERY_BEAT_SCHEDULE = {
     'remove-stale-quick-notes': {
         'task': 'tasks.apps.tree.tasks.remove_quick_notes_after',
         'schedule': 600.0,
-        'kwargs': {'minutes': 1440},
+        'kwargs': {'hours': 24},
     }
 }
