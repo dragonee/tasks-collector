@@ -1,12 +1,9 @@
 # TODO. A backlog of ideas
 
-- [ ] a weekly report could list out count and a summary of all items as email (for example)
 - [x] No need for editable habit lines
   - [x] A journal suffices for that and doesn't have any shenanigans
   - [x] Implement a migration and then remove it altogether
-- [ ] Add journal to the `today` view
-- [ ] Move tools from random-tools to tasks-collector-tools
-- Observation-Event migration
+- [x] Observation-Event migration
   - [x] Migrate observations to have their own ObservationMade/ObservationClosed events
   - [x] Remove `date_closed` on observations
   - [x] Fix event_stream_id on habittracked
@@ -14,20 +11,7 @@
   - [x] Drop closed observations (migration + replace view in code)
   - [x] Add `event_stream_id` page showing for example, past observations
   - [x] Check if migrations are really reversible
-- [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
 - [x] Bring back tasks view
-- [ ] Add post-it boards for ideas
-  - Use the tasks backend
-  - Add another view (with two components – a "shelf" and a "board")
-  - Put things from shelf to board
-    - Coordinates update
-  - Put things back from board to shelf
-    - Coordinates remove
-  - [ ] ability to move board around
-- [ ] Observation Closed History View
-  - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)
-  - [ ] Event timeline component
-  - [ ] Better styling
 - [x] Quick notes
   - [x] Can add via mobile (URL: /q, for example)
   - [x] Removed after 24 hours
@@ -35,8 +19,25 @@
     - [x] Use standard Python images for celery
     - [x] Celery does not need to wait on PostgreSQL
   - [x] Can be put into a journal comment as list of points quote before comment section
+- [ ] a weekly report could list out count and a summary of all items as email (for example)
+- [ ] Add journal to the `today` view
+- [ ] Move tools from random-tools to tasks-collector-tools
+- [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
+- [ ] Add post-it boards for ideas
+  - [ ] Use the tasks backend
+  - [ ] Add another view (with two components – a "shelf" and a "board")
+  - [ ] Put things from shelf to board
+    - [ ] Coordinates update
+  - [ ] Put things back from board to shelf
+    - [ ] Coordinates remove
+  - [ ] ability to move board around
+- [ ] Observation Closed History View
+  - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)
+  - [ ] Event timeline component
+  - [ ] Better styling
 - [ ] Habit summaries
   - [ ] Quick summary - since / from
   - [ ] Lines (days)
   - [ ] Calendar
 - [ ] Remove empty plans/reflections (these should not save)
+- [ ] Dump database before automatic migration / deployment
