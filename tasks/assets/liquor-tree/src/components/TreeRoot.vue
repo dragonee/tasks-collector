@@ -78,6 +78,9 @@
 <li>
                            <a href="#" v-if="currentThread.name != 'Daily'" @click.prevent="onClick('transition', {... child.data, value: 'Daily' })">Daily</a>
 </li>
+                        <li>
+                           <a href="#" v-if="currentThread.name == 'Books'" @click.prevent="onClick('transition', {... child.data, value: 'Read' })">Read (backlog)</a>
+                       </li>
 <li>
                            <a href="#" @click.prevent="onClick('transition', {... child.data, value: UNSET })">Clear</a>
                       </li>
