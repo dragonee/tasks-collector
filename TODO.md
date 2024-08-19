@@ -39,3 +39,4 @@
   - [ ] Quick summary - since / from
   - [ ] Lines (days)
   - [ ] Calendar
+- [ ] Remove empty plans/reflections (these should not save)
