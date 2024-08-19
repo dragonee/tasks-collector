@@ -13,7 +13,7 @@
     <div class="cont">
         <h2>
             <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}">&lt;</a>
-            {{ today }}:
+            {{ today|date:"l, d M Y" }}:
 
             <select name="thread" id="thread">
                 {% for a_thread in threads %}
