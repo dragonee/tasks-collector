@@ -21,7 +21,8 @@
   - [x] Can be put into a journal comment as list of points quote before comment section
 - [ ] a weekly report could list out count and a summary of all items as email (for example)
 - [ ] Add journal to the `today` view
-- [ ] Move tools from random-tools to tasks-collector-tools
+- [x] Move tools from random-tools to tasks-collector-tools
+- [ ] Add `tasks-collector.ini` to the project and set it up with a dummy password for development
 - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
 - [ ] Add post-it boards for ideas
   - [ ] Use the tasks backend
