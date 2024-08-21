@@ -92,7 +92,7 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
                 occured=occured,
                 habit=habit,
                 note=note,
-                published=timezone.now(),
+                published=journal_added.published,
                 thread=Thread.objects.get(name='Daily'),
             )
 
