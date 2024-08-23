@@ -44,3 +44,4 @@
 - [ ] Dump database before automatic migration / deployment
 - [x] Bug: Habits tracked on journal save have no event set to published of the journal
 - [x] Add taskadd Inbox
+  - [ ] Add ability to go to `/todo/#board=board`
