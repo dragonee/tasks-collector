@@ -45,3 +45,7 @@
 - [x] Bug: Habits tracked on journal save have no event set to published of the journal
 - [x] Add taskadd Inbox
   - [ ] Add ability to go to `/todo/#board=board`
+- [ ] Quests: merge them with journals
+  - [ ] (draft) Use journal for journalling, and quest object as a side to it
+    - JournalQuestMeta: quest_id, journal_id, stage
+    - where to differentiate logic for stage: Null?
