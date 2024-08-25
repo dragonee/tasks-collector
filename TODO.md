@@ -49,3 +49,7 @@
   - [ ] (draft) Use journal for journalling, and quest object as a side to it
     - JournalQuestMeta: quest_id, journal_id, stage
     - where to differentiate logic for stage: Null?
+- [ ] Ability to create a task on Google Tasks API from the board
+  - [ ] PoC: https://developers.google.com/tasks/quickstart/python
+  - [ ] Board action
+  - [ ] Board status - scheduled
