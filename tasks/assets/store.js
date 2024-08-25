@@ -6,11 +6,33 @@ import equal from 'deep-equal'
 
 const DEFAULT_NAME = 'Daily'
 
+const ThreadPtrTypes = {
+    Name: 'Name',
+    Id: 'Id',
+};
+
+const name_ptr = (name) => ({
+    type: ThreadPtrTypes.Name,
+    value: name,
+    finder: (x) => {
+        return x.name === name
+    },
+});
+
+const id_ptr = (id) => ({
+    type: ThreadPtrTypes.Id,
+    value: id,
+    finder: (x) => {
+        return x.id === id
+    },
+});
+
+
 export default {
     state: {
         listResponse: null,
         threads: null,
-        currentThreadId: 0,
+        currentThreadPtr: name_ptr(DEFAULT_NAME),
     },
 
     getters: {
@@ -23,8 +45,12 @@ export default {
         // empty?
         currentThread(state) {
             return state.threads && state.threads.count
-                ? state.threads.results.find(x => x.id == state.currentThreadId)
+                ? state.threads.results.find(state.currentThreadPtr.finder)
                 : null;
+        },
+
+        currentThreadId(state, getters) {
+            return getters.currentThread?.id;
         },
 
         threads(state) {
@@ -53,16 +79,16 @@ export default {
             state.listResponse.count = state.listResponse.results.length
         },
 
-        setThreads(state, {threads, current}) {
-            state.threads = threads
-            // default thread
-            state.currentThreadId = current || threads.results.find(
-                item => item.name == DEFAULT_NAME
-            ).id || threads.results[0].id
+        setThreads(state, threads) {
+            state.threads = threads;
         },
 
         setCurrentThreadId(state, threadId) {
-            state.currentThreadId = threadId
+            state.currentThreadPtr = id_ptr(threadId);
+        },
+
+        setCurrentThreadName(state, threadName) {
+            state.currentThreadPtr = name_ptr(threadName);
         }
     },
 
@@ -70,9 +96,7 @@ export default {
         async init({ commit, dispatch, getters }) {
             const threadResponse = await axios.get('/threads/')
 
-            commit('setThreads', {
-                threads: threadResponse.data
-            })
+            commit('setThreads', threadResponse.data);
 
             await dispatch('loadBoardsForThread', getters.currentThread.id)
         },

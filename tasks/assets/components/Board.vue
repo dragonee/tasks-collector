@@ -71,10 +71,7 @@ export default {
         ...mapGetters([
             'currentBoard',
             'threads',
-        ]),
-
-        ...mapState([
-            'currentThreadId'
+            'currentThreadId',
         ]),
 
         normalContext() {
@@ -129,11 +126,21 @@ export default {
         })
 
         this.unwatch = this.$store.watch(
-            (state, getters) => getters.currentBoard.focus,
+            (state, getters) => getters.currentBoard,
             () => {
-                this.focus = this.currentBoard.focus
+                this.focus = this.currentBoard.focus;
+                
+                const path = `/board/${this.currentBoard.thread.name}`;
+
+                if (this.$route.path !== path) {
+                    this.$router.push(path);
+                }
             }
         )
+
+        if (this.$route.params.slug) {
+            this.$store.commit('setCurrentThreadName', this.$route.params.slug);
+        }
 
         if (this.$store.getters.currentBoard) {
             this.focus = this.$store.getters.currentBoard.focus

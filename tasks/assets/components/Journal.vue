@@ -43,10 +43,6 @@ export default {
             'threads',
         ]),
 
-        ...mapState([
-            'currentThreadId'
-        ]),
-
         normalContext() {
             return !this.editingContext
         },

@@ -17,7 +17,8 @@ import axios from 'axios'
 
 const routes = [
     { path: '/', component: Board },
-    { path: '/journal/:date', component: Journal }
+    { path: '/board/:slug', component: Board }, 
+    { path: '/journal/:date', component: Journal },
 ]
 
 const router = new VueRouter({
