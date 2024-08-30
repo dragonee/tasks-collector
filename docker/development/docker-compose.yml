@@ -33,16 +33,6 @@ services:
             - tasks-queue
         command: "/app/tools/run-celery.sh"
         working_dir: /app
-    tasks-celery-beat:
-        image: "python:3.10-alpine"
-        volumes:
-            - "../..:/app"
-        networks:
-            - tasks
-        depends_on:
-            - tasks-queue
-        command: "/app/tools/run-celery-beat.sh"
-        working_dir: /app
     tasks-backend:
         image: "python:3.10-alpine"
         volumes:
