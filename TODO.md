@@ -53,3 +53,4 @@
   - [ ] PoC: https://developers.google.com/tasks/quickstart/python
   - [ ] Board action
   - [ ] Board status - scheduled
+- [x] Allow for archiving (leave delete)

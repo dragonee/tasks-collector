@@ -343,3 +343,7 @@
   transform: translate(-50%, -110%);
   z-index: 10;
 }
+
+.v-context__sub > a:after {
+  content: "›";
+}

@@ -69,22 +69,25 @@
              </li>
 
              <li class="v-context__sub" v-if="currentThread">
-                  <a>Move to</a>
+                <a>Move to</a>
 
-                  <ul class="v-context">
-                      <li>
-                           <a href="#" v-if="currentThread.name != 'Sidetrack'" @click.prevent="onClick('transition', {... child.data, value: 'Sidetrack' })">Sidetrack</a>
-                       </li>
-<li>
-                           <a href="#" v-if="currentThread.name != 'Daily'" @click.prevent="onClick('transition', {... child.data, value: 'Daily' })">Daily</a>
-</li>
-                        <li>
-                           <a href="#" v-if="currentThread.name == 'Books'" @click.prevent="onClick('transition', {... child.data, value: 'Read' })">Read (backlog)</a>
-                       </li>
-<li>
-                           <a href="#" @click.prevent="onClick('transition', {... child.data, value: UNSET })">Clear</a>
-                      </li>
-                  </ul>
+                <ul class="v-context">
+                    <li>
+                        <a href="#" v-if="currentThread.name != 'Sidetrack'" @click.prevent="onClick('transition', {... child.data, value: 'Sidetrack' })">Sidetrack</a>
+                    </li>
+                    <li>
+                        <a href="#" v-if="currentThread.name != 'Daily'" @click.prevent="onClick('transition', {... child.data, value: 'Daily' })">Daily</a>
+                    </li>
+                    <li>
+                        <a href="#" v-if="currentThread.name == 'Books'" @click.prevent="onClick('transition', {... child.data, value: 'Read' })">Read (backlog)</a>
+                    </li>
+                    <li>
+                        <a href="#" v-if="currentThread.name != 'Trash'" @click.prevent="onClick('transition', {... child.data, value: 'Trash' })">🗑 Trash</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="onClick('transition', {... child.data, value: UNSET })">Clear</a>
+                    </li>
+                </ul>
             </li>
             <li>
                 <a href="#" @click.prevent="onClick('remove', { ...child.data  })">Remove</a>
