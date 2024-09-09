@@ -129,6 +129,12 @@ class ObservationUpdatedSerializer(serializers.ModelSerializer):
         model = ObservationUpdated
         fields = [ 'id', 'comment', 'published', 'observation_fields', 'observation' ]
 
+class MultipleObservationUpdatedSerializer(serializers.Serializer):
+
+    class Meta:
+        model = ObservationUpdated
+        fields = [ 'id', 'comment', 'published', 'observation' ]
+
 class JournalAddedSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
         queryset=Thread.objects.all(),

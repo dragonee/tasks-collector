@@ -4,7 +4,7 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer, QuickNoteSerializer
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer, QuickNoteSerializer, MultipleObservationUpdatedSerializer
 from .models import Event, Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted, QuickNote
 from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm
 from .commit import merge, calculate_changes_per_board
@@ -73,8 +73,23 @@ class ObservationViewSet(viewsets.ModelViewSet):
     filter_class = ObservationFilter
 
 class ObservationUpdatedViewSet(viewsets.ModelViewSet):
-    queryset = ObservationUpdated.objects.all()
-    serializer_class = ObservationUpdatedSerializer
+    queryset = ObservationUpdated.objects.order_by('published')
+
+    def get_serializer_class(self):
+        if self.request.query_params.get('observation_id'):
+            return MultipleObservationUpdatedSerializer
+        
+        return ObservationUpdatedSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        observation_id = self.request.query_params.get('observation_id')
+
+        if not observation_id:
+            return queryset
+
+        return queryset.filter(observation_id=observation_id)
 
 
 # XXX should we permit only POST here?
