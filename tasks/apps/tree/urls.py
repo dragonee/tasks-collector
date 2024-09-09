@@ -16,6 +16,7 @@ router.register(r'observation-api', views.ObservationViewSet)
 router.register(r'updates', views.ObservationUpdatedViewSet)
 router.register(r'journal', views.JournalAddedViewSet)
 router.register(r'quick-notes', views.QuickNoteViewSet)
+router.register(r'observation-events', views.ObservationEventViewSet)
 
 
 urlpatterns = [

@@ -9,6 +9,8 @@ from operator import itemgetter
 
 from django.db import transaction
 
+from rest_polymorphic.serializers import PolymorphicSerializer
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
@@ -91,7 +93,7 @@ def get_unsaved_object(model, obj):
     except model.DoesNotExist:
         return model()
 
-class ObservationSerializer(serializers.HyperlinkedModelSerializer):
+class BaseTypeThreadSerializer(serializers.HyperlinkedModelSerializer):
     type = serializers.SlugRelatedField(
         queryset=ObservationType.objects.all(),
         slug_field='slug'
@@ -101,6 +103,8 @@ class ObservationSerializer(serializers.HyperlinkedModelSerializer):
         queryset=Thread.objects.all(),
         slug_field='name'
     )
+
+class ObservationSerializer(BaseTypeThreadSerializer):
 
     class Meta:
         model = Observation
@@ -134,7 +138,7 @@ class MultipleObservationUpdatedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ObservationUpdated
-        fields = [ 'id', 'comment', 'published' ]
+        fields = [ 'id', 'comment', 'published', 'event_stream_id' ]
 
 class ObservationWithUpdatesSerializer(ObservationSerializer):
     updates = MultipleObservationUpdatedSerializer(
@@ -160,6 +164,82 @@ class QuickNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuickNote
         fields = [ 'id', 'published', 'note']
+
+
+class ObservationMadeSerializer(BaseTypeThreadSerializer):
+    class Meta:
+        model = ObservationMade
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'type',
+            'situation',
+            'interpretation',
+            'approach'
+        ]
+
+class ObservationRecontextualizedSerializer(BaseTypeThreadSerializer):
+    class Meta:
+        model = ObservationRecontextualized
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'situation',
+            'previous_situation'
+        ]
+
+class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
+    class Meta:
+        model = ObservationReinterpreted
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'interpretation',
+            'previous_interpretation'
+        ]
+
+class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
+    class Meta:
+        model = ObservationReflectedUpon
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'approach',
+            'previous_approach'
+        ]
+
+class ObservationClosedSerializer(BaseTypeThreadSerializer):
+    class Meta:
+        model = ObservationClosed
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'type',
+            'situation',
+            'interpretation',
+            'approach'
+        ]
+
+class ObservationEventSerializer(PolymorphicSerializer):
+    model_serializer_mapping = {
+        ObservationMade: ObservationMadeSerializer,
+        ObservationRecontextualized: ObservationRecontextualizedSerializer,
+        ObservationReinterpreted: ObservationReinterpretedSerializer,
+        ObservationReflectedUpon: ObservationReflectedUponSerializer,
+        ObservationClosed: ObservationClosedSerializer,
+        ObservationUpdated: MultipleObservationUpdatedSerializer,
+    }
+
 
 class tree_iterator:
     """Preorder traversal tree iterator"""

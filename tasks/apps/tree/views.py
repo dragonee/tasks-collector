@@ -4,8 +4,8 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer, QuickNoteSerializer, MultipleObservationUpdatedSerializer, ObservationWithUpdatesSerializer
-from .models import Event, Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted, QuickNote
+from .serializers import *
+from .models import *
 from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
@@ -63,6 +63,15 @@ class ObservationFilter(filters.FilterSet):
         model = Observation
         fields = {
             'pub_date': ('gte', 'lte'),
+            'event_stream_id': ('exact',)
+        }
+
+class EventFilter(filters.FilterSet):
+    class Meta:
+        model = Event
+        fields = {
+            'published': ('gte', 'lte'),
+            'event_stream_id': ('exact',)
         }
 
 class ObservationViewSet(viewsets.ModelViewSet):
@@ -82,21 +91,25 @@ class ObservationViewSet(viewsets.ModelViewSet):
 class ObservationUpdatedViewSet(viewsets.ModelViewSet):
     queryset = ObservationUpdated.objects.order_by('published')
 
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['observation_id']
+
     def get_serializer_class(self):
         if self.request.query_params.get('observation_id'):
             return MultipleObservationUpdatedSerializer
         
         return ObservationUpdatedSerializer
-    
-    def get_queryset(self):
-        queryset = super().get_queryset()
 
-        observation_id = self.request.query_params.get('observation_id')
+class ObservationEventViewSet(viewsets.ModelViewSet):
+    # XXX do we need to filter out events that are not of the observation type?
+    queryset = Event.objects.instance_of(
+        *observation_event_types
+    )
 
-        if not observation_id:
-            return queryset
+    serializer_class = ObservationEventSerializer
 
-        return queryset.filter(observation_id=observation_id)
+    filter_backends = [DjangoFilterBackend]
+    filter_class = EventFilter
 
 
 # XXX should we permit only POST here?
