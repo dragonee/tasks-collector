@@ -122,6 +122,7 @@ class ObservationSerializer(serializers.HyperlinkedModelSerializer):
         
         return new_obj
 
+
 class ObservationUpdatedSerializer(serializers.ModelSerializer):
     observation_fields = ObservationSerializer(read_only=True)
 
@@ -129,11 +130,21 @@ class ObservationUpdatedSerializer(serializers.ModelSerializer):
         model = ObservationUpdated
         fields = [ 'id', 'comment', 'published', 'observation_fields', 'observation' ]
 
-class MultipleObservationUpdatedSerializer(serializers.Serializer):
+class MultipleObservationUpdatedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ObservationUpdated
-        fields = [ 'id', 'comment', 'published', 'observation' ]
+        fields = [ 'id', 'comment', 'published' ]
+
+class ObservationWithUpdatesSerializer(ObservationSerializer):
+    updates = MultipleObservationUpdatedSerializer(
+        many=True, 
+        read_only=True, 
+        source='observationupdated_set'
+    )
+
+    class Meta(ObservationSerializer.Meta):
+        fields = ObservationSerializer.Meta.fields + ['updates']
 
 class JournalAddedSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(

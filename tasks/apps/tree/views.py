@@ -4,7 +4,7 @@ from rest_framework import viewsets
 from rest_framework import status
 
 
-from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer, QuickNoteSerializer, MultipleObservationUpdatedSerializer
+from .serializers import BoardSerializer, BoardSummary, ThreadSerializer, PlanSerializer, ReflectionSerializer, ObservationSerializer, ObservationUpdatedSerializer, spawn_observation_events, JournalAddedSerializer, QuickNoteSerializer, MultipleObservationUpdatedSerializer, ObservationWithUpdatesSerializer
 from .models import Event, Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, BoardCommitted, default_state, Habit, HabitTracked, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted, QuickNote
 from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm
 from .commit import merge, calculate_changes_per_board
@@ -67,10 +67,17 @@ class ObservationFilter(filters.FilterSet):
 
 class ObservationViewSet(viewsets.ModelViewSet):
     queryset = Observation.objects.all()
-    serializer_class = ObservationSerializer
 
     filter_backends = [DjangoFilterBackend]
     filter_class = ObservationFilter
+
+    def get_serializer_class(self):
+        features = self.request.query_params.get('features')
+
+        if features and 'updates' in features:
+            return ObservationWithUpdatesSerializer
+        
+        return ObservationSerializer
 
 class ObservationUpdatedViewSet(viewsets.ModelViewSet):
     queryset = ObservationUpdated.objects.order_by('published')
