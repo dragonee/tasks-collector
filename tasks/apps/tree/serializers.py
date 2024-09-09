@@ -189,7 +189,7 @@ class ObservationRecontextualizedSerializer(BaseTypeThreadSerializer):
             'event_stream_id',
             'thread',
             'situation',
-            'previous_situation'
+            'old_situation'
         ]
 
 class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
@@ -201,7 +201,7 @@ class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
             'event_stream_id',
             'thread',
             'interpretation',
-            'previous_interpretation'
+            'old_interpretation'
         ]
 
 class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
@@ -213,7 +213,7 @@ class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
             'event_stream_id',
             'thread',
             'approach',
-            'previous_approach'
+            'old_approach'
         ]
 
 class ObservationClosedSerializer(BaseTypeThreadSerializer):
