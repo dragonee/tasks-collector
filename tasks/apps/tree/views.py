@@ -18,6 +18,7 @@ from django_htmx.http import retarget, HttpResponseClientRefresh
 
 from rest_framework.response import Response as RestResponse
 from rest_framework.decorators import api_view
+from rest_framework.pagination import PageNumberPagination
 
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -33,6 +34,12 @@ from django.forms import inlineformset_factory
 from django.urls import reverse
 
 import datetime
+
+class ObservationPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 
 class BoardViewSet(viewsets.ModelViewSet):
     """
@@ -79,6 +86,8 @@ class ObservationViewSet(viewsets.ModelViewSet):
 
     filter_backends = [DjangoFilterBackend]
     filter_class = ObservationFilter
+
+    pagination_class = ObservationPagination
 
     def get_serializer_class(self):
         features = self.request.query_params.get('features')
