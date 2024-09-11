@@ -70,6 +70,8 @@ class HabitTrackedAdmin(PolymorphicChildModelAdmin):
 class ObservationUpdatedAdmin(PolymorphicChildModelAdmin):
     base_model = ObservationUpdated
 
+    list_display = ('__str__', 'event_stream_id', 'published')
+
 class BoardCommittedAdmin(PolymorphicChildModelAdmin):
     base_model = BoardCommitted
     list_display = ('__str__', 'event_stream_id',)
