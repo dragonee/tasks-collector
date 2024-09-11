@@ -255,6 +255,9 @@ class Observation(models.Model):
             **kwargs
         )
 
+def coalesce(value, default=''):
+    return value if value is not None else default
+
 class ObservationEventMixin:
     @property
     def observation(self):
@@ -311,8 +314,8 @@ class ObservationRecontextualized(Event, ObservationEventMixin):
             published=published or timezone.now(),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
-            old_situation=old,
-            situation=observation.situation,
+            old_situation=coalesce(old),
+            situation=coalesce(observation.situation),
         )
 
 class ObservationReinterpreted(Event, ObservationEventMixin):
@@ -327,8 +330,8 @@ class ObservationReinterpreted(Event, ObservationEventMixin):
             published=published or timezone.now(),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
-            old_interpretation=old,
-            interpretation=observation.interpretation,
+            old_interpretation=coalesce(old),
+            interpretation=coalesce(observation.interpretation),
         )
 
 class ObservationReflectedUpon(Event, ObservationEventMixin):
@@ -343,8 +346,8 @@ class ObservationReflectedUpon(Event, ObservationEventMixin):
             published=published or timezone.now(),
             event_stream_id=observation.event_stream_id,
             thread=observation.thread,
-            old_approach=old,
-            approach=observation.approach,
+            old_approach=coalesce(old),
+            approach=coalesce(observation.approach),
         )
 
 class ObservationClosed(Event, ObservationEventMixin):
