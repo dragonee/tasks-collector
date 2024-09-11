@@ -491,7 +491,7 @@ def observation_edit(request, observation_id=None):
 
     ObservationUpdatedFormSet = inlineformset_factory(Observation, ObservationUpdated, fields=('comment',), extra=3)
 
-    observation_updated_queryset = ObservationUpdated.objects.order_by('published')
+    observation_updated_queryset = ObservationUpdated.objects.order_by('pk')
 
     if request.method == "POST":
         form = ObservationForm(request.POST, instance=observation)
