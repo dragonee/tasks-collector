@@ -293,7 +293,7 @@ class ObservationMade(Event, ObservationEventMixin):
         )
 
 class ObservationUpdated(Event):
-    observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True)
+    observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True, blank=True)
 
     ### TODO add template
 
