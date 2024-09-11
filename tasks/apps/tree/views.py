@@ -514,7 +514,8 @@ def observation_edit(request, observation_id=None):
 
                 updates = formset.save(commit=False)
                 for update in updates:
-                    update.published = now
+                    if not update.pk: 
+                        update.published = now
                     update.save()
 
             return redirect(reverse('public-observation-list'))
