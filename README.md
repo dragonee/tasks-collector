@@ -120,3 +120,19 @@ docker-compose exec tasks-backend bash
 
 This will start interactive `bash` session that will allow running all
 the commands within running container.
+
+### Getting the database dump
+
+First, log in to the server and run:
+
+```
+sudo -u postgres pg_dump "$1" > "$1"-`date '+%Y-%m-%d_%H%M'`.sql
+```
+
+Then, copy the dump file to the local machine:
+
+```
+scp user@server:~/'*.sql' ~/databases
+docker-compose exec tasks-db psql tasks -U tasks -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+docker-compose exec -T tasks-db psql tasks -U tasks < ~/databases/tasks-[...].sql
+```
