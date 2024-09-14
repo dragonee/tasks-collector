@@ -33,6 +33,8 @@ from django.forms import inlineformset_factory
 
 from django.urls import reverse
 
+from django.views.generic.dates import ArchiveIndexView, MonthArchiveView, DayArchiveView, TodayArchiveView
+
 import datetime
 
 class ObservationPagination(PageNumberPagination):
@@ -599,3 +601,33 @@ def quick_notes(request):
 ### XXX TODO 
 ### finish the editing views
 ### add auto-delete mechanism
+class JournalArchiveContextMixin:
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['dates'] = JournalAdded.objects.dates(
+            'published', 
+            'month', 
+            order='DESC'
+        )
+        return context
+
+
+class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, MonthArchiveView):
+    model = JournalAdded
+    date_field = 'published'
+    allow_future = True
+    
+
+    template_name = 'tree/journaladded_archive_month.html'
+
+    def get_month(self):
+        return timezone.now().month
+
+    def get_year(self):
+        return timezone.now().year
+
+
+class JournalArchiveMonthView(JournalArchiveContextMixin, MonthArchiveView):
+    model = JournalAdded
+    date_field = 'published'
+    allow_future = True

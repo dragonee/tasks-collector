@@ -965,6 +965,149 @@ article.quest {
     }
 }
 
+.pagination {
+    margin: 2rem 0;
+    text-align: center;
+
+    a {
+        display: inline-block;
+        padding: 1rem 3rem;
+    }
+}
+
+section.journal {
+    width: 100%;
+    max-width: 50rem;
+
+    background-color: #fff;
+    padding: 1rem 2rem;
+
+    margin: auto; 
+
+    main {
+        font-size: 1.1rem;
+
+        ul {
+            padding-left: 0;
+    
+            li {
+                list-style: none;
+                position: relative;
+                margin-top: 3rem;
+    
+                ul {
+    
+                    padding-left: 3.24rem;
+                    li {
+                        margin-top: 0;
+                        list-style: none;
+                    }
+             
+                }
+    
+                p[data-time]::before {
+                    content: attr(data-time);
+                    font-size: 0.875em;
+                    font-weight: bold;
+                    color: #999;
+                    margin-right: 0.25em;
+                    position: absolute;
+                    left: -3.24rem;
+                }
+            }
+        }
+    }
+
+    aside.days {
+        position: sticky;
+        float: left;
+        margin-left: -90px;
+        top: 20px;
+
+        opacity: 0.35;
+
+        &:hover {
+            opacity: 1;
+        }
+
+        ul {
+            padding-left: 0;
+            li {
+                list-style: none;
+            }
+        }
+
+
+        a {
+            padding: 0.35rem 0.75rem;
+            display: block;
+            border: 1px solid #ddd;
+            border-radius: 0.25rem;
+            margin: 0.25rem 0;
+            font-size: 0.875rem;
+            font-weight: bold;
+
+            color: #0066cc;
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+        
+    }
+
+    aside.months {
+        position: sticky;
+        float: right;
+        margin-right: -13rem;
+        top: 20px;
+        width: 100%;
+        max-width: 10rem;
+        
+        opacity: 0.35;
+
+        &:hover {
+            opacity: 1;
+        }
+        
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #333;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 0;
+
+            li {
+                list-style: none;
+                margin-bottom: 0.5rem;
+
+                &:last-child {
+                    margin-bottom: 0;
+                }
+
+                a {
+                    color: #0066cc;
+                    text-decoration: none;
+
+                    &:hover {
+                        text-decoration: underline;
+                    }
+                }
+            }
+        }
+    }
+}
+
 body.quick-notes {
     background-color: #f3f4f5;
     max-width: 50rem;

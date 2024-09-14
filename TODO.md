@@ -55,3 +55,4 @@
   - [ ] Board status - scheduled
 - [x] Allow for archiving (leave delete)
 - [ ] Implement $ on tasks, so that only part of information is shown on the task list, all can be edited
+- [x] Add a Journal archive view set
