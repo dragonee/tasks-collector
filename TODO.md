@@ -56,3 +56,8 @@
 - [x] Allow for archiving (leave delete)
 - [ ] Implement $ on tasks, so that only part of information is shown on the task list, all can be edited
 - [x] Add a Journal archive view set
+  - [ ] Add an event archive view set
+  - [ ] Remove add_published from templatetags
+- [ ] Add a special symbol in journal to add a line to a reflection
+- [ ] Oftentimes, tasks are not loaded, when working on multiple tabs
+  - [ ] use window.onfocus to reload tasks
