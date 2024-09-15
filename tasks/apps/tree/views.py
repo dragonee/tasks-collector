@@ -131,6 +131,9 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def perform_create(self, serializer):
         journal_added = serializer.save()
+
+        add_reflection_items(journal_added)
+        
         triplets = habits_line_to_habits_tracked(journal_added.comment)
 
         for occured, habit, note in triplets:

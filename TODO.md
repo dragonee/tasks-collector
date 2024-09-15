@@ -58,6 +58,7 @@
 - [x] Add a Journal archive view set
   - [ ] Add an event archive view set
   - [ ] Remove add_published from templatetags
-- [ ] Add a special symbol in journal to add a line to a reflection
+- [x] Add a special symbol in journal to add a line to a reflection
+  - Symbols: [x] [~] [^]
 - [x] Oftentimes, tasks are not loaded, when working on multiple tabs
   - [x] use window.onfocus to reload tasks

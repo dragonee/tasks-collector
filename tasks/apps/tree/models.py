@@ -422,3 +422,61 @@ class QuickNote(models.Model):
     published = models.DateTimeField(default=timezone.now)
 
     note = models.TextField()
+
+REFLECTION_LINE_PREFIXES = (
+    ('[x] ', 'good'),
+    ('[~] ', 'better'),
+    ('[^] ', 'best'),
+)
+
+def extract_reflection_lines(note):
+    lines = note.split('\n')
+
+    return [
+        (field, line.replace(prefix, '', 1))
+        for line in lines
+        for prefix, field in REFLECTION_LINE_PREFIXES
+        if prefix in line[:12]
+    ]
+
+
+def append_lines_to_value(value, lines):
+    if not value:
+        return '\n'.join(lines)
+    
+    if not lines:
+        return value
+
+    return (value + '\n' + '\n'.join(lines)).strip()
+
+
+def add_reflection_items(journal_added):
+    pub_date = journal_added.published.date()
+
+    reflection_lines = extract_reflection_lines(journal_added.comment)
+
+    if not reflection_lines:
+        return
+
+    try:
+        reflection = Reflection.objects.get(
+            pub_date=pub_date,
+            thread=journal_added.thread
+        )
+    except Reflection.DoesNotExist:
+        reflection = Reflection(
+            pub_date=pub_date,
+            thread=journal_added.thread
+        )
+
+    for field_name in ('good', 'better', 'best'):
+        items = (line for field, line in reflection_lines if field == field_name)
+
+        new_value = append_lines_to_value(
+            getattr(reflection, field_name), 
+            items
+        )
+
+        setattr(reflection, field_name, new_value)
+
+    reflection.save()
