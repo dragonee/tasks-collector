@@ -59,5 +59,5 @@
   - [ ] Add an event archive view set
   - [ ] Remove add_published from templatetags
 - [ ] Add a special symbol in journal to add a line to a reflection
-- [ ] Oftentimes, tasks are not loaded, when working on multiple tabs
-  - [ ] use window.onfocus to reload tasks
+- [x] Oftentimes, tasks are not loaded, when working on multiple tabs
+  - [x] use window.onfocus to reload tasks

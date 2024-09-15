@@ -102,9 +102,17 @@ export default {
         },
 
         async loadBoardsForThread({ commit, getters }, threadId) {
+            if (!threadId) {
+                return;
+            }
+
             const listResponse = await axios.get(`/boards/?thread=${threadId}`)
 
             commit('setListResponse', listResponse.data)
+        },
+
+        async reloadBoards({ dispatch, getters }) {
+            await dispatch('loadBoardsForThread', getters.currentThreadId);
         },
 
         async changeThread({ dispatch, commit }, threadId) {

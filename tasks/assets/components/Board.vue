@@ -46,6 +46,11 @@
             v-if="normalContext"
             @keyup.i="addItem"
         />
+
+        <GlobalEvents
+            target="window"
+            @focus="reloadBoards"
+        />
     </div>
 </template>
 <script>
@@ -169,6 +174,7 @@ export default {
 
         ...mapActions([
             'close',
+            'reloadBoards',
         ]),
 
         saveState() {
