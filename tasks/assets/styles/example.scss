@@ -946,28 +946,37 @@ article.quest {
     .minus {
         border-left: 8px solid salmon;
         color: salmon;
-        padding-left: 0.2em;
+        padding-left: 0.5em;
+        display: block;
     }
 
     .plus {
         border-left: 8px solid lightseagreen;
         color: lightseagreen;
-        padding-left: 0.2em;
+        padding-left: 0.5em;
+        display: block;
     }
 
     .minus p, .plus p {
-        margin: 0;
     }
 
     ins.empty, del.empty {
         opacity: 0.5;
+        margin: 1em 0;
         text-decoration: none;
         font-style:italic;
     }
 
     ins, del {
         display: block;
-        padding: 0.2em 0;
+    }
+
+    .event-meta {
+        small, small a {
+            font-size: 0.875em;
+            color: #999;
+            float: right;
+        }
     }
 }
 
@@ -1008,17 +1017,22 @@ section.journal {
                         margin-top: 0;
                         list-style: none;
                     }
-             
-                }
+                }   
     
-                p[data-time]::before {
-                    content: attr(data-time);
-                    font-size: 0.875em;
-                    font-weight: bold;
-                    color: #999;
-                    margin-right: 0.25em;
-                    position: absolute;
-                    left: -3.24rem;
+                [data-time] {
+                    &::before {
+                        content: attr(data-time);
+                        font-size: 0.875em;
+                        font-weight: bold;
+                        color: #999;
+                        margin-right: 0.25em;
+                        position: absolute;
+                        left: -3.24rem;
+                    }
+
+                    time {
+                        display: none;
+                    }
                 }
             }
         }

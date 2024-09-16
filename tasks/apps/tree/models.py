@@ -295,7 +295,7 @@ class ObservationMade(Event, ObservationEventMixin):
 class ObservationUpdated(Event):
     observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True, blank=True)
 
-    ### TODO add template
+    template = "tree/events/observation_updated.html"
 
     comment = models.TextField(help_text=_("Update"))
 
@@ -306,7 +306,7 @@ class ObservationRecontextualized(Event, ObservationEventMixin):
     old_situation = models.TextField(blank=True)
     situation = models.TextField()
 
-    ### TODO add template
+    template = "tree/events/observation_recontextualized.html"
 
     @staticmethod
     def from_observation(observation, old, published=None):
@@ -338,7 +338,7 @@ class ObservationReflectedUpon(Event, ObservationEventMixin):
     old_approach = models.TextField(blank=True)
     approach = models.TextField()
 
-    ### TODO add template
+    template = "tree/events/observation_reflectedupon.html"
 
     @staticmethod
     def from_observation(observation, old, published=None):
@@ -409,6 +409,8 @@ def on_observation_thread_change_update_events(sender, instance, *args, **kwargs
 
 class JournalAdded(Event):
     comment = models.TextField(help_text=_("Update"))
+
+    template = "tree/events/journal_added.html"
 
     def __str__(self):
         return self.comment

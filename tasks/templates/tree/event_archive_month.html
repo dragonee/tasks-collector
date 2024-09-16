@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load model_presenters %}
+
+{% block title %}Journal Entries for {{ month|date:"F Y" }}{% endblock %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block content %}
+
+<section class="journal">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+    <h1>Events for {{ month|date:"F Y" }}</h1>
+
+    <aside class="months">
+        <h2>Archive</h2>
+        <ul>
+            {% for date in dates|slice:":12" %}
+                <li>
+                    <a href="{% url 'public-event-archive-month' date.year date.month %}">
+                        {{ date|date:"F Y" }}
+                    </a>
+                </li>
+            {% endfor %}
+
+            <li>
+                <select onchange="if (this.value) window.location.href=this.value">
+                    <option value="">Select a month</option>
+                    {% for date in dates %}
+                        <option value="{% url 'public-event-archive-month' date.year date.month %}">
+                            {{ date|date:"F Y" }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </li>
+        </ul>
+    </aside>
+
+    <aside class="days">
+        <ul>
+        {% regroup object_list by published.date as entries_by_date %}
+        {% for date, entries in entries_by_date %}
+            <li>
+                <a href="#{{ date|date:"b-d" }}">{{ date|date:"d" }}</a>
+            </li>
+        {% endfor %}
+        </ul>
+    </aside>
+
+    <main>
+        <ul>
+            {% regroup object_list by published.date as entries_by_date %}
+            {% for date, entries in entries_by_date %}
+                <li id="{{ date|date:"b-d" }}">
+                    <strong>{{ date|date:"d F" }}</strong>
+                    <ul>
+                        {% for event in entries %}
+                            <li class="event">
+                                {% if event.template %}
+                                    {% include event.template with show_observation=True %}
+                                {% else %}
+                                    {{ event }}
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% empty %}
+                <li>No journal entries for this month.</li>
+            {% endfor %}
+        </ul>
+
+        <div class="pagination">
+            {% if previous_month %}
+                <a href="{% url 'public-event-archive-month' previous_month.year previous_month.month %}">&laquo; Previous Month</a>
+            {% endif %}
+            {% if next_month %}
+                <a href="{% url 'public-event-archive-month' next_month.year next_month.month %}">Next Month &raquo;</a>
+            {% endif %}
+        </div>
+    </main>
+  
+</section>
+{% endblock %}
