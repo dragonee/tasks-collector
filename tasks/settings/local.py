@@ -20,13 +20,13 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEBUG = True
 
-#INSTALLED_APPS += ('debug_toolbar',)
+INSTALLED_APPS += ('debug_toolbar',)
 
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 VALIDATE_FRONT_PASSWORD = False
 
-#MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware', ] + MIDDLEWARE
+MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware', ] + MIDDLEWARE
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static', 'local')

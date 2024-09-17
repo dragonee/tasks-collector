@@ -5,7 +5,7 @@ networks:
 
 services:
     tasks-db:
-        image: postgres:12-alpine
+        image: postgres:14-alpine
         environment:
             POSTGRES_PASSWORD: secret
             POSTGRES_USER: tasks
