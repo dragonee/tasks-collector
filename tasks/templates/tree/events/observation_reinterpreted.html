@@ -1,30 +1,17 @@
-    <div class="event-meta" data-time="{{ event.published|time:"H:i" }}">
-        <strong>Reinterpreted</strong>
-        <small>{% if show_observation %} 
-            {% if event.observation_id %}
-                <a href="{% url 'public-observation-edit' event.observation_id %}">
-                    #{{ event.observation_id }}
-                </a>
-            {% else %}
-                <a href="{% url 'public-observation-closed-detail' event.event_stream_id %}">
-                    ${{ event.event_stream_id|truncatechars:9 }}
-                </a>
-            {% endif %}
-        {% endif %}</small>
-    </div>
+{% include "tree/events/observation_event_meta.html" %}
 
-    <div class="minus">
-        {% if not event.old_interpretation %}
-            <del class="empty">empty</del>
-        {% else %}
-            <del>{{ event.old_interpretation|linebreaks }}</del>
-        {% endif %}
-    </div>
+<div class="minus">
+    {% if not event.old_interpretation %}
+        <del class="empty">empty</del>
+    {% else %}
+        <del>{{ event.old_interpretation|linebreaks }}</del>
+    {% endif %}
+</div>
 
-    <div class="plus">
-        {% if not event.interpretation %}
-            <ins class="empty">empty</ins>
-        {% else %}
-            <ins>{{ event.interpretation|linebreaks }}</ins>
-        {% endif %}
-    </div>
+<div class="plus">
+    {% if not event.interpretation %}
+        <ins class="empty">empty</ins>
+    {% else %}
+        <ins>{{ event.interpretation|linebreaks }}</ins>
+    {% endif %}
+</div>

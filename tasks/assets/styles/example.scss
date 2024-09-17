@@ -944,14 +944,14 @@ article.quest {
     margin: 0.4em 0;
     
     .minus {
-        border-left: 8px solid salmon;
+        border-left: 4px solid salmon;
         color: salmon;
         padding-left: 0.5em;
         display: block;
     }
 
     .plus {
-        border-left: 8px solid lightseagreen;
+        border-left: 4px solid lightseagreen;
         color: lightseagreen;
         padding-left: 0.5em;
         display: block;
@@ -971,12 +971,15 @@ article.quest {
         display: block;
     }
 
-    .event-meta {
-        small, small a {
-            font-size: 0.875em;
-            color: #999;
-            float: right;
-        }
+    .observation-ref, .observation-ref a {
+        font-size: 0.875em;
+        color: #999;
+    }
+
+    blockquote.situation {
+        border-left: 4px solid #eee;
+        padding-left: 1rem;
+        margin-left: 0;
     }
 }
 

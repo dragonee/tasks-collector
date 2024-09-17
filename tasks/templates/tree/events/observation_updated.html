@@ -1,16 +1,3 @@
-<div class="event-meta" data-time="{{ event.published|time:"H:i" }}">
-    <strong>Update</strong>
-    <small>{% if show_observation %} 
-        {% if event.observation_id %}
-            <a href="{% url 'public-observation-edit' event.observation_id %}">
-                #{{ event.observation_id }}
-            </a>
-        {% else %}
-            <a href="{% url 'public-observation-closed-detail' event.event_stream_id %}">
-                ${{ event.event_stream_id|truncatechars:9 }}
-            </a>
-        {% endif %}
-    {% endif %}</small>
-</div>
+{% include "tree/events/observation_event_meta.html" %}
 
 {{ event.comment|linebreaks }}

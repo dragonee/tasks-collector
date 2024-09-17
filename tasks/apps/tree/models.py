@@ -262,7 +262,23 @@ class ObservationEventMixin:
     @property
     def observation(self):
         return Observation.objects.get(event_stream_id=self.event_stream_id)
+    
+    def situation(self):
+        ### XXX Situation at the time of the event or current?
+        ### For now, current is implemented here
+        event = Event.objects.instance_of(
+            ObservationMade,
+            ObservationRecontextualized
+        ).filter(
+            event_stream_id=self.event_stream_id
+        ).order_by(
+            '-published'
+        ).first()
 
+        if not event:
+            raise Observation.DoesNotExist
+        
+        return event.situation
 class ObservationMade(Event, ObservationEventMixin):
     # event_stream_id <- Observation
     # thread <- Observation (can be updated)
