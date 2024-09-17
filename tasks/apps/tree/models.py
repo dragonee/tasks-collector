@@ -258,11 +258,12 @@ class Observation(models.Model):
 def coalesce(value, default=''):
     return value if value is not None else default
 
-class ObservationEventMixin:
+class ObservationPropertyEventMixin:
     @property
     def observation(self):
         return Observation.objects.get(event_stream_id=self.event_stream_id)
-    
+
+class ObservationEventMixin:
     def situation(self):
         ### XXX Situation at the time of the event or current?
         ### For now, current is implemented here
@@ -279,7 +280,8 @@ class ObservationEventMixin:
             raise Observation.DoesNotExist
         
         return event.situation
-class ObservationMade(Event, ObservationEventMixin):
+
+class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     # event_stream_id <- Observation
     # thread <- Observation (can be updated)
 
@@ -308,7 +310,7 @@ class ObservationMade(Event, ObservationEventMixin):
             self.thread
         )
 
-class ObservationUpdated(Event):
+class ObservationUpdated(Event, ObservationEventMixin):
     observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True, blank=True)
 
     template = "tree/events/observation_updated.html"
@@ -318,7 +320,7 @@ class ObservationUpdated(Event):
     def __str__(self):
         return self.comment
 
-class ObservationRecontextualized(Event, ObservationEventMixin):
+class ObservationRecontextualized(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     old_situation = models.TextField(blank=True)
     situation = models.TextField()
 
@@ -334,7 +336,7 @@ class ObservationRecontextualized(Event, ObservationEventMixin):
             situation=coalesce(observation.situation),
         )
 
-class ObservationReinterpreted(Event, ObservationEventMixin):
+class ObservationReinterpreted(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     old_interpretation = models.TextField(blank=True)
     interpretation = models.TextField()
 
@@ -350,7 +352,7 @@ class ObservationReinterpreted(Event, ObservationEventMixin):
             interpretation=coalesce(observation.interpretation),
         )
 
-class ObservationReflectedUpon(Event, ObservationEventMixin):
+class ObservationReflectedUpon(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     old_approach = models.TextField(blank=True)
     approach = models.TextField()
 
@@ -366,7 +368,7 @@ class ObservationReflectedUpon(Event, ObservationEventMixin):
             approach=coalesce(observation.approach),
         )
 
-class ObservationClosed(Event, ObservationEventMixin):
+class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
