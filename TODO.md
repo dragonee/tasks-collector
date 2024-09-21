@@ -60,5 +60,7 @@
   - [ ] Remove add_published from templatetags
 - [x] Add a special symbol in journal to add a line to a reflection
   - Symbols: [x] [~] [^]
+  - How about [ ] for Plan?
+    - Need to rethink that / possible to use other input method
 - [x] Oftentimes, tasks are not loaded, when working on multiple tabs
   - [x] use window.onfocus to reload tasks
