@@ -2,6 +2,7 @@ from django import template
 
 from django.template.defaultfilters import linebreaks
 from django.utils.safestring import mark_safe
+from django.template.defaultfilters import stringfilter
 
 
 register = template.Library()
@@ -18,3 +19,12 @@ def add_published(object):
     return mark_safe(linebreaks_str.replace('<p>', time_str, 1))
 
 
+@register.filter
+@stringfilter
+def first_line(text):
+    splitted = text.split('\n')
+
+    if len(splitted) > 1:
+        return splitted[0].rstrip().rstrip('.…') + '…'
+
+    return text

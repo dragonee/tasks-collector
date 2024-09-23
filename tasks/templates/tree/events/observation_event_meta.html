@@ -1,10 +1,12 @@
+{% load model_presenters %}
+
 <div class="event-meta" data-time="{{ event.published|time:"H:i" }}">
     <strong>{{ title }}</strong>
 </div>
 
 {% if show_observation %}
     <blockquote class="situation">
-        {{ event.situation|linebreaks }}
+        {{ event.situation|first_line }}
 
         <cite class="observation-ref">
             {% if event.observation_id %}
