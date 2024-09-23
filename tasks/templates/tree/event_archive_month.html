@@ -12,18 +12,29 @@
         {% include "menu.html" %}
     </div>
 
-    <h1>Journal Entries for {{ month|date:"F Y" }}</h1>
+    <h1>Events for {{ month|date:"F Y" }}</h1>
 
     <aside class="months">
         <h2>Archive</h2>
         <ul>
-            {% for date in dates %}
+            {% for date in dates|slice:":12" %}
                 <li>
-                    <a href="{% url 'public-diary-archive-month' date.year date.month %}">
+                    <a href="{% url 'public-event-archive-month' date.year date.month %}">
                         {{ date|date:"F Y" }}
                     </a>
                 </li>
             {% endfor %}
+
+            <li>
+                <select onchange="if (this.value) window.location.href=this.value">
+                    <option value="">Select a month</option>
+                    {% for date in dates %}
+                        <option value="{% url 'public-event-archive-month' date.year date.month %}">
+                            {{ date|date:"F Y" }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </li>
         </ul>
     </aside>
 
@@ -46,8 +57,12 @@
                     <strong>{{ date|date:"d F" }}</strong>
                     <ul>
                         {% for event in entries %}
-                            <li>
-                                {% include "tree/events/journal_added.html" %}
+                            <li class="event">
+                                {% if event.template %}
+                                    {% include event.template with show_observation=True %}
+                                {% else %}
+                                    {{ event }}
+                                {% endif %}
                             </li>
                         {% endfor %}
                     </ul>
@@ -59,10 +74,10 @@
 
         <div class="pagination">
             {% if previous_month %}
-                <a href="{% url 'public-diary-archive-month' previous_month.year previous_month.month %}">&laquo; Previous Month</a>
+                <a href="{% url 'public-event-archive-month' previous_month.year previous_month.month %}">&laquo; Previous Month</a>
             {% endif %}
             {% if next_month %}
-                <a href="{% url 'public-diary-archive-month' next_month.year next_month.month %}">Next Month &raquo;</a>
+                <a href="{% url 'public-event-archive-month' next_month.year next_month.month %}">Next Month &raquo;</a>
             {% endif %}
         </div>
     </main>

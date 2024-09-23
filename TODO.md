@@ -57,7 +57,8 @@
 - [ ] Implement $ on tasks, so that only part of information is shown on the task list, all can be edited
 - [x] Add a Journal archive view set
   - [ ] Add an event archive view set
-  - [ ] Remove add_published from templatetags
+  - [x] Remove add_published from templatetags
+  - [ ] Check #253 – is ObservationMade done here?
 - [x] Add a special symbol in journal to add a line to a reflection
   - Symbols: [x] [~] [^]
   - How about [ ] for Plan?

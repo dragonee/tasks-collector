@@ -614,15 +614,17 @@ class JournalArchiveContextMixin:
         )
         return context
 
+class EventArchiveContextMixin:
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['dates'] = Event.objects.dates(
+            'published', 
+            'month', 
+            order='DESC'
+        )
+        return context
 
-class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, MonthArchiveView):
-    model = JournalAdded
-    date_field = 'published'
-    allow_future = True
-    
-
-    template_name = 'tree/journaladded_archive_month.html'
-
+class CurrentMonthArchiveView(MonthArchiveView):
     def get_month(self):
         return timezone.now().month
 
@@ -630,7 +632,27 @@ class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, MonthArchiveVie
         return timezone.now().year
 
 
+class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, CurrentMonthArchiveView):
+    model = JournalAdded
+    date_field = 'published'
+    allow_future = True
+    
+
+    template_name = 'tree/journaladded_archive_month.html'
+
+
 class JournalArchiveMonthView(JournalArchiveContextMixin, MonthArchiveView):
     model = JournalAdded
+    date_field = 'published'
+    allow_future = True
+
+
+class EventCurrentMonthArchiveView(EventArchiveContextMixin, CurrentMonthArchiveView):
+    model = Event
+    date_field = 'published'
+    allow_future = True
+
+class EventArchiveMonthView(EventArchiveContextMixin, MonthArchiveView):
+    model = Event
     date_field = 'published'
     allow_future = True

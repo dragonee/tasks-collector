@@ -146,6 +146,8 @@ class HabitTracked(Event):
 
     note = models.TextField(null=True, blank=True)
 
+    template = "tree/events/habit_tracked.html"
+
     def __str__(self):
         return "{} {}".format(self.habit, self.published)
 
@@ -258,12 +260,30 @@ class Observation(models.Model):
 def coalesce(value, default=''):
     return value if value is not None else default
 
-class ObservationEventMixin:
+class ObservationPropertyEventMixin:
     @property
     def observation(self):
         return Observation.objects.get(event_stream_id=self.event_stream_id)
 
-class ObservationMade(Event, ObservationEventMixin):
+class ObservationEventMixin:
+    def situation(self):
+        ### XXX Situation at the time of the event or current?
+        ### For now, current is implemented here
+        event = Event.objects.instance_of(
+            ObservationMade,
+            ObservationRecontextualized
+        ).filter(
+            event_stream_id=self.event_stream_id
+        ).order_by(
+            '-published'
+        ).first()
+
+        if not event:
+            raise Observation.DoesNotExist
+        
+        return event.situation
+
+class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     # event_stream_id <- Observation
     # thread <- Observation (can be updated)
 
@@ -272,6 +292,8 @@ class ObservationMade(Event, ObservationEventMixin):
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
+
+    template = "tree/events/observation_made.html"
 
     @staticmethod
     def from_observation(observation, published=None):
@@ -292,21 +314,21 @@ class ObservationMade(Event, ObservationEventMixin):
             self.thread
         )
 
-class ObservationUpdated(Event):
+class ObservationUpdated(Event, ObservationEventMixin):
     observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True, blank=True)
 
-    ### TODO add template
+    template = "tree/events/observation_updated.html"
 
     comment = models.TextField(help_text=_("Update"))
 
     def __str__(self):
         return self.comment
 
-class ObservationRecontextualized(Event, ObservationEventMixin):
+class ObservationRecontextualized(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     old_situation = models.TextField(blank=True)
     situation = models.TextField()
 
-    ### TODO add template
+    template = "tree/events/observation_recontextualized.html"
 
     @staticmethod
     def from_observation(observation, old, published=None):
@@ -318,7 +340,7 @@ class ObservationRecontextualized(Event, ObservationEventMixin):
             situation=coalesce(observation.situation),
         )
 
-class ObservationReinterpreted(Event, ObservationEventMixin):
+class ObservationReinterpreted(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     old_interpretation = models.TextField(blank=True)
     interpretation = models.TextField()
 
@@ -334,11 +356,11 @@ class ObservationReinterpreted(Event, ObservationEventMixin):
             interpretation=coalesce(observation.interpretation),
         )
 
-class ObservationReflectedUpon(Event, ObservationEventMixin):
+class ObservationReflectedUpon(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     old_approach = models.TextField(blank=True)
     approach = models.TextField()
 
-    ### TODO add template
+    template = "tree/events/observation_reflectedupon.html"
 
     @staticmethod
     def from_observation(observation, old, published=None):
@@ -350,14 +372,14 @@ class ObservationReflectedUpon(Event, ObservationEventMixin):
             approach=coalesce(observation.approach),
         )
 
-class ObservationClosed(Event, ObservationEventMixin):
+class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
 
-    ### TODO add template
+    template = "tree/events/observation_closed.html"
 
     @staticmethod
     def from_observation(observation, published=None):
@@ -409,6 +431,8 @@ def on_observation_thread_change_update_events(sender, instance, *args, **kwargs
 
 class JournalAdded(Event):
     comment = models.TextField(help_text=_("Update"))
+
+    template = "tree/events/journal_added.html"
 
     def __str__(self):
         return self.comment

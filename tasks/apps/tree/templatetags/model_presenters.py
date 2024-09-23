@@ -2,19 +2,18 @@ from django import template
 
 from django.template.defaultfilters import linebreaks
 from django.utils.safestring import mark_safe
+from django.template.defaultfilters import stringfilter
 
 
 register = template.Library()
 
 
 @register.filter
-def add_published(object):
-    linebreaks_str = linebreaks(object.comment)
+@stringfilter
+def first_line(text):
+    splitted = text.split('\n')
 
-    time_str = '<p data-time="{}">'.format(
-        object.published.strftime('%H:%M')
-    )
+    if len(splitted) > 1:
+        return splitted[0].rstrip().rstrip('.…') + '…'
 
-    return mark_safe(linebreaks_str.replace('<p>', time_str, 1))
-
-
+    return text

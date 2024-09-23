@@ -1,0 +1,17 @@
+{% include "tree/events/observation_event_meta.html" with title="Reflected Upon" %}
+
+<div class="minus">
+    {% if not event.old_approach %}
+        <del class="empty">empty</del>
+    {% else %}
+        <del>{{ event.old_approach|linebreaks }}</del>
+    {% endif %}
+</div>
+
+<div class="plus">
+    {% if not event.approach %}
+        <ins class="empty">empty</ins>
+    {% else %}
+        <ins>{{ event.approach|linebreaks }}</ins>
+    {% endif %}
+</div>
