@@ -146,6 +146,8 @@ class HabitTracked(Event):
 
     note = models.TextField(null=True, blank=True)
 
+    template = "tree/events/habit_tracked.html"
+
     def __str__(self):
         return "{} {}".format(self.habit, self.published)
 
@@ -291,6 +293,8 @@ class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixi
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
 
+    template = "tree/events/observation_made.html"
+
     @staticmethod
     def from_observation(observation, published=None):
         return ObservationMade(
@@ -375,7 +379,7 @@ class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMi
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
     approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
 
-    ### TODO add template
+    template = "tree/events/observation_closed.html"
 
     @staticmethod
     def from_observation(observation, published=None):
