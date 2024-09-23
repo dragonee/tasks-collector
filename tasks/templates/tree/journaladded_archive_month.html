@@ -45,9 +45,9 @@
                 <li id="{{ date|date:"b-d" }}">
                     <strong>{{ date|date:"d F" }}</strong>
                     <ul>
-                        {% for entry in entries %}
+                        {% for event in entries %}
                             <li>
-                                {{ entry|add_published }}
+                                {% include "tree/events/journal_added.html" %}
                             </li>
                         {% endfor %}
                     </ul>
