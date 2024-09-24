@@ -1,4 +1,4 @@
-
+@use "sass:color";
 
 * {
     box-sizing: border-box;
@@ -160,7 +160,7 @@ body, html {
 
             + ul {
                 font-weight: 500;
-                color: darken(#14a3d0, 10%);
+                color: color.adjust(#14a3d0, $lightness: -10%);
             }
         }
 
@@ -170,7 +170,7 @@ body, html {
 
             + ul {
                 font-weight: 500;
-                color: darken(#d08614, 10%);
+                color: color.adjust(#d08614, $lightness: -10%);
             }
         }
     }
@@ -346,7 +346,7 @@ body.page-daily {
     }
 
     &:hover, &:active {
-        color: lighten(#205e7d, 25%);
+        color: color.adjust(#205e7d, $lightness: 25%);
     }
 }
 
@@ -551,7 +551,7 @@ article.quest {
             }
 
             &:hover {
-                color: darken(#4a7dfb, 20%);
+                color: color.adjust(#4a7dfb, $lightness: -20%);
             }
         }
 
@@ -660,7 +660,7 @@ article.quest {
         font-family: Raleway, sans-serif;
 
         &:hover, &:active {
-            background: darken(rgb(160, 102, 15), 10%);
+            background: color.adjust(rgb(160, 102, 15), $lightness: -10%);
 
             transition: all 0.2s ease-in-out;
         }
@@ -895,7 +895,7 @@ article.quest {
         color: #fff;
         background-color: #205e7d;
         padding: 10px 30px;
-        border: 2px solid darken(#205e7d, 10%);
+        border: 2px solid color.adjust(#205e7d, $lightness: -10%);
         border-radius: 10px;
         transform: translateY(0);
         display: flex;
@@ -908,8 +908,8 @@ article.quest {
             padding: 10px 50px;
             transform : translateY(-0px);
             background-color: #fff;
-            color: darken(#205e7d, 5%);
-            border: solid 2px darken(#205e7d, 10%);
+            color:  color.adjust(#205e7d, $lightness: -5%);
+            border: solid 2px color.adjust(#205e7d, $lightness: -10%);
         }
     }
 }

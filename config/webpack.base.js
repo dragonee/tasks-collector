@@ -3,9 +3,9 @@
 const path = require('path');
 const paths = require('./paths.js');
 const webpack = require('webpack');
-const VueLoaderPlugin = require('vue-loader/lib/plugin');
+const { VueLoaderPlugin } = require('vue-loader');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const CleanWebpackPlugin = require('clean-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const WebpackNotifierPlugin = require('webpack-notifier');
 
 module.exports = {
@@ -41,7 +41,7 @@ module.exports = {
                 test: /\.(png|jpe?g|gif|ico)$/,
                 loader: 'file-loader',
                 options: {
-                    name: "assets/images/[name].[hash].[ext]"
+                    name: "assets/images/[name].[fullhash].[ext]"
                 }
             },
             {
@@ -63,7 +63,7 @@ module.exports = {
         // Parse .vue files.
         new VueLoaderPlugin(),
         new MiniCssExtractPlugin({
-            filename: "[name].[hash].css",
+            filename: "[name].[fullhash].css",
             chunkFilename: "[id].css"
         }),
         // Provide basic 3d-party plugins.
@@ -92,7 +92,7 @@ module.exports = {
     optimization: {
         // Extract shared runtime code.
         runtimeChunk: 'single',
-        noEmitOnErrors: true
+        emitOnErrors: false,
     },
     // If multiple files share the same name but have different extensions, webpack
     // will resolve the one with the extension listed first in the array and skip the rest.

@@ -107,7 +107,7 @@
   import TreeDnd from '../mixins/DndMixin'
   import Tree from '../lib/Tree'
 
-  import { VueContext } from 'vue-context';
+  import { VueContext }from 'vue-context';
 
   import { mapGetters } from 'vuex';
 

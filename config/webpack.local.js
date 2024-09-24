@@ -1,12 +1,12 @@
 const paths         = require('./paths.js');
 
 const path          = require('path');
-const webpackMerge  = require('webpack-merge');
+const { merge } = require('webpack-merge');
 const baseConfig    = require('./webpack.base.js');
 const WebpackAssetsManifest = require('webpack-assets-manifest');
 
 
-module.exports = webpackMerge(baseConfig, {
+module.exports = merge(baseConfig, {
     output: {
         path: path.resolve(__dirname, paths.localOutputDir),
         filename: '[name].[chunkhash].js'
