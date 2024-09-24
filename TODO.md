@@ -19,9 +19,23 @@
     - [x] Use standard Python images for celery
     - [x] Celery does not need to wait on PostgreSQL
   - [x] Can be put into a journal comment as list of points quote before comment section
+- [x] Move tools from random-tools to tasks-collector-tools
+- [x] Bug: Habits tracked on journal save have no event set to published of the journal
+- [x] Add taskadd Inbox
+  - [x] Add ability to go to `/todo/#board=board`
+- [x] Allow for archiving (leave delete)
+- [x] Oftentimes, tasks are not loaded, when working on multiple tabs
+  - [x] use window.onfocus to reload tasks
+- [x] Add a special symbol in journal to add a line to a reflection
+  - Symbols: [x] [~] [^]
+  - [ ]How about [ ] for Plan?
+    - Need to rethink that / possible to use other input method
+- [x] Add a Journal archive view set
+  - [ ] Add an event archive view set
+  - [x] Remove add_published from templatetags
+  - [ ] Check #253 – is ObservationMade done here?
 - [ ] a weekly report could list out count and a summary of all items as email (for example)
 - [ ] Add journal to the `today` view
-- [x] Move tools from random-tools to tasks-collector-tools
 - [ ] Add `tasks-collector.ini` to the project and set it up with a dummy password for development
 - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
 - [ ] Add post-it boards for ideas
@@ -42,9 +56,6 @@
   - [ ] Calendar
 - [ ] Remove empty plans/reflections (these should not save)
 - [ ] Dump database before automatic migration / deployment
-- [x] Bug: Habits tracked on journal save have no event set to published of the journal
-- [x] Add taskadd Inbox
-  - [x] Add ability to go to `/todo/#board=board`
 - [ ] Quests: merge them with journals
   - [ ] (draft) Use journal for journalling, and quest object as a side to it
     - JournalQuestMeta: quest_id, journal_id, stage
@@ -53,15 +64,4 @@
   - [ ] PoC: https://developers.google.com/tasks/quickstart/python
   - [ ] Board action
   - [ ] Board status - scheduled
-- [x] Allow for archiving (leave delete)
 - [ ] Implement $ on tasks, so that only part of information is shown on the task list, all can be edited
-- [x] Add a Journal archive view set
-  - [ ] Add an event archive view set
-  - [x] Remove add_published from templatetags
-  - [ ] Check #253 – is ObservationMade done here?
-- [x] Add a special symbol in journal to add a line to a reflection
-  - Symbols: [x] [~] [^]
-  - How about [ ] for Plan?
-    - Need to rethink that / possible to use other input method
-- [x] Oftentimes, tasks are not loaded, when working on multiple tabs
-  - [x] use window.onfocus to reload tasks
