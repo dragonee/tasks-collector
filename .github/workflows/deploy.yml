@@ -12,6 +12,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: actions/checkout@v2
       - name: Install backend packages
         run: pip install -r requirements/dist.txt
