@@ -36,8 +36,10 @@ from django.urls import reverse
 from django.views.generic.dates import ArchiveIndexView, MonthArchiveView, DayArchiveView, TodayArchiveView
 
 from collections import Counter
-
 import datetime
+
+from .utils.itertools import itemize
+
 
 class ObservationPagination(PageNumberPagination):
     page_size = 10
@@ -345,11 +347,6 @@ def date_range_generator(start, end):
         current += datetime.timedelta(days=1)
 
 
-def combine_dates_with_counts(date_range, events, default=None):
-    for date in date_range:
-        yield DayCount(date, events.get(date, default))
-
-
 def _event_calendar(start, end):
     events = Event.objects.filter(
         published__range=(start, end),
@@ -372,10 +369,11 @@ def adjust_start_date_to_monday(date):
 def event_calendar(start, end):
     start = adjust_start_date_to_monday(start)
 
-    return combine_dates_with_counts(
+    return itemize(
         date_range_generator(start, end),
         _event_calendar(start, end),
-        default=0
+        default=0,
+        item_type=DayCount
     )
 
 def today(request):
