@@ -35,6 +35,8 @@ from django.urls import reverse
 
 from django.views.generic.dates import ArchiveIndexView, MonthArchiveView, DayArchiveView, TodayArchiveView
 
+from collections import Counter
+
 import datetime
 
 class ObservationPagination(PageNumberPagination):
@@ -333,6 +335,49 @@ def periodical(request):
         'combined': Periodical(plans, reflections),
     })
 
+DayCount = namedtuple('DayCount', ['date', 'count'])
+
+def date_range_generator(start, end):
+    current = start
+
+    while current <= end:
+        yield current.date()
+        current += datetime.timedelta(days=1)
+
+
+def combine_dates_with_counts(date_range, events, default=None):
+    for date in date_range:
+        yield DayCount(date, events.get(date, default))
+
+
+def _event_calendar(start, end):
+    events = Event.objects.filter(
+        published__range=(start, end),
+    ).order_by('published').values('published')
+
+    c = Counter()
+
+    for event in events:
+        c[event['published'].date()] += 1
+
+    return c
+
+def adjust_start_date_to_monday(date):
+    if date.weekday() == 0:
+        return date
+    
+    return date - datetime.timedelta(days=date.weekday())
+
+
+def event_calendar(start, end):
+    start = adjust_start_date_to_monday(start)
+
+    return combine_dates_with_counts(
+        date_range_generator(start, end),
+        _event_calendar(start, end),
+        default=0
+    )
+
 def today(request):
     if request.method == 'POST':
         thread_name = request.POST.get('thread')
@@ -431,6 +476,7 @@ def today(request):
         'threads': Thread.objects.all(),
 
         'journals': journals,
+        'event_calendar': event_calendar(day_start - datetime.timedelta(weeks=52), day_end),
     })
 
 class ObservationListView(ListView):

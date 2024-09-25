@@ -1,0 +1,12 @@
+
+<div class="calendar">
+    {% for event in event_calendar %}
+        <div 
+            title="{{ event.count }} contribution{{ event.count|pluralize }} on {{ event.date|date:"Y-m-d" }}" 
+            class="event-day" 
+            data-count="{{ event.count }}" 
+            data-date="{{ event.date|date:"Y-m-d" }}"
+        ></div>
+    {% endfor %}
+</div>
+

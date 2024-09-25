@@ -1194,3 +1194,31 @@ body.quick-notes {
         }
     }
 }
+
+.calendar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    align-content: flex-start;
+    margin: 0 auto;
+    width: fit-content;
+
+    height: 86px;
+
+    .event-day {
+        width: 10px;
+        height: 10px;
+        aspect-ratio: 1 / 1;
+        background-color: #e0e0e0;
+        border-radius: 2px;
+
+        &[data-count="0"] {
+            opacity: 0.5;
+        }
+    }
+}
