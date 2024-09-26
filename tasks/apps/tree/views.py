@@ -34,8 +34,11 @@ from django.forms import inlineformset_factory
 from django.urls import reverse
 
 from django.views.generic.dates import ArchiveIndexView, MonthArchiveView, DayArchiveView, TodayArchiveView
+from django.views.generic.detail import DetailView
 
-from collections import Counter
+from collections import Counter, namedtuple
+from functools import cached_property
+
 import datetime
 
 from .utils.itertools import itemize
@@ -725,3 +728,57 @@ class EventArchiveMonthView(EventArchiveContextMixin, MonthArchiveView):
     model = Event
     date_field = 'published'
     allow_future = True
+
+
+def _habit_calendar(habit, start, end):
+    events = HabitTracked.objects.filter(
+        habit=habit,
+        published__range=(start, end),
+    ).order_by('published').values('published', 'occured')
+
+    c = Counter()
+
+    for event in events:
+        if c[event['published'].date()] == -1:
+            continue
+
+        if event['occured'] == False:
+            c[event['published'].date()] = -1
+            continue
+
+        c[event['published'].date()] += 1
+
+    return c
+
+
+def habit_calendar(habit, start, end):
+    return itemize(
+        date_range_generator(start, end),
+        _habit_calendar(habit, start, end),
+        default=0,
+        item_type=DayCount
+    )
+
+class HabitDetailView(DetailView):
+    model = Habit
+
+    # XXX introduce slug field
+    def get_slug_field(self) -> str:
+        return 'name'
+    
+    @cached_property
+    def tracked_habits(self):
+        return HabitTracked.objects.filter(habit=self.object)
+
+    def get_context_data(self, **kwargs):
+        start = timezone.now() - datetime.timedelta(days=365)
+        end = timezone.now() + datetime.timedelta(days=1)
+
+        context = super().get_context_data(**kwargs)
+
+        context.update({
+            'event_calendar': habit_calendar(self.object, start, end),
+            'tracked_habits': self.tracked_habits,
+        })
+
+        return context
