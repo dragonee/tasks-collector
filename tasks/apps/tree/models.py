@@ -82,8 +82,17 @@ def update_board_committed_event_stream_id(sender, instance, *args, **kwargs):
 
 
 class Habit(models.Model):
-    # readonly-once-set
+    # Display name
     name = models.CharField(max_length=255)
+    
+    # URL Slug
+    slug = models.SlugField(max_length=255, unique=True, null=True, blank=True)
+
+    # hashtag for matching
+    tagname = models.SlugField(max_length=255, unique=True, allow_unicode=True, null=True, blank=True)
+
+    # XXX event stream id based on name, need rehash on... other field?
+    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
 
     def __str__(self):
         return self.name
@@ -92,12 +101,8 @@ class Habit(models.Model):
         ordering = ('name', )
 
     def as_hashtag(self):
-        return '#{}'.format(self.slug)
-    
-    @property
-    def slug(self):
-        return slugify(self.name)
-    
+        return '#{}'.format(self.tagname)
+
     @property
     def event_stream_id(self):
         return habit_event_stream_id(self)
