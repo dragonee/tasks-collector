@@ -65,3 +65,15 @@
   - [ ] Board action
   - [ ] Board status - scheduled
 - [ ] Implement $ on tasks, so that only part of information is shown on the task list, all can be edited
+- [ ] Make events out of reflections and plans
+  - A single event suffices?
+  - [ ] Add autocommit mechanism
+    - [ ] Remove on autocommit?
+  - [ ] Add manual commit
+- [ ] Habits – shift around
+  - [ ] Add slug field
+  - [ ] Define a list of habits I'd like to track
+  - Possible integrations:
+    - Internal with events
+    - External with GH API
+- [ ] Add Expectation model to Habit to track redline/greenline, goal, etc.
