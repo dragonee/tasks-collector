@@ -6,7 +6,7 @@ from rest_framework import status
 
 from .serializers import *
 from .models import *
-from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm
+from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm, SingleHabitTrackedForm
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
@@ -616,6 +616,31 @@ def observation_close(request, observation_id):
     response['HX-Redirect'] = reverse('public-observation-list')
     
     return response
+
+
+@api_view(['POST'])
+def track_habit(request):
+    form = SingleHabitTrackedForm(request.data)
+
+    if not form.is_valid():
+        return RestResponse(form.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        triplets = habits_line_to_habits_tracked(form.cleaned_data['text'])
+    except ValueError as e:
+        return RestResponse({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    for occured, habit, note in triplets:
+        HabitTracked.objects.create(
+            occured=occured,
+            habit=habit,
+            note=note,
+            published=form.cleaned_data['published'],
+            thread=form.cleaned_data['thread'],
+        )
+
+    return RestResponse({'ok': True}, status=status.HTTP_200_OK)
+
 
 @require_POST
 def add_quick_note_hx(request):

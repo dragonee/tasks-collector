@@ -34,6 +34,8 @@ urlpatterns = [
     path('diary/', views.JournalCurrentMonthArchiveView.as_view(month_format="%m"), name='public-diary-archive-current-month'),
     path('events/', views.EventCurrentMonthArchiveView.as_view(month_format="%m"), name='public-event-archive-current-month'),
     path('events/<int:year>/<int:month>/', views.EventArchiveMonthView.as_view(month_format="%m"), name='public-event-archive-month'),
+    path('habit/track/', views.track_habit, name='public-habit-track'),
+
     re_path(r'^observations/closed/(?P<event_stream_id>[a-f0-9\-]+)/$', views.observation_closed_detail, name='public-observation-closed-detail'),
 
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/close/$', views.observation_close, name='public-observation-close'),

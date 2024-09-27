@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Board, JournalAdded, Thread, Plan, Reflection, Observation, ObservationType, ObservationUpdated, ObservationMade, ObservationClosed, ObservationRecontextualized, ObservationReflectedUpon, ObservationReinterpreted, QuickNote
+from .models import *
 
 from functools import partial
 
