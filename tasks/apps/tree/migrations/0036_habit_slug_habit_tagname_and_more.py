@@ -2,7 +2,7 @@
 
 from django.db import migrations, models
 import django.db.models.deletion
-
+import uuid
 
 class Migration(migrations.Migration):
 
@@ -21,6 +21,11 @@ class Migration(migrations.Migration):
             model_name='habit',
             name='tagname',
             field=models.SlugField(allow_unicode=True, blank=True, max_length=255, null=True, unique=True),
+        ),
+        migrations.AddField(
+            model_name='habit',
+            name='event_stream_id',
+            field=models.UUIDField(default=uuid.uuid4, editable=False),
         ),
         migrations.AlterField(
             model_name='event',

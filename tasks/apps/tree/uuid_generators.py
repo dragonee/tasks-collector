@@ -2,6 +2,8 @@ from django.utils.text import slugify
 
 import uuid
 
+from enum import IntEnum
+
 BOARD_URL = 'https://schemas.polybrain.org/tasks/boards/{}'
 
 HABIT_URL = 'https://schemas.polybrain.org/tasks/habits/{}'
@@ -26,9 +28,29 @@ def journal_added_event_stream_id(obj):
     return thread_event_stream_id(JOURNAL_URL, obj)
 
 
-def habit_event_stream_id(obj):
+def _habit_event_stream_id(obj):
     if hasattr(obj, 'habit_id'):
         obj = obj.habit
 
     return uuid.uuid5(uuid.NAMESPACE_URL, name=HABIT_URL.format(slugify(obj.name)))
 
+
+def _habit_event_stream_id_v2(obj):
+    if hasattr(obj, 'habit_id'):
+        obj = obj.habit
+
+    return obj.event_stream_id
+
+class HabitEventVersion(IntEnum):
+    V1 = 1
+    V2 = 2
+
+CURRENT_HABIT_EVENT_VERSION = HabitEventVersion.V2
+
+def habit_event_stream_id(obj, version=CURRENT_HABIT_EVENT_VERSION):
+    if version == HabitEventVersion.V1:
+        return _habit_event_stream_id(obj)
+    elif version == HabitEventVersion.V2:
+        return _habit_event_stream_id_v2(obj)
+    
+    raise ValueError(f'Unsupported version: {version}')

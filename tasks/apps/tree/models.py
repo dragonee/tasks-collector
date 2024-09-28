@@ -103,10 +103,6 @@ class Habit(models.Model):
     def as_hashtag(self):
         return '#{}'.format(self.tagname)
 
-    @property
-    def event_stream_id(self):
-        return habit_event_stream_id(self)
-
 
 Diff = namedtuple('Diff', ['old', 'new'])
 

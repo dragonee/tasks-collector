@@ -11,6 +11,10 @@ from django.db import transaction
 class ObservationTypeAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
+
+class HabitAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'tagname', 'event_stream_id')
+
 class ThreadAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         if obj:
@@ -109,7 +113,7 @@ admin.site.register(ObservationReinterpreted, ObservationReinterpretedAdmin)
 admin.site.register(ObservationReflectedUpon, ObservationReflectedUponAdmin)
 admin.site.register(ObservationClosed, ObservationClosedAdmin)
 admin.site.register(BoardCommitted, BoardCommittedAdmin)
-admin.site.register(Habit)
+admin.site.register(Habit, HabitAdmin)
 admin.site.register(HabitTracked, HabitTrackedAdmin)
 admin.site.register(ObservationUpdated, ObservationUpdatedAdmin)
 admin.site.register(JournalAdded, JournalAddedAdmin)
