@@ -53,8 +53,8 @@
   - [ ] Better styling
 - [ ] Habit summaries
   - [ ] Quick summary - since / from
-  - [ ] Lines (days)
-  - [ ] Calendar
+  - [x] Lines (days)
+  - [x] Calendar
 - [ ] Remove empty plans/reflections (these should not save)
 - [ ] Dump database before automatic migration / deployment
 - [ ] Quests: merge them with journals

@@ -1009,6 +1009,13 @@ section.journal {
     main {
         font-size: 1.1rem;
 
+        dl {
+            dt a {
+                color: #0066cc;
+                text-decoration: none;
+            }
+        }
+
         ul {
             padding-left: 0;
     

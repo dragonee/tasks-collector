@@ -781,3 +781,6 @@ class HabitDetailView(DetailView):
         })
 
         return context
+
+class HabitListView(ListView):
+    model = Habit
