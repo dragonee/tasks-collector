@@ -752,6 +752,8 @@ def _habit_calendar(habit, start, end):
 
 
 def habit_calendar(habit, start, end):
+    start = adjust_start_date_to_monday(start)
+    
     return itemize(
         date_range_generator(start, end),
         _habit_calendar(habit, start, end),
