@@ -35,6 +35,7 @@
   - [x] Remove add_published from templatetags
   - [ ] Check #253 – is ObservationMade done here?
 - [ ] a weekly report could list out count and a summary of all items as email (for example)
+  - [ ] Add ell and personality cores to summary
 - [ ] Add journal to the `today` view
 - [ ] Add `tasks-collector.ini` to the project and set it up with a dummy password for development
 - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
