@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block body_class %}page-daily{% endblock %}
+
+
+{% block content %}
+
+
+<section class="journal">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+    <h1>Habits</h1>
+
+    <main>
+        <dl>
+            {% for habit in object_list %}
+                <dt>
+                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.name }}</a></strong>
+                </dt>
+                <dd>
+                    {{ habit.as_hashtag }}
+                </dd>
+            {% endfor %}
+        </dl>
+        </ul>
+    </main>
+</section>
+{% endblock %}

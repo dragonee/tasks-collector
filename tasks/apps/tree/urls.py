@@ -36,7 +36,7 @@ urlpatterns = [
     path('events/<int:year>/<int:month>/', views.EventArchiveMonthView.as_view(month_format="%m"), name='public-event-archive-month'),
     path('habits/<slug:slug>/', views.HabitDetailView.as_view(), name='public-habit-detail'),
     path('habit/track/', views.track_habit, name='public-habit-track'),
-
+    path('habits/', views.HabitListView.as_view(), name='public-habit-list'),
     re_path(r'^observations/closed/(?P<event_stream_id>[a-f0-9\-]+)/$', views.observation_closed_detail, name='public-observation-closed-detail'),
 
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/close/$', views.observation_close, name='public-observation-close'),
