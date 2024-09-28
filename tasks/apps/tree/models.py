@@ -86,10 +86,10 @@ class Habit(models.Model):
     name = models.CharField(max_length=255)
     
     # URL Slug
-    slug = models.SlugField(max_length=255, unique=True, null=True, blank=True)
+    slug = models.SlugField(max_length=255, unique=True)
 
     # hashtag for matching
-    tagname = models.SlugField(max_length=255, unique=True, allow_unicode=True, null=True, blank=True)
+    tagname = models.SlugField(max_length=255, unique=True, allow_unicode=True)
 
     # XXX event stream id based on name, need rehash on... other field?
     event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
