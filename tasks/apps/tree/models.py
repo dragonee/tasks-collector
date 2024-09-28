@@ -139,7 +139,7 @@ def on_habit_name_change_update_event_stream_id(sender, instance, *args, **kwarg
 
 class HabitTracked(Event):
     # thread must be set manually
-    # event_stream_id <- habit.name
+    # event_stream_id <- habit.event_stream_id (v2)
 
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE)
 

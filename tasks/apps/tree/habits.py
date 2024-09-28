@@ -28,13 +28,11 @@ def compare(string, candidates):
 def note_to_habit_tracked_tuple(item, habit_names, habits):
     occured = True if item[0] == "#" else False
 
-    index, length = compare(item[1:].lower(), habit_names)
+    index, length = compare(item[1:], habit_names)
     if index is None or length < 3:
         raise ValueError("Match failed on {}".format(item))
     
     habit = habits[index]
-
-    print("occured:", occured, "habit:", habit)
     
     # Assume first line is actually important for the habit tracked note
     return (occured, habit, item.split("\n")[0])
@@ -44,12 +42,8 @@ def habits_line_to_habits_tracked(line):
     items = PATTERN.split(' ' + line)
     items = list(filter(lambda x: x.startswith("!") or x.startswith("#"), map(lambda x: x.strip(), items)))
 
-    print(items)
-
     habits = list(Habit.objects.all())
-    habit_names = list(map(lambda x: x.name.lower(), habits))
-
-    print(habit_names)
+    habit_names = list(map(lambda x: x.tagname, habits))
 
     return list(map(
         lambda x: note_to_habit_tracked_tuple(x, habit_names, habits),

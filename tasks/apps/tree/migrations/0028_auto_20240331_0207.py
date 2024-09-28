@@ -4,7 +4,7 @@ from django.db import migrations, models
 import django.db.models.deletion
 import uuid
 
-from tasks.apps.tree.uuid_generators import board_event_stream_id_from_thread, habit_event_stream_id, journal_added_event_stream_id
+from tasks.apps.tree.uuid_generators import board_event_stream_id_from_thread, habit_event_stream_id, journal_added_event_stream_id, HabitEventVersion
 
 def forwards_func(apps, schema_editor):
     Board = apps.get_model('tree', 'Board')
@@ -56,7 +56,7 @@ def forwards_func(apps, schema_editor):
         )
     
     for habit in Habit.objects.using(db_alias).all():
-        stream_id = habit_event_stream_id(habit)
+        stream_id = habit_event_stream_id(habit, version=HabitEventVersion.V1)
 
         HabitTracked.objects.using(db_alias).filter(
             habit=habit

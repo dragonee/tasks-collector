@@ -72,7 +72,7 @@
     - [ ] Remove on autocommit?
   - [ ] Add manual commit
 - [ ] Habits – shift around
-  - [ ] Add slug field
+  - [x] Add slug field
   - [ ] Define a list of habits I'd like to track
   - Possible integrations:
     - Internal with events
