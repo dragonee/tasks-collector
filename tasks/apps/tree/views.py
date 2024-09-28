@@ -764,7 +764,7 @@ class HabitDetailView(DetailView):
 
     # XXX introduce slug field
     def get_slug_field(self) -> str:
-        return 'name'
+        return 'slug'
     
     @cached_property
     def tracked_habits(self):
