@@ -762,13 +762,12 @@ def habit_calendar(habit, start, end):
 class HabitDetailView(DetailView):
     model = Habit
 
-    # XXX introduce slug field
     def get_slug_field(self) -> str:
         return 'slug'
     
     @cached_property
     def tracked_habits(self):
-        return HabitTracked.objects.filter(habit=self.object)
+        return HabitTracked.objects.filter(habit=self.object).order_by('-published')
 
     def get_context_data(self, **kwargs):
         start = timezone.now() - datetime.timedelta(days=365)

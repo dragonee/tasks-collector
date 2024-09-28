@@ -23,7 +23,7 @@ function hex_to_rgb(hex) {
     return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : null;
 }
 
-function colorize_single_calendar(days, color_from, color_to) {
+function colorize_single_calendar(days, color_from, color_to, color_negative) {
     const maxCount = max_count(days);
 
     const color_from_rgb = hex_to_rgb(color_from);
@@ -35,20 +35,30 @@ function colorize_single_calendar(days, color_from, color_to) {
             continue;
         }
 
+        if (count < 0) {
+            day.style.backgroundColor = color_negative;
+            continue;
+        }
+
         const color = interpolate_color(color_from_rgb, color_to_rgb, count / maxCount);
         day.style.backgroundColor = color;
     }
 }
 
-function colorize_calendar(cls, color_from, color_to) {
+function colorize_calendar(cls, default_color_from, default_color_to, default_color_negative) {
     const calendars = document.getElementsByClassName(cls);
 
     for (let calendar of calendars) {
         const days = calendar.querySelectorAll('.event-day');
-        colorize_single_calendar(days, color_from, color_to);
+
+        const color_from = calendar.dataset.colorFrom || default_color_from;
+        const color_to = calendar.dataset.colorTo || default_color_to;
+        const color_negative = calendar.dataset.colorNegative || default_color_negative;
+
+        colorize_single_calendar(days, color_from, color_to, color_negative);
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    colorize_calendar('calendar', '#b2edac', '#3b6f2c');
+    colorize_calendar('calendar', '#b2edac', '#3b6f2c', '#f00');
 })

@@ -1,8 +1,40 @@
 {% extends "base.html" %}
 
+{% block body_class %}page-daily{% endblock %}
+
+
 {% block content %}
 
-{% include "tree/calendar.html" %}
 
-<h1>{{ object.name }}</h1>
+<section class="journal">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+    <h1>Habit: {{ object.name }}</h1>
+
+    <div class="calendar" data-color-from="#8de0f3" data-color-to="#4199ad" data-color-negative="#bfab59">
+        {% include "tree/calendar.html" %}
+    </div>
+
+    <main>
+        <ul>
+            {% regroup tracked_habits by published.date as entries_by_date %}
+            {% for date, entries in entries_by_date %}
+                <li id="{{ date|date:"b-d" }}">
+                    <strong>{{ date|date:"d F" }}</strong>
+                    <ul>
+                        {% for event in entries %}
+                            <li>
+                                {% include event.template %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% empty %}
+                <li>No journal entries for this month.</li>
+            {% endfor %}
+        </ul>
+    </main>
+</section>
 {% endblock %}
