@@ -1016,6 +1016,10 @@ section.journal {
                 list-style: none;
                 position: relative;
                 margin-top: 3rem;
+
+                &:first-child {
+                    margin-top: 1.5rem;
+                }
     
                 ul {
     
