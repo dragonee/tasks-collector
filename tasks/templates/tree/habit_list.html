@@ -17,10 +17,10 @@
         <dl>
             {% for habit in object_list %}
                 <dt>
-                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.name }}</a></strong>
+                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.as_hashtag }}</a></strong> ({{ habit.name }})
                 </dt>
                 <dd>
-                    {{ habit.as_hashtag }}
+                    {{ habit.description }}
                 </dd>
             {% endfor %}
         </dl>

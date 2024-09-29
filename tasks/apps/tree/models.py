@@ -91,8 +91,9 @@ class Habit(models.Model):
     # hashtag for matching
     tagname = models.SlugField(max_length=255, unique=True, allow_unicode=True)
 
-    # XXX event stream id based on name, need rehash on... other field?
     event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    description = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return self.name
