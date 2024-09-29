@@ -95,15 +95,29 @@
         </div>
     </div>
 
-    <div class="journal-section">
-        {% for journal in journals %}
-            <div class="single-journal">
-                <div class="meta">{{ journal.published | date:"l" }} {{ journal.published | time:"H:i" }}</div>
-                {{ journal.comment|linebreaks }}
-            </div>
-        {% endfor %}
-    </div>
+    <section class="journal">
+        <h1>Journal Entries</h1>
 
+        <main>
+            <ul>
+                {% regroup journals by published.date as entries_by_date %}
+                {% for date, entries in entries_by_date %}
+                    <li id="{{ date|date:"b-d" }}">
+                        <strong>{{ date|date:"d F" }}</strong>
+                        <ul>
+                            {% for event in entries %}
+                                <li>
+                                    {% include "tree/events/journal_added.html" %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% empty %}
+                    <li>No journal entries for this month.</li>
+                {% endfor %}
+            </ul>
+        </main>
+    </section>
 </form>
 </div>
 
