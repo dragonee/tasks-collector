@@ -17,9 +17,10 @@ class ThreadSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['id', 'name']
 
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
+    today_tracked = serializers.IntegerField(read_only=True)
     class Meta:
         model = Habit
-        fields = ['id', 'name', 'description', 'slug', 'tagname']
+        fields = ['id', 'name', 'description', 'slug', 'tagname', 'today_tracked']
 
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

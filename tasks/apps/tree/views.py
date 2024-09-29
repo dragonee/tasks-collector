@@ -10,6 +10,7 @@ from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm, Sin
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
+from django.db.models import Count, Q
 from datetime import date, timedelta
 
 from django.http import HttpResponse
@@ -67,7 +68,12 @@ class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
 
 class HabitViewSet(viewsets.ModelViewSet):
-    queryset = Habit.objects.all()
+    queryset = Habit.objects.all().annotate(
+        today_tracked=Count(
+            'habittracked',
+            filter=Q(habittracked__published__date=date.today())
+        ),
+    )
     serializer_class = HabitSerializer
 
 class PlanViewSet(viewsets.ModelViewSet):
