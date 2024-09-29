@@ -28,7 +28,7 @@
   - [x] use window.onfocus to reload tasks
 - [x] Add a special symbol in journal to add a line to a reflection
   - Symbols: [x] [~] [^]
-  - [ ]How about [ ] for Plan?
+  - [ ] How about [ ] for Plan?
     - Need to rethink that / possible to use other input method
 - [x] Add a Journal archive view set
   - [ ] Add an event archive view set
@@ -37,7 +37,7 @@
 - [ ] a weekly report could list out count and a summary of all items as email (for example)
   - [ ] Add ell and personality cores to summary
 - [ ] Add journal to the `today` view
-- [ ] Add `tasks-collector.ini` to the project and set it up with a dummy password for development
+- [x] Add `tasks-collector.ini` to the project and set it up with a dummy password for development (done in https://github.com/dragonee/tasks-collector-tools)
 - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
 - [ ] Add post-it boards for ideas
   - [ ] Use the tasks backend
@@ -78,3 +78,4 @@
     - Internal with events
     - External with GH API
 - [ ] Add Expectation model to Habit to track redline/greenline, goal, etc.
+- [x] Add a description to Habit

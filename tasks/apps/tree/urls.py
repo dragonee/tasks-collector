@@ -17,7 +17,7 @@ router.register(r'updates', views.ObservationUpdatedViewSet)
 router.register(r'journal', views.JournalAddedViewSet)
 router.register(r'quick-notes', views.QuickNoteViewSet)
 router.register(r'observation-events', views.ObservationEventViewSet)
-
+router.register(r'habit-api', views.HabitViewSet)
 
 urlpatterns = [
     path('boards/<int:id>/summary/', views.board_summary),

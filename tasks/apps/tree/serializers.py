@@ -16,6 +16,11 @@ class ThreadSerializer(serializers.HyperlinkedModelSerializer):
         model = Thread
         fields = ['id', 'name']
 
+class HabitSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Habit
+        fields = ['id', 'name', 'description', 'slug', 'tagname']
+
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Plan
