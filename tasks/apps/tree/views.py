@@ -68,13 +68,16 @@ class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
 
 class HabitViewSet(viewsets.ModelViewSet):
-    queryset = Habit.objects.all().annotate(
-        today_tracked=Count(
-            'habittracked',
-            filter=Q(habittracked__published__date=date.today())
-        ),
-    )
     serializer_class = HabitSerializer
+    queryset = Habit.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().annotate(
+            today_tracked=Count(
+                'habittracked',
+                filter=Q(habittracked__published__date=date.today())
+            ),
+        )
 
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = Plan.objects.all()
