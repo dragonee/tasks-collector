@@ -55,7 +55,7 @@
   - [ ] Quick summary - since / from
   - [x] Lines (days)
   - [x] Calendar
-- [ ] Remove empty plans/reflections (these should not save)
+- [x] Remove empty plans/reflections (these should not save)
 - [ ] Dump database before automatic migration / deployment
 - [ ] Quests: merge them with journals
   - [ ] (draft) Use journal for journalling, and quest object as a side to it

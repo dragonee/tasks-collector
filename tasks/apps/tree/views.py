@@ -448,20 +448,19 @@ def today(request):
         today_valid = today_plan_form.is_valid()
 
         if today_valid:
-            today_plan_form.save()
-
+            save_or_remove_object_if_empty(today_plan, ['focus', 'want'])
 
         tomorrow_plan_form = PlanForm(request.POST, instance=tomorrow_plan, prefix="tomorrow_plan")
         tomorrow_valid = tomorrow_plan_form.is_valid()
 
         if tomorrow_valid:
-            tomorrow_plan_form.save()
+            save_or_remove_object_if_empty(tomorrow_plan, ['focus', 'want'])
 
         reflection_form = ReflectionForm(request.POST, instance=reflection, prefix="reflection")
         reflection_valid = reflection_form.is_valid()
 
         if reflection_valid:
-            reflection_form.save()
+            save_or_remove_object_if_empty(reflection, ['good', 'better', 'best'])
             
         if all((today_valid, tomorrow_valid, reflection_valid)):
             return redirect(request.get_full_path())

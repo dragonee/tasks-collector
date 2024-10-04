@@ -506,3 +506,12 @@ def add_reflection_items(journal_added):
         setattr(reflection, field_name, new_value)
 
     reflection.save()
+
+
+def save_or_remove_object_if_empty(object, fields):
+    is_empty = not any(getattr(object, field) for field in fields)
+
+    if not is_empty:
+        object.save()
+    elif object.pk:
+        object.delete()
