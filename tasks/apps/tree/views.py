@@ -299,6 +299,10 @@ class Periodical:
         return len(self.plans)
 
     def __getattr__(self, attr):
+        # Hack for django-debug-toolbar
+        if attr == '_wrapped':
+            raise AttributeError
+
         attr1, attr2 = attr.split('__')
 
         return map(lambda x: getattr(x, attr2), getattr(self, attr1 + 's'))
