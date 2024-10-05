@@ -67,15 +67,25 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     serializer_class = BoardSerializer
 
+def get_day_from_request(request):
+    day = request.query_params.get('date')
+
+    if day is not None:
+        return datetime.datetime.strptime(day, '%Y-%m-%d').date()
+    
+    return date.today()
+
 class HabitViewSet(viewsets.ModelViewSet):
     serializer_class = HabitSerializer
     queryset = Habit.objects.all()
 
     def get_queryset(self):
+        day = get_day_from_request(self.request)
+
         return super().get_queryset().annotate(
             today_tracked=Count(
                 'habittracked',
-                filter=Q(habittracked__published__date=date.today())
+                filter=Q(habittracked__published__date=day)
             ),
         )
 
