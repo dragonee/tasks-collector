@@ -29,27 +29,28 @@
         <div class="left">
             <h3>Observation</h3>
             <p class="meta">Provide situation, then interpretation and approach.</p>
-            {{ form.as_p }}
-        
-            <div class="submit">
-                <button class="submit">Submit</button>
-                {% if instance.pk %}
-                <button class="close" hx-post="{% url 'public-observation-close' instance.pk %}">
-                    Close observation
-                </button>
-                {% endif %}
-            </div>            
+            {{ form.as_p }}     
         </div>
 
         <div class="right">
             <h3>Updates</h3>
             <p class="meta">Optional. All existing updates and up to 3 extra are here.</p>
             {{ formset }}
-
-            <div class="submit">
-                <button class="submit">Submit</button>
-            </div>
         </div>
+    </div>
+    <div class="submit">
+        <div class="submit-buttons">
+            <button class="submit">Save</button>
+            <button class="submit" name="save_and_close">Save and go back</button>
+        </div>
+        
+        {% if instance.pk %}
+        <div class="close">
+            <button class="close" hx-post="{% url 'public-observation-close' instance.pk %}">
+                Close observation
+            </button>
+        </div>
+        {% endif %}
     </div>
     <div class="updates">
         {% for event in events %}

@@ -886,30 +886,66 @@ article.quest {
     }
 
     div.submit {
-        margin: 2rem 0;
+        margin: 2rem 0 4rem;
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: space-between;
+        
+        .submit-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-direction: row-reverse;
+        }
+
     }
 
-    button.submit {
-        font-family: Raleway, sans-serif;
-        font-weight: 700;
-        color: #fff;
-        background-color: #205e7d;
-        padding: 10px 30px;
-        border: 2px solid color.adjust(#205e7d, $lightness: -10%);
-        border-radius: 10px;
-        transform: translateY(0);
-        display: flex;
-        flex-direction: row;
-        align-items: center;
+    button.submit, button.close {
+        font-family: 'Raleway', sans-serif;
+        display: inline-block;
+        padding: 0.75em 1.5em;
+        font-size: 1rem;
+        text-align: center;
+        text-decoration: none;
+        color: #ffffff;
+        background-color: #1a5f8d;
+        border: none;
+        border-radius: 3px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
         cursor: pointer;
+        opacity: 0.8;
 
         &:hover {
-            transition : 1000ms;
-            padding: 10px 50px;
-            transform : translateY(-0px);
-            background-color: #fff;
-            color:  color.adjust(#205e7d, $lightness: -5%);
-            border: solid 2px color.adjust(#205e7d, $lightness: -10%);
+            background-color: darken(#1a5f8d, 10%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        &:active {
+            background-color: darken(#1a5f8d, 15%);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        &:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(26, 95, 141, 0.5), 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    }
+
+    button.close {
+        background-color: #808080;
+        color: #ffffff;
+        margin-right: 10px;
+
+        &:hover {
+            background-color: #666666;
+        }
+
+        &:active {
+            background-color: #595959;
+        }
+
+        &:focus {
+            box-shadow: 0 0 0 3px rgba(128, 128, 128, 0.5);
         }
     }
 }

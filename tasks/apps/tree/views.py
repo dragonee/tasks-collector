@@ -596,7 +596,10 @@ def observation_edit(request, observation_id=None):
                         update.published = now
                     update.save()
 
-            return redirect(reverse('public-observation-list'))
+            if 'save_and_close' in request.POST:
+                return redirect(reverse('public-observation-list'))
+
+            return redirect(reverse('public-observation-edit', args=[observation.pk]))
 
     else:
         initial_dict = {}
