@@ -75,9 +75,16 @@ def get_day_from_request(request):
     
     return date.today()
 
+class HabitPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
 class HabitViewSet(viewsets.ModelViewSet):
     serializer_class = HabitSerializer
     queryset = Habit.objects.all()
+
+    pagination_class = HabitPagination
 
     def get_queryset(self):
         day = get_day_from_request(self.request)
