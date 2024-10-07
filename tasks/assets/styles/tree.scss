@@ -176,12 +176,22 @@
   content: "";
 }
 
+.tree-node.important {
+  .tree-anchor {
+    color: #c75000;
+    font-weight: 500;
+  }
+}
+
 .tree-node.checked {
     background-color: #8edc8078;
     .tree-anchor {
         color: #00000060;
+        font-weight: 400;
     }
 }
+
+
 
 .tree-checkbox.checked,
 .tree-checkbox.indeterminate {
