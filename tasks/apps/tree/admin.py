@@ -42,6 +42,7 @@ class ObservationUpdatedInline(admin.StackedInline):
 
 class ObservationAdmin(admin.ModelAdmin):
     list_display = ('__str__', 'thread', 'type')
+    readonly_fields = ('event_stream_id',)
 
     actions = [close_observations]
 
