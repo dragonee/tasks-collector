@@ -79,3 +79,9 @@
     - External with GH API
 - [ ] Add Expectation model to Habit to track redline/greenline, goal, etc.
 - [x] Add a description to Habit
+- [ ] Show plan on the tasks utility and journal so that focus/want is more visible
+  - [ ] Add a view to show today's plans
+- [ ] Habit: plan satisfied?
+- [ ] Threads / split into threads and scopes
+- [ ] Journal with reflections from daily reflection from past 7 days
+- [ ] Split/merge observations
