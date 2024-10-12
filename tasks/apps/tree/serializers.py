@@ -50,7 +50,9 @@ def spawn_observation_events(previous, current, published=None):
 
         not_changing_null_into_empty = bool(old) or bool(new)
 
-        return old != new and not_changing_null_into_empty
+        same_excluding_whitespace = type(old) == type(new) == str and old.strip().replace('\r', '') == new.strip().replace('\r', '')
+
+        return old != new and not_changing_null_into_empty and not same_excluding_whitespace
     
     def was_set(x):
         return getattr(previous, x) is None and getattr(current, x) is not None
