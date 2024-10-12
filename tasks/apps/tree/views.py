@@ -44,6 +44,7 @@ import datetime
 
 from .utils.itertools import itemize
 
+from .observation_operations import migrate_observation_updates_to_journal as _migrate_observation_updates_to_journal
 
 class ObservationPagination(PageNumberPagination):
     page_size = 10
@@ -822,3 +823,21 @@ class HabitDetailView(DetailView):
 
 class HabitListView(ListView):
     model = Habit
+
+
+
+@api_view(['POST'])
+def migrate_observation_updates_to_journal(request, observation_id):
+    observation = get_object_or_404(Observation, pk=observation_id)
+    thread = Thread.objects.get(name='Daily')
+
+    _migrate_observation_updates_to_journal(observation, thread.id)
+
+    if request.htmx:
+        response = RestResponse({'ok': True}, status=status.HTTP_200_OK)
+        response['HX-Redirect'] = reverse('public-observation-list')
+
+        return response
+
+    return redirect(reverse('public-observation-list'))
+

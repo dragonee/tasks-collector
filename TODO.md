@@ -87,3 +87,4 @@
 - [ ] Split/merge observations
 - [ ] fixme: seems like situation field needs to be validated for changes with strip()
   - [ ] + add a migration removing recontextualized
+- [x] create a view that can migrate all observation updates into journal

@@ -30,6 +30,7 @@ urlpatterns = [
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/$', views.observation_edit, name='public-observation-edit'),
     path('observations/', views.ObservationListView.as_view(), name='public-observation-list'),
     path('observations/closed/', views.ObservationClosedListView.as_view(), name='public-observation-list-closed'),
+    path('observations/<int:observation_id>/journalize/', views.migrate_observation_updates_to_journal, name='public-observation-journalize'),
     path('diary/<int:year>/<int:month>/', views.JournalArchiveMonthView.as_view(month_format="%m"), name='public-diary-archive-month'),
     path('diary/', views.JournalCurrentMonthArchiveView.as_view(month_format="%m"), name='public-diary-archive-current-month'),
     path('events/', views.EventCurrentMonthArchiveView.as_view(month_format="%m"), name='public-event-archive-current-month'),
