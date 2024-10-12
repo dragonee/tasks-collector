@@ -97,9 +97,20 @@ class HabitViewSet(viewsets.ModelViewSet):
             ),
         )
 
+class PlanFilter(filters.FilterSet):
+    class Meta:
+        model = Plan
+        fields = {
+            'pub_date': ('gte', 'lte', 'exact'),
+        }
+
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = Plan.objects.all()
     serializer_class = PlanSerializer
+
+    filter_backends = [DjangoFilterBackend]
+    filter_class = PlanFilter
+
 
 class ReflectionViewSet(viewsets.ModelViewSet):
     queryset = Reflection.objects.all()
