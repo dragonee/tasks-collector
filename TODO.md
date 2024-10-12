@@ -85,6 +85,6 @@
 - [ ] Threads / split into threads and scopes
 - [ ] Journal with reflections from daily reflection from past 7 days
 - [ ] Split/merge observations
-- [ ] fixme: seems like situation field needs to be validated for changes with strip()
-  - [ ] + add a migration removing recontextualized
+- [x] fixme: seems like situation field needs to be validated for changes with strip()
+  - [x] + add a migration removing recontextualized
 - [x] create a view that can migrate all observation updates into journal
