@@ -531,7 +531,7 @@ class ObservationListView(ListView):
         .select_related('thread', 'type') \
         .prefetch_related('observationupdated_set')
 
-    paginate_by = 100
+    paginate_by = 200
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
