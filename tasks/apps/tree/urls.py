@@ -33,6 +33,8 @@ urlpatterns = [
     path('observations/<int:observation_id>/journalize/', views.migrate_observation_updates_to_journal, name='public-observation-journalize'),
     path('diary/<int:year>/<int:month>/', views.JournalArchiveMonthView.as_view(month_format="%m"), name='public-diary-archive-month'),
     path('diary/', views.JournalCurrentMonthArchiveView.as_view(month_format="%m"), name='public-diary-archive-current-month'),
+    path('diary/<slug:slug>/', views.JournalTagCurrentMonthArchiveView.as_view(month_format="%m"), name='public-diary-archive-current-month-tag'),
+    path('diary/<slug:slug>/<int:year>/<int:month>/', views.JournalTagArchiveMonthView.as_view(month_format="%m"), name='public-diary-archive-month-tag'),
     path('events/', views.EventCurrentMonthArchiveView.as_view(month_format="%m"), name='public-event-archive-current-month'),
     path('events/<int:year>/<int:month>/', views.EventArchiveMonthView.as_view(month_format="%m"), name='public-event-archive-month'),
     path('habits/<slug:slug>/', views.HabitDetailView.as_view(), name='public-habit-detail'),

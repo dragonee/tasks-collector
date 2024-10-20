@@ -727,11 +727,13 @@ def quick_notes(request):
 class JournalArchiveContextMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['dates'] = JournalAdded.objects.dates(
+        context['dates'] = self.get_queryset().dates(
             'published', 
             'month', 
             order='DESC'
         )
+        context['tags'] = JournalTag.objects.all()
+
         return context
 
 class EventArchiveContextMixin:
@@ -750,6 +752,12 @@ class CurrentMonthArchiveView(MonthArchiveView):
 
     def get_year(self):
         return timezone.now().year
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_current_month'] = True
+
+        return context
 
 
 class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, CurrentMonthArchiveView):
@@ -766,6 +774,35 @@ class JournalArchiveMonthView(JournalArchiveContextMixin, MonthArchiveView):
     date_field = 'published'
     allow_future = True
 
+
+class JournalTagArchiveContextMixin(JournalArchiveContextMixin):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['tag'] = JournalTag.objects.get(slug=self.kwargs['slug'])
+
+        return context
+
+class JournalTagArchiveMonthView(JournalTagArchiveContextMixin, MonthArchiveView):
+    model = JournalAdded
+    date_field = 'published'
+    allow_future = True
+
+    def get_queryset(self):
+        return super().get_queryset().filter(tags__slug=self.kwargs['slug'])
+    
+    template_name = 'tree/journaladded_archive_month.html'
+
+
+class JournalTagCurrentMonthArchiveView(JournalTagArchiveContextMixin, CurrentMonthArchiveView):
+    model = JournalAdded
+    date_field = 'published'
+    allow_future = True
+
+    def get_queryset(self):
+        return super().get_queryset().filter(tags__slug=self.kwargs['slug'])
+    
+    template_name = 'tree/journaladded_archive_month.html'
 
 class EventCurrentMonthArchiveView(EventArchiveContextMixin, CurrentMonthArchiveView):
     model = Event

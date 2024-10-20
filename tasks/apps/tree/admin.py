@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Board, BoardCommitted, Thread, Plan, Reflection, Observation, ObservationType, Habit, HabitTracked, ObservationUpdated, JournalAdded, Event, ObservationMade, ObservationRecontextualized, ObservationReinterpreted, ObservationReflectedUpon, ObservationClosed, QuickNote
+from .models import *
 
 from datetime import datetime
 
@@ -102,6 +102,13 @@ class JournalAddedAdmin(PolymorphicChildModelAdmin):
     
     list_display = ('__str__', 'thread', 'published')
 
+
+class JournalTagAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug')
+
+    prepopulated_fields = {"slug": ("name",)}
+
+
 admin.site.register(Board)
 admin.site.register(Thread, ThreadAdmin)
 admin.site.register(Plan)
@@ -120,3 +127,4 @@ admin.site.register(ObservationUpdated, ObservationUpdatedAdmin)
 admin.site.register(JournalAdded, JournalAddedAdmin)
 admin.site.register(Event, EventAdmin)
 admin.site.register(QuickNote)
+admin.site.register(JournalTag, JournalTagAdmin)

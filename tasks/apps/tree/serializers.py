@@ -39,6 +39,10 @@ class BoardSerializer(serializers.HyperlinkedModelSerializer):
         model = Board
         fields = ['id', 'date_started', 'state', 'focus', 'thread']
 
+class JournalTagSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = JournalTag
+        fields = ['id', 'name', 'slug']
 
 def spawn_observation_events(previous, current, published=None):
     if not published:
@@ -164,9 +168,15 @@ class JournalAddedSerializer(serializers.ModelSerializer):
         slug_field='name'
     )
 
+    tags = serializers.SlugRelatedField(
+        many=True,
+        queryset=JournalTag.objects.all(),
+        slug_field='slug',
+    )
+
     class Meta:
         model = JournalAdded
-        fields = [ 'id', 'comment', 'published', 'thread', ]
+        fields = [ 'id', 'comment', 'published', 'thread', 'tags' ]
 
 class QuickNoteSerializer(serializers.ModelSerializer):
     class Meta:

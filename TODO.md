@@ -89,3 +89,6 @@
 - [x] fixme: seems like situation field needs to be validated for changes with strip()
   - [x] + add a migration removing recontextualized
 - [x] create a view that can migrate all observation updates into journal
+- [ ] Allow text in parsing triplets if no hashtag is found
+- [ ] Add ObservationMentioned event
+- [x] Add tags to journals

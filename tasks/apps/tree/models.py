@@ -515,3 +515,13 @@ def save_or_remove_object_if_empty(object, fields):
         object.save()
     elif object.pk:
         object.delete()
+
+
+class JournalTag(models.Model):
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True)
+
+    journals = models.ManyToManyField(JournalAdded, related_name='tags', blank=True)
+
+    def __str__(self):
+        return self.name

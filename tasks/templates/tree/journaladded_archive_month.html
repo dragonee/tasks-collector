@@ -12,14 +12,40 @@
         {% include "menu.html" %}
     </div>
 
-    <h1>Journal Entries for {{ month|date:"F Y" }}</h1>
+    <h1>Journal Entries for {{ month|date:"F Y" }} {% if tag %}tagged "{{ tag.name }}"{% endif %}</h1>
+
+    Show:
+    <select onchange="if (this.value) window.location.href=this.value">
+        {% if is_current_month %}
+            <option value="{% url 'public-diary-archive-current-month' %}">All entries</option>
+        {% else %}
+            <option value="{% url 'public-diary-archive-month' month.year month.month %}">All entries</option>
+        {% endif %}
+
+        {% for option_tag in tags %}
+            <option 
+                {% if option_tag.slug == tag.slug %}selected{% endif %} 
+                {% if is_current_month %}
+                    value="{% url 'public-diary-archive-current-month-tag' option_tag.slug %}"
+                {% else %}
+                    value="{% url 'public-diary-archive-month-tag' option_tag.slug month.year month.month %}"
+                {% endif %}
+            >
+                {{ option_tag.name }}
+            </option>
+        {% endfor %}
+    </select>
 
     <aside class="months">
         <h2>Archive</h2>
         <ul>
             {% for date in dates %}
                 <li>
-                    <a href="{% url 'public-diary-archive-month' date.year date.month %}">
+                    {% if tag %}
+                        <a href="{% url 'public-diary-archive-month-tag' tag.slug date.year date.month %}">
+                    {% else %}
+                        <a href="{% url 'public-diary-archive-month' date.year date.month %}">
+                    {% endif %}
                         {{ date|date:"F Y" }}
                     </a>
                 </li>
@@ -59,10 +85,18 @@
 
         <div class="pagination">
             {% if previous_month %}
-                <a href="{% url 'public-diary-archive-month' previous_month.year previous_month.month %}">&laquo; Previous Month</a>
+                {% if tag %}
+                    <a href="{% url 'public-diary-archive-month-tag' tag.slug previous_month.year previous_month.month %}">&laquo; Previous Month</a>
+                {% else %}
+                    <a href="{% url 'public-diary-archive-month' previous_month.year previous_month.month %}">&laquo; Previous Month</a>
+                {% endif %}
             {% endif %}
             {% if next_month %}
-                <a href="{% url 'public-diary-archive-month' next_month.year next_month.month %}">Next Month &raquo;</a>
+                {% if tag %}
+                    <a href="{% url 'public-diary-archive-month-tag' tag.slug next_month.year next_month.month %}">Next Month &raquo;</a>
+                {% else %}
+                    <a href="{% url 'public-diary-archive-month' next_month.year next_month.month %}">Next Month &raquo;</a>
+                {% endif %}
             {% endif %}
         </div>
     </main>
