@@ -37,6 +37,11 @@ def note_to_habit_tracked_tuple(item, habit_names, habits):
     # Assume first line is actually important for the habit tracked note
     return (occured, habit, item.split("\n")[0])
 
+def note_to_habit_tracked_tuple_or_none(item, habit_names, habits):
+    try:
+        return note_to_habit_tracked_tuple(item, habit_names, habits)
+    except ValueError:
+        return None
 
 def habits_line_to_habits_tracked(line):
     items = PATTERN.split(' ' + line)
@@ -45,9 +50,8 @@ def habits_line_to_habits_tracked(line):
     habits = list(Habit.objects.all())
     habit_names = list(map(lambda x: x.tagname, habits))
 
-    return list(map(
-        lambda x: note_to_habit_tracked_tuple(x, habit_names, habits),
+    return list(filter(None, map(
+        lambda x: note_to_habit_tracked_tuple_or_none(x, habit_names, habits),
         items
-    ))
-        
+    )))
     
