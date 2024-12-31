@@ -92,3 +92,4 @@
 - [ ] Allow text in parsing triplets if no hashtag is found
 - [ ] Add ObservationMentioned event
 - [x] Add tags to journals
+- [ ] Add plan templates for a day (e.g. Cleaning: ..., Writing: ..., etc.)
