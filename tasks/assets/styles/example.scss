@@ -1158,29 +1158,36 @@ section.journal {
 
 .journal-added {
     &:hover {
-        .add-breakthrough-button {
+        .add-breakthrough {
             visibility: visible;
         }
     }
 
-    .add-breakthrough-button {
-        &:hover, &:active {
-            border: 1px solid #83bcf5;
-            color: #336ca4;
-            cursor: pointer;
-        }
-
+    .add-breakthrough {
         position: absolute;
         top: 0;
         right: 0;
         visibility: hidden;
-        background-color: transparent;
-        border: 1px solid #83bcf5;
-        color: #4b89c7;
 
-        font-size: 0.875rem;
-        padding: 0.1rem 0.25rem;
+        background-color: #fff;
+        padding: 0 0 0.5rem 0.5rem;
         border-radius: 0.25rem;
+
+        button {
+            &:hover, &:active {
+                border: 1px solid #83bcf5;
+                color: #336ca4;
+                cursor: pointer;
+            }
+
+            background-color: transparent;
+            border: 1px solid #83bcf5;
+            color: #4b89c7;
+
+            font-size: 0.875rem;
+            padding: 0.1rem 0.25rem;
+            border-radius: 0.25rem;
+        }
     }
 
     .result-ok {
