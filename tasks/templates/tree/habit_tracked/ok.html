@@ -1,0 +1,11 @@
+<div class="result-ok">
+{% for habit_tracked in habits_tracked %}
+    {{ habit_tracked.note }}
+{% endfor %}
+</div>
+
+{% include "tree/habit_tracked/form.html" with hidden=True %}
+
+<script type="text/javascript">
+    onBreakthroughAdded(document.currentScript);
+</script>

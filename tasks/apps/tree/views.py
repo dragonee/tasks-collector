@@ -6,7 +6,7 @@ from rest_framework import status
 
 from .serializers import *
 from .models import *
-from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm, SingleHabitTrackedForm
+from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm, SingleHabitTrackedForm, OnlyTextSingleHabitTrackedForm
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
@@ -671,18 +671,24 @@ def observation_close(request, observation_id):
 
 @api_view(['POST'])
 def track_habit(request):
-    form = SingleHabitTrackedForm(request.data)
+    if request.GET.get('form') == 'only_text':
+        form_class = OnlyTextSingleHabitTrackedForm
+    else:
+        form_class = SingleHabitTrackedForm
+
+    form = form_class(request.data)
 
     if not form.is_valid():
+        if request.htmx:
+            return render(request, "tree/habit_tracked/form.html", {
+                'form': form,
+            })
         return RestResponse(form.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    try:
-        triplets = habits_line_to_habits_tracked(form.cleaned_data['text'])
-    except ValueError as e:
-        return RestResponse({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
-    for occured, habit, note in triplets:
-        HabitTracked.objects.create(
+    habits_tracked = []
+
+    for occured, habit, note in form.cleaned_data['triplets']:
+        obj = HabitTracked.objects.create(
             occured=occured,
             habit=habit,
             note=note,
@@ -690,6 +696,19 @@ def track_habit(request):
             thread=form.cleaned_data['thread'],
         )
 
+        habits_tracked.append(obj)
+
+    if request.htmx:
+        initial_dict = {
+        }
+
+        if 'journal' in form.cleaned_data:
+            initial_dict['journal'] = form.cleaned_data['journal']
+
+        return render(request, "tree/habit_tracked/ok.html", {
+            'habits_tracked': habits_tracked,
+            'form': form_class(initial=initial_dict),
+        })
     return RestResponse({'ok': True}, status=status.HTTP_200_OK)
 
 
@@ -764,6 +783,7 @@ class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, CurrentMonthArc
     model = JournalAdded
     date_field = 'published'
     allow_future = True
+    allow_empty = True
     
 
     template_name = 'tree/journaladded_archive_month.html'

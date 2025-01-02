@@ -1,3 +1,13 @@
-<div class="event-content" data-time="{{ event.published|time:"H:i" }}">
+{% load model_presenters %}
+
+<div class="event-content journal-added" data-id="{{ event.id }}" data-time="{{ event.published|time:"H:i" }}">
+    <div class="add-breakthrough">
+        <button class="add-breakthrough-button">+Breakthrough</button>
+    </div>
+
+    <div class="habit-form hidden">
+        {% include "tree/habit_tracked/form.html" with form=event|get_habit_form %}
+    </div>
+
     {{ event.comment|linebreaks }}
 </div>

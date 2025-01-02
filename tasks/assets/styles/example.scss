@@ -1156,6 +1156,89 @@ section.journal {
     }
 }
 
+.journal-added {
+    &:hover {
+        .add-breakthrough-button {
+            visibility: visible;
+        }
+    }
+
+    .add-breakthrough-button {
+        &:hover, &:active {
+            border: 1px solid #83bcf5;
+            color: #336ca4;
+            cursor: pointer;
+        }
+
+        position: absolute;
+        top: 0;
+        right: 0;
+        visibility: hidden;
+        background-color: transparent;
+        border: 1px solid #83bcf5;
+        color: #4b89c7;
+
+        font-size: 0.875rem;
+        padding: 0.1rem 0.25rem;
+        border-radius: 0.25rem;
+    }
+
+    .result-ok {
+        animation: easeInGreen 2s ease-in;
+
+        padding: 0.45rem 0.75rem;
+        border-radius: 0.25rem;
+        font-size: 0.92rem;
+    }
+
+    @keyframes easeInGreen {
+        from {
+            background-color: rgb(30, 187, 30);
+        }
+        to {
+            background-color: rgba(136, 221, 136, 0.5);
+        }
+    }
+
+    .habit-form form {
+        display: flex;
+        flex-direction: row;
+        gap: 0.5rem;
+
+        label {
+            display: none;
+        }
+
+        > div {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        input[type=text] {
+            order: 1;
+            padding: 0.45rem 0.75rem;
+            border: 1px solid #b1b6b6;
+            width: 100%;
+        }
+
+        .errorlist {
+            padding: 0 0 0 0.875rem;
+            li {
+                margin: 0; 
+                color: #f00; 
+                font-size: 0.875rem;
+            }
+            order: 2;
+        }
+
+        button[type=submit] {
+            max-height: 31px;
+        }
+    }
+}
+
 body.quick-notes {
     background-color: #f3f4f5;
     max-width: 50rem;

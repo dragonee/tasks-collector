@@ -93,3 +93,6 @@
 - [ ] Add ObservationMentioned event
 - [x] Add tags to journals
 - [ ] Add plan templates for a day (e.g. Cleaning: ..., Writing: ..., etc.)
+- [ ] Add Breakthroughs Plan
+- [ ] Add [ ] to journal processing so that it can be used to add a plan for tomorrow
+- [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend

@@ -1,0 +1,9 @@
+{% if error %}
+    {{ error }}
+{% endif %}
+
+<form method="post" hx-post="{% url 'public-habit-track' %}?form=only_text" hx-swap="outerHTML" {% if hidden %}class="hidden"{% endif %}>
+    {% csrf_token %}
+    {{ form.as_div }}
+    <button type="submit">Save</button>
+</form>
