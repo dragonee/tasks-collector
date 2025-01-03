@@ -110,10 +110,4 @@ const setUrlParameter = (parameter, value) => {
     window.location.href = url.toString();
 }
 
-const isUrlParameterSet = (parameter) => {
-    const url = new URL(window.location.href);
-    return url.searchParams.has(parameter);
-}
-
 window.setUrlParameter = setUrlParameter;
-window.isUrlParameterSet = isUrlParameterSet;
