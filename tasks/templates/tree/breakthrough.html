@@ -27,21 +27,25 @@
                     
                     {% regroup breakthrough_habits by published|date:"F Y" as grouped_habits %}
                     <ul class="breakthrough-timeline">
-                        {% for month, habits in grouped_habits %}
-                            <li>
-                                <strong>{{ month }}</strong>
-                                <ul>
-                                    {% for tracked in habits %}
-                                        <li>
-                                            <a 
-                                                href="{% url 'public-diary-archive-month' tracked.published.year tracked.published.month %}#{{ tracked.published|date:'b-d' }}"
-                                                class="event-day"
-                                            >{{ tracked.published|date:'d'|ordinal }}</a>
-                                            {{ tracked|habit_without_name }}
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </li>
+                        {% for month, habits in grouped_habits|missing_months %}
+                            {% if habits %}
+                                <li>
+                                    <strong>{{ month }}</strong>
+                                    <ul>
+                                        {% for tracked in habits %}
+                                            <li>
+                                                <a 
+                                                    href="{% url 'public-diary-archive-month' tracked.published.year tracked.published.month %}#{{ tracked.published|date:'b-d' }}"
+                                                    class="event-day"
+                                                >{{ tracked.published|date:'d'|ordinal }}</a>
+                                                {{ tracked|habit_without_name }}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </li>
+                            {% else %}
+                                <li class="missing-month"><strong>{{ month }}</strong></li>
+                            {% endif %}
                         {% endfor %}
                     </ul>
                     {% endif %}
