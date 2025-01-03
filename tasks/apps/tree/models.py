@@ -11,6 +11,7 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
 
+from decimal import Decimal
 import uuid
 
 from .uuid_generators import board_event_stream_id, habit_event_stream_id, journal_added_event_stream_id, board_event_stream_id_from_thread
@@ -525,3 +526,35 @@ class JournalTag(models.Model):
 
     def __str__(self):
         return self.name
+
+class Breakthrough(models.Model):
+    slug = models.SlugField(max_length=255, unique=True)
+
+    published = models.DateTimeField(default=timezone.now)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    areas_of_concern = models.TextField(_('Areas of concern'), help_text=_("List areas of life thet give you most discomfort"))
+
+    theme = models.CharField(_('Theme of the year'), max_length=255, help_text=_("A phrase that captures your year"))
+
+
+class ProjectedOutcome(models.Model):
+    breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE)
+
+    published = models.DateTimeField(default=timezone.now)
+
+    resolved_by = models.DateField()
+
+    confidence_level = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal(0))
+
+    name = models.CharField(max_length=255)
+
+    description = models.TextField()
+
+    success_criteria = models.TextField(
+        help_text=_("List the criteria you’ll use to define success for this outcome"),
+        null=True,
+        blank=True
+    )
+
+### XXX TODO -> evolution of projected outcomes

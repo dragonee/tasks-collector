@@ -2,7 +2,7 @@ from django import forms
 
 from django.core.exceptions import ValidationError
 
-from .models import Plan, Reflection, Observation, QuickNote, Thread, JournalAdded
+from .models import Plan, Reflection, Observation, QuickNote, Thread, JournalAdded, Breakthrough, ProjectedOutcome
 
 from .habits import habits_line_to_habits_tracked
 
@@ -92,3 +92,62 @@ class OnlyTextSingleHabitTrackedForm(SingleHabitTrackedForm):
             return cleaned_data
 
         return cleaned_data
+
+class BreakthroughForm(forms.ModelForm):
+    class Meta:
+        model = Breakthrough
+        fields = ['areas_of_concern', 'theme']
+        widgets = {
+            'areas_of_concern': forms.Textarea(attrs={
+                'rows': 1,
+                'placeholder': 'My areas of concern...',
+            }),
+            'theme': forms.TextInput(attrs={
+                'placeholder': 'My theme...',
+            }),
+        }
+
+
+from decimal import Decimal
+class DecimalSliderWidget(forms.NumberInput):
+    input_type = 'range'
+
+    def __init__(self, attrs=None):
+        default_attrs = {'step': '1', 'min': '0', 'max': '100'}
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(default_attrs)
+
+    def to_python(self, value):
+        if value is None:
+            return Decimal(0)
+        return Decimal(value)
+
+    def format_value(self, value):
+        if value is None:
+            return 0
+        return float(value)
+
+
+class ProjectedOutcomeForm(forms.ModelForm):
+    class Meta:
+        model = ProjectedOutcome
+        fields = ['name', 'resolved_by', 'description', 'success_criteria', 'confidence_level']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'placeholder': 'Add an objective...',
+            }),
+            'resolved_by': forms.DateInput(attrs={
+                'type': 'date',
+                'placeholder': 'Date resolved...',
+            }),
+            'description': forms.Textarea(attrs={
+                'rows': 1,
+                'placeholder': 'Describe the objective...',
+            }),
+            'success_criteria': forms.Textarea(attrs={
+                'rows': 1,
+                'placeholder': 'Describe the success criteria...',
+            }),
+            'confidence_level': DecimalSliderWidget(),
+        }

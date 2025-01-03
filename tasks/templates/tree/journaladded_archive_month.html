@@ -69,7 +69,7 @@
             {% regroup object_list by published.date as entries_by_date %}
             {% for date, entries in entries_by_date %}
                 <li id="{{ date|date:"b-d" }}">
-                    <strong>{{ date|date:"d F" }}</strong>
+                    <strong>{{ date|date:"d F (l)" }}</strong>
                     <ul>
                         {% for event in entries %}
                             <li>

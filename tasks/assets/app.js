@@ -58,3 +58,47 @@ const onBreakthroughAdded = (element) => {
 }
 
 window.onBreakthroughAdded = onBreakthroughAdded;
+
+document.querySelectorAll('.breakthrough textarea').forEach((textarea) => {
+    textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+    });
+
+    textarea.dispatchEvent(new Event('input'));
+});
+
+
+document.querySelectorAll('.breakthrough-outcome').forEach((outcome) => {
+    const button = outcome.querySelector('button.accordion');
+    const textarea = outcome.querySelectorAll('textarea');
+
+    if (!button) {
+        return;
+    }
+    
+    button.addEventListener('click', (event) => {
+        outcome.classList.toggle('open');
+        event.stopPropagation();
+        event.preventDefault();
+
+        textarea.forEach((textarea) => {
+            textarea.dispatchEvent(new Event('input'));
+        });
+    });
+
+    const confidenceLevel = outcome.querySelector('.breakthrough-outcome-confidence input[type="range"]');
+    const confidenceLevelValue = outcome.querySelector('.breakthrough-outcome-name .confidence-level');
+
+    if (!confidenceLevel) {
+        return;
+    }
+
+    confidenceLevel.addEventListener('input', () => {
+        if (confidenceLevel.value === '0') {
+            confidenceLevelValue.textContent = 'by';
+        } else {
+            confidenceLevelValue.textContent = `${confidenceLevel.value}%`;
+        }
+    });
+});

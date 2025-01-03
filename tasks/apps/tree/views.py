@@ -6,7 +6,7 @@ from rest_framework import status
 
 from .serializers import *
 from .models import *
-from .forms import PlanForm, ReflectionForm, ObservationForm, QuickNoteForm, SingleHabitTrackedForm, OnlyTextSingleHabitTrackedForm
+from .forms import * 
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
@@ -909,3 +909,48 @@ def migrate_observation_updates_to_journal(request, observation_id):
 
     return redirect(reverse('public-observation-list'))
 
+def breakthrough(request, year):
+    year = int(year)
+    last_year = year - 1
+
+    try:
+        breakthrough = Breakthrough.objects.get(slug=f'{year}')
+    except Breakthrough.DoesNotExist:
+        breakthrough = Breakthrough(slug=f'{year}')
+
+    ProjectedOutcomeFormSet = inlineformset_factory(Breakthrough, ProjectedOutcome, form=ProjectedOutcomeForm, extra=1)
+    projected_outcome_queryset = ProjectedOutcome.objects.filter(breakthrough=breakthrough).order_by('resolved_by')
+
+    if request.method == 'POST':
+        form = BreakthroughForm(request.POST, instance=breakthrough)
+        formset = ProjectedOutcomeFormSet(
+            request.POST,
+            instance=breakthrough,
+            queryset=projected_outcome_queryset,
+        )
+
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                formset.save()
+
+            return redirect(reverse('breakthrough', args=[year]))
+    else:
+        form = BreakthroughForm(instance=breakthrough)
+        formset = ProjectedOutcomeFormSet(
+            instance=breakthrough,
+            queryset=projected_outcome_queryset,
+        )
+    
+    breakthrough_habits = HabitTracked.objects.filter(
+        published__year=last_year,
+        habit__slug='breakthrough',
+    ).select_related('habit')
+
+    return render(request, "tree/breakthrough.html", {
+        'year': year,
+        'breakthrough_habits': breakthrough_habits,
+        'form': form,
+        'formset': formset,
+        'projected_outcome_queryset': projected_outcome_queryset,
+    })

@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load render_assets model_presenters humanize %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}
+    Your {{ year }} breakthrough
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <form method="post" action="">
+        {% csrf_token %}
+        {{ form.id }}
+        <main class="breakthrough" id="year" data-year="{{ year }}">
+            <header>
+                <h1>Your {{ year }} breakthrough</h1>
+                <button type="submit">Save</button>
+            </header>
+
+            <div class="column1">
+                <section class="menu">{% include "menu.html" %}</section>
+
+                <section class="breakthrough-summary">
+                    <h2>Your 2024 Timeline</h2>
+                    {% if breakthrough_habits.count > 0 %}
+                    
+                    {% regroup breakthrough_habits by published|date:"F Y" as grouped_habits %}
+                    <ul class="breakthrough-timeline">
+                        {% for month, habits in grouped_habits %}
+                            <li>
+                                <strong>{{ month }}</strong>
+                                <ul>
+                                    {% for tracked in habits %}
+                                        <li>
+                                            <a 
+                                                href="{% url 'public-diary-archive-month' tracked.published.year tracked.published.month %}#{{ tracked.published|date:'b-d' }}"
+                                                class="event-day"
+                                            >{{ tracked.published|date:'d'|ordinal }}</a>
+                                            {{ tracked|habit_without_name }}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </section>
+
+                <section class="areas-of-concern">
+                    <h2>Your main areas of concern / discomfort</h2>
+                    <p>List areas of your life giving you the most discomfort, anxiety or pain.</p>
+                    {{ form.areas_of_concern }}
+                    <p class="meta">Then, prioritize one that is most important to you and would make your breakthrough this year.</p>
+                </section>
+
+            </div>
+
+            <div class="column2">
+
+                <section class="word-of-the-year">
+                    <h2>Your theme of the year</h2>
+                    <p>Choose a word or phrase that would best describe your year.</p>
+                    {{ form.theme }}
+                    <p class="meta">Make sure it <strong>resonates</strong> with you <br>
+                        and that you are <strong>constantly reminding</strong> yourself about it.
+                    </p>
+                </section>
+
+                <section class="breakthrough-outcomes">
+                    <h2>Your 2025 Timeline</h2>
+                    <p>Write a timeline of objectives for {{ year }}, being mindful of your current situation and areas of concern.<br>
+                    Be realistic and <strong>bold</strong>. Good luck, have fun!</p>
+
+                    {{ formset.management_form }}
+                    {{ formset.non_form_errors }}
+
+                    {% for form in formset %}
+                    
+                        <div class="breakthrough-outcome {% if not form.instance.pk %}empty{% endif %} {% if form.errors %}open{% endif %}">
+                            {{ form.id }}
+
+                            <div class="breakthrough-outcome-name">
+                                <div class="grow">{{ form.name }}</div>
+                                <div class="by">
+                                    {% if form.instance.confidence_level > 0 %}
+                                        <span class="confidence-level">{{ form.instance.confidence_level|floatformat }}%</span>
+                                    {% else %}
+                                        <span class="confidence-level">by</span>
+                                    {% endif %}
+                                </div>
+                                <div>{{ form.resolved_by }}</div>
+                                {% if form.instance.pk %}
+                                    <button class="accordion">Open</button>
+                                {% endif %}
+                            </div>
+                            <div class="breakthrough-outcome-extra {% if form.instance.pk %}hidden{% endif %}">
+                                {{ form.errors.name }}
+                                {{ form.errors.resolved_by }}
+                                <div class="field">
+                                    {{ form.description }}
+                                    <div class="meta">{{ form.description.help_text }}</div>
+                                </div>
+                                {{ form.errors.description }}
+                                <div class="field">
+                                    {{ form.success_criteria }}
+                                    <div class="meta">{{ form.success_criteria.help_text }}</div>
+                                </div>
+                                {{ form.errors.success_criteria }}
+                                <div class="field">
+                                    <div class="breakthrough-outcome-confidence">
+                                        {{ form.confidence_level.label_tag }}
+                                        {{ form.confidence_level }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+
+            </section>
+            </div>
+        </main>
+    </form>
+</div>
+{% endblock %}
+
+{% block extrajs %}
+{% endblock %}

@@ -50,5 +50,6 @@ urlpatterns = [
     path('q/', views.quick_notes, name='quick-notes'),
     path('q/post/', views.add_quick_note_hx, name='quick-note-add'),
 
-    path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('breakthrough/<int:year>/', views.breakthrough, name='breakthrough'),
 ]

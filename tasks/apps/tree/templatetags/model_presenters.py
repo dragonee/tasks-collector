@@ -27,3 +27,12 @@ def get_habit_form(journal_added):
             'journal': journal_added,
         }
     )
+
+import re
+
+def get_habit_pattern(habit):
+    return re.compile(r'^[#!]' + re.escape(habit.name) + r'\s+', re.IGNORECASE)
+
+@register.filter
+def habit_without_name(tracked):
+    return re.sub(get_habit_pattern(tracked.habit), '', tracked.note)
