@@ -964,3 +964,44 @@ def breakthrough(request, year):
         'formset': formset,
         'projected_outcome_queryset': projected_outcome_queryset,
     })
+
+def stats(request):
+    journal_qs = JournalAdded.objects.all()
+    habit_qs = HabitTracked.objects.all()
+    observation_qs = ObservationMade.objects.all()
+    observation_updated_qs = ObservationUpdated.objects.all()
+    observation_closed_qs = ObservationClosed.objects.all()
+    event_qs = Event.objects.all()
+    observation_recontextualized_qs = ObservationRecontextualized.objects.all()
+    observation_reflected_upon_qs = ObservationReflectedUpon.objects.all()
+    observation_reinterpreted_qs = ObservationReinterpreted.objects.all()
+
+    try:
+        year = int(request.GET.get('year'))
+    except (ValueError, TypeError):
+        year = None
+
+    if year:
+        journal_qs = journal_qs.filter(published__year=year)
+        habit_qs = habit_qs.filter(published__year=year)
+        observation_qs = observation_qs.filter(published__year=year)
+        observation_updated_qs = observation_updated_qs.filter(published__year=year)
+        observation_closed_qs = observation_closed_qs.filter(published__year=year)
+        event_qs = event_qs.filter(published__year=year)
+        observation_recontextualized_qs = observation_recontextualized_qs.filter(published__year=year)
+        observation_reflected_upon_qs = observation_reflected_upon_qs.filter(published__year=year)
+        observation_reinterpreted_qs = observation_reinterpreted_qs.filter(published__year=year)
+
+    return render(request, "tree/stats.html", {
+        'year': year,
+        'years': range(timezone.now().year, 2018, -1),
+        'journal_count': journal_qs.count(),
+        'habit_count': habit_qs.count(),
+        'observation_count': observation_qs.count(),
+        'observation_updated_count': observation_updated_qs.count(),
+        'observation_closed_count': observation_closed_qs.count(),
+        'event_count': event_qs.count(),
+        'observation_recontextualized_count': observation_recontextualized_qs.count(),
+        'observation_reflected_upon_count': observation_reflected_upon_qs.count(),
+        'observation_reinterpreted_count': observation_reinterpreted_qs.count(),
+    })

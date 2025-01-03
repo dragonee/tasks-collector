@@ -1724,3 +1724,39 @@ $calendar-color: rgba(223, 9, 9, 0.7);
         }
     }
 }
+
+.stats {
+    max-width: 50rem;
+    margin: auto;
+
+    font-size: 1.2rem;
+
+    .stats-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        strong {
+            color: #333;
+        }
+    }
+}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load model_presenters %}
+
+{% block title %}Statistics{% endblock %}
+
+{% block body_class %}page-stats{% endblock %}
+
+{% block content %}
+<section class="stats">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+    <h1>Statistics{% if year %} for {{ year }}{% endif %}</h1>
+
+    <form method="get" action="">
+        <label for="year">Filter by Year:</label>
+        <select name="year" id="year" onchange="this.form.submit()">
+            <option value="">All Years</option>
+            {% for y in years %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <table class="stats-table">
+        <thead>
+            <tr><th colspan="2">General</th></tr>
+        </thead>
+        <tr>
+            <td>Journal Entries:</td>
+            <td><strong>{{ journal_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Habits Tracked:</td>
+            <td><strong>{{ habit_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Observations created:</td>
+            <td><strong>{{ observation_count }}</strong></td>
+        </tr>
+        <tr>
+            <th colspan="2">Work done on observations</th>
+        </tr>
+        <tr>
+            <td>Updates:</td>
+            <td><strong>{{ observation_updated_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Recontextualized:</td>
+            <td><strong>{{ observation_recontextualized_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Reflected upon:</td>
+            <td><strong>{{ observation_reflected_upon_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Reinterpreted:</td>
+            <td><strong>{{ observation_reinterpreted_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Closed Observations:</td>
+            <td><strong>{{ observation_closed_count }}</strong></td>
+        </tr>
+        <tr>
+            <th colspan="2">Summary</th>
+        </tr>
+        <tr>
+            <td>Total events:</td>
+            <td><strong>{{ event_count }}</strong></td>
+        </tr>
+    </table>
+</section>
+{% endblock %}
