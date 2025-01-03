@@ -36,6 +36,12 @@
         {% endfor %}
     </select>
 
+    Order:
+    <select onchange="setUrlParameter('order', this.value)">
+        <option value="asc" {% if order == 'asc' %}selected{% endif %}>Ascending</option>
+        <option value="desc" {% if order == 'desc' %}selected{% endif %}>Descending</option>
+    </select>
+
     <aside class="months">
         <h2>Archive</h2>
         <ul>

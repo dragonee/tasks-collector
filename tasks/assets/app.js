@@ -102,3 +102,18 @@ document.querySelectorAll('.breakthrough-outcome').forEach((outcome) => {
         }
     });
 });
+
+
+const setUrlParameter = (parameter, value) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set(parameter, value);
+    window.location.href = url.toString();
+}
+
+const isUrlParameterSet = (parameter) => {
+    const url = new URL(window.location.href);
+    return url.searchParams.has(parameter);
+}
+
+window.setUrlParameter = setUrlParameter;
+window.isUrlParameterSet = isUrlParameterSet;

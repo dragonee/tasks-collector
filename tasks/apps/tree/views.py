@@ -744,8 +744,19 @@ def quick_notes(request):
 ### finish the editing views
 ### add auto-delete mechanism
 class JournalArchiveContextMixin:
+    def get_order(self):
+        return self.request.GET.get('order', 'desc')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        return queryset.order_by(
+            'published' if self.get_order() == 'asc' else '-published'
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context['order'] = self.get_order()
         context['dates'] = self.get_queryset().dates(
             'published', 
             'month', 
@@ -775,7 +786,6 @@ class CurrentMonthArchiveView(MonthArchiveView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['is_current_month'] = True
-
         return context
 
 
