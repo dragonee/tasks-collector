@@ -1023,6 +1023,7 @@ def daily_events(request):
         reflection = None
 
     return RestResponse({
+        'date': day,
         'events': EventSerializer(events, many=True).data,
         'plan': PlanSerializer(plan).data if plan else None,
         'reflection': ReflectionSerializer(reflection).data if reflection else None,
