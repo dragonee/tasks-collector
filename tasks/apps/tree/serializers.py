@@ -11,6 +11,8 @@ from django.db import transaction
 
 from rest_polymorphic.serializers import PolymorphicSerializer
 
+from .templatetags.model_presenters import first_line
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
@@ -219,7 +221,8 @@ class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
             'event_stream_id',
             'thread',
             'interpretation',
-            'old_interpretation'
+            'old_interpretation',
+            'situation_at_creation'
         ]
 
 class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
@@ -231,7 +234,8 @@ class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
             'event_stream_id',
             'thread',
             'approach',
-            'old_approach'
+            'old_approach',
+            'situation_at_creation'
         ]
 
 class ObservationClosedSerializer(BaseTypeThreadSerializer):
@@ -265,11 +269,16 @@ class HabitTrackedSerializer(serializers.ModelSerializer):
         model = HabitTracked
         fields = ['id', 'published', 'habit', 'occured', 'note']
 
-class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
+def get_observation_object(obj):
+    if obj.observation:
+        return obj.observation
+    
+    return ObservationMade.objects.get(event_stream_id=obj.event_stream_id)
 
+class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = ObservationUpdated
-        fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id']
+        fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id', 'situation_at_creation']
 
 class EventSerializer(PolymorphicSerializer):
     model_serializer_mapping = {

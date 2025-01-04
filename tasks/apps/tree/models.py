@@ -286,6 +286,22 @@ class ObservationEventMixin:
         
         return event.situation
 
+    def situation_at_creation(self):
+        event = Event.objects.instance_of(
+            ObservationMade,
+            ObservationRecontextualized
+        ).filter(
+            event_stream_id=self.event_stream_id,
+            published__lte=self.published
+        ).order_by(
+            '-published'
+        ).first()
+
+        if not event:
+            raise Observation.DoesNotExist
+        
+        return event.situation
+
 class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     # event_stream_id <- Observation
     # thread <- Observation (can be updated)
