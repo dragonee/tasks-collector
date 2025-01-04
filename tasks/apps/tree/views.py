@@ -1010,7 +1010,7 @@ def stats(request):
 def daily_events(request):
     day = request.GET.get('date', timezone.now().date())
 
-    events = Event.objects.filter(published__date=day)
+    events = Event.objects.filter(published__date=day).not_instance_of(BoardCommitted)
 
     try:
         plan = Plan.objects.get(pub_date=day, thread__name='Daily')
