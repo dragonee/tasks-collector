@@ -53,4 +53,5 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('breakthrough/<int:year>/', views.breakthrough, name='breakthrough'),
     path('stats/', views.stats, name='stats'),
+    path('api/events/daily/', views.daily_events, name='daily-events'),
 ]

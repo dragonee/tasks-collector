@@ -1005,3 +1005,25 @@ def stats(request):
         'observation_reflected_upon_count': observation_reflected_upon_qs.count(),
         'observation_reinterpreted_count': observation_reinterpreted_qs.count(),
     })
+
+@api_view(['GET'])
+def daily_events(request):
+    day = request.GET.get('date', timezone.now().date())
+
+    events = Event.objects.filter(published__date=day)
+
+    try:
+        plan = Plan.objects.get(pub_date=day, thread__name='Daily')
+    except Plan.DoesNotExist:
+        plan = None
+
+    try:
+        reflection = Reflection.objects.get(pub_date=day, thread__name='Daily')
+    except Reflection.DoesNotExist:
+        reflection = None
+
+    return RestResponse({
+        'events': EventSerializer(events, many=True).data,
+        'plan': PlanSerializer(plan).data if plan else None,
+        'reflection': ReflectionSerializer(reflection).data if reflection else None,
+    })

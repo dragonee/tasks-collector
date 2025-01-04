@@ -258,6 +258,24 @@ class ObservationEventSerializer(PolymorphicSerializer):
         ObservationUpdated: MultipleObservationUpdatedSerializer,
     }
 
+class HabitTrackedSerializer(serializers.ModelSerializer):
+    habit = HabitSerializer(read_only=True)
+
+    class Meta:
+        model = HabitTracked
+        fields = ['id', 'published', 'habit', 'occured', 'note']
+
+class EventSerializer(PolymorphicSerializer):
+    model_serializer_mapping = {
+        ObservationMade: ObservationMadeSerializer,
+        ObservationRecontextualized: ObservationRecontextualizedSerializer,
+        ObservationReinterpreted: ObservationReinterpretedSerializer,
+        ObservationReflectedUpon: ObservationReflectedUponSerializer,
+        ObservationClosed: ObservationClosedSerializer,
+        ObservationUpdated: MultipleObservationUpdatedSerializer,
+        JournalAdded: JournalAddedSerializer,
+        HabitTracked: HabitTrackedSerializer,
+    }
 
 class tree_iterator:
     """Preorder traversal tree iterator"""

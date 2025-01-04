@@ -96,3 +96,5 @@
 - [ ] Add Breakthroughs Plan
 - [ ] Add [ ] to journal processing so that it can be used to add a plan for tomorrow
 - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
+- [ ] Plan from tasks
+- [x] Add daily endpoint that shows all events for a day + plans, reflections, etc.
