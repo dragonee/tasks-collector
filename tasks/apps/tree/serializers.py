@@ -265,6 +265,12 @@ class HabitTrackedSerializer(serializers.ModelSerializer):
         model = HabitTracked
         fields = ['id', 'published', 'habit', 'occured', 'note']
 
+class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ObservationUpdated
+        fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id']
+
 class EventSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
         ObservationMade: ObservationMadeSerializer,
@@ -272,7 +278,7 @@ class EventSerializer(PolymorphicSerializer):
         ObservationReinterpreted: ObservationReinterpretedSerializer,
         ObservationReflectedUpon: ObservationReflectedUponSerializer,
         ObservationClosed: ObservationClosedSerializer,
-        ObservationUpdated: MultipleObservationUpdatedSerializer,
+        ObservationUpdated: ObservationUpdatedEventSerializer,
         JournalAdded: JournalAddedSerializer,
         HabitTracked: HabitTrackedSerializer,
     }
