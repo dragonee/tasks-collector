@@ -11,6 +11,8 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
 
+from django.urls import reverse
+
 from decimal import Decimal
 import uuid
 
@@ -260,6 +262,9 @@ class Observation(models.Model):
             **kwargs
         )
 
+    def get_absolute_url(self):
+        return reverse('public-observation-edit', kwargs={'observation_id': self.pk})
+
 def coalesce(value, default=''):
     return value if value is not None else default
 
@@ -269,6 +274,13 @@ class ObservationPropertyEventMixin:
         return Observation.objects.get(event_stream_id=self.event_stream_id)
 
 class ObservationEventMixin:
+    def url(self):
+        try:
+            observation = Observation.objects.get(event_stream_id=self.event_stream_id)
+            return observation.get_absolute_url()
+        except Observation.DoesNotExist:
+            return reverse('public-observation-closed-detail', kwargs={'event_stream_id': self.event_stream_id})
+
     def situation(self):
         ### XXX Situation at the time of the event or current?
         ### For now, current is implemented here

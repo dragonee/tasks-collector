@@ -187,6 +187,13 @@ class QuickNoteSerializer(serializers.ModelSerializer):
 
 
 class ObservationMadeSerializer(BaseTypeThreadSerializer):
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        if 'request' in self.context:
+            return self.context['request'].build_absolute_uri(obj.url())
+        
+        return obj.url()
     class Meta:
         model = ObservationMade
         fields = [
@@ -197,10 +204,18 @@ class ObservationMadeSerializer(BaseTypeThreadSerializer):
             'type',
             'situation',
             'interpretation',
-            'approach'
+            'approach',
+            'url'
         ]
 
 class ObservationRecontextualizedSerializer(BaseTypeThreadSerializer):
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        if 'request' in self.context:
+            return self.context['request'].build_absolute_uri(obj.url())
+        
+        return obj.url()
     class Meta:
         model = ObservationRecontextualized
         fields = [
@@ -209,10 +224,18 @@ class ObservationRecontextualizedSerializer(BaseTypeThreadSerializer):
             'event_stream_id',
             'thread',
             'situation',
-            'old_situation'
+            'old_situation',
+            'url'
         ]
 
 class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        if 'request' in self.context:
+            return self.context['request'].build_absolute_uri(obj.url())
+        
+        return obj.url()
     class Meta:
         model = ObservationReinterpreted
         fields = [
@@ -222,10 +245,18 @@ class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
             'thread',
             'interpretation',
             'old_interpretation',
-            'situation_at_creation'
+            'situation_at_creation',
+            'url'
         ]
 
 class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        if 'request' in self.context:
+            return self.context['request'].build_absolute_uri(obj.url())
+        
+        return obj.url()
     class Meta:
         model = ObservationReflectedUpon
         fields = [
@@ -235,10 +266,18 @@ class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
             'thread',
             'approach',
             'old_approach',
-            'situation_at_creation'
+            'situation_at_creation',
+            'url'
         ]
 
 class ObservationClosedSerializer(BaseTypeThreadSerializer):
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        if 'request' in self.context:
+            return self.context['request'].build_absolute_uri(obj.url())
+        
+        return obj.url()
     class Meta:
         model = ObservationClosed
         fields = [
@@ -249,7 +288,8 @@ class ObservationClosedSerializer(BaseTypeThreadSerializer):
             'type',
             'situation',
             'interpretation',
-            'approach'
+            'approach',
+            'url'
         ]
 
 class ObservationEventSerializer(PolymorphicSerializer):
@@ -276,9 +316,18 @@ def get_observation_object(obj):
     return ObservationMade.objects.get(event_stream_id=obj.event_stream_id)
 
 class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj):
+        if 'request' in self.context:
+            return self.context['request'].build_absolute_uri(obj.url())
+        
+        return obj.url()
+    
     class Meta:
         model = ObservationUpdated
-        fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id', 'situation_at_creation']
+        fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id', 'situation_at_creation', 'url']
+
 
 class EventSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
