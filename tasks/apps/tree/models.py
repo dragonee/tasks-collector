@@ -262,6 +262,9 @@ class Observation(models.Model):
             **kwargs
         )
 
+    def situation_truncated(self):
+        return Truncator(self.situation).words(6)
+
     def get_absolute_url(self):
         return reverse('public-observation-edit', kwargs={'observation_id': self.pk})
 
