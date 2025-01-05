@@ -10,7 +10,7 @@ from .forms import *
 from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Exists, OuterRef
 from datetime import date, timedelta
 
 from django.http import HttpResponse
@@ -125,11 +125,21 @@ class ObservationFilter(filters.FilterSet):
         }
 
 class EventFilter(filters.FilterSet):
+    open = filters.BooleanFilter(method='filter_open')
+
+    def filter_open(self, queryset, name, value):
+        if value is None:
+            return queryset
+        
+        return queryset.annotate(
+            is_open=Exists(Observation.objects.filter(event_stream_id=OuterRef('event_stream_id')))
+        ).filter(is_open=value)
+
     class Meta:
         model = Event
         fields = {
             'published': ('gte', 'lte'),
-            'event_stream_id': ('exact',)
+            'event_stream_id': ('exact',),
         }
 
 class ObservationViewSet(viewsets.ModelViewSet):
