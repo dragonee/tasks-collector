@@ -17,11 +17,13 @@
         <dl>
             {% for habit in object_list %}
                 <dt>
-                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.as_hashtag }}</a></strong> ({{ habit.name }})
+                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.name }}</a></strong> ({{ habit.as_hashtag }})
                 </dt>
-                <dd>
-                    {{ habit.description }}
-                </dd>
+                {% if habit.description %}
+                    <dd>
+                        {{ habit.description|linebreaks }}
+                    </dd>
+                {% endif %}
             {% endfor %}
         </dl>
         </ul>

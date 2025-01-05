@@ -1020,9 +1020,27 @@ section.journal {
         font-size: 1.1rem;
 
         dl {
+            dt {
+                margin-top: 0.5rem;
+            }
+
             dt a {
                 color: #0066cc;
                 text-decoration: none;
+                display: inline-block;
+                margin-right: 0.5rem;
+            }
+
+            dd {
+                margin-left: 0;
+            }
+
+            dd p:first-child {
+                margin-top: 0.25rem;
+            }
+
+            dd p:first-letter {
+                margin-left: 1rem;
             }
         }
 
