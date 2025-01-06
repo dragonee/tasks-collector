@@ -98,3 +98,7 @@
 - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
 - [ ] Plan from tasks
 - [x] Add daily endpoint that shows all events for a day + plans, reflections, etc.
+- [ ] The same view as eventdump but on web
+- [ ] migrate distractions to integrity? true-to-self
+- [ ] Make good summary view for weeks, etc
+- [ ] Looks like perdiodical must go

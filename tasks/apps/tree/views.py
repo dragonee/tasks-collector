@@ -98,6 +98,7 @@ class HabitViewSet(viewsets.ModelViewSet):
         )
 
 class PlanFilter(filters.FilterSet):
+    thread = filters.CharFilter(field_name='thread__name')
     class Meta:
         model = Plan
         fields = {
