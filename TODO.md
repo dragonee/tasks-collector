@@ -102,3 +102,10 @@
 - [ ] migrate distractions to integrity? true-to-self
 - [ ] Make good summary view for weeks, etc
 - [ ] Looks like perdiodical must go
+- [ ] ell / use that for a quantified satori element
+  - on a scale 1-10 how was I close to the "true-to-self" (breakthrough) goal? Was there some task that was connected to the projected outcome elements?
+- [ ] Enable login on every page and request
+- [ ] Random: Three events and and "find a connection"
+  - Pseudorandom -> navigate left/right/top (leave one item, add two random)
+  - A graph / network of connections between events
+- [ ] Better weekly summarization
