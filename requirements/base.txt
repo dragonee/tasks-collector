@@ -1,5 +1,5 @@
 pip>=23
-django==4.2.16
+django==4.2.18
 psycopg2-binary
 django-mail-templated==2.6.5
 django-model-utils==4.0.0
