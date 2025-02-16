@@ -44,7 +44,7 @@ urlpatterns = [
 
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/close/$', views.observation_close, name='public-observation-close'),
 
-    path('', views.today),
+    path('', views.today, name='public-today'),
     path('', include(router.urls)),
     path('todo/', TemplateView.as_view(template_name='tree/tasks.html')),
     path('q/', views.quick_notes, name='quick-notes'),

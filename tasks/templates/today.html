@@ -17,7 +17,10 @@
     {% csrf_token %}
     <div class="cont">
         <h2>
-            <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}">&lt;</a>
+            <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&lt;</a>
+            {% if not is_today and thread.name == 'Daily' %}
+                <a class="menulink" href="?date={{ actual_today|date:"Y-m-d" }}"><small>&times;</small></a>
+            {% endif %}
             {{ today|date:"l, d M Y" }}:
 
             <select name="thread" id="thread">
@@ -31,16 +34,20 @@
                 {% endfor %}
             </select>
             <script type="text/javascript">
+                const searchParams = new URLSearchParams(window.location.search);
+
                 function setThread(ev) {
-                    window.location.search = '?thread=' + ev.target.value;
+                    searchParams.set('thread', ev.target.value);
+                    window.location.search = searchParams.toString();
                 }
 
                 document
                     .getElementById('thread')
                     .addEventListener('change', setThread);
             </script>
-            <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d"  }}">&gt;</a>
+            <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&gt;</a>
         </h2>
+
         
         {% include "menu.html" %}
 

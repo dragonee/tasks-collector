@@ -11,6 +11,10 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
 
+from calendar import monthrange
+
+from datetime import timedelta
+
 from django.urls import reverse
 
 from decimal import Decimal
@@ -510,6 +514,13 @@ def append_lines_to_value(value, lines):
 
 def add_reflection_items(journal_added):
     pub_date = journal_added.published.date()
+
+    # This allows us to contribute to one weekly/monthly reflection
+    if journal_added.thread.name == 'Weekly':
+        pub_date = pub_date + timedelta(days=(6 - pub_date.weekday()))
+    
+    if journal_added.thread.name == 'big-picture':
+        pub_date = pub_date.replace(day=monthrange(pub_date.year, pub_date.month)[1])
 
     reflection_lines = extract_reflection_lines(journal_added.comment)
 

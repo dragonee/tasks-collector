@@ -436,6 +436,11 @@ def event_calendar(start, end):
         item_type=DayCount
     )
 
+
+def make_last_day_of_the_week(date):
+    return date + datetime.timedelta(days=(6 - date.weekday()))
+
+
 def today(request):
     if request.method == 'POST':
         thread_name = request.POST.get('thread')
@@ -454,6 +459,16 @@ def today(request):
 
         if 0 <= now.hour < 12:
             today -= datetime.timedelta(days=1)
+
+    if thread.name == 'Weekly':
+        other_day = make_last_day_of_the_week(today)
+        if other_day != today:
+            return redirect(reverse('public-today') + '?date={}&thread={}'.format(other_day, thread.name))
+
+    if thread.name == 'big-picture':
+        other_day = today.replace(day=monthrange(today.year, today.month)[1])
+        if other_day != today:
+            return redirect(reverse('public-today') + '?date={}&thread={}'.format(other_day, thread.name))
 
     day_start = timezone.make_aware(datetime.datetime.combine(today, datetime.datetime.min.time()))
     day_end = timezone.make_aware(datetime.datetime.combine(today, datetime.datetime.max.time()))
@@ -514,10 +529,29 @@ def today(request):
         published__gte=today - datetime.timedelta(days=1),
     ).order_by('published')
 
+    def get_last_date(date, thread):
+        if thread.name == 'Weekly':
+            return make_last_day_of_the_week(date - datetime.timedelta(days=7))
+        elif thread.name == 'big-picture':
+            return date.replace(day=1) - datetime.timedelta(days=1)
+
+        return date - datetime.timedelta(days=1)
+
+    def get_next_date(date, thread):
+        if thread.name == 'Weekly':
+            return make_last_day_of_the_week(date + datetime.timedelta(days=7))
+        elif thread.name == 'big-picture':
+            next_month = date.replace(day=28) + datetime.timedelta(days=4)
+            return next_month.replace(day=monthrange(next_month.year, next_month.month)[1])
+
+        return date + datetime.timedelta(days=1)
+
     return render(request, 'today.html', {
-        'yesterday': today - datetime.timedelta(days=1),
+        'yesterday': get_last_date(today, thread),
         'today': today,
-        'tomorrow': today + datetime.timedelta(days=1),
+        'actual_today': timezone.now().date(),
+        'is_today': today == timezone.now().date(),
+        'tomorrow': get_next_date(today, thread),
         'today_plan': today_plan,
         'tomorrow_plan': tomorrow_plan,
         'reflection': reflection,
