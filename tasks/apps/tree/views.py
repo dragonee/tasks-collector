@@ -193,6 +193,10 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
         journal_added = serializer.save()
 
         add_reflection_items(journal_added)
+
+        # Handle reflect command
+        if 'reflection' in self.request.data:
+            return
         
         triplets = habits_line_to_habits_tracked(journal_added.comment)
 
