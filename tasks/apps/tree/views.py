@@ -1021,15 +1021,17 @@ def stats(request):
 def daily_events(request):
     day = request.GET.get('date', timezone.now().date())
 
+    thread_name = request.GET.get('thread', 'Daily')
+
     events = Event.objects.filter(published__date=day).not_instance_of(BoardCommitted)
 
     try:
-        plan = Plan.objects.get(pub_date=day, thread__name='Daily')
+        plan = Plan.objects.get(pub_date=day, thread__name=thread_name)
     except Plan.DoesNotExist:
         plan = None
 
     try:
-        reflection = Reflection.objects.get(pub_date=day, thread__name='Daily')
+        reflection = Reflection.objects.get(pub_date=day, thread__name=thread_name)
     except Reflection.DoesNotExist:
         reflection = None
 

@@ -109,3 +109,5 @@
   - Pseudorandom -> navigate left/right/top (leave one item, add two random)
   - A graph / network of connections between events
 - [ ] Better weekly summarization
+  - [ ] Either show something like in tasks-collector-tools (summary of each day with plan/reflection/etc.)
+  - [ ] Or make a console tool
