@@ -59,6 +59,23 @@
         <div class="left">
             <div class="navigation">
 
+                {% if larger_plan %}
+                    <div class="larger-plan small-plan">
+                        <h3>{{ larger_plan.thread.name }} plan</h3>
+                        {% if larger_plan.focus %}
+                            <div class="focus">
+                                <h4>Focus</h4>
+                                {{ larger_plan.focus|linebreaks }}
+                            </div>
+                        {% endif %}
+                        {% if larger_plan.want %}
+                            <div class="want">
+                                <h4>Want</h4>
+                                {{ larger_plan.want|linebreaks }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
 
             </div>
 

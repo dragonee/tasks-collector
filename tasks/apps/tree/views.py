@@ -444,6 +444,8 @@ def event_calendar(start, end):
 def make_last_day_of_the_week(date):
     return date + datetime.timedelta(days=(6 - date.weekday()))
 
+def make_last_day_of_the_month(date):
+    return date.replace(day=monthrange(date.year, date.month)[1])
 
 def today(request):
     if request.method == 'POST':
@@ -546,9 +548,18 @@ def today(request):
             return make_last_day_of_the_week(date + datetime.timedelta(days=7))
         elif thread.name == 'big-picture':
             next_month = date.replace(day=28) + datetime.timedelta(days=4)
-            return next_month.replace(day=monthrange(next_month.year, next_month.month)[1])
+            return make_last_day_of_the_month(next_month)
 
         return date + datetime.timedelta(days=1)
+
+    def get_larger_plan(date):
+        try:
+            if thread.name == 'Weekly':
+                return Plan.objects.get(pub_date=make_last_day_of_the_month(date), thread__name='big-picture')
+            
+            return Plan.objects.get(pub_date=make_last_day_of_the_week(date), thread__name='Weekly')
+        except Plan.DoesNotExist:
+            return None
 
     return render(request, 'today.html', {
         'yesterday': get_last_date(today, thread),
@@ -559,6 +570,7 @@ def today(request):
         'today_plan': today_plan,
         'tomorrow_plan': tomorrow_plan,
         'reflection': reflection,
+        'larger_plan': get_larger_plan(today),
 
         'today_plan_form': today_plan_form,
         'tomorrow_plan_form': tomorrow_plan_form,

@@ -111,3 +111,4 @@
 - [ ] Better weekly summarization
   - [ ] Either show something like in tasks-collector-tools (summary of each day with plan/reflection/etc.)
   - [ ] Or make a console tool
+- [x] Print a weekly plan on daily page, monthly on weekly page
