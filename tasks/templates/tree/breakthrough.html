@@ -22,7 +22,7 @@
                 <section class="menu">{% include "menu.html" %}</section>
 
                 <section class="breakthrough-summary">
-                    <h2>Your 2024 Timeline</h2>
+                    <h2>Your {{ year|add:"-1" }} Timeline</h2>
                     {% if breakthrough_habits.count > 0 %}
                     
                     {% regroup breakthrough_habits by published|date:"F Y" as grouped_habits %}
@@ -72,7 +72,7 @@
                 </section>
 
                 <section class="breakthrough-outcomes">
-                    <h2>Your 2025 Timeline</h2>
+                    <h2>Your {{ year }} Timeline</h2>
                     <p>Write a timeline of objectives for {{ year }}, being mindful of your current situation and areas of concern.<br>
                     Be realistic and <strong>bold</strong>. Good luck, have fun!</p>
 
