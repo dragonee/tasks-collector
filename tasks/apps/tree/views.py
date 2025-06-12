@@ -533,6 +533,7 @@ def today(request):
 
     journals = JournalAdded.objects.filter(
         published__gte=today - datetime.timedelta(days=1),
+        thread=thread,
     ).order_by('published')
 
     def get_last_date(date, thread):

@@ -112,3 +112,4 @@
   - [ ] Either show something like in tasks-collector-tools (summary of each day with plan/reflection/etc.)
   - [ ] Or make a console tool
 - [x] Print a weekly plan on daily page, monthly on weekly page
+- [ ] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
