@@ -839,6 +839,8 @@ class EventArchiveContextMixin:
         return context
 
 class CurrentMonthArchiveView(MonthArchiveView):
+    allow_empty = True
+
     def get_month(self):
         return timezone.now().month
 
@@ -854,9 +856,7 @@ class CurrentMonthArchiveView(MonthArchiveView):
 class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, CurrentMonthArchiveView):
     model = JournalAdded
     date_field = 'published'
-    allow_future = True
-    allow_empty = True
-    
+    allow_future = True    
 
     template_name = 'tree/journaladded_archive_month.html'
 
