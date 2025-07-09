@@ -357,3 +357,31 @@
 .v-context__sub > a:after {
   content: "›";
 }
+
+// Year navigation styles for breakthrough page
+.year-navigation {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.nav-link {
+  display: block;
+  align-items: center;
+  padding: 0.5rem 0.5rem;
+  text-decoration: none;
+  color: #aaa;
+  border-radius: 4px;
+  height: 100%;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #e9ecef;
+    color: #1a365d;
+    text-decoration: none;
+  }
+}
+

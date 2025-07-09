@@ -14,7 +14,12 @@
         {{ form.id }}
         <main class="breakthrough" id="year" data-year="{{ year }}">
             <header>
+                <div class="year-navigation">
+                    <a href="{% url 'breakthrough' year=year|add:'-1' %}" class="nav-link prev-year">&larr; {{ year|add:'-1' }}</a>
+                    <a href="{% url 'breakthrough' year=year|add:'1' %}" class="nav-link next-year">{{ year|add:'1' }} &rarr;</a>
+                </div>
                 <h1>Your {{ year }} breakthrough</h1>
+
                 <button type="submit">Save</button>
             </header>
 
