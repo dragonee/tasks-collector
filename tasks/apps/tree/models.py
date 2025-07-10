@@ -7,7 +7,7 @@ from django.utils.text import Truncator, slugify
 
 from django.utils import timezone
 
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
 
@@ -599,4 +599,170 @@ class ProjectedOutcome(models.Model):
         blank=True
     )
 
-### XXX TODO -> evolution of projected outcomes
+    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['-published']
+
+
+class ProjectedOutcomeEventMixin:
+    def projected_outcome(self):
+        return ProjectedOutcome.objects.get(event_stream_id=self.event_stream_id)
+
+    def __str__(self):
+        return f"ProjectedOutcome event: {self.projected_outcome().name}"
+
+
+class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    resolved_by = models.DateField()
+    success_criteria = models.TextField(null=True, blank=True)
+
+    @staticmethod
+    def from_projected_outcome(projected_outcome):
+        return ProjectedOutcomeMade(
+            projected_outcome=projected_outcome,
+            name=projected_outcome.name,
+            description=projected_outcome.description,
+            resolved_by=projected_outcome.resolved_by,
+            success_criteria=projected_outcome.success_criteria,
+            event_stream_id=projected_outcome.event_stream_id,
+            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+        )
+
+
+class ProjectedOutcomeRedefined(Event, ProjectedOutcomeEventMixin):
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    
+    old_name = models.CharField(max_length=255, null=True, blank=True)
+    new_name = models.CharField(max_length=255, null=True, blank=True)
+    
+    old_description = models.TextField(null=True, blank=True)
+    new_description = models.TextField(null=True, blank=True)
+    
+    old_success_criteria = models.TextField(null=True, blank=True)
+    new_success_criteria = models.TextField(null=True, blank=True)
+
+    @staticmethod
+    def from_projected_outcome(projected_outcome, old_values):
+        return ProjectedOutcomeRedefined(
+            projected_outcome=projected_outcome,
+            old_name=old_values.get('name'),
+            new_name=projected_outcome.name,
+            old_description=old_values.get('description'),
+            new_description=projected_outcome.description,
+            old_success_criteria=old_values.get('success_criteria'),
+            new_success_criteria=projected_outcome.success_criteria,
+            event_stream_id=projected_outcome.event_stream_id,
+            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+        )
+
+
+class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    
+    old_resolved_by = models.DateField()
+    new_resolved_by = models.DateField()
+
+    @staticmethod
+    def from_projected_outcome(projected_outcome, old_resolved_by):
+        return ProjectedOutcomeRescheduled(
+            projected_outcome=projected_outcome,
+            old_resolved_by=old_resolved_by,
+            new_resolved_by=projected_outcome.resolved_by,
+            event_stream_id=projected_outcome.event_stream_id,
+            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+        )
+
+
+class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    resolved_by = models.DateField()
+    success_criteria = models.TextField(null=True, blank=True)
+
+    @staticmethod
+    def from_projected_outcome(projected_outcome):
+        return ProjectedOutcomeClosed(
+            projected_outcome=projected_outcome,
+            name=projected_outcome.name,
+            description=projected_outcome.description,
+            resolved_by=projected_outcome.resolved_by,
+            success_criteria=projected_outcome.success_criteria,
+            event_stream_id=projected_outcome.event_stream_id,
+            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+        )
+
+
+def normalize_for_comparison(value):
+    """Normalize None and empty strings to empty string for comparison"""
+    return coalesce(value, '')
+
+
+# Signal handlers for ProjectedOutcome event sourcing
+@receiver(post_save, sender=ProjectedOutcome)
+def create_initial_projected_outcome_made_event(sender, instance, created, **kwargs):
+    if created:
+        event = ProjectedOutcomeMade.from_projected_outcome(instance)
+        event.save()
+
+
+@receiver(pre_save, sender=ProjectedOutcome)
+def create_projected_outcome_events(sender, instance, **kwargs):
+    if instance.pk is None:
+        return
+    
+    try:
+        old_instance = ProjectedOutcome.objects.get(pk=instance.pk)
+    except ProjectedOutcome.DoesNotExist:
+        return
+    
+    # Check for redefined fields (name, description, success_criteria)
+    redefined_fields = {}
+    if normalize_for_comparison(old_instance.name) != normalize_for_comparison(instance.name):
+        redefined_fields['name'] = old_instance.name
+    if normalize_for_comparison(old_instance.description) != normalize_for_comparison(instance.description):
+        redefined_fields['description'] = old_instance.description
+    if normalize_for_comparison(old_instance.success_criteria) != normalize_for_comparison(instance.success_criteria):
+        redefined_fields['success_criteria'] = old_instance.success_criteria
+    
+    if redefined_fields:
+        event = ProjectedOutcomeRedefined.from_projected_outcome(instance, redefined_fields)
+        event.save()
+    
+    # Check for rescheduled
+    if old_instance.resolved_by != instance.resolved_by:
+        event = ProjectedOutcomeRescheduled.from_projected_outcome(instance, old_instance.resolved_by)
+        event.save()
+
+
+@receiver(pre_save, sender=ProjectedOutcomeMade)
+def update_projected_outcome_made_event_stream_id(sender, instance, **kwargs):
+    if instance.projected_outcome:
+        instance.event_stream_id = instance.projected_outcome.event_stream_id
+
+
+@receiver(pre_save, sender=ProjectedOutcomeRedefined)
+def update_projected_outcome_redefined_event_stream_id(sender, instance, **kwargs):
+    if instance.projected_outcome:
+        instance.event_stream_id = instance.projected_outcome.event_stream_id
+
+
+@receiver(pre_save, sender=ProjectedOutcomeRescheduled)
+def update_projected_outcome_rescheduled_event_stream_id(sender, instance, **kwargs):
+    if instance.projected_outcome:
+        instance.event_stream_id = instance.projected_outcome.event_stream_id
+
+
+@receiver(pre_save, sender=ProjectedOutcomeClosed)
+def update_projected_outcome_closed_event_stream_id(sender, instance, **kwargs):
+    if instance.projected_outcome:
+        instance.event_stream_id = instance.projected_outcome.event_stream_id

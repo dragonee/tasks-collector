@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load render_assets model_presenters humanize %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}
+    {% if projected_outcome %}{{ projected_outcome.name }}{% else %}Projected Outcome{% endif %} - Event History
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <main class="projected-outcome-history">
+        <header>
+            <h1>{% if projected_outcome %}{{ projected_outcome.name }}{% else %}Projected Outcome{% endif %} - Event History</h1>
+            <p class="meta">
+                {% if projected_outcome %}
+                    <a href="{% url 'breakthrough' year=projected_outcome.breakthrough.published.year %}">&larr; Back to {{ projected_outcome.breakthrough.published.year }} Breakthrough</a>
+                {% else %}
+                    <a href="javascript:history.back()">&larr; Back</a>
+                {% endif %}
+            </p>
+        </header>
+
+        {% if projected_outcome %}
+        <div class="projected-outcome-details">
+            <section class="outcome-summary">
+                <h2>Current Status</h2>
+                <div class="outcome-info">
+                    <p><strong>Name:</strong> {{ projected_outcome.name }}</p>
+                    <p><strong>Target Date:</strong> {{ projected_outcome.resolved_by }}</p>
+                    <p><strong>Confidence Level:</strong> {{ projected_outcome.confidence_level|floatformat }}%</p>
+                    <p><strong>Description:</strong> {{ projected_outcome.description|linebreaksbr }}</p>
+                    {% if projected_outcome.success_criteria %}
+                        <p><strong>Success Criteria:</strong> {{ projected_outcome.success_criteria|linebreaksbr }}</p>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+        {% else %}
+        <div class="projected-outcome-details">
+            <section class="outcome-summary">
+                <h2>Archived Projected Outcome</h2>
+                <p class="meta">This projected outcome has been closed or removed, but its event history is preserved below.</p>
+            </section>
+        </div>
+        {% endif %}
+
+        <div class="events-timeline">
+            <h2>Event History</h2>
+            
+            {% if all_events %}
+                <div class="timeline">
+                    {% for event in all_events %}
+                        <div class="timeline-event">
+                            <div class="event-date">
+                                <span class="date">{{ event.published|date:"M d, Y" }}</span>
+                                <span class="time">{{ event.published|date:"H:i" }}</span>
+                            </div>
+                            
+                            <div class="event-content">
+                                {% if event in made_events %}
+                                    <div class="event-type event-made">
+                                        <h3>📝 Projected Outcome Created</h3>
+                                        <div class="event-details">
+                                            <p><strong>Name:</strong> {{ event.name }}</p>
+                                            <p><strong>Target Date:</strong> {{ event.resolved_by }}</p>
+                                            <p><strong>Description:</strong> {{ event.description|linebreaksbr }}</p>
+                                            {% if event.success_criteria %}
+                                                <p><strong>Success Criteria:</strong> {{ event.success_criteria|linebreaksbr }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% elif event in redefined_events %}
+                                    <div class="event-type event-redefined">
+                                        <h3>✏️ Projected Outcome Redefined</h3>
+                                        <div class="event-details">
+                                            {% if event.old_name and event.new_name and event.old_name != event.new_name %}
+                                                <p><strong>Name changed:</strong> 
+                                                    <del>{{ event.old_name }}</del> → <ins>{{ event.new_name }}</ins>
+                                                </p>
+                                            {% endif %}
+                                            {% if event.old_description and event.new_description and event.old_description != event.new_description %}
+                                                <p><strong>Description changed:</strong></p>
+                                                <div class="change-diff">
+                                                    <div class="old-value"><del>{{ event.old_description|linebreaksbr }}</del></div>
+                                                    <div class="new-value"><ins>{{ event.new_description|linebreaksbr }}</ins></div>
+                                                </div>
+                                            {% endif %}
+                                            {% if event.old_success_criteria != event.new_success_criteria %}
+                                                <p><strong>Success Criteria changed:</strong></p>
+                                                <div class="change-diff">
+                                                    {% if event.old_success_criteria %}
+                                                        <div class="old-value"><del>{{ event.old_success_criteria|linebreaksbr }}</del></div>
+                                                    {% endif %}
+                                                    {% if event.new_success_criteria %}
+                                                        <div class="new-value"><ins>{{ event.new_success_criteria|linebreaksbr }}</ins></div>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% elif event in rescheduled_events %}
+                                    <div class="event-type event-rescheduled">
+                                        <h3>📅 Projected Outcome Rescheduled</h3>
+                                        <div class="event-details">
+                                            <p><strong>Target Date changed:</strong> 
+                                                <del>{{ event.old_resolved_by }}</del> → <ins>{{ event.new_resolved_by }}</ins>
+                                            </p>
+                                        </div>
+                                    </div>
+                                {% elif event in closed_events %}
+                                    <div class="event-type event-closed">
+                                        <h3>✅ Projected Outcome Closed</h3>
+                                        <div class="event-details">
+                                            <p><strong>Final Name:</strong> {{ event.name }}</p>
+                                            <p><strong>Final Target Date:</strong> {{ event.resolved_by }}</p>
+                                            <p><strong>Final Description:</strong> {{ event.description|linebreaksbr }}</p>
+                                            {% if event.success_criteria %}
+                                                <p><strong>Final Success Criteria:</strong> {{ event.success_criteria|linebreaksbr }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-events">No events found for this projected outcome.</p>
+            {% endif %}
+        </div>
+    </main>
+</div>
+{% endblock %}
