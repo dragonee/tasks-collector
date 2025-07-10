@@ -4,14 +4,14 @@
 {% block body_class %}page-daily{% endblock %}
 
 {% block title %}
-    {% if projected_outcome %}{{ projected_outcome.name }}{% else %}Projected Outcome{% endif %} - Event History
+    {% if projected_outcome %}{{ projected_outcome.name }}{% elif latest_closed_event %}{{ latest_closed_event.name }} (Closed){% else %}Projected Outcome{% endif %} - Event History
 {% endblock %}
 
 {% block content %}
 <div class="container">
     <main class="projected-outcome-history">
         <header>
-            <h1>{% if projected_outcome %}{{ projected_outcome.name }}{% else %}Projected Outcome{% endif %} - Event History</h1>
+            <h1>{% if projected_outcome %}{{ projected_outcome.name }}{% elif latest_closed_event %}{{ latest_closed_event.name }} (Closed){% else %}Projected Outcome{% endif %} - Event History</h1>
             <p class="meta">
                 {% if projected_outcome %}
                     <a href="{% url 'breakthrough' year=projected_outcome.breakthrough.published.year %}">&larr; Back to {{ projected_outcome.breakthrough.published.year }} Breakthrough</a>
@@ -36,11 +36,29 @@
                 </div>
             </section>
         </div>
+        {% elif latest_closed_event %}
+        <div class="projected-outcome-details">
+            <section class="outcome-summary closed-outcome">
+                <h2>Final Status (Closed)</h2>
+                <div class="outcome-info">
+                    <p><strong>Final Name:</strong> {{ latest_closed_event.name }}</p>
+                    <p><strong>Final Target Date:</strong> {{ latest_closed_event.resolved_by }}</p>
+                    <p><strong>Final Description:</strong> {{ latest_closed_event.description|linebreaksbr }}</p>
+                    {% if latest_closed_event.success_criteria %}
+                        <p><strong>Final Success Criteria:</strong> {{ latest_closed_event.success_criteria|linebreaksbr }}</p>
+                    {% endif %}
+                    <p class="meta">
+                        <em>This projected outcome was closed on {{ latest_closed_event.published|date:"M d, Y \a\t H:i" }}. 
+                        The above represents the final state at the time of closure.</em>
+                    </p>
+                </div>
+            </section>
+        </div>
         {% else %}
         <div class="projected-outcome-details">
             <section class="outcome-summary">
                 <h2>Archived Projected Outcome</h2>
-                <p class="meta">This projected outcome has been closed or removed, but its event history is preserved below.</p>
+                <p class="meta">This projected outcome has been removed, but its event history is preserved below.</p>
             </section>
         </div>
         {% endif %}

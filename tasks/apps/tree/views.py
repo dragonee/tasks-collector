@@ -1047,8 +1047,14 @@ def projected_outcome_events_history(request, event_stream_id):
     rescheduled_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeRescheduled), events))
     closed_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeClosed), events))
     
+    # If ProjectedOutcome doesn't exist, get the latest status from ProjectedOutcomeClosed event
+    latest_closed_event = None
+    if projected_outcome is None and closed_events:
+        latest_closed_event = closed_events[-1]  # Get the most recent closed event
+    
     return render(request, "tree/projected_outcome_events_history.html", {
         'projected_outcome': projected_outcome,
+        'latest_closed_event': latest_closed_event,
         'all_events': events,
         'made_events': made_events,
         'redefined_events': redefined_events,
