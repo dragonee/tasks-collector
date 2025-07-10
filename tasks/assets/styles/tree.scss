@@ -385,3 +385,143 @@
   }
 }
 
+// Projected Outcome Events History styles
+.projected-outcome-history {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.outcome-summary {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+
+  .outcome-info p {
+    margin-bottom: 10px;
+  }
+}
+
+.timeline {
+  position: relative;
+  padding-left: 30px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+  }
+}
+
+.timeline-event {
+  position: relative;
+  margin-bottom: 30px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #007bff;
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px #dee2e6;
+  }
+}
+
+.event-date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 0.9em;
+  color: #6c757d;
+}
+
+.event-content {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.event-type {
+  h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.1em;
+  }
+
+  &.event-made { border-left: 4px solid #28a745; }
+  &.event-redefined { border-left: 4px solid #ffc107; }
+  &.event-rescheduled { border-left: 4px solid #17a2b8; }
+  &.event-closed { border-left: 4px solid #dc3545; }
+}
+
+.change-diff {
+  margin: 10px 0;
+
+  .old-value, .new-value {
+    margin: 5px 0;
+    padding: 8px;
+    border-radius: 4px;
+  }
+
+  .old-value {
+    background: #f8d7da;
+  }
+
+  .new-value {
+    background: #d4edda;
+  }
+}
+
+.event-details {
+  del {
+    text-decoration: line-through;
+    color: #721c24;
+  }
+
+  ins {
+    text-decoration: none;
+    color: #155724;
+    background: #d4edda;
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+}
+
+.no-events {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 40px;
+}
+
+// History link styling for breakthrough page
+.history-link {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 4px 6px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 14px;
+  color: #6c757d;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    color: #495057;
+    text-decoration: none;
+  }
+}
+

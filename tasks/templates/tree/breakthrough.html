@@ -100,6 +100,7 @@
                                 </div>
                                 <div>{{ form.resolved_by }}</div>
                                 {% if form.instance.pk %}
+                                    <a href="{% url 'projected-outcome-events-history' event_stream_id=form.instance.event_stream_id %}" class="history-link" title="View event history">📋</a>
                                     <button class="accordion">Open</button>
                                 {% endif %}
                             </div>

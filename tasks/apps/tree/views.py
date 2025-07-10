@@ -1027,6 +1027,41 @@ def breakthrough(request, year):
         'projected_outcome_queryset': projected_outcome_queryset,
     })
 
+
+def projected_outcome_events_history(request, event_stream_id):
+    """Display the event history for a specific ProjectedOutcome by event_stream_id"""
+    # Get all events for this event stream (single query)
+    events = list(Event.objects.filter(
+        event_stream_id=event_stream_id
+    ).order_by('published'))
+    
+    # Try to get the current ProjectedOutcome instance (may not exist if closed/deleted)
+    try:
+        projected_outcome = ProjectedOutcome.objects.get(event_stream_id=event_stream_id)
+    except ProjectedOutcome.DoesNotExist:
+        projected_outcome = None
+    
+    # Filter events by type using Python isinstance() checks
+    made_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeMade), events))
+    redefined_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeRedefined), events))
+    rescheduled_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeRescheduled), events))
+    closed_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeClosed), events))
+    
+    # If ProjectedOutcome doesn't exist, get the latest status from ProjectedOutcomeClosed event
+    latest_closed_event = None
+    if projected_outcome is None and closed_events:
+        latest_closed_event = closed_events[-1]  # Get the most recent closed event
+    
+    return render(request, "tree/projected_outcome_events_history.html", {
+        'projected_outcome': projected_outcome,
+        'latest_closed_event': latest_closed_event,
+        'all_events': events,
+        'made_events': made_events,
+        'redefined_events': redefined_events,
+        'rescheduled_events': rescheduled_events,
+        'closed_events': closed_events,
+    })
+
 def stats(request):
     journal_qs = JournalAdded.objects.all()
     habit_qs = HabitTracked.objects.all()
@@ -1037,6 +1072,10 @@ def stats(request):
     observation_recontextualized_qs = ObservationRecontextualized.objects.all()
     observation_reflected_upon_qs = ObservationReflectedUpon.objects.all()
     observation_reinterpreted_qs = ObservationReinterpreted.objects.all()
+    projected_outcome_made_qs = ProjectedOutcomeMade.objects.all()
+    projected_outcome_redefined_qs = ProjectedOutcomeRedefined.objects.all()
+    projected_outcome_rescheduled_qs = ProjectedOutcomeRescheduled.objects.all()
+    projected_outcome_closed_qs = ProjectedOutcomeClosed.objects.all()
 
     try:
         year = int(request.GET.get('year'))
@@ -1053,6 +1092,10 @@ def stats(request):
         observation_recontextualized_qs = observation_recontextualized_qs.filter(published__year=year)
         observation_reflected_upon_qs = observation_reflected_upon_qs.filter(published__year=year)
         observation_reinterpreted_qs = observation_reinterpreted_qs.filter(published__year=year)
+        projected_outcome_made_qs = projected_outcome_made_qs.filter(published__year=year)
+        projected_outcome_redefined_qs = projected_outcome_redefined_qs.filter(published__year=year)
+        projected_outcome_rescheduled_qs = projected_outcome_rescheduled_qs.filter(published__year=year)
+        projected_outcome_closed_qs = projected_outcome_closed_qs.filter(published__year=year)
 
     return render(request, "tree/stats.html", {
         'year': year,
@@ -1066,6 +1109,10 @@ def stats(request):
         'observation_recontextualized_count': observation_recontextualized_qs.count(),
         'observation_reflected_upon_count': observation_reflected_upon_qs.count(),
         'observation_reinterpreted_count': observation_reinterpreted_qs.count(),
+        'projected_outcome_made_count': projected_outcome_made_qs.count(),
+        'projected_outcome_redefined_count': projected_outcome_redefined_qs.count(),
+        'projected_outcome_rescheduled_count': projected_outcome_rescheduled_qs.count(),
+        'projected_outcome_closed_count': projected_outcome_closed_qs.count(),
     })
 
 @api_view(['GET'])
