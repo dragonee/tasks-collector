@@ -1030,36 +1030,21 @@ def breakthrough(request, year):
 
 def projected_outcome_events_history(request, event_stream_id):
     """Display the event history for a specific ProjectedOutcome by event_stream_id"""
-    # Get all events for this event stream (single query)
-    events = list(Event.objects.filter(
-        event_stream_id=event_stream_id
-    ).order_by('published'))
+    from .presentation import ProjectedOutcomePresentation
     
-    # Try to get the current ProjectedOutcome instance (may not exist if closed/deleted)
-    try:
-        projected_outcome = ProjectedOutcome.objects.get(event_stream_id=event_stream_id)
-    except ProjectedOutcome.DoesNotExist:
-        projected_outcome = None
-    
-    # Filter events by type using Python isinstance() checks
-    made_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeMade), events))
-    redefined_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeRedefined), events))
-    rescheduled_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeRescheduled), events))
-    closed_events = list(filter(lambda e: isinstance(e, ProjectedOutcomeClosed), events))
-    
-    # If ProjectedOutcome doesn't exist, get the latest status from ProjectedOutcomeClosed event
-    latest_closed_event = None
-    if projected_outcome is None and closed_events:
-        latest_closed_event = closed_events[-1]  # Get the most recent closed event
+    # Create a presentation object that handles both active and complete scenarios
+    presentation = ProjectedOutcomePresentation.from_event_stream_id(event_stream_id)
     
     return render(request, "tree/projected_outcome_events_history.html", {
-        'projected_outcome': projected_outcome,
-        'latest_closed_event': latest_closed_event,
-        'all_events': events,
-        'made_events': made_events,
-        'redefined_events': redefined_events,
-        'rescheduled_events': rescheduled_events,
-        'closed_events': closed_events,
+        'presentation': presentation,
+        # Legacy context for backwards compatibility (can be removed once template is updated)
+        'projected_outcome': presentation.active_instance,
+        'latest_closed_event': presentation.closed_events[-1] if presentation.closed_events else None,
+        'all_events': presentation.events,
+        'made_events': presentation.made_events,
+        'redefined_events': presentation.redefined_events,
+        'rescheduled_events': presentation.rescheduled_events,
+        'closed_events': presentation.closed_events,
     })
 
 def stats(request):
