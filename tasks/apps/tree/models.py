@@ -617,7 +617,7 @@ class ProjectedOutcomeEventMixin:
 
 
 class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
     
     name = models.CharField(max_length=255)
     description = models.TextField()
@@ -638,7 +638,7 @@ class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
 
 
 class ProjectedOutcomeRedefined(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
     
     old_name = models.CharField(max_length=255, null=True, blank=True)
     new_name = models.CharField(max_length=255, null=True, blank=True)
@@ -665,7 +665,7 @@ class ProjectedOutcomeRedefined(Event, ProjectedOutcomeEventMixin):
 
 
 class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
     
     old_resolved_by = models.DateField()
     new_resolved_by = models.DateField()
@@ -682,7 +682,7 @@ class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
 
 
 class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.CASCADE)
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
     
     name = models.CharField(max_length=255)
     description = models.TextField()
