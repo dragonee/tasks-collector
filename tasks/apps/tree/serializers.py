@@ -309,6 +309,86 @@ class HabitTrackedSerializer(serializers.ModelSerializer):
         model = HabitTracked
         fields = ['id', 'published', 'habit', 'occured', 'note']
 
+
+class ProjectedOutcomeMadeSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeMade
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'name',
+            'description',
+            'resolved_by',
+            'success_criteria'
+        ]
+
+
+class ProjectedOutcomeRedefinedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeRedefined
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'old_name',
+            'new_name',
+            'old_description',
+            'new_description',
+            'old_success_criteria',
+            'new_success_criteria'
+        ]
+
+
+class ProjectedOutcomeRescheduledSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeRescheduled
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'old_resolved_by',
+            'new_resolved_by'
+        ]
+
+
+class ProjectedOutcomeClosedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeClosed
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'name',
+            'description',
+            'resolved_by',
+            'success_criteria'
+        ]
+
 def get_observation_object(obj):
     if obj.observation:
         return obj.observation
@@ -339,6 +419,10 @@ class EventSerializer(PolymorphicSerializer):
         ObservationUpdated: ObservationUpdatedEventSerializer,
         JournalAdded: JournalAddedSerializer,
         HabitTracked: HabitTrackedSerializer,
+        ProjectedOutcomeMade: ProjectedOutcomeMadeSerializer,
+        ProjectedOutcomeRedefined: ProjectedOutcomeRedefinedSerializer,
+        ProjectedOutcomeRescheduled: ProjectedOutcomeRescheduledSerializer,
+        ProjectedOutcomeClosed: ProjectedOutcomeClosedSerializer,
     }
 
 class tree_iterator:
