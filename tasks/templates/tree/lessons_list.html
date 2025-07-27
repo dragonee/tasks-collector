@@ -3,7 +3,7 @@
 
 {% block body_class %}page-daily{% endblock %}
 
-{% block title %}Closed Observations | Tasks Collector{% endblock %}
+{% block title %}Lessons | Tasks Collector{% endblock %}
 {% block content %}
 <!-- Vue entry-point -->
 
@@ -27,14 +27,13 @@
                 <span class="thread">{{ observation.thread }}</span> 
                 <a href="{% url 'public-observation-closed-detail' observation.event_stream_id %}">$</a>)
             </div>
-            <div class="strong">{{ observation.situation|linebreaks }}</div>
+            <div class="strong">{{ observation.approach|linebreaks }}</div>
+            <div class="situation-italic">{{ observation.situation|linebreaks }}</div>
 
             <div class="expand">
-            <div class="label">How you saw it, what you felt?</div>
-            <div>{{ observation.interpretation|linebreaks }}</div>
-            <div class="label">How should you approach it in the future?</div>
-            <div>{{ observation.approach|linebreaks }}</div>
-            </div>
+                <div class="label">How you saw it, what you felt?</div>
+                <div>{{ observation.interpretation|linebreaks }}</div>
+            </div>            
         </article>
 
         {% empty %}
@@ -43,10 +42,8 @@
         </div>
         {% endfor %}
 </div>
-
 {% endblock %}
 
 <!-- Load Vue app -->
 {% block extrajs %}
 {% endblock %}
-

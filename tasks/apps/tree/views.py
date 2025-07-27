@@ -619,6 +619,27 @@ class ObservationClosedListView(ListView):
 
         return context
 
+class LessonsListView(ListView):
+    model = ObservationClosed
+    template_name = 'tree/lessons_list.html'
+    paginate_by = 100
+
+    def get_queryset(self):
+        return ObservationClosed.objects \
+            .select_related('thread', 'type') \
+            .exclude(approach__isnull=True) \
+            .exclude(approach__exact='') \
+            .exclude(approach__exact='?') \
+            .order_by('-published')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['open_count'] = Observation.objects.count()
+        context['closed_count'] = ObservationClosed.objects.count()
+
+        return context
+
 def observation_closed_detail(request, event_stream_id):
     observation_closed = get_object_or_404(ObservationClosed, event_stream_id=event_stream_id)
     
