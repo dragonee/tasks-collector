@@ -409,6 +409,41 @@ class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
         fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id', 'situation_at_creation', 'url']
 
 
+class ObservationAttachedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ObservationAttached
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'other_event_stream_id',
+            'observation'
+        ]
+
+
+class ObservationDetachedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ObservationDetached
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'other_event_stream_id'
+        ]
+
+
 class EventSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
         ObservationMade: ObservationMadeSerializer,
@@ -417,6 +452,8 @@ class EventSerializer(PolymorphicSerializer):
         ObservationReflectedUpon: ObservationReflectedUponSerializer,
         ObservationClosed: ObservationClosedSerializer,
         ObservationUpdated: ObservationUpdatedEventSerializer,
+        ObservationAttached: ObservationAttachedSerializer,
+        ObservationDetached: ObservationDetachedSerializer,
         JournalAdded: JournalAddedSerializer,
         HabitTracked: HabitTrackedSerializer,
         ProjectedOutcomeMade: ProjectedOutcomeMadeSerializer,

@@ -1,0 +1,8 @@
+<div class="observation-attached-event">
+    <strong>Attached observation:</strong>
+    {% if event.observation %}
+        <a href="{{ event.observation.get_absolute_url }}">{{ event.observation.situation_truncated }}</a>
+    {% else %}
+        Observation ({{ event.other_event_stream_id }})
+    {% endif %}
+</div>
