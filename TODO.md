@@ -114,8 +114,9 @@
 - [x] Print a weekly plan on daily page, monthly on weekly page
 - [ ] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
 - [ ] Either remove projected outcome events from events or handle them in tasks-collector-tools
-- [ ] Complex mode
-  - [ ] Link observations together
-  - [ ] See the whole timeline
-  - [ ] Linking / relinking should be event based
+- [x] Complex mode
+  - [x] Link observations together
+  - [x] See the whole timeline
+  - [x] Linking / relinking should be event based
 - [x] Add Lessons (showing Observation Approaches for closed observations)
+- [ ] Add task to statistics to show how many words are in the database
