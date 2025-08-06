@@ -90,6 +90,29 @@ def get_all_years_in_database():
     return list(set(years))
 
 
+def update_all_word_count_statistics():
+    """Update word count statistics for all years and overall total
+    
+    Returns:
+        dict: Dictionary with 'total' and 'years' containing word counts
+    """
+    results = {}
+    
+    # Update overall total
+    total_words = update_word_count_statistic()
+    results['total'] = total_words
+    
+    # Update each year
+    years = get_all_years_in_database()
+    results['years'] = {}
+    
+    for year in sorted(years):
+        year_words = update_word_count_statistic(year=year)
+        results['years'][year] = year_words
+    
+    return results
+
+
 def get_word_count_statistic(year=None):
     """Get the current word count statistic
     
