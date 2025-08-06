@@ -119,3 +119,4 @@
   - [ ] See the whole timeline
   - [ ] Linking / relinking should be event based
 - [x] Add Lessons (showing Observation Approaches for closed observations)
+- [x] Add word count statistics
