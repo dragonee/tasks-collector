@@ -213,12 +213,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentObsId = {{ instance.pk }};
         const attachedStreamIds = Array.from(document.querySelectorAll('.attached-observation')).map(el => el.dataset.streamId);
         
+        const truncate = (text, length) => {
+            return text.length > length ? text.slice(0, length) + '…' : text;
+        }
+
         const resultHtml = results
             .filter(obs => obs.id !== currentObsId && !attachedStreamIds.includes(obs.event_stream_id))
             .slice(0, 5) // Show max 5 results
             .map(obs => `
                 <div class="search-result" data-obs-id="${obs.id}" data-stream-id="${obs.event_stream_id}">
-                    <div class="result-situation">${obs.situation || 'No situation'}</div>
+                    <div class="result-situation">${truncate(obs.situation, 100) || 'No situation'}</div>
                     <div class="result-meta">${obs.pub_date} - ${obs.thread}</div>
                     <button type="button" class="attach-btn" data-obs-id="${obs.id}">Attach</button>
                 </div>
