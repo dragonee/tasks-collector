@@ -93,22 +93,43 @@ def get_all_years_in_database():
 def update_all_word_count_statistics():
     """Update word count statistics for all years and overall total
     
+    Only updates current year and previous year if they already exist.
+    Creates statistics for other years only if they don't exist.
+    
     Returns:
         dict: Dictionary with 'total' and 'years' containing word counts
     """
+    from django.utils import timezone
+    
     results = {}
     
-    # Update overall total
+    # Update overall total (always update)
     total_words = update_word_count_statistic()
     results['total'] = total_words
     
-    # Update each year
+    # Get current and previous year
+    current_year = timezone.now().year
+    previous_year = current_year - 1
+    
+    # Get all years in database
     years = get_all_years_in_database()
     results['years'] = {}
     
     for year in sorted(years):
-        year_words = update_word_count_statistic(year=year)
-        results['years'][year] = year_words
+        # Always update current and previous year
+        if year in [current_year, previous_year]:
+            year_words = update_word_count_statistic(year=year)
+            results['years'][year] = year_words
+        else:
+            # Only create if doesn't exist for other years
+            key = f'total_word_count_{year}'
+            try:
+                stat = Statistics.objects.get(key=key)
+                results['years'][year] = stat.value  # Use existing value
+            except Statistics.DoesNotExist:
+                # Create new statistic for this year
+                year_words = update_word_count_statistic(year=year)
+                results['years'][year] = year_words
     
     return results
 

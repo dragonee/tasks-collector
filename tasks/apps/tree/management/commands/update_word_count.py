@@ -26,7 +26,13 @@ class Command(BaseCommand):
             )
         else:
             # Update all years and overall total
-            self.stdout.write('Calculating word count for all events and all years...')
+            from django.utils import timezone
+            current_year = timezone.now().year
+            previous_year = current_year - 1
+            
+            self.stdout.write('Calculating word count statistics...')
+            self.stdout.write(f'Will update: current year ({current_year}) and previous year ({previous_year})')
+            self.stdout.write('Will create missing statistics for other years')
             
             results = update_all_word_count_statistics()
             
@@ -37,20 +43,25 @@ class Command(BaseCommand):
                 )
             )
             
-            # Display each year
+            # Display each year with indication of whether it was updated or created
             years = list(results['years'].keys())
-            self.stdout.write(f'Found {len(years)} years in database: {sorted(years)}')
+            self.stdout.write(f'Processed {len(years)} years: {sorted(years)}')
             
             for year in sorted(years):
                 year_words = results['years'][year]
+                if year in [current_year, previous_year]:
+                    action = "updated"
+                else:
+                    action = "ensured"
+                
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Successfully updated word count for {year}: {year_words:,} words'
+                        f'Successfully {action} word count for {year}: {year_words:,} words'
                     )
                 )
             
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Completed updating word counts for all {len(years)} years plus overall total'
+                    f'Completed processing word counts for all {len(years)} years plus overall total'
                 )
             )
