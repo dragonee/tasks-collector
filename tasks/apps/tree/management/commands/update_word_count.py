@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from ...utils.statistics import update_word_count_statistic, get_all_years_in_database
+from ...utils.statistics import update_word_count_statistic, update_all_word_count_statistics
 
 
 class Command(BaseCommand):
@@ -28,20 +28,21 @@ class Command(BaseCommand):
             # Update all years and overall total
             self.stdout.write('Calculating word count for all events and all years...')
             
-            # Update overall total
-            total_words = update_word_count_statistic()
+            results = update_all_word_count_statistics()
+            
+            # Display overall total
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully updated total word count: {total_words:,} words'
+                    f'Successfully updated total word count: {results["total"]:,} words'
                 )
             )
             
-            # Update each year
-            years = get_all_years_in_database()
+            # Display each year
+            years = list(results['years'].keys())
             self.stdout.write(f'Found {len(years)} years in database: {sorted(years)}')
             
             for year in sorted(years):
-                year_words = update_word_count_statistic(year=year)
+                year_words = results['years'][year]
                 self.stdout.write(
                     self.style.SUCCESS(
                         f'Successfully updated word count for {year}: {year_words:,} words'
