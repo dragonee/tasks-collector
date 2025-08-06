@@ -766,3 +766,16 @@ def update_projected_outcome_rescheduled_event_stream_id(sender, instance, **kwa
 def update_projected_outcome_closed_event_stream_id(sender, instance, **kwargs):
     if instance.projected_outcome:
         instance.event_stream_id = instance.projected_outcome.event_stream_id
+
+
+class Statistics(models.Model):
+    key = models.CharField(max_length=255, unique=True)
+    value = models.JSONField()
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = "Statistics"
+        ordering = ('key',)
+    
+    def __str__(self):
+        return f"{self.key}: {self.value}"
