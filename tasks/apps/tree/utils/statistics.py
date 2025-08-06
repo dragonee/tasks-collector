@@ -1,6 +1,6 @@
 import re
 from django.db.models import Q
-from ..models import Event, Statistics
+from ..models import Event, Statistics, Plan, Reflection
 
 
 def count_words_in_text(text):
@@ -12,14 +12,14 @@ def count_words_in_text(text):
 
 
 def calculate_total_word_count(year=None):
-    """Calculate total word count from all events with text content
+    """Calculate total word count from all events, plans, and reflections with text content
     
     Args:
-        year (int, optional): Filter events by year. If None, includes all events.
+        year (int, optional): Filter by year. If None, includes all records.
     """
     total_words = 0
     
-    # Get all events, optionally filtered by year
+    # Count words from Events
     events = Event.objects.all()
     if year:
         events = events.filter(published__year=year)
@@ -56,6 +56,30 @@ def calculate_total_word_count(year=None):
         # Count words in all text fields for this event
         for text in text_fields:
             total_words += count_words_in_text(text)
+    
+    # Count words from Plans
+    plans = Plan.objects.all()
+    if year:
+        plans = plans.filter(pub_date__year=year)
+    
+    for plan in plans:
+        if plan.focus:
+            total_words += count_words_in_text(plan.focus)
+        if plan.want:
+            total_words += count_words_in_text(plan.want)
+    
+    # Count words from Reflections
+    reflections = Reflection.objects.all()
+    if year:
+        reflections = reflections.filter(pub_date__year=year)
+    
+    for reflection in reflections:
+        if reflection.good:
+            total_words += count_words_in_text(reflection.good)
+        if reflection.better:
+            total_words += count_words_in_text(reflection.better)
+        if reflection.best:
+            total_words += count_words_in_text(reflection.best)
     
     return total_words
 
