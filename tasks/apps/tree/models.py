@@ -766,3 +766,30 @@ def update_projected_outcome_rescheduled_event_stream_id(sender, instance, **kwa
 def update_projected_outcome_closed_event_stream_id(sender, instance, **kwargs):
     if instance.projected_outcome:
         instance.event_stream_id = instance.projected_outcome.event_stream_id
+
+
+class ObservationAttached(Event, ObservationEventMixin):
+    observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True, blank=True)
+    other_event_stream_id = models.UUIDField(help_text="Event stream ID of the observation being attached")
+    
+    template = "tree/events/observation_attached.html"
+
+    def __str__(self):
+        try:
+            attached_observation = Observation.objects.get(event_stream_id=self.other_event_stream_id)
+            return f"Attached to: {attached_observation.situation_truncated()}"
+        except Observation.DoesNotExist:
+            return f"Attached observation (stream: {self.other_event_stream_id})"
+
+
+class ObservationDetached(Event, ObservationEventMixin):
+    other_event_stream_id = models.UUIDField(help_text="Event stream ID of the observation being detached")
+    
+    template = "tree/events/observation_detached.html"
+
+    def __str__(self):
+        try:
+            detached_observation = Observation.objects.get(event_stream_id=self.other_event_stream_id)
+            return f"Detached from: {detached_observation.situation_truncated()}"
+        except Observation.DoesNotExist:
+            return f"Detached observation (stream: {self.other_event_stream_id})"
