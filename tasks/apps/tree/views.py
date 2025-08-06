@@ -45,6 +45,7 @@ import datetime
 from .utils.itertools import itemize
 
 from .observation_operations import migrate_observation_updates_to_journal as _migrate_observation_updates_to_journal
+from .utils.statistics import get_word_count_statistic
 
 class ObservationPagination(PageNumberPagination):
     page_size = 10
@@ -1103,6 +1104,9 @@ def stats(request):
         projected_outcome_rescheduled_qs = projected_outcome_rescheduled_qs.filter(published__year=year)
         projected_outcome_closed_qs = projected_outcome_closed_qs.filter(published__year=year)
 
+    # Get word count statistic
+    word_count, word_count_updated = get_word_count_statistic(year=year)
+
     return render(request, "tree/stats.html", {
         'year': year,
         'years': range(timezone.now().year, 2018, -1),
@@ -1119,6 +1123,8 @@ def stats(request):
         'projected_outcome_redefined_count': projected_outcome_redefined_qs.count(),
         'projected_outcome_rescheduled_count': projected_outcome_rescheduled_qs.count(),
         'projected_outcome_closed_count': projected_outcome_closed_qs.count(),
+        'word_count': word_count,
+        'word_count_updated': word_count_updated,
     })
 
 @api_view(['GET'])
