@@ -532,3 +532,120 @@
   margin-top: 0.5em;
 }
 
+// Login page styles
+.page-login {
+  background: #f8f9fa;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  
+  .cont {
+    background: white;
+    padding: 3rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #dee2e6;
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #343a40;
+      font-weight: 300;
+      font-size: 1.75rem;
+    }
+    
+    .alert {
+      padding: 0.75rem 1.25rem;
+      margin-bottom: 1rem;
+      border: 1px solid transparent;
+      border-radius: 0.25rem;
+      
+      &.alert-danger {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+      }
+    }
+    
+    p {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #6c757d;
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+      
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #495057;
+        font-weight: 500;
+      }
+      
+      input {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: #495057;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        
+        &:focus {
+          color: #495057;
+          background-color: #fff;
+          border-color: #80bdff;
+          outline: 0;
+          box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+      }
+    }
+    
+    .btn {
+      display: inline-block;
+      font-weight: 400;
+      color: #212529;
+      text-align: center;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: transparent;
+      border: 1px solid transparent;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      border-radius: 0.25rem;
+      transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      text-decoration: none;
+      width: 100%;
+      
+      &.btn-primary {
+        color: #fff;
+        background-color: #007bff;
+        border-color: #007bff;
+        
+        &:hover {
+          color: #fff;
+          background-color: #0069d9;
+          border-color: #0062cc;
+        }
+        
+        &:focus {
+          box-shadow: 0 0 0 0.2rem rgba(38, 143, 255, 0.5);
+        }
+      }
+    }
+  }
+}
+

@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpRequest, Http404, JsonResponse
+from django.contrib.auth.decorators import login_required
 
 from rest_framework import viewsets
 
@@ -24,6 +25,7 @@ class ClaimedViewSet(viewsets.ModelViewSet):
     serializer_class = ClaimedSerializer
 
 
+@login_required
 def claim_view(request: HttpRequest, id: int):
     try:
         return claimed_view(request, id)
@@ -59,6 +61,7 @@ def claim_view(request: HttpRequest, id: int):
     })
 
 
+@login_required
 def claimed_view(request: HttpRequest, id: int):
     return render(request, "rewards/claimed.html", {
         "claim": get_object_or_404(Claimed, pk=id),
