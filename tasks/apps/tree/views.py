@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from rest_framework import viewsets
 from rest_framework import status
@@ -301,6 +303,7 @@ def add_task(request):
 
     return RestResponse(BoardSerializer(board).data)
 
+@login_required
 def board_summary(request, id):
     board = get_object_or_404(BoardCommitted, pk=id)
 
@@ -317,6 +320,7 @@ def period_from_request(request, days=7, start=None, end=None):
         request.GET.get('to', end or datetime.date.today() + datetime.timedelta(days=1))
     )
 
+@login_required
 def summaries(request):
     period = period_from_request(request, days=30)
 
@@ -353,6 +357,7 @@ class Periodical:
         return map(lambda x: getattr(x, attr2), getattr(self, attr1 + 's'))
 
 
+@login_required
 def periodical(request):
     try:
         last_big_picture_reflection = Reflection.objects.filter(
@@ -448,6 +453,7 @@ def make_last_day_of_the_week(date):
 def make_last_day_of_the_month(date):
     return date.replace(day=monthrange(date.year, date.month)[1])
 
+@login_required
 def today(request):
     if request.method == 'POST':
         thread_name = request.POST.get('thread')
@@ -588,7 +594,7 @@ def today(request):
         'event_calendar': event_calendar(day_start - datetime.timedelta(weeks=52), day_end),
     })
 
-class ObservationListView(ListView):
+class ObservationListView(LoginRequiredMixin, ListView):
     model = Observation
     queryset = Observation.objects \
         .select_related('thread', 'type') \
@@ -604,7 +610,7 @@ class ObservationListView(ListView):
 
         return context
 
-class ObservationClosedListView(ListView):
+class ObservationClosedListView(LoginRequiredMixin, ListView):
     model = ObservationClosed
     queryset = ObservationClosed.objects \
         .select_related('thread', 'type') \
@@ -620,7 +626,7 @@ class ObservationClosedListView(ListView):
 
         return context
 
-class LessonsListView(ListView):
+class LessonsListView(LoginRequiredMixin, ListView):
     model = ObservationClosed
     template_name = 'tree/lessons_list.html'
     paginate_by = 100
@@ -641,6 +647,7 @@ class LessonsListView(ListView):
 
         return context
 
+@login_required
 def observation_closed_detail(request, event_stream_id):
     observation_closed = get_object_or_404(ObservationClosed, event_stream_id=event_stream_id)
     
@@ -657,6 +664,7 @@ def observation_closed_detail(request, event_stream_id):
         'time_to_closed': time_to_closed
     })
 
+@login_required
 def observation_edit(request, observation_id=None):
     if observation_id is not None:
         observation = get_object_or_404(Observation, id=observation_id)        
@@ -797,6 +805,7 @@ def track_habit(request):
 
 
 @require_POST
+@login_required
 def add_quick_note_hx(request):
     if not request.htmx:
         return HttpResponse("Only HTMX allowed", status=status.HTTP_400_BAD_REQUEST)
@@ -817,6 +826,7 @@ def add_quick_note_hx(request):
     return HttpResponseClientRefresh()
 
 
+@login_required
 def quick_notes(request):
     return render(request, "tree/quick_note.html", {
         'notes': QuickNote.objects.order_by('published'),
@@ -860,7 +870,7 @@ class EventArchiveContextMixin:
         )
         return context
 
-class CurrentMonthArchiveView(MonthArchiveView):
+class CurrentMonthArchiveView(LoginRequiredMixin, MonthArchiveView):
     allow_empty = True
 
     def get_month(self):
@@ -883,7 +893,7 @@ class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, CurrentMonthArc
     template_name = 'tree/journaladded_archive_month.html'
 
 
-class JournalArchiveMonthView(JournalArchiveContextMixin, MonthArchiveView):
+class JournalArchiveMonthView(LoginRequiredMixin, JournalArchiveContextMixin, MonthArchiveView):
     model = JournalAdded
     date_field = 'published'
     allow_future = True
@@ -897,7 +907,7 @@ class JournalTagArchiveContextMixin(JournalArchiveContextMixin):
 
         return context
 
-class JournalTagArchiveMonthView(JournalTagArchiveContextMixin, MonthArchiveView):
+class JournalTagArchiveMonthView(LoginRequiredMixin, JournalTagArchiveContextMixin, MonthArchiveView):
     model = JournalAdded
     date_field = 'published'
     allow_future = True
@@ -923,7 +933,7 @@ class EventCurrentMonthArchiveView(EventArchiveContextMixin, CurrentMonthArchive
     date_field = 'published'
     allow_future = True
 
-class EventArchiveMonthView(EventArchiveContextMixin, MonthArchiveView):
+class EventArchiveMonthView(LoginRequiredMixin, EventArchiveContextMixin, MonthArchiveView):
     model = Event
     date_field = 'published'
     allow_future = True
@@ -960,7 +970,7 @@ def habit_calendar(habit, start, end):
         item_type=DayCount
     )
 
-class HabitDetailView(DetailView):
+class HabitDetailView(LoginRequiredMixin, DetailView):
     model = Habit
 
     def get_slug_field(self) -> str:
@@ -983,7 +993,7 @@ class HabitDetailView(DetailView):
 
         return context
 
-class HabitListView(ListView):
+class HabitListView(LoginRequiredMixin, ListView):
     model = Habit
 
 
@@ -1003,6 +1013,7 @@ def migrate_observation_updates_to_journal(request, observation_id):
 
     return redirect(reverse('public-observation-list'))
 
+@login_required
 def breakthrough(request, year):
     year = int(year)
     last_year = year - 1
@@ -1050,6 +1061,7 @@ def breakthrough(request, year):
     })
 
 
+@login_required
 def projected_outcome_events_history(request, event_stream_id):
     """Display the event history for a specific ProjectedOutcome by event_stream_id"""
     from .presentation import ProjectedOutcomePresentation
@@ -1069,6 +1081,7 @@ def projected_outcome_events_history(request, event_stream_id):
         'closed_events': presentation.closed_events,
     })
 
+@login_required
 def stats(request):
     journal_qs = JournalAdded.objects.all()
     habit_qs = HabitTracked.objects.all()

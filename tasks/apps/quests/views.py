@@ -1,5 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpRequest
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from django.views.generic import ListView
 
@@ -28,12 +30,13 @@ class QuestJournalViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, pk=None):
         raise MethodNotAllowed(request.method)
 
+@login_required
 def show_quest(request: HttpRequest, slug: str):
     return render(request, "quests/single.html", {
         "quest": get_object_or_404(Quest, slug=slug),
     })
 
-class QuestListView(ListView):
+class QuestListView(LoginRequiredMixin, ListView):
     model = Quest
 
     queryset = Quest.objects.all().annotate(
@@ -42,7 +45,7 @@ class QuestListView(ListView):
 
     paginate_by = 100
 
-class QuestJournalListView(ListView):
+class QuestJournalListView(LoginRequiredMixin, ListView):
     model = QuestJournal
 
     queryset = QuestJournal.objects.order_by('-pk')
