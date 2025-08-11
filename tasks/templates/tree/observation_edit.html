@@ -166,9 +166,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const complexPanel = document.getElementById('complex-panel');
     const toggleText = panelToggle.querySelector('.toggle-text');
     
+    // Initialize button visibility based on initial panel state
+    if (complexPanel.classList.contains('active')) {
+        panelToggle.style.display = 'none';
+    }
+    
     panelToggle.addEventListener('click', function() {
         complexPanel.classList.toggle('active');
-        toggleText.textContent = complexPanel.classList.contains('active') ? 'Hide' : 'Complex';
+        const isActive = complexPanel.classList.contains('active');
+        toggleText.textContent = isActive ? 'Hide' : 'Complex';
+        panelToggle.style.display = isActive ? 'none' : 'block';
     });
     
     // Search functionality
