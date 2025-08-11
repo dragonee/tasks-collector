@@ -1167,6 +1167,21 @@ def observation_attach(request, observation_id):
             # It's okay if observation doesn't exist (could be closed)
             other_observation = None
     
+    # Check if the observation is already attached by replaying events
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    if complex_presenter.is_attached(other_event_stream_id):
+        # Already attached, find the most recent attach event and return it
+        latest_attach_event = ObservationAttached.objects.filter(
+            event_stream_id=complex_observation.event_stream_id,
+            other_event_stream_id=other_event_stream_id
+        ).order_by('-published').first()
+        
+        if latest_attach_event:
+            serializer = ObservationAttachedSerializer(latest_attach_event, context={'request': request})
+            return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+    
     # Create the attach event
     attach_event = ObservationAttached(
         thread=complex_observation.thread,
@@ -1193,6 +1208,21 @@ def observation_detach(request, observation_id):
             status=status.HTTP_400_BAD_REQUEST
         )
     
+    # Check if the observation is currently attached by replaying events
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    if not complex_presenter.is_attached(other_event_stream_id):
+        # Not attached, find the most recent detach event and return it
+        latest_detach_event = ObservationDetached.objects.filter(
+            event_stream_id=complex_observation.event_stream_id,
+            other_event_stream_id=other_event_stream_id
+        ).order_by('-published').first()
+        
+        if latest_detach_event:
+            serializer = ObservationDetachedSerializer(latest_detach_event, context={'request': request})
+            return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+    
     # Create the detach event
     detach_event = ObservationDetached(
         thread=complex_observation.thread,
@@ -1205,16 +1235,72 @@ def observation_detach(request, observation_id):
     return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
 
 
+def filter_out_attached_observations(observations, observation_id):
+    """
+    Filter out observations that are already attached to the given observation,
+    including the base observation itself.
+    """
+    if not observation_id:
+        return observations
+    
+    try:
+        base_observation = Observation.objects.get(pk=observation_id)
+        from .presenters import ComplexPresenter
+        complex_presenter = ComplexPresenter(base_observation.event_stream_id)
+        attached_stream_ids = complex_presenter.get_attached_stream_ids()
+        
+        # Exclude the base observation itself and any attached observations
+        observations = observations.exclude(pk=observation_id)
+        if attached_stream_ids:
+            observations = observations.exclude(event_stream_id__in=attached_stream_ids)
+    except Observation.DoesNotExist:
+        pass  # If observation doesn't exist, proceed without filtering
+    
+    return observations
+
+
 @api_view(['GET'])
 def observation_search(request):
-    """Search observations by situation, interpretation, and approach text fields"""
+    """Search observations by situation, interpretation, and approach text fields, or by primary key pattern"""
     query = request.GET.get('q', '').strip()
+    observation_id = request.GET.get('observation')  # Optional parameter to filter out attached observations
     
     if not query:
         return RestResponse(
             {'error': 'Query parameter "q" is required'}, 
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+    # Check if query is a primary key pattern search (numeric or #numeric)
+    pk_query = query
+    if query.startswith('#'):
+        pk_query = query[1:]
+    
+    if pk_query.isdigit():
+        # Search by primary key pattern - find PKs that start with the number
+        observations = Observation.objects.extra(
+            where=["CAST(id AS TEXT) LIKE %s"],
+            params=[pk_query + '%']
+        ).order_by('id')
+        
+        # Filter out attached observations if observation_id is provided
+        observations = filter_out_attached_observations(observations, observation_id)
+        
+        # Apply pagination
+        paginator = ObservationPagination()
+        page = paginator.paginate_queryset(observations, request)
+        
+        if page is not None:
+            serializer = ObservationSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+        
+        serializer = ObservationSerializer(observations, many=True, context={'request': request})
+        return RestResponse({
+            'count': len(observations),
+            'next': None,
+            'previous': None,
+            'results': serializer.data
+        })
     
     # Create search vectors with different weights
     # Situation field gets higher weight (A = highest weight)
@@ -1234,6 +1320,9 @@ def observation_search(request):
     ).filter(
         search=search_query
     ).order_by('-rank', '-pub_date')
+    
+    # Filter out attached observations if observation_id is provided
+    observations = filter_out_attached_observations(observations, observation_id)
     
     # Apply pagination
     paginator = ObservationPagination()

@@ -190,7 +190,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Debounce search
         searchTimeout = setTimeout(() => {
-            fetch(`/observations/search/?q=${encodeURIComponent(query)}`)
+            const currentObsId = {{ instance.pk }};
+            fetch(`/observations/search/?q=${encodeURIComponent(query)}&observation=${currentObsId}`)
                 .then(response => response.json())
                 .then(data => {
                     displaySearchResults(data.results || data);
@@ -222,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .slice(0, 5) // Show max 5 results
             .map(obs => `
                 <div class="search-result" data-obs-id="${obs.id}" data-stream-id="${obs.event_stream_id}">
-                    <div class="result-situation">${truncate(obs.situation, 100) || 'No situation'}</div>
+                    <div class="result-situation"><strong>#${obs.id}:</strong> ${truncate(obs.situation, 100) || 'No situation'}</div>
                     <div class="result-meta">${obs.pub_date} - ${obs.thread}</div>
                     <button type="button" class="attach-btn" data-obs-id="${obs.id}">Attach</button>
                 </div>
@@ -312,6 +313,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('Error detaching observation');
                 });
             }
+        }
+    });
+    
+    // Accordion functionality for attached observations
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.attached-obs-header') && !e.target.closest('.detach-btn')) {
+            const header = e.target.closest('.attached-obs-header');
+            const attachedObs = header.closest('.attached-observation');
+            const content = attachedObs.querySelector('.attached-obs-content');
+            
+            // Toggle the content visibility
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                attachedObs.classList.remove('collapsed');
+            } else {
+                content.style.display = 'none';
+                attachedObs.classList.add('collapsed');
+            }
+        }
+    });
+    
+    // Initialize all attached observations as collapsed
+    document.querySelectorAll('.attached-observation').forEach(function(attachedObs) {
+        const content = attachedObs.querySelector('.attached-obs-content');
+        if (content) {
+            content.style.display = 'none';
+            attachedObs.classList.add('collapsed');
         }
     });
 });
@@ -478,6 +506,25 @@ document.addEventListener('DOMContentLoaded', function() {
     justify-content: space-between;
     align-items: center;
     font-size: 0.9rem;
+    cursor: pointer;
+    position: relative;
+}
+
+.attached-obs-header:hover {
+    background: #dee2e6;
+}
+
+.attached-obs-header::before {
+    content: '▼';
+    font-size: 0.7rem;
+    color: #6c757d;
+    margin-right: 0.5rem;
+    transition: transform 0.2s ease;
+    order: -1;
+}
+
+.attached-observation.collapsed .attached-obs-header::before {
+    transform: rotate(-90deg);
 }
 
 .detach-btn {

@@ -59,6 +59,15 @@ class ComplexPresenter:
         """Number of total unique Observations currently attached (number of unique event_stream_id's)"""
         return len(self._get_attached_stream_ids())
     
+    def get_attached_stream_ids(self):
+        """Get the set of currently attached observation stream IDs"""
+        return self._get_attached_stream_ids()
+    
+    def is_attached(self, event_stream_id):
+        """Check if an observation with the given event_stream_id is currently attached"""
+        attached_stream_ids = self._get_attached_stream_ids()
+        return event_stream_id in attached_stream_ids
+    
     def open_observations_list(self):
         """List of open Observations currently attached"""
         attached_stream_ids = self._get_attached_stream_ids()
