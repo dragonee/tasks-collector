@@ -21,6 +21,90 @@
     </div>
 
 <div class="observation-edit page">
+<!-- Complex Observations Toggle Button -->
+<button type="button" id="complex-panel-toggle" class="panel-toggle">
+    <span class="toggle-text">{% if complex_presenter and complex_presenter.total_unique_observations_count > 0 %}Hide{% else %}Complex{% endif %}</span>
+</button>
+
+<!-- Complex Observations Side Panel -->
+<div id="complex-panel" class="complex-panel {% if complex_presenter and complex_presenter.total_unique_observations_count > 0 %}active{% endif %}">
+    <div class="complex-panel-header">
+        <h3>Complex Observation</h3>
+    </div>
+    
+    <div class="complex-panel-content">
+        {% if instance.pk %}
+        <!-- Search Bar -->
+        <div class="search-section">
+            <h4>Attach Observations</h4>
+            <div class="search-container">
+                <input type="text" id="observation-search" placeholder="Search observations..." autocomplete="off">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        
+        <!-- Attached Observations -->
+        <div class="attached-section">
+            <h4>Attached Observations 
+                {% if complex_presenter %}
+                    ({{ complex_presenter.total_unique_observations_count }})
+                {% endif %}
+            </h4>
+            <div id="attached-observations">
+                {% if complex_presenter %}
+                    {% for attached_obs in complex_presenter.open_observations_list %}
+                    <div class="attached-observation" data-stream-id="{{ attached_obs.event_stream_id }}">
+                        <div class="attached-obs-header">
+                            <strong>{{ attached_obs.situation_truncated }}</strong>
+                            <button type="button" class="detach-btn" data-obs-id="{{ attached_obs.pk }}" data-stream-id="{{ attached_obs.event_stream_id }}">×</button>
+                        </div>
+                        <div class="attached-obs-content">
+                            <div class="attached-obs-situation">
+                                <strong>Situation:</strong> {{ attached_obs.situation|default:"—" }}
+                            </div>
+                            <div class="attached-obs-interpretation">
+                                <strong>Interpretation:</strong> {{ attached_obs.interpretation|default:"—" }}
+                            </div>
+                            <div class="attached-obs-approach">
+                                <strong>Approach:</strong> {{ attached_obs.approach|default:"—" }}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="no-attached">No observations attached yet.</p>
+                    {% endfor %}
+                {% else %}
+                    <p class="no-attached">Save observation first to enable complex features.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Events from Attached Observations -->
+        {% if complex_presenter %}
+        <div class="attached-events-section">
+            <h4>Events from Attached Observations</h4>
+            <div class="attached-events">
+                {% for event in complex_presenter.all_attached_events_chronological %}
+                <div class="attached-event">
+                    <div class="event-meta">{{ event.published|date:"M d, Y H:i" }}</div>
+                    {% if event.template %}
+                        {% include event.template %}
+                    {% else %}
+                        {{ event }}
+                    {% endif %}
+                </div>
+                {% empty %}
+                <p class="no-events">No events from attached observations.</p>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="save-first">Save this observation first to enable complex observation features.</p>
+        {% endif %}
+    </div>
+</div>
+
 <form action="" method="POST">
     {% csrf_token %}
 
@@ -74,5 +158,446 @@
 
 <!-- Load Vue app -->
 {% block extrajs %}
+{% if instance.pk %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Complex panel toggle functionality
+    const panelToggle = document.getElementById('complex-panel-toggle');
+    const complexPanel = document.getElementById('complex-panel');
+    const toggleText = panelToggle.querySelector('.toggle-text');
+    
+    // Initialize button visibility based on initial panel state
+    if (complexPanel.classList.contains('active')) {
+        panelToggle.style.display = 'none';
+    }
+    
+    panelToggle.addEventListener('click', function() {
+        complexPanel.classList.toggle('active');
+        const isActive = complexPanel.classList.contains('active');
+        toggleText.textContent = isActive ? 'Hide' : 'Complex';
+        panelToggle.style.display = isActive ? 'none' : 'block';
+    });
+    
+    // Search functionality
+    const searchInput = document.getElementById('observation-search');
+    const searchResults = document.getElementById('search-results');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        // Clear previous timeout
+        clearTimeout(searchTimeout);
+        
+        if (query.length < 2) {
+            searchResults.innerHTML = '';
+            searchResults.style.display = 'none';
+            return;
+        }
+        
+        // Debounce search
+        searchTimeout = setTimeout(() => {
+            const currentObsId = {{ instance.pk }};
+            fetch(`/observations/search/?q=${encodeURIComponent(query)}&observation=${currentObsId}`)
+                .then(response => response.json())
+                .then(data => {
+                    displaySearchResults(data.results || data);
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    searchResults.innerHTML = '<div class="search-error">Search error occurred</div>';
+                    searchResults.style.display = 'block';
+                });
+        }, 300);
+    });
+    
+    function displaySearchResults(results) {
+        if (results.length === 0) {
+            searchResults.innerHTML = '<div class="no-results">No observations found</div>';
+            searchResults.style.display = 'block';
+            return;
+        }
+        
+        const currentObsId = {{ instance.pk }};
+        const attachedStreamIds = Array.from(document.querySelectorAll('.attached-observation')).map(el => el.dataset.streamId);
+        
+        const truncate = (text, length) => {
+            return text.length > length ? text.slice(0, length) + '…' : text;
+        }
+
+        const resultHtml = results
+            .filter(obs => obs.id !== currentObsId && !attachedStreamIds.includes(obs.event_stream_id))
+            .slice(0, 5) // Show max 5 results
+            .map(obs => `
+                <div class="search-result" data-obs-id="${obs.id}" data-stream-id="${obs.event_stream_id}">
+                    <div class="result-situation"><strong>#${obs.id}:</strong> ${truncate(obs.situation, 100) || 'No situation'}</div>
+                    <div class="result-meta">${obs.pub_date} - ${obs.thread}</div>
+                    <button type="button" class="attach-btn" data-obs-id="${obs.id}">Attach</button>
+                </div>
+            `).join('');
+        
+        if (resultHtml) {
+            searchResults.innerHTML = resultHtml;
+            searchResults.style.display = 'block';
+            
+            // Add click handlers for attach buttons
+            searchResults.querySelectorAll('.attach-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const obsId = this.dataset.obsId;
+                    attachObservation(obsId);
+                });
+            });
+        } else {
+            searchResults.innerHTML = '<div class="no-results">All matching observations already attached</div>';
+            searchResults.style.display = 'block';
+        }
+    }
+    
+    // Hide search results when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            searchResults.style.display = 'none';
+        }
+    });
+    
+    // Attach observation function
+    function attachObservation(obsId) {
+        const currentObsId = {{ instance.pk }};
+        
+        fetch(`/observations/${currentObsId}/attach/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                other_observation_id: obsId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.id) {
+                // Success - reload page to show updated attachments
+                window.location.reload();
+            } else {
+                alert('Error attaching observation: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Attach error:', error);
+            alert('Error attaching observation');
+        });
+    }
+    
+    // Detach observation function
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('detach-btn')) {
+            const streamId = e.target.dataset.streamId;
+            const currentObsId = {{ instance.pk }};
+            
+            if (confirm('Are you sure you want to detach this observation?')) {
+                fetch(`/observations/${currentObsId}/detach/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        other_event_stream_id: streamId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.id) {
+                        // Success - reload page to show updated attachments
+                        window.location.reload();
+                    } else {
+                        alert('Error detaching observation: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Detach error:', error);
+                    alert('Error detaching observation');
+                });
+            }
+        }
+    });
+    
+    // Accordion functionality for attached observations
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.attached-obs-header') && !e.target.closest('.detach-btn')) {
+            const header = e.target.closest('.attached-obs-header');
+            const attachedObs = header.closest('.attached-observation');
+            const content = attachedObs.querySelector('.attached-obs-content');
+            
+            // Toggle the content visibility
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                attachedObs.classList.remove('collapsed');
+            } else {
+                content.style.display = 'none';
+                attachedObs.classList.add('collapsed');
+            }
+        }
+    });
+    
+    // Initialize all attached observations as collapsed
+    document.querySelectorAll('.attached-observation').forEach(function(attachedObs) {
+        const content = attachedObs.querySelector('.attached-obs-content');
+        if (content) {
+            content.style.display = 'none';
+            attachedObs.classList.add('collapsed');
+        }
+    });
+});
+</script>
+
+<style>
+/* Complex Panel Styles */
+.complex-panel {
+    position: fixed;
+    top: 0;
+    width: 400px;
+    height: 100vh;
+    left: -400px;
+    background: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    transition: left 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+
+.complex-panel.active {
+    left: 0;
+}
+
+.complex-panel-header {
+    padding: 1rem;
+    background: #343a40;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.complex-panel-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.panel-toggle {
+    position: fixed;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    z-index: 1001;
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+}
+
+.panel-toggle:hover {
+    background: #5a6268;
+}
+
+.complex-panel-content {
+    padding: 1rem;
+}
+
+.complex-panel h4 {
+    margin: 1.5rem 0 0.5rem 0;
+    font-size: 1rem;
+    color: #343a40;
+}
+
+.complex-panel h4:first-child {
+    margin-top: 0;
+}
+
+/* Search Styles */
+.search-container {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+#observation-search {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1001;
+    display: none;
+}
+
+.search-result {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.search-result:hover {
+    background: #f8f9fa;
+}
+
+.result-situation {
+    font-weight: 500;
+    color: #343a40;
+    font-size: 0.9rem;
+}
+
+.result-meta {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.attach-btn {
+    align-self: flex-start;
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+.attach-btn:hover {
+    background: #0056b3;
+}
+
+.no-results, .search-error {
+    padding: 0.75rem;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+/* Attached Observations Styles */
+.attached-observation {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+}
+
+.attached-obs-header {
+    padding: 0.75rem;
+    background: #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    cursor: pointer;
+    position: relative;
+}
+
+.attached-obs-header:hover {
+    background: #dee2e6;
+}
+
+.attached-obs-header::before {
+    content: '▼';
+    font-size: 0.7rem;
+    color: #6c757d;
+    margin-right: 0.5rem;
+    transition: transform 0.2s ease;
+    order: -1;
+}
+
+.attached-observation.collapsed .attached-obs-header::before {
+    transform: rotate(-90deg);
+}
+
+.detach-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.detach-btn:hover {
+    background: #c82333;
+}
+
+.attached-obs-content {
+    padding: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.attached-obs-content > div {
+    margin-bottom: 0.5rem;
+}
+
+.attached-obs-content > div:last-child {
+    margin-bottom: 0;
+}
+
+.attached-obs-content strong {
+    color: #495057;
+}
+
+/* Attached Events Styles */
+.attached-event {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.event-meta {
+    color: #6c757d;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+}
+
+.no-attached, .no-events, .save-first {
+    color: #6c757d;
+    font-style: italic;
+    text-align: center;
+    padding: 1rem;
+}
+
+/* Adjust main content when panel is active */
+body:has(.complex-panel.active) .observation-edit {
+    /*margin-left: 400px;
+    transition: margin-left 0.3s ease;*/
+}
+</style>
+{% endif %}
 {% endblock %}
 

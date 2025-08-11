@@ -13,6 +13,7 @@ from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
 from django.db.models import Count, Q, Exists, OuterRef
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from datetime import date, timedelta
 
 from django.http import HttpResponse
@@ -48,6 +49,7 @@ from .utils.itertools import itemize
 
 from .observation_operations import migrate_observation_updates_to_journal as _migrate_observation_updates_to_journal
 from .utils.statistics import get_word_count_statistic
+from .presenters import ComplexPresenter
 
 class ObservationPagination(PageNumberPagination):
     page_size = 10
@@ -732,8 +734,11 @@ def observation_edit(request, observation_id=None):
     
     if observation.event_stream_id:
         events = Event.objects.filter(event_stream_id=observation.event_stream_id)
+        # Initialize ComplexPresenter for this observation
+        complex_presenter = ComplexPresenter(observation.event_stream_id)
     else:
         events = []
+        complex_presenter = None
 
     return render(request, "tree/observation_edit.html", {
         "events": events,
@@ -741,6 +746,7 @@ def observation_edit(request, observation_id=None):
         "formset": formset,
         "instance": observation,
         "thread_as_link": True,
+        "complex_presenter": complex_presenter,
     })
 
 
@@ -1139,6 +1145,209 @@ def stats(request):
         'word_count': word_count,
         'word_count_updated': word_count_updated,
     })
+
+@api_view(['POST'])
+def observation_attach(request, observation_id):
+    """Attach another observation to this observation (making it a complex observation)"""
+    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    
+    # Get the observation to attach - can be either observation_id or event_stream_id
+    other_observation_id = request.data.get('other_observation_id')
+    other_event_stream_id = request.data.get('other_event_stream_id')
+    
+    if not other_observation_id and not other_event_stream_id:
+        return RestResponse(
+            {'error': 'Either other_observation_id or other_event_stream_id is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Find the other observation
+    other_observation = None
+    if other_observation_id:
+        try:
+            other_observation = Observation.objects.get(pk=other_observation_id)
+            other_event_stream_id = other_observation.event_stream_id
+        except Observation.DoesNotExist:
+            return RestResponse(
+                {'error': 'Observation to attach does not exist'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+    else:
+        # Try to find by event_stream_id (might be a closed observation)
+        try:
+            other_observation = Observation.objects.get(event_stream_id=other_event_stream_id)
+        except Observation.DoesNotExist:
+            # It's okay if observation doesn't exist (could be closed)
+            other_observation = None
+    
+    # Check if the observation is already attached by replaying events
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    if complex_presenter.is_attached(other_event_stream_id):
+        # Already attached, find the most recent attach event and return it
+        latest_attach_event = ObservationAttached.objects.filter(
+            event_stream_id=complex_observation.event_stream_id,
+            other_event_stream_id=other_event_stream_id
+        ).order_by('-published').first()
+        
+        if latest_attach_event:
+            serializer = ObservationAttachedSerializer(latest_attach_event, context={'request': request})
+            return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+    
+    # Create the attach event
+    attach_event = ObservationAttached(
+        thread=complex_observation.thread,
+        event_stream_id=complex_observation.event_stream_id,
+        other_event_stream_id=other_event_stream_id,
+        observation=other_observation
+    )
+    attach_event.save()
+    
+    serializer = ObservationAttachedSerializer(attach_event, context={'request': request})
+    return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def observation_detach(request, observation_id):
+    """Detach an observation from this complex observation"""
+    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    
+    # Get the event_stream_id to detach
+    other_event_stream_id = request.data.get('other_event_stream_id')
+    if not other_event_stream_id:
+        return RestResponse(
+            {'error': 'other_event_stream_id is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Check if the observation is currently attached by replaying events
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    if not complex_presenter.is_attached(other_event_stream_id):
+        # Not attached, find the most recent detach event and return it
+        latest_detach_event = ObservationDetached.objects.filter(
+            event_stream_id=complex_observation.event_stream_id,
+            other_event_stream_id=other_event_stream_id
+        ).order_by('-published').first()
+        
+        if latest_detach_event:
+            serializer = ObservationDetachedSerializer(latest_detach_event, context={'request': request})
+            return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+    
+    # Create the detach event
+    detach_event = ObservationDetached(
+        thread=complex_observation.thread,
+        event_stream_id=complex_observation.event_stream_id,
+        other_event_stream_id=other_event_stream_id
+    )
+    detach_event.save()
+    
+    serializer = ObservationDetachedSerializer(detach_event, context={'request': request})
+    return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+
+
+def filter_out_attached_observations(observations, observation_id):
+    """
+    Filter out observations that are already attached to the given observation,
+    including the base observation itself.
+    """
+    if not observation_id:
+        return observations
+    
+    try:
+        base_observation = Observation.objects.get(pk=observation_id)
+        from .presenters import ComplexPresenter
+        complex_presenter = ComplexPresenter(base_observation.event_stream_id)
+        attached_stream_ids = complex_presenter.get_attached_stream_ids()
+        
+        # Exclude the base observation itself and any attached observations
+        observations = observations.exclude(pk=observation_id)
+        if attached_stream_ids:
+            observations = observations.exclude(event_stream_id__in=attached_stream_ids)
+    except Observation.DoesNotExist:
+        pass  # If observation doesn't exist, proceed without filtering
+    
+    return observations
+
+
+@api_view(['GET'])
+def observation_search(request):
+    """Search observations by situation, interpretation, and approach text fields, or by primary key pattern"""
+    query = request.GET.get('q', '').strip()
+    observation_id = request.GET.get('observation')  # Optional parameter to filter out attached observations
+    
+    if not query:
+        return RestResponse(
+            {'error': 'Query parameter "q" is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Check if query is a primary key pattern search (numeric or #numeric)
+    pk_query = query
+    if query.startswith('#'):
+        pk_query = query[1:]
+    
+    if pk_query.isdigit():
+        # Search by primary key pattern - find PKs that start with the number
+        observations = Observation.objects.extra(
+            where=["CAST(id AS TEXT) LIKE %s"],
+            params=[pk_query + '%']
+        ).order_by('id')
+        
+        # Filter out attached observations if observation_id is provided
+        observations = filter_out_attached_observations(observations, observation_id)
+        
+        # Apply pagination
+        paginator = ObservationPagination()
+        page = paginator.paginate_queryset(observations, request)
+        
+        if page is not None:
+            serializer = ObservationSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+        
+        serializer = ObservationSerializer(observations, many=True, context={'request': request})
+        return RestResponse({
+            'count': len(observations),
+            'next': None,
+            'previous': None,
+            'results': serializer.data
+        })
+    
+    # Create search vectors with different weights
+    # Situation field gets higher weight (A = highest weight)
+    # Interpretation and approach get lower weight (B)
+    search_vector = (
+        SearchVector('situation', weight='A') +
+        SearchVector('interpretation', weight='B') + 
+        SearchVector('approach', weight='B')
+    )
+    
+    search_query = SearchQuery(query)
+    
+    # Search observations and rank by relevance
+    observations = Observation.objects.annotate(
+        search=search_vector,
+        rank=SearchRank(search_vector, search_query)
+    ).filter(
+        search=search_query
+    ).order_by('-rank', '-pub_date')
+    
+    # Filter out attached observations if observation_id is provided
+    observations = filter_out_attached_observations(observations, observation_id)
+    
+    # Apply pagination
+    paginator = ObservationPagination()
+    page = paginator.paginate_queryset(observations, request)
+    
+    if page is not None:
+        serializer = ObservationSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+    
+    serializer = ObservationSerializer(observations, many=True, context={'request': request})
+    return RestResponse(serializer.data)
+
 
 @api_view(['GET'])
 def daily_events(request):
