@@ -17,10 +17,19 @@
             <span class="spacer"></span>
 
             <span
+                v-if="cappedWeeksInList > 0"
                 class="dots weeksInList"
                 :data-dots="cappedWeeksInList"
                 :title="markers.weeksInList">
                     <span class="dot" v-for="n in cappedWeeksInList">
+                    </span>
+            </span>
+            <span
+                v-if="violetDotsCount > 0"
+                class="dots weeksInList violet"
+                :data-dots="violetDotsCount"
+                :title="`removal in ${6 - markers.weeksInList} commits`">
+                    <span class="dot" v-for="n in violetDotsCount">
                     </span>
             </span>
         </span>
@@ -65,7 +74,15 @@ export default {
         },
 
         cappedWeeksInList() {
-            return Math.min(this.markers.weeksInList, 4)
+            // Show blue dots only for weeks 1-3
+            if (this.markers.weeksInList >= 4) return 0
+            return this.markers.weeksInList
+        },
+        
+        violetDotsCount() {
+            if (this.markers.weeksInList === 4) return 2
+            if (this.markers.weeksInList >= 5) return 1
+            return 0
         },
 
         cappedImportant() {

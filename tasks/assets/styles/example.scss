@@ -234,6 +234,15 @@ body, html {
     }
 }
 
+.dots.violet {
+    border-color: #8b5cf6;
+
+    .dot {
+        border-color: #8b5cf6;
+        background-color: transparent;
+    }
+}
+
 .spacer {
     display: inline-block;
     width: 0.5rem;
