@@ -1,7 +1,34 @@
-{{ form.as_p }}
+{{ form.content.label_tag }}
+{{ form.content }}
+
+{{ form.content_type.label_tag }}
+{{ form.content_type }}
+
+<div id="focus-timeframe-container" style="display:none;">
+    {{ form.focus_timeframe.label_tag }}
+    {{ form.focus_timeframe }}
+</div>
 
 {% csrf_token %}
 
 <div class="">
     <button type="submit">Add</button>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const contentTypeSelect = document.getElementById('content-type-selector');
+    const focusTimeframeContainer = document.getElementById('focus-timeframe-container');
+    
+    function toggleFocusTimeframe() {
+        if (contentTypeSelect.value === 'plan_focus') {
+            focusTimeframeContainer.style.display = 'block';
+        } else {
+            focusTimeframeContainer.style.display = 'none';
+        }
+    }
+    
+    contentTypeSelect.addEventListener('change', toggleFocusTimeframe);
+    toggleFocusTimeframe(); // Initial check
+});
+</script>
