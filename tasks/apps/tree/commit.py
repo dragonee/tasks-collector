@@ -2,11 +2,18 @@ from functools import reduce
 from collections import OrderedDict
 from copy import deepcopy
 
-
+def weeks_in_list(markers):
+    if markers.get('madeProgress', False):
+        return 0
+    
+    if markers.get('postponedFor', 0) > 0:
+        return markers.get('weeksInList', 0)
+    
+    return markers.get('weeksInList', 0) + 1
 
 def transition_markers_in_tree_item(markers):
     new_markers = {
-        "weeksInList": 0 if markers.get('madeProgress', False) else markers['weeksInList'] + 1,
+        "weeksInList": weeks_in_list(markers),
         "important": markers['important'],
         "finalizing": markers['finalizing'],
         "canBeDoneOutsideOfWork": markers['canBeDoneOutsideOfWork'],
@@ -45,6 +52,15 @@ def filter_out_checked_items(x):
 
     if x.get('data', {}).get('meaningfulMarkers', {}).get('canBePostponed', False):
         return False
+    
+    # Don't remove postponed tasks
+    if x.get('data', {}).get('meaningfulMarkers', {}).get('postponedFor', 0) > 0:
+        return False
+
+    # Filter out tasks that have been in the list for 6 weeks or more (force removal)
+    weeks_in_list = x.get('data', {}).get('meaningfulMarkers', {}).get('weeksInList', 0)
+    if weeks_in_list >= 5:
+        return True
 
     return x.get('state', {}).get('checked', False)
 

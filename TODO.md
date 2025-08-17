@@ -120,3 +120,8 @@
   - [x] Linking / relinking should be event based
 - [x] Add Lessons (showing Observation Approaches for closed observations)
 - [x] Add word count statistics
+- [x] /q/ allows adding tasks and setting focus
+- [x] Force Removal on too long tasks
+  - [x] Mark 4 with two violet dots and 5 with one violet dot
+  - [x] Remove task on 5 (~1.25 month)
+  - [x] Made progress resets
