@@ -32,6 +32,35 @@ class QuickNoteForm(forms.ModelForm):
             "note"
         ]
 
+class QuickContentForm(forms.Form):
+    CONTENT_TYPE_CHOICES = [
+        ('quick_note', 'Quick Note'),
+        ('task', 'Task to Do'),
+        ('plan_focus', 'Plan Focus'),
+    ]
+    
+    content_type = forms.ChoiceField(
+        choices=CONTENT_TYPE_CHOICES,
+        initial='quick_note',
+        widget=forms.Select(attrs={'id': 'content-type-selector'})
+    )
+    
+    content = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Enter your content...'}),
+        max_length=1000
+    )
+    
+    focus_timeframe = forms.ChoiceField(
+        choices=[
+            ('today', 'Today'),
+            ('tomorrow', 'Tomorrow'),
+            ('this_week', 'This Week'),
+        ],
+        initial='today',
+        required=False,
+        widget=forms.Select(attrs={'id': 'focus-timeframe'})
+    )
+
 class SingleHabitTrackedForm(forms.Form):
     text = forms.CharField(max_length=255)
     

@@ -272,6 +272,59 @@ def commit_board(request, id=None):
 
     return RestResponse(BoardSerializer(board).data)
 
+def _get_current_plans():
+    """Helper function to get current Daily, Weekly, and big-picture plans"""
+    from datetime import date
+    
+    today = date.today()
+    
+    try:
+        daily_plan = Plan.objects.get(pub_date=today, thread__name='Daily')
+    except Plan.DoesNotExist:
+        daily_plan = None
+        
+    try:
+        weekly_plan = Plan.objects.get(pub_date=make_last_day_of_the_week(today), thread__name='Weekly')
+    except Plan.DoesNotExist:
+        weekly_plan = None
+        
+    try:
+        big_picture_plan = Plan.objects.get(pub_date=make_last_day_of_the_month(today), thread__name='big-picture')
+    except Plan.DoesNotExist:
+        big_picture_plan = None
+    
+    return {
+        'daily_plan': daily_plan,
+        'weekly_plan': weekly_plan,
+        'big_picture_plan': big_picture_plan,
+    }
+
+def _add_task_to_board(text, thread_name):
+    """Helper function to add a task to a board"""
+    thread = get_object_or_404(Thread, name=thread_name)
+    board = Board.objects.filter(thread=thread).order_by('-date_started').first()
+    if board:
+        board.state.append({
+            'children': [],
+            'data': {
+                'state': 'open',
+                'text': text,
+                'meaningfulMarkers': {
+                    "weeksInList": 0,
+                    "important": False,
+                    "finalizing": False,
+                    "canBeDoneOutsideOfWork": False,
+                    "canBePostponed": False,
+                    "postponedFor": 0,
+                    "madeProgress": False,
+                }
+            },
+            'text': text,
+        })
+        board.save()
+        return board
+    return None
+
 @api_view(['POST'])
 def add_task(request):
     item = request.data
@@ -280,29 +333,7 @@ def add_task(request):
     if 'text' not in item or 'thread-name' not in item:
         return RestResponse({'errors': 'no thread-name and text'}, status=status.HTTP_400_BAD_REQUEST)
     
-    thread = get_object_or_404(Thread, name=item['thread-name'])
-    board = Board.objects.filter(thread=thread).order_by('-date_started').first()
-
-    board.state.append({
-        'children': [],
-        'data': {
-            'state': 'open',
-            'text': item['text'],
-            'meaningfulMarkers': {
-                "weeksInList": 0,
-                "important": False,
-                "finalizing": False,
-                "canBeDoneOutsideOfWork": False,
-                "canBePostponed": False,
-                "postponedFor": 0,
-                "madeProgress": False,
-            }
-        },
-        'text': item['text'],
-    })
-
-    board.save()
-
+    board = _add_task_to_board(item['text'], item['thread-name'])
     return RestResponse(BoardSerializer(board).data)
 
 @login_required
@@ -816,7 +847,7 @@ def add_quick_note_hx(request):
     if not request.htmx:
         return HttpResponse("Only HTMX allowed", status=status.HTTP_400_BAD_REQUEST)
 
-    form = QuickNoteForm(request.POST)
+    form = QuickContentForm(request.POST)
 
     if not form.is_valid():
         response = render(request, "tree/quick_note/form.html", {
@@ -827,17 +858,53 @@ def add_quick_note_hx(request):
 
         return response
     
-    form.save()
+    content_type = form.cleaned_data['content_type']
+    content = form.cleaned_data['content']
+    
+    if content_type == 'quick_note':
+        QuickNote.objects.create(note=content)
+    elif content_type == 'task':
+        # Add task to current inbox board
+        _add_task_to_board(content, 'Inbox')
+    elif content_type == 'plan_focus':
+        timeframe = form.cleaned_data['focus_timeframe']
+        from datetime import date, timedelta
+        
+        if timeframe == 'today':
+            focus_date = date.today()
+            thread = Thread.objects.get(name='Daily')
+        elif timeframe == 'tomorrow':
+            focus_date = date.today() + timedelta(days=1)
+            thread = Thread.objects.get(name='Daily')
+        elif timeframe == 'this_week':
+            focus_date = date.today()
+            thread = Thread.objects.get(name='Weekly')
+        
+        plan, created = Plan.objects.get_or_create(
+            pub_date=focus_date,
+            thread=thread,
+            defaults={'focus': content}
+        )
+        if not created:
+            # Append to existing focus content
+            if plan.focus:
+                plan.focus += '\n' + content
+            else:
+                plan.focus = content
+            plan.save()
 
     return HttpResponseClientRefresh()
 
 
 @login_required
 def quick_notes(request):
-    return render(request, "tree/quick_note.html", {
+    context = {
         'notes': QuickNote.objects.order_by('published'),
-        'form': QuickNoteForm(),
-    })
+        'form': QuickContentForm(),
+    }
+    context.update(_get_current_plans())
+    
+    return render(request, "tree/quick_note.html", context)
 
 
 ### XXX TODO 
