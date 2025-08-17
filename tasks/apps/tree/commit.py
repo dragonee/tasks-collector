@@ -35,7 +35,7 @@ def transition_data_in_tree_item(item):
         },
 
         'state': {
-            'visible': True if item['data']['meaningfulMarkers']['postponedFor'] == 1 else item['state']['visible']
+            'visible': True if item['data']['meaningfulMarkers']['postponedFor'] == 1 else item.get('state', {}).get('visible', True)
         }
     }
 
