@@ -101,7 +101,7 @@
 - [ ] The same view as eventdump but on web
 - [ ] migrate distractions to integrity? true-to-self
 - [ ] Make good summary view for weeks, etc
-- [ ] Looks like perdiodical must go
+- [x] Looks like perdiodical must go
 - [ ] ell / use that for a quantified satori element
   - on a scale 1-10 how was I close to the "true-to-self" (breakthrough) goal? Was there some task that was connected to the projected outcome elements?
 - [ ] Enable login on every page and request

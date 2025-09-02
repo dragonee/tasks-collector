@@ -34,7 +34,6 @@
             <a class="menulink" href="/todo/">Tasks</a>
             <a class="menulink" href="/observations/">Observations</a>
             <a class="menulink" href="/admin/tree/observation/add/">+Observation</a>
-            <a class="menulink" href="/periodical/">Periodical</a>
             <a class="menulink" href="/summaries/">Summaries</a>
             <a class="menulink" href="/quests/">Quests</a>
             <a class="menulink" href="/quests/view/">Journal</a>
