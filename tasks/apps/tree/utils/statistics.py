@@ -1,6 +1,6 @@
 import re
 from django.db.models import Q
-from ..models import Event, Statistics, Plan, Reflection
+from ..models import Event, Statistics, Plan, Reflection, HabitTracked, JournalAdded
 
 
 def count_words_in_text(text):
@@ -12,7 +12,9 @@ def count_words_in_text(text):
 
 
 def calculate_total_word_count(year=None):
-    """Calculate total word count from all events, plans, and reflections with text content
+    """Calculate total word count from all events and plans with text content
+    
+    Reflections are not counted as they most often just repeat the text found in journal entries.
     
     Args:
         year (int, optional): Filter by year. If None, includes all records.
@@ -68,18 +70,6 @@ def calculate_total_word_count(year=None):
         if plan.want:
             total_words += count_words_in_text(plan.want)
     
-    # Count words from Reflections
-    reflections = Reflection.objects.all()
-    if year:
-        reflections = reflections.filter(pub_date__year=year)
-    
-    for reflection in reflections:
-        if reflection.good:
-            total_words += count_words_in_text(reflection.good)
-        if reflection.better:
-            total_words += count_words_in_text(reflection.better)
-        if reflection.best:
-            total_words += count_words_in_text(reflection.best)
     
     return total_words
 
