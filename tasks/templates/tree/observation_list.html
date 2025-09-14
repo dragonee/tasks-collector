@@ -45,7 +45,7 @@
             <div>{{ observation.approach|linebreaks }}</div>
 
             {% if not attach_mode %}
-                <a href="?attach_mode=true&observation_id={{ observation.pk }}">Enter Attach Mode</a>
+                <a href="?attach_mode=true&observation_id={{ observation.pk }}" class="btn btn-sm btn-outline-secondary">Enter Attach Mode</a>
             {% endif %}
 
             {% if observation.observationupdated_set.all %}
