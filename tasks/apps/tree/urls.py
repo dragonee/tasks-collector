@@ -45,6 +45,7 @@ urlpatterns = [
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/close/$', views.observation_close, name='public-observation-close'),
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/attach/$', views.observation_attach, name='public-observation-attach'),
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/detach/$', views.observation_detach, name='public-observation-detach'),
+    re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/attachments/$', views.observation_attachments, name='public-observation-attachments'),
     path('observations/search/', views.observation_search, name='public-observation-search'),
 
     path('', views.today, name='public-today'),

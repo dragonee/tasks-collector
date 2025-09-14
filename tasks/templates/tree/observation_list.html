@@ -8,7 +8,7 @@
 {% block content %}
 <!-- Vue entry-point -->
 
-
+{% csrf_token %}
 <div class="observations">
     <div class="cont">
         {% include "menu.html" %}
@@ -17,10 +17,23 @@
             <a href="/observations/">Open <span class="badge">{{ open_count }}</span></a>
             <a href="/observations/closed/">Closed <span class="badge">{{ closed_count }}</span></a>
             <a href="/lessons/">Lessons</a>
+            {% if attach_mode %}
+                <a href="/observations/">Exit Attach Mode</a>
+            {% endif %}
         </p>
     </div>
         {% for observation in object_list %}
         <article class="observation" id="observation-{{ observation.pk }}">
+            {% if attach_mode and not attach_observation_id|stringformat:"s" == observation.pk|stringformat:"s" %}
+                <div class="attach-checkbox">
+                    <input type="checkbox" 
+                           id="attach-{{ observation.event_stream_id }}" 
+                           data-observation-id="{{ observation.pk }}"
+                           data-event-stream-id="{{ observation.event_stream_id }}"
+                           class="attach-toggle">
+                    <label for="attach-{{ observation.event_stream_id }}">Attach/Detach</label>
+                </div>
+            {% endif %}
 
             <div class="meta">{{ observation.pub_date }} (<span class="type">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span> <a href="{% url 'public-observation-edit' observation.pk %}">#{{ observation.pk }}</a>)</div>
             <div class="strong">{{ observation.situation|linebreaks }}</div>
@@ -30,6 +43,10 @@
             <div>{{ observation.interpretation|linebreaks }}</div>
             <div class="label">How should you approach it in the future?</div>
             <div>{{ observation.approach|linebreaks }}</div>
+
+            {% if not attach_mode %}
+                <a href="?attach_mode=true&observation_id={{ observation.pk }}">Enter Attach Mode</a>
+            {% endif %}
 
             {% if observation.observationupdated_set.all %}
                 <hr class="just-line">
@@ -57,5 +74,84 @@
 
 <!-- Load Vue app -->
 {% block extrajs %}
+{% if attach_mode %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const attachObservationId = '{{ attach_observation_id }}';
+    
+    // Load current attachments and set checkbox states
+    fetch(`/observations/${attachObservationId}/attachments/`)
+        .then(response => response.json())
+        .then(data => {
+            const attachedStreamIds = data.attached_observation_stream_ids;
+            
+            // Set checkbox states based on current attachments
+            document.querySelectorAll('.attach-toggle').forEach(checkbox => {
+                const eventStreamId = checkbox.dataset.eventStreamId;
+                checkbox.checked = attachedStreamIds.includes(eventStreamId);
+            });
+        })
+        .catch(error => console.error('Error loading attachments:', error));
+    
+    // Handle checkbox clicks
+    document.querySelectorAll('.attach-toggle').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const eventStreamId = this.dataset.eventStreamId;
+            const observationId = this.dataset.observationId;
+            const isAttaching = this.checked;
+            
+            const url = `/observations/${attachObservationId}/${isAttaching ? 'attach' : 'detach'}/`;
+            const data = {
+                other_event_stream_id: eventStreamId
+            };
+            
+            // Add observation_id for attach requests (as fallback)
+            if (isAttaching) {
+                data.other_observation_id = observationId;
+            }
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    // Revert checkbox state on error
+                    this.checked = !this.checked;
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                // Revert checkbox state on error
+                this.checked = !this.checked;
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        });
+    });
+    
+    // CSRF token helper function
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endif %}
 {% endblock %}
 
