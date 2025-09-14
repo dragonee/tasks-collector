@@ -649,3 +649,28 @@
   }
 }
 
+.btn {
+  &.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+    background-color: #eee;
+    
+    &:hover {
+      color: #fff;
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+    
+    &:focus {
+      box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+    }
+  }
+  
+  &.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+  }
+}
+

@@ -567,6 +567,10 @@ class ObservationListView(LoginRequiredMixin, ListView):
 
         context['open_count'] = Observation.objects.count()
         context['closed_count'] = ObservationClosed.objects.count()
+        
+        # Add attach mode context
+        context['attach_mode'] = self.request.GET.get('attach_mode') == 'true'
+        context['attach_observation_id'] = self.request.GET.get('observation_id')
 
         return context
 
@@ -1341,6 +1345,24 @@ def observation_search(request):
     
     serializer = ObservationSerializer(observations, many=True, context={'request': request})
     return RestResponse(serializer.data)
+
+
+@api_view(['GET'])
+def observation_attachments(request, observation_id):
+    """Get all currently attached observations for a given observation"""
+    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    # Get all currently attached stream IDs
+    attached_stream_ids = complex_presenter.get_attached_stream_ids()
+    
+    # Return the list of stream IDs for frontend processing
+    return RestResponse({
+        'attached_observation_stream_ids': list(attached_stream_ids),
+        'count': len(attached_stream_ids)
+    })
 
 
 @api_view(['GET'])
