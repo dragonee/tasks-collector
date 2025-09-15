@@ -125,3 +125,6 @@
   - [x] Mark 4 with two violet dots and 5 with one violet dot
   - [x] Remove task on 5 (~1.25 month)
   - [x] Made progress resets
+- [ ] Add markings if weekly summary and monthy summary has been added for this period
+- [ ] How about I do the AREAS for life?
+  - [ ] To mark then reflection templates (weekly monthly)
