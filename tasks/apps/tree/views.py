@@ -1500,7 +1500,7 @@ def daily_events(request):
 
     thread_name = request.GET.get('thread', 'Daily')
 
-    events = Event.objects.filter(published__date=day).not_instance_of(BoardCommitted)
+    events = Event.objects.filter(published__date=day, thread__name=thread_name).not_instance_of(BoardCommitted)
 
     try:
         plan = Plan.objects.get(pub_date=day, thread__name=thread_name)
