@@ -58,7 +58,6 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 - **Vue.js 2.x** with Vuex for state management
 - **Webpack** for asset bundling
 - **Bootstrap 4** for UI components
-- **Axios** for API communication
 
 ### Database
 - **PostgreSQL** for production

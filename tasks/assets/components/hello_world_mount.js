@@ -13,7 +13,26 @@ Vue.use(LiquorTree)
 Vue.use(Vuex)
 Vue.use(VueRouter)
 
-import axios from 'axios'
+// Helper function to get CSRF token and make fetch requests
+const apiRequest = async (url, options = {}) => {
+    const token = document.body.querySelector('[name=csrfmiddlewaretoken]');
+    const defaultHeaders = {
+        'X-CSRFToken': token ? token.value : '',
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    const response = await fetch(url, {
+        ...options,
+        headers: defaultHeaders
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+};
 
 const routes = [
     { path: '/', component: Board },
@@ -32,7 +51,6 @@ new Vue({
     router,
 
     created() {
-       let token = document.body.querySelector('[name=csrfmiddlewaretoken]');
-       axios.defaults.headers.common['X-CSRFToken'] = token.value;
+       // CSRF token is now handled in the apiRequest helper function
     }
 }).$mount('#app')
