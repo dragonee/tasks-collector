@@ -1242,18 +1242,22 @@ body.quick-notes {
 
 .calendar {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
     flex-direction: column;
     gap: 2px;
     padding: 2px;
     background-color: #f0f0f0;
     border-radius: 4px;
-    align-content: flex-start;
     margin: 0 auto;
     width: fit-content;
 
-    height: 86px;
+    .calendar-daily-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        flex-direction: column;
+        gap: 2px;
+        height: 84px; // Original height for daily events
+    }
 
     .event-day {
         width: 10px;
@@ -1264,6 +1268,46 @@ body.quick-notes {
 
         &[data-count="0"] {
             opacity: 0.5;
+        }
+    }
+
+    .calendar-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        flex-direction: column;
+        gap: 2px;
+        height: 12px; // Height for summary rows
+    }
+
+    .summary-day {
+        width: 10px;
+        height: 10px;
+        aspect-ratio: 1 / 1;
+        border-radius: 2px;
+
+        &[data-has-summary="0"] {
+            opacity: 0.3;
+        }
+
+        &[data-has-summary="1"] {
+            opacity: 1;
+        }
+    }
+
+    .weekly-summary {
+        background-color: #4a90e2; // Blue color for weekly summaries
+
+        &[data-has-summary="0"] {
+            background-color: #4a90e2;
+        }
+    }
+
+    .monthly-summary {
+        background-color: #f5d842; // Yellow color for monthly summaries
+
+        &[data-has-summary="0"] {
+            background-color: #f5d842;
         }
     }
 }

@@ -44,6 +44,7 @@ from django.views.generic.detail import DetailView
 
 from collections import Counter, namedtuple
 from functools import cached_property
+from calendar import monthrange
 
 import datetime
 
@@ -401,8 +402,80 @@ def _event_calendar(start, end):
 def adjust_start_date_to_monday(date):
     if date.weekday() == 0:
         return date
-    
+
     return date - datetime.timedelta(days=date.weekday())
+
+
+def adjust_date_to_sunday(date):
+    """Adjust date to the Sunday of its week (6 = Sunday in Python's weekday system)"""
+    days_until_sunday = (6 - date.weekday()) % 7
+    return date + datetime.timedelta(days=days_until_sunday)
+
+
+def get_week_period(date):
+    """Get the (start, end) tuple for the week containing the given date"""
+    monday = adjust_start_date_to_monday(date)
+    sunday = monday + datetime.timedelta(days=6)
+    return (monday, sunday)
+
+
+def get_month_period(date):
+    """Get the (start, end) tuple for the month containing the given date"""
+    month_start = date.replace(day=1)
+    month_end = date.replace(day=monthrange(date.year, date.month)[1])
+    return (month_start, month_end)
+
+
+def generate_periods(start, end, period_func):
+    """Generate all periods between start and end using the given period function"""
+    periods = []
+    seen_periods = set()
+
+    current = start
+    while current <= end:
+        period = period_func(current)
+        if period not in seen_periods:
+            periods.append(period)
+            seen_periods.add(period)
+
+        # Move forward by the period duration
+        if period_func == get_week_period:
+            current += datetime.timedelta(days=7)
+        else:  # monthly
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+
+    return periods
+
+
+def get_summary_calendar(start, end, thread_name, period_func):
+    """Generic function to get summary calendar for any period type"""
+    # Get all reflections for this thread
+    reflections = Reflection.objects.filter(
+        pub_date__range=(start, end),
+        thread__name=thread_name
+    ).values('pub_date')
+
+    # Group reflections by their periods
+    periods_with_summaries = Counter()
+    for reflection in reflections:
+        period = period_func(reflection['pub_date'])
+        periods_with_summaries[period] += 1
+
+    # Generate all periods in the date range
+    all_periods = generate_periods(start, end, period_func)
+
+    # Create result list with period end dates and counts
+    result = []
+    for period_start, period_end in all_periods:
+        period_tuple = (period_start, period_end)
+        count = periods_with_summaries.get(period_tuple, 0)
+        has_summary = 1 if count > 0 else 0
+        result.append(DayCount(date=period_end, count=has_summary))
+
+    return result
 
 
 def event_calendar(start, end):
@@ -414,6 +487,51 @@ def event_calendar(start, end):
         default=0,
         item_type=DayCount
     )
+
+
+def weekly_summary_calendar(start, end):
+    """Generate calendar data for weekly summaries - one indicator per week"""
+    start = adjust_start_date_to_monday(start)
+    return get_summary_calendar(start, end, 'Weekly', get_week_period)
+
+
+def monthly_summary_calendar(start, end):
+    """Generate calendar data for monthly summaries - mark ALL weeks within months that have summaries"""
+    start = adjust_start_date_to_monday(start)
+
+    # Get monthly reflections
+    reflections = Reflection.objects.filter(
+        pub_date__range=(start, end),
+        thread__name='big-picture'
+    ).values('pub_date')
+
+    # Map monthly summaries to months
+    months_with_summaries = set()
+    for reflection in reflections:
+        month_key = (reflection['pub_date'].year, reflection['pub_date'].month)
+        months_with_summaries.add(month_key)
+
+    # Generate all weekly periods in the date range
+    all_weekly_periods = generate_periods(start, end, get_week_period)
+
+    # Create result list - mark ALL weeks that fall within months with summaries
+    result = []
+    for period_start, period_end in all_weekly_periods:
+        # Check if any day in this week falls within a month that has a summary
+        has_summary = 0
+
+        # Check each day in this week
+        current_day = period_start
+        while current_day <= period_end:
+            month_key = (current_day.year, current_day.month)
+            if month_key in months_with_summaries:
+                has_summary = 1
+                break
+            current_day += datetime.timedelta(days=1)
+
+        result.append(DayCount(date=period_end, count=has_summary))
+
+    return result
 
 
 def make_last_day_of_the_week(date):
@@ -561,6 +679,8 @@ def today(request):
 
         'journals': journals,
         'event_calendar': event_calendar(day_start - datetime.timedelta(weeks=52), day_end),
+        'weekly_summary_calendar': weekly_summary_calendar((day_start - datetime.timedelta(weeks=52)).date(), day_end.date()),
+        'monthly_summary_calendar': monthly_summary_calendar((day_start - datetime.timedelta(weeks=52)).date(), day_end.date()),
     })
 
 class ObservationListView(LoginRequiredMixin, ListView):
