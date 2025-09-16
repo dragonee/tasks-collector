@@ -93,10 +93,14 @@ export default {
     },
 
     actions: {
-        async init({ commit, dispatch, getters }) {
+        async init({ commit, dispatch, getters }, threadName = null) {
             const threadResponse = await axios.get('/threads/')
 
             commit('setThreads', threadResponse.data);
+
+            if (threadName) {
+                commit('setCurrentThreadName', threadName);
+            }
 
             await dispatch('loadBoardsForThread', getters.currentThread.id)
         },

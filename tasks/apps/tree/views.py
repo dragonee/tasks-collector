@@ -35,6 +35,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.forms import inlineformset_factory
 
+from django.contrib import messages
+
 from django.urls import reverse
 
 from django.views.generic.dates import ArchiveIndexView, MonthArchiveView, DayArchiveView, TodayArchiveView
@@ -221,6 +223,13 @@ class QuickNoteViewSet(viewsets.ModelViewSet):
 class ThreadViewSet(viewsets.ModelViewSet):
     queryset = Thread.objects.all()
     serializer_class = ThreadSerializer
+
+class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ProfileSerializer
+    
+    def get_queryset(self):
+        # Only return the current user's profile
+        return Profile.objects.filter(user=self.request.user)
 
 def make_board(thread_name):
     thread=Thread.objects.get(name=thread_name)
@@ -1388,4 +1397,36 @@ def daily_events(request):
         'events': EventSerializer(events, many=True, context={'request': request}).data,
         'plan': PlanSerializer(plan, context={'request': request}).data if plan else None,
         'reflection': ReflectionSerializer(reflection, context={'request': request}).data if reflection else None,
+    })
+
+@login_required
+def account_settings(request):
+    try:
+        profile = Profile.objects.get(user=request.user)
+    except Profile.DoesNotExist:
+        profile = Profile(user=request.user)
+    
+    if request.method == 'POST':
+        form = ProfileForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Settings saved successfully!')
+            return redirect('account-settings')
+    else:
+        form = ProfileForm(instance=profile)
+    
+    return render(request, 'tree/account_settings.html', {
+        'form': form,
+        'profile': profile,
+    })
+
+@login_required
+def todo(request):
+    try:
+        profile = Profile.objects.get(user=request.user)
+    except Profile.DoesNotExist:
+        profile = None
+    
+    return render(request, 'tree/tasks.html', {
+        'profile': profile,
     })

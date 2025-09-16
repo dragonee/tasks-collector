@@ -18,6 +18,7 @@ router.register(r'journal', views.JournalAddedViewSet)
 router.register(r'quick-notes', views.QuickNoteViewSet)
 router.register(r'observation-events', views.ObservationEventViewSet)
 router.register(r'habit-api', views.HabitViewSet)
+router.register(r'profile', views.ProfileViewSet, basename='profile')
 
 urlpatterns = [
     path('boards/<int:id>/summary/', views.board_summary),
@@ -50,7 +51,7 @@ urlpatterns = [
 
     path('', views.today, name='public-today'),
     path('', include(router.urls)),
-    path('todo/', TemplateView.as_view(template_name='tree/tasks.html')),
+    path('todo/', views.todo, name='todo'),
     path('q/', views.quick_notes, name='quick-notes'),
     path('q/post/', views.add_quick_note_hx, name='quick-note-add'),
 
@@ -59,4 +60,5 @@ urlpatterns = [
     re_path(r'^projected-outcome/(?P<event_stream_id>[a-f0-9\-]+)/events/$', views.projected_outcome_events_history, name='projected-outcome-events-history'),
     path('stats/', views.stats, name='stats'),
     path('api/events/daily/', views.daily_events, name='daily-events'),
+    path('accounts/settings/', views.account_settings, name='account-settings'),
 ]

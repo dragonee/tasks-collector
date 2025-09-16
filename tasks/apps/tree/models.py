@@ -20,6 +20,8 @@ from django.urls import reverse
 from decimal import Decimal
 import uuid
 
+from django.conf import settings
+
 from .uuid_generators import board_event_stream_id, habit_event_stream_id, journal_added_event_stream_id, board_event_stream_id_from_thread
 
 from .utils.datetime import aware_from_date
@@ -806,3 +808,10 @@ class Statistics(models.Model):
     
     def __str__(self):
         return f"{self.key}: {self.value}"
+
+class Profile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    default_board_thread = models.ForeignKey(Thread, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    def __str__(self):
+        return f"Profile for {self.user.username}"
