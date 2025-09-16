@@ -18,6 +18,13 @@ class ThreadSerializer(serializers.HyperlinkedModelSerializer):
         model = Thread
         fields = ['id', 'name']
 
+class ProfileSerializer(serializers.ModelSerializer):
+    default_board_thread = ThreadSerializer(read_only=True)
+    
+    class Meta:
+        model = Profile
+        fields = ['id', 'default_board_thread']
+
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
     today_tracked = serializers.IntegerField(read_only=True)
     class Meta:

@@ -2,7 +2,7 @@ from django import forms
 
 from django.core.exceptions import ValidationError
 
-from .models import Plan, Reflection, Observation, QuickNote, Thread, JournalAdded, Breakthrough, ProjectedOutcome
+from .models import Plan, Reflection, Observation, QuickNote, Thread, JournalAdded, Breakthrough, ProjectedOutcome, Profile
 
 from .habits import habits_line_to_habits_tracked
 
@@ -179,4 +179,14 @@ class ProjectedOutcomeForm(forms.ModelForm):
                 'placeholder': 'Describe the success criteria...',
             }),
             'confidence_level': DecimalSliderWidget(),
+        }
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ['default_board_thread']
+        widgets = {
+            'default_board_thread': forms.Select(attrs={
+                'class': 'form-control',
+            }),
         }

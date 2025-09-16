@@ -32,7 +32,9 @@ new Vue({
     router,
 
     mounted() {
-       this.$store.dispatch('init')
+       const appElement = document.getElementById('app-meta');
+       const defaultThread = appElement ? appElement.dataset.defaultThread : null;
+       this.$store.dispatch('init', defaultThread)
     },
 
     created() {

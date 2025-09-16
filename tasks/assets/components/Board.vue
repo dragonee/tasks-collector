@@ -37,6 +37,7 @@
             <a class="menulink" href="/summaries/">Summaries</a>
             <a class="menulink" href="/quests/">Quests</a>
             <a class="menulink" href="/quests/view/">Journal</a>
+            <a class="menulink" href="/accounts/settings/">⚙</a>
 
             <button @click.prevent="close" class="on-right">commit</button>
         </div>
