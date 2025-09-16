@@ -126,6 +126,7 @@
   - [x] Remove task on 5 (~1.25 month)
   - [x] Made progress resets
 - [x] Add markings if weekly summary and monthy summary has been added for this period
+  - [ ] Completely REFACTOR this code into a better shape
 - [ ] How about I do the AREAS for life?
   - [ ] To mark then reflection templates (weekly monthly)
 - [x] If it has leaves, don't progress marks on the category – set to 0
