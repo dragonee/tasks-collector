@@ -31,12 +31,6 @@ new Vue({
 
     router,
 
-    mounted() {
-       const appElement = document.getElementById('app-meta');
-       const defaultThread = appElement ? appElement.dataset.defaultThread : null;
-       this.$store.dispatch('init', defaultThread)
-    },
-
     created() {
        let token = document.body.querySelector('[name=csrfmiddlewaretoken]');
        axios.defaults.headers.common['X-CSRFToken'] = token.value;

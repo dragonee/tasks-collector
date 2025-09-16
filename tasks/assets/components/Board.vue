@@ -144,7 +144,15 @@ export default {
         )
 
         if (this.$route.params.slug) {
-            this.$store.commit('setCurrentThreadName', this.$route.params.slug);
+            this.$store.dispatch('initBoard', this.$route.params.slug);
+        } else {
+            const appElement = document.getElementById('app-meta');
+       
+            const defaultThread = appElement 
+                ? appElement.dataset.defaultThread 
+                : this.$store.state.currentThreadPtr.Name;
+            
+            this.$store.dispatch('initBoard', defaultThread);
         }
 
         if (this.$store.getters.currentBoard) {
