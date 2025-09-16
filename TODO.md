@@ -128,3 +128,4 @@
 - [ ] Add markings if weekly summary and monthy summary has been added for this period
 - [ ] How about I do the AREAS for life?
   - [ ] To mark then reflection templates (weekly monthly)
+- [x] If it has leaves, don't progress marks on the category – set to 0

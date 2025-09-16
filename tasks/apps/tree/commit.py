@@ -2,19 +2,24 @@ from functools import reduce
 from collections import OrderedDict
 from copy import deepcopy
 
-def weeks_in_list(markers):
+def weeks_in_list(markers, children=None):
     """
     Calculate the number of weeks a task has been in the list.
     
     Args:
         markers (dict): Task meaningful markers containing progress and timing info
+        children (list, optional): List of child items (if present, indicates this is a category)
         
     Returns:
         int: Number of weeks in list, with special handling:
+             - 0 if has children (categories don't progress weeksInList)
              - 0 if madeProgress is True (progress resets counter)
              - Current value if postponedFor > 0 (postponed tasks don't increment)
              - Current value + 1 otherwise (normal weekly increment)
     """
+    if children:
+        return 0
+    
     if markers.get('madeProgress', False):
         return 0
     
@@ -23,23 +28,24 @@ def weeks_in_list(markers):
     
     return markers.get('weeksInList', 0) + 1
 
-def transition_markers_in_tree_item(markers):
+def transition_markers_in_tree_item(markers, children=None):
     """
     Update meaningful markers for a task during board transition/commit.
     
     Args:
         markers (dict): Current meaningful markers for the task
+        children (list, optional): List of child items to check if this is a category
         
     Returns:
         dict: Updated markers with:
-              - weeksInList updated based on progress/postponement
+              - weeksInList updated based on progress/postponement and children
               - postponedFor decremented by 1 (minimum 0)
               - madeProgress reset to False
               - other markers preserved
               - transition field preserved if present
     """
     new_markers = {
-        "weeksInList": weeks_in_list(markers),
+        "weeksInList": weeks_in_list(markers, children),
         "important": markers['important'],
         "finalizing": markers['finalizing'],
         "canBeDoneOutsideOfWork": markers['canBeDoneOutsideOfWork'],
@@ -76,7 +82,7 @@ def transition_data_in_tree_item(item):
         "data": {
             "text": item['data']['text'],
             "state": item['data']['state'],
-            "meaningfulMarkers": transition_markers_in_tree_item(item['data']['meaningfulMarkers']),
+            "meaningfulMarkers": transition_markers_in_tree_item(item['data']['meaningfulMarkers'], item['children']),
         },
 
         'state': {
