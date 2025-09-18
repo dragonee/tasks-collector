@@ -7,6 +7,12 @@ on:
     paths-ignore:
       - 'docker/**'
       - '**.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docker/**'
+      - '**.md'
 
 jobs:
   test:
@@ -51,6 +57,7 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/setup-node@v4
         with:
