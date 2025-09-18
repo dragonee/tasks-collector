@@ -58,7 +58,7 @@ jobs:
           DB_HOST: localhost
           DB_PORT: 5432
           DB_TEST_NAME: tasks_test
-        run: python manage.py test
+        run: python manage.py test --noinput
 
   deploy:
     needs: test
