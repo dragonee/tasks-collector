@@ -14,7 +14,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docker compose -f docker/development/docker-compose.yml exec tasks-backend python manage.py migrate` - Run database migrations
 - `docker compose -f docker/development/docker-compose.yml exec tasks-backend python manage.py createsuperuser` - Create admin user
 - `docker compose -f docker/development/docker-compose.yml exec tasks-backend python manage.py test` - Run Django tests
-- `docker compose -f docker/development/docker-compose.yml exec tasks-backend pytest` - Run tests with pytest (configured in pytest.ini)
 - `docker compose -f docker/development/docker-compose.yml exec tasks-backend python manage.py loaddata tasks/fixtures/dev/initial_state.json` - Load development fixtures
 
 ### Docker Development
