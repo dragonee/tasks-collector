@@ -9,7 +9,47 @@ on:
       - '**.md'
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tasks_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install backend packages
+        run: pip install -r requirements/dist.txt
+
+      - name: Install frontend packages
+        run: npm install
+
+      - name: Build assets for testing
+        run: npm run build
+
+      - name: Run Django tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tasks_test
+        run: python manage.py test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-node@v4
