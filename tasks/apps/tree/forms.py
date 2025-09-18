@@ -3,6 +3,9 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from .models import Plan, Reflection, Observation, QuickNote, Thread, JournalAdded, Breakthrough, ProjectedOutcome, Profile
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 from .habits import habits_line_to_habits_tracked
 
@@ -188,5 +191,20 @@ class ProfileForm(forms.ModelForm):
         widgets = {
             'default_board_thread': forms.Select(attrs={
                 'class': 'form-control',
+            }),
+        }
+
+class UserForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name']
+        widgets = {
+            'first_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'First name...',
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Last name...',
             }),
         }

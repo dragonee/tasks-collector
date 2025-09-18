@@ -1525,18 +1525,22 @@ def account_settings(request):
         profile = Profile.objects.get(user=request.user)
     except Profile.DoesNotExist:
         profile = Profile(user=request.user)
-    
+
     if request.method == 'POST':
-        form = ProfileForm(request.POST, instance=profile)
-        if form.is_valid():
-            form.save()
+        profile_form = ProfileForm(request.POST, instance=profile)
+        user_form = UserForm(request.POST, instance=request.user)
+        if profile_form.is_valid() and user_form.is_valid():
+            profile_form.save()
+            user_form.save()
             messages.success(request, 'Settings saved successfully!')
             return redirect('account-settings')
     else:
-        form = ProfileForm(instance=profile)
-    
+        profile_form = ProfileForm(instance=profile)
+        user_form = UserForm(instance=request.user)
+
     return render(request, 'tree/account_settings.html', {
-        'form': form,
+        'profile_form': profile_form,
+        'user_form': user_form,
         'profile': profile,
     })
 
