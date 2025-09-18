@@ -69,10 +69,6 @@ module.exports = {
         // Provide basic 3d-party plugins.
         // Comment unneeded.
         new webpack.ProvidePlugin({
-            $: "jquery",
-            jQuery: "jquery",
-            jquery: 'jquery',
-            'window.jQuery': 'jquery'
         }),
         // Clean build directory.
         // To provide what files or directories should not be cleared use
