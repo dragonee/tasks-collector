@@ -40,11 +40,27 @@ jobs:
         with:
           node-version: 22
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/test.txt', 'requirements/base.txt', 'requirements/dist.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install backend packages
         run: pip install -r requirements/test.txt
 
       - name: Install frontend packages
-        run: npm install
+        run: npm ci
 
       - name: Build assets for testing
         run: npm run build
