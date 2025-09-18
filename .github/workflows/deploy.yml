@@ -41,7 +41,7 @@ jobs:
           node-version: 22
 
       - name: Install backend packages
-        run: pip install -r requirements/dist.txt
+        run: pip install -r requirements/test.txt
 
       - name: Install frontend packages
         run: npm install
