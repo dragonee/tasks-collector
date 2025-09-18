@@ -61,11 +61,11 @@ export default defineConfig({
               }
 
               const manifestContent = JSON.stringify(manifest, null, 2);
-              const manifestPath = environment === 'dist'
+              const manifestPath = environment.name === 'dist'
                 ? 'webpack-stats.dist.json'
                 : 'webpack-stats.local.json';
 
-              console.log(`[Rsbuild] Environment: ${environment}, generating manifest: ${manifestPath}`);
+              console.log(`[Rsbuild] Environment: ${environment.name}, generating manifest: ${manifestPath}`);
 
               const fs = require('fs');
               const path = require('path');
