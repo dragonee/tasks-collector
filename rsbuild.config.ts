@@ -65,6 +65,8 @@ export default defineConfig({
                 ? 'webpack-stats.dist.json'
                 : 'webpack-stats.local.json';
 
+              console.log(`[Rsbuild] Environment: ${environment}, generating manifest: ${manifestPath}`);
+
               const fs = require('fs');
               const path = require('path');
               fs.writeFileSync(path.resolve(manifestPath), manifestContent);
