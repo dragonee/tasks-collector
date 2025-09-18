@@ -1,14 +1,16 @@
+import os
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tasks',
-        'USER': 'tasks',
-        'PASSWORD': 'secret',
-        'HOST': 'tasks-db',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'tasks'),
+        'USER': os.environ.get('DB_USER', 'tasks'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'secret'),
+        'HOST': os.environ.get('DB_HOST', 'tasks-db'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
         'TEST': {
             'CHARSET': 'UTF8',
-            'NAME': 'tasks-test'
+            'NAME': os.environ.get('DB_TEST_NAME', 'tasks-test')
         }
     }
 }
