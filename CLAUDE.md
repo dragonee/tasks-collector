@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Frontend Development
-- `docker compose -f docker/development/docker-compose.yml exec tasks-frontend npm run dev` - Start webpack in watch mode for development
+- `docker compose -f docker/development/docker-compose.yml exec tasks-frontend npm run dev` - Start rsbuild in watch mode for development
 - `docker compose -f docker/development/docker-compose.yml exec tasks-frontend npm run build` - Build assets for development
 - `docker compose -f docker/development/docker-compose.yml exec tasks-frontend npm run build-dist` - Build production-ready assets
 
@@ -56,7 +56,7 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 
 ### Frontend Architecture
 - **Vue.js 2.x** with Vuex for state management
-- **Webpack** for asset bundling
+- **Rsbuild** for asset bundling (faster Rspack-based alternative to Webpack)
 - **Bootstrap 4** for UI components
 
 ### Database
