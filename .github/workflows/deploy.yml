@@ -81,14 +81,34 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: actions/checkout@v2
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/dist.txt', 'requirements/base.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install backend packages
         run: pip install -r requirements/dist.txt
       - name: Install frontend packages
-        run: npm install
+        run: npm ci
       - name: Build production assets
         run: npm run build-dist
       - name: Copy static assets
