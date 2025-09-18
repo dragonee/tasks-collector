@@ -51,7 +51,13 @@ jobs:
 
       - name: Run Django tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/tasks_test
+          DJANGO_SETTINGS_MODULE: tasks.settings.local
+          DB_NAME: tasks_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_TEST_NAME: tasks_test
         run: python manage.py test
 
   deploy:
