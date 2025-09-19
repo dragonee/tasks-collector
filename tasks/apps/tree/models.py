@@ -230,6 +230,7 @@ class ObservationType(models.Model):
 class Observation(models.Model):
     pub_date = models.DateField()
 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
@@ -260,6 +261,7 @@ class Observation(models.Model):
             pub_date=self.pub_date,
             thread_id=self.thread_id,
             type_id=self.type_id,
+            user_id=self.user_id,
 
             situation=self.situation,
             interpretation=self.interpretation,

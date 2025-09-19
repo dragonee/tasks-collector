@@ -13,6 +13,9 @@ from rest_polymorphic.serializers import PolymorphicSerializer
 
 from .templatetags.model_presenters import first_line
 
+from django.contrib.auth import get_user_model
+from django.conf import settings
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
@@ -125,12 +128,19 @@ class BaseTypeThreadSerializer(serializers.HyperlinkedModelSerializer):
         slug_field='name'
     )
 
-class ObservationSerializer(BaseTypeThreadSerializer):
+class ObservationUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ['id', 'username']
 
+class ObservationSerializer(BaseTypeThreadSerializer):
+    user = ObservationUserSerializer(read_only=True)
+    
     class Meta:
         model = Observation
-        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach']
-    
+        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'user']
+        
+
     @transaction.atomic
     def save(self, *args, **kwargs):
         old_obj = get_unsaved_object(Observation, self.instance)
