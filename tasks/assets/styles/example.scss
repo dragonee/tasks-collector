@@ -431,6 +431,17 @@ article.quest {
 
     margin: auto;
 
+
+    .empty {
+        margin-top: 2rem;
+        padding: 5rem 0;
+
+        background-color: #fff;
+        text-align: center;
+        font-style: italic;
+        color: #999;
+    }
+
     article {
         position: relative;
 
