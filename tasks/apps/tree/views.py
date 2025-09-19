@@ -126,6 +126,23 @@ class ReflectionViewSet(viewsets.ModelViewSet):
     serializer_class = ReflectionSerializer
 
 class ObservationFilter(filters.FilterSet):
+    OWNERSHIP_CHOICES = [
+        ('all', 'All observations'),
+        ('mine', 'My observations'),
+    ]
+
+    ownership = filters.ChoiceFilter(
+        choices=OWNERSHIP_CHOICES,
+        method='filter_ownership',
+        empty_label='All observations',
+        label='Show'
+    )
+
+    def filter_ownership(self, queryset, name, value):
+        if value == 'mine':
+            return queryset.filter(user=self.request.user)
+        return queryset
+
     class Meta:
         model = Observation
         fields = {
@@ -166,6 +183,9 @@ class ObservationViewSet(viewsets.ModelViewSet):
             return ObservationWithUpdatesSerializer
         
         return ObservationSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 class ObservationUpdatedViewSet(viewsets.ModelViewSet):
     queryset = ObservationUpdated.objects.order_by('published')
@@ -696,7 +716,8 @@ class ObservationListView(LoginRequiredMixin, ListView):
 
         context['open_count'] = Observation.objects.count()
         context['closed_count'] = ObservationClosed.objects.count()
-        
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
+
         # Add attach mode context
         context['attach_mode'] = self.request.GET.get('attach_mode') == 'true'
         context['attach_observation_id'] = self.request.GET.get('observation_id')
@@ -708,7 +729,7 @@ class ObservationClosedListView(LoginRequiredMixin, ListView):
     queryset = ObservationClosed.objects \
         .select_related('thread', 'type') \
         .order_by('-published')
-    
+
     paginate_by = 100
 
     def get_context_data(self, **kwargs):
@@ -716,6 +737,32 @@ class ObservationClosedListView(LoginRequiredMixin, ListView):
 
         context['open_count'] = Observation.objects.count()
         context['closed_count'] = ObservationClosed.objects.count()
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
+
+        return context
+
+class ObservationMineListView(LoginRequiredMixin, ListView):
+    model = Observation
+    template_name = 'tree/observation_list.html'
+    paginate_by = 200
+
+    def get_queryset(self):
+        return Observation.objects \
+            .filter(user=self.request.user) \
+            .select_related('thread', 'type') \
+            .prefetch_related('observationupdated_set') \
+            .order_by('-pub_date', '-pk')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['open_count'] = Observation.objects.count()
+        context['closed_count'] = ObservationClosed.objects.count()
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
+
+        # Add attach mode context
+        context['attach_mode'] = self.request.GET.get('attach_mode') == 'true'
+        context['attach_observation_id'] = self.request.GET.get('observation_id')
 
         return context
 
@@ -737,6 +784,7 @@ class LessonsListView(LoginRequiredMixin, ListView):
 
         context['open_count'] = Observation.objects.count()
         context['closed_count'] = ObservationClosed.objects.count()
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
 
         return context
 
@@ -788,6 +836,8 @@ def observation_edit(request, observation_id=None):
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 obj = form.save(commit=False)
+                if not obj.pk:
+                    obj.user = request.user
                 obj.save()
                 
                 events = spawn_observation_events(previous, obj, published=now)

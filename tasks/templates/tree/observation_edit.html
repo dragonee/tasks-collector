@@ -21,10 +21,13 @@
     </div>
 
 <div class="observation-edit page">
+
+{% if instance.pk %}
 <!-- Complex Observations Toggle Button -->
 <button type="button" id="complex-panel-toggle" class="panel-toggle">
     <span class="toggle-text">{% if complex_presenter and complex_presenter.total_unique_observations_count > 0 %}Hide{% else %}Complex{% endif %}</span>
 </button>
+
 
 <!-- Complex Observations Side Panel -->
 <div id="complex-panel" class="complex-panel {% if complex_presenter and complex_presenter.total_unique_observations_count > 0 %}active{% endif %}">
@@ -104,6 +107,9 @@
         {% endif %}
     </div>
 </div>
+{% endif %}
+
+
 
 <form action="" method="POST">
     {% csrf_token %}
