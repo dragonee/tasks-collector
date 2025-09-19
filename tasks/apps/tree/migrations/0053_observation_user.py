@@ -10,7 +10,13 @@ def update_observation_user(apps, schema_editor):
     Observation = apps.get_model('tree', 'Observation')
     User = apps.get_model(*settings.AUTH_USER_MODEL.split('.'))
 
-    Observation.objects.update(user=User.objects.get(username=USERNAME))
+    # Fix for tests, where we don't have a user with the username 'dragonee'
+    try:
+        user_id = User.objects.get(username=USERNAME).pk
+    except User.DoesNotExist:
+        user_id = 1
+
+    Observation.objects.update(user_id=user_id)
 
 class Migration(migrations.Migration):
 
