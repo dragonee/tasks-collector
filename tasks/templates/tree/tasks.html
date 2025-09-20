@@ -5,6 +5,13 @@
 
 {% block content %}
 <!-- Vue entry-point -->
+
+<div 
+    id="app-meta"
+    data-default-thread="{% if profile.default_board_thread %}{{ profile.default_board_thread.name }}{% else %}Daily{% endif %}"
+>
+</div>
+
 <div id="app"></div>
 {% endblock %}
 

@@ -34,10 +34,10 @@
             <a class="menulink" href="/todo/">Tasks</a>
             <a class="menulink" href="/observations/">Observations</a>
             <a class="menulink" href="/admin/tree/observation/add/">+Observation</a>
-            <a class="menulink" href="/periodical/">Periodical</a>
             <a class="menulink" href="/summaries/">Summaries</a>
             <a class="menulink" href="/quests/">Quests</a>
             <a class="menulink" href="/quests/view/">Journal</a>
+            <a class="menulink" href="/accounts/settings/">⚙</a>
 
             <button @click.prevent="close" class="on-right">commit</button>
         </div>
@@ -144,7 +144,15 @@ export default {
         )
 
         if (this.$route.params.slug) {
-            this.$store.commit('setCurrentThreadName', this.$route.params.slug);
+            this.$store.dispatch('initBoard', this.$route.params.slug);
+        } else {
+            const appElement = document.getElementById('app-meta');
+       
+            const defaultThread = appElement 
+                ? appElement.dataset.defaultThread 
+                : this.$store.state.currentThreadPtr.Name;
+            
+            this.$store.dispatch('initBoard', defaultThread);
         }
 
         if (this.$store.getters.currentBoard) {

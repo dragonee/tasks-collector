@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}Account Settings | Tasks Collector{% endblock %}
+
+{% block body_class %}page-settings{% endblock %}
+
+{% block content %}
+<div class="cont">    
+    <section class="journal">
+
+        {% include "menu.html" %}
+
+        <h2>Account Settings</h2>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="{{ user_form.first_name.id_for_label }}">First Name:</label>
+                <div class="form-control">
+                    {{ user_form.first_name }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ user_form.last_name.id_for_label }}">Last Name:</label>
+                <div class="form-control">
+                    {{ user_form.last_name }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ profile_form.default_board_thread.id_for_label }}">Default Board Thread:</label>
+                <div class="form-control">
+                    {{ profile_form.default_board_thread }}
+                </div>
+                <small class="form-text text-muted">Choose which thread to show by default when viewing the todo board.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary submit">Save Settings</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

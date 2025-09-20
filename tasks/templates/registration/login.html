@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Login | Tasks Collector{% endblock %}
+
+{% block body_class %}page-login{% endblock %}
+
+{% block content %}
+<section class="login">
+    <div class="cont">
+        <h1>Login to Tasks Collector</h1>
+        
+        {% if form.errors %}
+            <div class="alert alert-danger">
+                {{ form.errors }}
+            </div>
+        {% endif %}
+        
+        {% if next %}
+            {% if user.is_authenticated %}
+                <p>Your account doesn't have access to this page. To proceed, please login with an account that has access.</p>
+            {% else %}
+                <p>Please login to see this page.</p>
+            {% endif %}
+        {% endif %}
+        
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}">Username:</label>
+                {{ form.username }}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}">Password:</label>
+                {{ form.password }}
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Login</button>
+            
+            <input type="hidden" name="next" value="{{ next }}" />
+        </form>
+    </div>
+</section>
+{% endblock %}

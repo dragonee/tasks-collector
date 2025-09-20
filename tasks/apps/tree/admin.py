@@ -65,6 +65,10 @@ class EventAdmin(PolymorphicParentModelAdmin):
         ObservationReflectedUpon,
         ObservationReinterpreted,
         JournalAdded,
+        ProjectedOutcomeMade,
+        ProjectedOutcomeRedefined,
+        ProjectedOutcomeRescheduled,
+        ProjectedOutcomeClosed,
     ]
 
     ordering = ['-published', '-pk']
@@ -103,6 +107,54 @@ class JournalAddedAdmin(PolymorphicChildModelAdmin):
     list_display = ('__str__', 'thread', 'published')
 
 
+class ProjectedOutcomeMadeAdmin(PolymorphicChildModelAdmin):
+    base_model = ProjectedOutcomeMade
+    
+    list_display = ('__str__', 'projected_outcome', 'name', 'resolved_by', 'published')
+    list_filter = ('resolved_by', 'published')
+    search_fields = ('name', 'description')
+    readonly_fields = ('event_stream_id', 'published')
+
+
+class ProjectedOutcomeRedefinedAdmin(PolymorphicChildModelAdmin):
+    base_model = ProjectedOutcomeRedefined
+    
+    list_display = ('__str__', 'projected_outcome', 'published')
+    list_filter = ('published',)
+    readonly_fields = ('event_stream_id', 'published')
+
+
+class ProjectedOutcomeRescheduledAdmin(PolymorphicChildModelAdmin):
+    base_model = ProjectedOutcomeRescheduled
+    
+    list_display = ('__str__', 'projected_outcome', 'old_resolved_by', 'new_resolved_by', 'published')
+    list_filter = ('old_resolved_by', 'new_resolved_by', 'published')
+    readonly_fields = ('event_stream_id', 'published')
+
+
+class ProjectedOutcomeClosedAdmin(PolymorphicChildModelAdmin):
+    base_model = ProjectedOutcomeClosed
+    
+    list_display = ('__str__', 'projected_outcome', 'name', 'resolved_by', 'published')
+    list_filter = ('resolved_by', 'published')
+    search_fields = ('name', 'description')
+    readonly_fields = ('event_stream_id', 'published')
+
+
+class ProjectedOutcomeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'breakthrough', 'resolved_by', 'confidence_level', 'published')
+    list_filter = ('resolved_by', 'published', 'breakthrough')
+    search_fields = ('name', 'description')
+    readonly_fields = ('event_stream_id', 'published')
+
+
+class BreakthroughAdmin(admin.ModelAdmin):
+    list_display = ('slug', 'theme', 'published')
+    list_filter = ('published',)
+    search_fields = ('slug', 'theme', 'areas_of_concern')
+    readonly_fields = ('published',)
+
+
 class JournalTagAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug')
 
@@ -128,3 +180,9 @@ admin.site.register(JournalAdded, JournalAddedAdmin)
 admin.site.register(Event, EventAdmin)
 admin.site.register(QuickNote)
 admin.site.register(JournalTag, JournalTagAdmin)
+admin.site.register(Breakthrough, BreakthroughAdmin)
+admin.site.register(ProjectedOutcome, ProjectedOutcomeAdmin)
+admin.site.register(ProjectedOutcomeMade, ProjectedOutcomeMadeAdmin)
+admin.site.register(ProjectedOutcomeRedefined, ProjectedOutcomeRedefinedAdmin)
+admin.site.register(ProjectedOutcomeRescheduled, ProjectedOutcomeRescheduledAdmin)
+admin.site.register(ProjectedOutcomeClosed, ProjectedOutcomeClosedAdmin)

@@ -26,6 +26,30 @@
             </div>
         {% endfor %}
     </div>
+
+    <!-- Current Plans -->
+    <div class="current-plans">
+        {% if daily_plan and daily_plan.focus %}
+            <div class="plan-focus daily">
+                <h4>Daily Focus</h4>
+                <div class="focus-content">{{ daily_plan.focus|linebreaks }}</div>
+            </div>
+        {% endif %}
+        
+        {% if weekly_plan and weekly_plan.focus %}
+            <div class="plan-focus weekly">
+                <h4>Weekly Focus</h4>
+                <div class="focus-content">{{ weekly_plan.focus|linebreaks }}</div>
+            </div>
+        {% endif %}
+        
+        {% if big_picture_plan and big_picture_plan.focus %}
+            <div class="plan-focus big-picture">
+                <h4>Big Picture Focus</h4>
+                <div class="focus-content">{{ big_picture_plan.focus|linebreaks }}</div>
+            </div>
+        {% endif %}
+    </div>
 </section>
 
 {% endblock %}

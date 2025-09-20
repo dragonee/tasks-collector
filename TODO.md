@@ -1,5 +1,7 @@
 # TODO. A backlog of ideas
 
+## Completed Tasks
+
 - [x] No need for editable habit lines
   - [x] A journal suffices for that and doesn't have any shenanigans
   - [x] Implement a migration and then remove it altogether
@@ -26,18 +28,51 @@
 - [x] Allow for archiving (leave delete)
 - [x] Oftentimes, tasks are not loaded, when working on multiple tabs
   - [x] use window.onfocus to reload tasks
+- [x] Add a Journal archive view set
+  - [x] Remove add_published from templatetags
+- [x] Add `tasks-collector.ini` to the project and set it up with a dummy password for development (done in https://github.com/dragonee/tasks-collector-tools)
+- [x] Habit summaries
+  - [x] Lines (days)
+  - [x] Calendar
+- [x] Remove empty plans/reflections (these should not save)
+- [x] Habits – shift around
+  - [x] Add slug field
+- [x] Add a description to Habit
+- [x] Show plan on the tasks utility and journal so that focus/want is more visible
+  - [x] Add a view to show today's plans (done with a ViewSet)
+- [x] fixme: seems like situation field needs to be validated for changes with strip()
+  - [x] + add a migration removing recontextualized
+- [x] create a view that can migrate all observation updates into journal
+- [x] Add tags to journals
+- [x] Add daily endpoint that shows all events for a day + plans, reflections, etc.
+- [x] Looks like perdiodical must go
+- [x] Print a weekly plan on daily page, monthly on weekly page
+- [x] Complex mode
+  - [x] Link observations together
+  - [x] See the whole timeline
+  - [x] Linking / relinking should be event based
+- [x] Add Lessons (showing Observation Approaches for closed observations)
+- [x] Add word count statistics
+- [x] /q/ allows adding tasks and setting focus
+- [x] Force Removal on too long tasks
+  - [x] Mark 4 with two violet dots and 5 with one violet dot
+  - [x] Remove task on 5 (~1.25 month)
+  - [x] Made progress resets
+- [x] Add markings if weekly summary and monthy summary has been added for this period
+- [x] If it has leaves, don't progress marks on the category – set to 0
+
+## Pending Tasks
+
 - [x] Add a special symbol in journal to add a line to a reflection
   - Symbols: [x] [~] [^]
   - [ ] How about [ ] for Plan?
     - Need to rethink that / possible to use other input method
 - [x] Add a Journal archive view set
   - [ ] Add an event archive view set
-  - [x] Remove add_published from templatetags
   - [ ] Check #253 – is ObservationMade done here?
 - [ ] a weekly report could list out count and a summary of all items as email (for example)
   - [ ] Add ell and personality cores to summary
 - [ ] Add journal to the `today` view
-- [x] Add `tasks-collector.ini` to the project and set it up with a dummy password for development (done in https://github.com/dragonee/tasks-collector-tools)
 - [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
 - [ ] Add post-it boards for ideas
   - [ ] Use the tasks backend
@@ -51,11 +86,6 @@
   - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)
   - [ ] Event timeline component
   - [ ] Better styling
-- [ ] Habit summaries
-  - [ ] Quick summary - since / from
-  - [x] Lines (days)
-  - [x] Calendar
-- [x] Remove empty plans/reflections (these should not save)
 - [ ] Dump database before automatic migration / deployment
 - [ ] Quests: merge them with journals
   - [ ] (draft) Use journal for journalling, and quest object as a side to it
@@ -72,36 +102,27 @@
     - [ ] Remove on autocommit?
   - [ ] Add manual commit
 - [ ] Habits – shift around
-  - [x] Add slug field
   - [ ] Define a list of habits I'd like to track
   - Possible integrations:
     - Internal with events
     - External with GH API
 - [ ] Add Expectation model to Habit to track redline/greenline, goal, etc.
-- [x] Add a description to Habit
 - [x] Show plan on the tasks utility and journal so that focus/want is more visible
-  - [x] Add a view to show today's plans (done with a ViewSet)
   - [ ] Weekly plan?
 - [ ] Habit: plan satisfied?
 - [ ] Threads / split into threads and scopes
 - [ ] Journal with reflections from daily reflection from past 7 days
 - [ ] Split/merge observations
-- [x] fixme: seems like situation field needs to be validated for changes with strip()
-  - [x] + add a migration removing recontextualized
-- [x] create a view that can migrate all observation updates into journal
 - [ ] Allow text in parsing triplets if no hashtag is found
 - [ ] Add ObservationMentioned event
-- [x] Add tags to journals
 - [ ] Add plan templates for a day (e.g. Cleaning: ..., Writing: ..., etc.)
 - [ ] Add Breakthroughs Plan
 - [ ] Add [ ] to journal processing so that it can be used to add a plan for tomorrow
 - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
 - [ ] Plan from tasks
-- [x] Add daily endpoint that shows all events for a day + plans, reflections, etc.
 - [ ] The same view as eventdump but on web
 - [ ] migrate distractions to integrity? true-to-self
 - [ ] Make good summary view for weeks, etc
-- [ ] Looks like perdiodical must go
 - [ ] ell / use that for a quantified satori element
   - on a scale 1-10 how was I close to the "true-to-self" (breakthrough) goal? Was there some task that was connected to the projected outcome elements?
 - [ ] Enable login on every page and request
@@ -111,4 +132,9 @@
 - [ ] Better weekly summarization
   - [ ] Either show something like in tasks-collector-tools (summary of each day with plan/reflection/etc.)
   - [ ] Or make a console tool
-- [x] Print a weekly plan on daily page, monthly on weekly page
+- [ ] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
+- [ ] Either remove projected outcome events from events or handle them in tasks-collector-tools
+- [x] Add markings if weekly summary and monthy summary has been added for this period
+  - [ ] Completely REFACTOR this code into a better shape
+- [ ] How about I do the AREAS for life?
+  - [ ] To mark then reflection templates (weekly monthly)

@@ -46,12 +46,12 @@ pip install -r requirements/local.txt // or requirements/dist.txt in production 
 ### JS Stack
 ```
 npm install
-npm run watch-assets // or npm run build for one-time compilation
+npm run dev // or npm run build for one-time compilation
 ```
 
 If you want to build production assets, use:
 ```
-make static
+npm run build-dist
 ```
 
 #### Django

@@ -1,4 +1,23 @@
-import axios from 'axios'
+// Helper function to get CSRF token and make fetch requests
+const apiRequest = async (url, options = {}) => {
+    const token = document.body.querySelector('[name=csrfmiddlewaretoken]');
+    const defaultHeaders = {
+        'X-CSRFToken': token ? token.value : '',
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    const response = await fetch(url, {
+        ...options,
+        headers: defaultHeaders
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+};
 
 import { createTreeItem, createBoard } from './utils'
 
@@ -93,10 +112,16 @@ export default {
     },
 
     actions: {
-        async init({ commit, dispatch, getters }) {
-            const threadResponse = await axios.get('/threads/')
+        async initThreads({ commit, dispatch, getters }) {
+            const threadResponse = await apiRequest('/threads/')
 
-            commit('setThreads', threadResponse.data);
+            commit('setThreads', threadResponse);
+        },
+        
+        async initBoard({ commit, dispatch, getters }, threadName) {
+            await dispatch('initThreads')
+
+            commit('setCurrentThreadName', threadName);
 
             await dispatch('loadBoardsForThread', getters.currentThread.id)
         },
@@ -106,9 +131,9 @@ export default {
                 return;
             }
 
-            const listResponse = await axios.get(`/boards/?thread=${threadId}`)
+            const listResponse = await apiRequest(`/boards/?thread=${threadId}`)
 
-            commit('setListResponse', listResponse.data)
+            commit('setListResponse', listResponse)
         },
 
         async reloadBoards({ dispatch, getters }) {
@@ -133,17 +158,22 @@ export default {
 
             commit('updateBoardInListResponse', newBoard)
 
-            const board = await axios.put(`/boards/${newBoard.id}/`, newBoard)
+            const board = await apiRequest(`/boards/${newBoard.id}/`, {
+                method: 'PUT',
+                body: JSON.stringify(newBoard)
+            })
 
-            commit('updateBoardInListResponse', board.data)
+            commit('updateBoardInListResponse', board)
         },
 
         async close({ commit, getters }, payload) {
             const oldBoard = getters.currentBoard
 
-            const board = await axios.post(`/boards/${oldBoard.id}/commit/`)
+            const board = await apiRequest(`/boards/${oldBoard.id}/commit/`, {
+                method: 'POST'
+            })
 
-            commit('updateBoardInListResponse', board.data)
+            commit('updateBoardInListResponse', board)
         }
     }
 }

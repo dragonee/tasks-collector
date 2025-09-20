@@ -18,6 +18,7 @@ router.register(r'journal', views.JournalAddedViewSet)
 router.register(r'quick-notes', views.QuickNoteViewSet)
 router.register(r'observation-events', views.ObservationEventViewSet)
 router.register(r'habit-api', views.HabitViewSet)
+router.register(r'profile', views.ProfileViewSet, basename='profile')
 
 urlpatterns = [
     path('boards/<int:id>/summary/', views.board_summary),
@@ -25,11 +26,12 @@ urlpatterns = [
 
     path('boards/<int:id>/commit/', views.commit_board),
     path('boards/append/', views.add_task),
-    path('periodical/', views.periodical),
     path('observations/add/', views.observation_edit, name='public-observation-add'),
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/$', views.observation_edit, name='public-observation-edit'),
-    path('observations/', views.ObservationListView.as_view(), name='public-observation-list'),
+    path('observations/', views.ObservationMineListView.as_view(), name='public-observation-list'),
+    path('observations/all/', views.ObservationListView.as_view(), name='public-observation-list-all'),
     path('observations/closed/', views.ObservationClosedListView.as_view(), name='public-observation-list-closed'),
+    path('lessons/', views.LessonsListView.as_view(), name='public-lessons-list'),
     path('observations/<int:observation_id>/journalize/', views.migrate_observation_updates_to_journal, name='public-observation-journalize'),
     path('diary/<int:year>/<int:month>/', views.JournalArchiveMonthView.as_view(month_format="%m"), name='public-diary-archive-month'),
     path('diary/', views.JournalCurrentMonthArchiveView.as_view(month_format="%m"), name='public-diary-archive-current-month'),
@@ -43,15 +45,21 @@ urlpatterns = [
     re_path(r'^observations/closed/(?P<event_stream_id>[a-f0-9\-]+)/$', views.observation_closed_detail, name='public-observation-closed-detail'),
 
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/close/$', views.observation_close, name='public-observation-close'),
+    re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/attach/$', views.observation_attach, name='public-observation-attach'),
+    re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/detach/$', views.observation_detach, name='public-observation-detach'),
+    re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/attachments/$', views.observation_attachments, name='public-observation-attachments'),
+    path('observations/search/', views.observation_search, name='public-observation-search'),
 
     path('', views.today, name='public-today'),
     path('', include(router.urls)),
-    path('todo/', TemplateView.as_view(template_name='tree/tasks.html')),
+    path('todo/', views.todo, name='todo'),
     path('q/', views.quick_notes, name='quick-notes'),
     path('q/post/', views.add_quick_note_hx, name='quick-note-add'),
 
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('breakthrough/<int:year>/', views.breakthrough, name='breakthrough'),
+    re_path(r'^projected-outcome/(?P<event_stream_id>[a-f0-9\-]+)/events/$', views.projected_outcome_events_history, name='projected-outcome-events-history'),
     path('stats/', views.stats, name='stats'),
     path('api/events/daily/', views.daily_events, name='daily-events'),
+    path('accounts/settings/', views.account_settings, name='account-settings'),
 ]

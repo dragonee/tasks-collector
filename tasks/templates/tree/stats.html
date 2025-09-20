@@ -63,11 +63,45 @@
             <td><strong>{{ observation_closed_count }}</strong></td>
         </tr>
         <tr>
+            <th colspan="2">Projected Outcomes</th>
+        </tr>
+        <tr>
+            <td>Outcomes Created:</td>
+            <td><strong>{{ projected_outcome_made_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Outcomes Redefined:</td>
+            <td><strong>{{ projected_outcome_redefined_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Outcomes Rescheduled:</td>
+            <td><strong>{{ projected_outcome_rescheduled_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Outcomes Closed:</td>
+            <td><strong>{{ projected_outcome_closed_count }}</strong></td>
+        </tr>
+        <tr>
             <th colspan="2">Summary</th>
         </tr>
         <tr>
             <td>Total events:</td>
             <td><strong>{{ event_count }}</strong></td>
+        </tr>
+        <tr>
+            <td>Total words:</td>
+            <td>
+                <strong>
+                    {% if word_count %}
+                        {{ word_count|floatformat:"0" }}
+                    {% else %}
+                        <em>Not calculated</em>
+                    {% endif %}
+                </strong>
+                {% if word_count_updated %}
+                    <br><small class="text-muted">Updated: {{ word_count_updated|date:"M j, Y g:i A" }}</small>
+                {% endif %}
+            </td>
         </tr>
     </table>
 </section>

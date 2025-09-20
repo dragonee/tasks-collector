@@ -357,3 +357,320 @@
 .v-context__sub > a:after {
   content: "›";
 }
+
+// Year navigation styles for breakthrough page
+.year-navigation {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.nav-link {
+  display: block;
+  align-items: center;
+  padding: 0.5rem 0.5rem;
+  text-decoration: none;
+  color: #aaa;
+  border-radius: 4px;
+  height: 100%;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #e9ecef;
+    color: #1a365d;
+    text-decoration: none;
+  }
+}
+
+// Projected Outcome Events History styles
+.projected-outcome-history {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.outcome-summary {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+
+  .outcome-info p {
+    margin-bottom: 10px;
+  }
+}
+
+.timeline {
+  position: relative;
+  padding-left: 30px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+  }
+}
+
+.timeline-event {
+  position: relative;
+  margin-bottom: 30px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #007bff;
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px #dee2e6;
+  }
+}
+
+.event-date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 0.9em;
+  color: #6c757d;
+}
+
+.projected-outcome-history .event-content {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.event-type {
+  h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.1em;
+  }
+
+  &.event-made { border-left: 4px solid #28a745; }
+  &.event-redefined { border-left: 4px solid #ffc107; }
+  &.event-rescheduled { border-left: 4px solid #17a2b8; }
+  &.event-closed { border-left: 4px solid #dc3545; }
+}
+
+.change-diff {
+  margin: 10px 0;
+
+  .old-value, .new-value {
+    margin: 5px 0;
+    padding: 8px;
+    border-radius: 4px;
+  }
+
+  .old-value {
+    background: #f8d7da;
+  }
+
+  .new-value {
+    background: #d4edda;
+  }
+}
+
+.event-details {
+  del {
+    text-decoration: line-through;
+    color: #721c24;
+  }
+
+  ins {
+    text-decoration: none;
+    color: #155724;
+    background: #d4edda;
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+}
+
+.no-events {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 40px;
+}
+
+// History link styling for breakthrough page
+.history-link {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 4px 6px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 14px;
+  color: #6c757d;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    color: #495057;
+    text-decoration: none;
+  }
+}
+
+.situation-italic {
+  font-style: italic;
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 0.5em;
+}
+
+// Login page styles
+.page-login {
+  background: #f8f9fa;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  
+  .cont {
+    background: white;
+    padding: 3rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #dee2e6;
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #343a40;
+      font-weight: 300;
+      font-size: 1.75rem;
+    }
+    
+    .alert {
+      padding: 0.75rem 1.25rem;
+      margin-bottom: 1rem;
+      border: 1px solid transparent;
+      border-radius: 0.25rem;
+      
+      &.alert-danger {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+      }
+    }
+    
+    p {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #6c757d;
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+      
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #495057;
+        font-weight: 500;
+      }
+      
+      input {
+        display: block;
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: #495057;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        
+        &:focus {
+          color: #495057;
+          background-color: #fff;
+          border-color: #80bdff;
+          outline: 0;
+          box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+      }
+    }
+    
+    .btn {
+      display: inline-block;
+      font-weight: 400;
+      color: #212529;
+      text-align: center;
+      vertical-align: middle;
+      cursor: pointer;
+      background-color: transparent;
+      border: 1px solid transparent;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      border-radius: 0.25rem;
+      transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      text-decoration: none;
+      width: 100%;
+      
+      &.btn-primary {
+        color: #fff;
+        background-color: #007bff;
+        border-color: #007bff;
+        
+        &:hover {
+          color: #fff;
+          background-color: #0069d9;
+          border-color: #0062cc;
+        }
+        
+        &:focus {
+          box-shadow: 0 0 0 0.2rem rgba(38, 143, 255, 0.5);
+        }
+      }
+    }
+  }
+}
+
+.btn {
+  &.btn-outline-secondary {
+    color: #6c757d;
+    border-color: #6c757d;
+    background-color: #eee;
+    
+    &:hover {
+      color: #fff;
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+    
+    &:focus {
+      box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+    }
+  }
+  
+  &.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+  }
+}
+

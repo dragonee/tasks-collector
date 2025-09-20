@@ -13,10 +13,20 @@ from rest_polymorphic.serializers import PolymorphicSerializer
 
 from .templatetags.model_presenters import first_line
 
+from django.contrib.auth import get_user_model
+from django.conf import settings
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
         fields = ['id', 'name']
+
+class ProfileSerializer(serializers.ModelSerializer):
+    default_board_thread = ThreadSerializer(read_only=True)
+    
+    class Meta:
+        model = Profile
+        fields = ['id', 'default_board_thread']
 
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
     today_tracked = serializers.IntegerField(read_only=True)
@@ -118,12 +128,19 @@ class BaseTypeThreadSerializer(serializers.HyperlinkedModelSerializer):
         slug_field='name'
     )
 
-class ObservationSerializer(BaseTypeThreadSerializer):
+class ObservationUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ['id', 'username']
 
+class ObservationSerializer(BaseTypeThreadSerializer):
+    user = ObservationUserSerializer(read_only=True)
+    
     class Meta:
         model = Observation
-        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach']
-    
+        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'user']
+        
+
     @transaction.atomic
     def save(self, *args, **kwargs):
         old_obj = get_unsaved_object(Observation, self.instance)
@@ -309,6 +326,86 @@ class HabitTrackedSerializer(serializers.ModelSerializer):
         model = HabitTracked
         fields = ['id', 'published', 'habit', 'occured', 'note']
 
+
+class ProjectedOutcomeMadeSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeMade
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'name',
+            'description',
+            'resolved_by',
+            'success_criteria'
+        ]
+
+
+class ProjectedOutcomeRedefinedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeRedefined
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'old_name',
+            'new_name',
+            'old_description',
+            'new_description',
+            'old_success_criteria',
+            'new_success_criteria'
+        ]
+
+
+class ProjectedOutcomeRescheduledSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeRescheduled
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'old_resolved_by',
+            'new_resolved_by'
+        ]
+
+
+class ProjectedOutcomeClosedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ProjectedOutcomeClosed
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'name',
+            'description',
+            'resolved_by',
+            'success_criteria'
+        ]
+
 def get_observation_object(obj):
     if obj.observation:
         return obj.observation
@@ -329,6 +426,41 @@ class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
         fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id', 'situation_at_creation', 'url']
 
 
+class ObservationAttachedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ObservationAttached
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'other_event_stream_id',
+            'observation'
+        ]
+
+
+class ObservationDetachedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+    
+    class Meta:
+        model = ObservationDetached
+        fields = [
+            'id',
+            'published',
+            'event_stream_id',
+            'thread',
+            'other_event_stream_id'
+        ]
+
+
 class EventSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
         ObservationMade: ObservationMadeSerializer,
@@ -337,8 +469,14 @@ class EventSerializer(PolymorphicSerializer):
         ObservationReflectedUpon: ObservationReflectedUponSerializer,
         ObservationClosed: ObservationClosedSerializer,
         ObservationUpdated: ObservationUpdatedEventSerializer,
+        ObservationAttached: ObservationAttachedSerializer,
+        ObservationDetached: ObservationDetachedSerializer,
         JournalAdded: JournalAddedSerializer,
         HabitTracked: HabitTrackedSerializer,
+        ProjectedOutcomeMade: ProjectedOutcomeMadeSerializer,
+        ProjectedOutcomeRedefined: ProjectedOutcomeRedefinedSerializer,
+        ProjectedOutcomeRescheduled: ProjectedOutcomeRescheduledSerializer,
+        ProjectedOutcomeClosed: ProjectedOutcomeClosedSerializer,
     }
 
 class tree_iterator:

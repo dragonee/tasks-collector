@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from rest_framework import viewsets
 from rest_framework import status
@@ -11,6 +13,7 @@ from .commit import merge, calculate_changes_per_board
 from .habits import habits_line_to_habits_tracked
 
 from django.db.models import Count, Q, Exists, OuterRef
+from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from datetime import date, timedelta
 
 from django.http import HttpResponse
@@ -32,6 +35,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 from django.forms import inlineformset_factory
 
+from django.contrib import messages
+
 from django.urls import reverse
 
 from django.views.generic.dates import ArchiveIndexView, MonthArchiveView, DayArchiveView, TodayArchiveView
@@ -39,12 +44,15 @@ from django.views.generic.detail import DetailView
 
 from collections import Counter, namedtuple
 from functools import cached_property
+from calendar import monthrange
 
 import datetime
 
 from .utils.itertools import itemize
 
 from .observation_operations import migrate_observation_updates_to_journal as _migrate_observation_updates_to_journal
+from .utils.statistics import get_word_count_statistic
+from .presenters import ComplexPresenter
 
 class ObservationPagination(PageNumberPagination):
     page_size = 10
@@ -118,6 +126,23 @@ class ReflectionViewSet(viewsets.ModelViewSet):
     serializer_class = ReflectionSerializer
 
 class ObservationFilter(filters.FilterSet):
+    OWNERSHIP_CHOICES = [
+        ('all', 'All observations'),
+        ('mine', 'My observations'),
+    ]
+
+    ownership = filters.ChoiceFilter(
+        choices=OWNERSHIP_CHOICES,
+        method='filter_ownership',
+        empty_label='All observations',
+        label='Show'
+    )
+
+    def filter_ownership(self, queryset, name, value):
+        if value == 'mine':
+            return queryset.filter(user=self.request.user)
+        return queryset
+
     class Meta:
         model = Observation
         fields = {
@@ -158,6 +183,9 @@ class ObservationViewSet(viewsets.ModelViewSet):
             return ObservationWithUpdatesSerializer
         
         return ObservationSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 class ObservationUpdatedViewSet(viewsets.ModelViewSet):
     queryset = ObservationUpdated.objects.order_by('published')
@@ -217,6 +245,13 @@ class ThreadViewSet(viewsets.ModelViewSet):
     queryset = Thread.objects.all()
     serializer_class = ThreadSerializer
 
+class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ProfileSerializer
+    
+    def get_queryset(self):
+        # Only return the current user's profile
+        return Profile.objects.filter(user=self.request.user)
+
 def make_board(thread_name):
     thread=Thread.objects.get(name=thread_name)
 
@@ -267,6 +302,59 @@ def commit_board(request, id=None):
 
     return RestResponse(BoardSerializer(board).data)
 
+def _get_current_plans():
+    """Helper function to get current Daily, Weekly, and big-picture plans"""
+    from datetime import date
+    
+    today = date.today()
+    
+    try:
+        daily_plan = Plan.objects.get(pub_date=today, thread__name='Daily')
+    except Plan.DoesNotExist:
+        daily_plan = None
+        
+    try:
+        weekly_plan = Plan.objects.get(pub_date=make_last_day_of_the_week(today), thread__name='Weekly')
+    except Plan.DoesNotExist:
+        weekly_plan = None
+        
+    try:
+        big_picture_plan = Plan.objects.get(pub_date=make_last_day_of_the_month(today), thread__name='big-picture')
+    except Plan.DoesNotExist:
+        big_picture_plan = None
+    
+    return {
+        'daily_plan': daily_plan,
+        'weekly_plan': weekly_plan,
+        'big_picture_plan': big_picture_plan,
+    }
+
+def _add_task_to_board(text, thread_name):
+    """Helper function to add a task to a board"""
+    thread = get_object_or_404(Thread, name=thread_name)
+    board = Board.objects.filter(thread=thread).order_by('-date_started').first()
+    if board:
+        board.state.append({
+            'children': [],
+            'data': {
+                'state': 'open',
+                'text': text,
+                'meaningfulMarkers': {
+                    "weeksInList": 0,
+                    "important": False,
+                    "finalizing": False,
+                    "canBeDoneOutsideOfWork": False,
+                    "canBePostponed": False,
+                    "postponedFor": 0,
+                    "madeProgress": False,
+                }
+            },
+            'text': text,
+        })
+        board.save()
+        return board
+    return None
+
 @api_view(['POST'])
 def add_task(request):
     item = request.data
@@ -275,31 +363,10 @@ def add_task(request):
     if 'text' not in item or 'thread-name' not in item:
         return RestResponse({'errors': 'no thread-name and text'}, status=status.HTTP_400_BAD_REQUEST)
     
-    thread = get_object_or_404(Thread, name=item['thread-name'])
-    board = Board.objects.filter(thread=thread).order_by('-date_started').first()
-
-    board.state.append({
-        'children': [],
-        'data': {
-            'state': 'open',
-            'text': item['text'],
-            'meaningfulMarkers': {
-                "weeksInList": 0,
-                "important": False,
-                "finalizing": False,
-                "canBeDoneOutsideOfWork": False,
-                "canBePostponed": False,
-                "postponedFor": 0,
-                "madeProgress": False,
-            }
-        },
-        'text': item['text'],
-    })
-
-    board.save()
-
+    board = _add_task_to_board(item['text'], item['thread-name'])
     return RestResponse(BoardSerializer(board).data)
 
+@login_required
 def board_summary(request, id):
     board = get_object_or_404(BoardCommitted, pk=id)
 
@@ -316,6 +383,7 @@ def period_from_request(request, days=7, start=None, end=None):
         request.GET.get('to', end or datetime.date.today() + datetime.timedelta(days=1))
     )
 
+@login_required
 def summaries(request):
     period = period_from_request(request, days=30)
 
@@ -328,78 +396,6 @@ def summaries(request):
         'summaries': summaries,
     })
 
-# XXX this does not account for missing day entries
-# as of now this is not required. However, it might change
-# solution: wrap plans and reflections with additional period-aware utility iterator
-class Periodical:
-    def __init__(self, plans, reflections):
-        self.plans = plans
-        self.reflections = reflections
-
-    def __iter__(self):
-        return zip(self.plans, self.reflections)
-
-    def __len__(self):
-        return len(self.plans)
-
-    def __getattr__(self, attr):
-        # Hack for django-debug-toolbar
-        if attr == '_wrapped':
-            raise AttributeError
-
-        attr1, attr2 = attr.split('__')
-
-        return map(lambda x: getattr(x, attr2), getattr(self, attr1 + 's'))
-
-
-def periodical(request):
-    try:
-        last_big_picture_reflection = Reflection.objects.filter(
-            thread__name='big-picture'
-        ).order_by('-pub_date')[0]
-
-        start_date = min([
-            last_big_picture_reflection.pub_date,
-            datetime.date.today() - datetime.timedelta(days=14)
-        ])
-
-        period = period_from_request(
-            request,
-            start=start_date
-        )
-    except IndexError:
-        period = period_from_request(
-            request,
-            days=14
-        )
-
-    plans = Plan.objects.filter(pub_date__range=period) \
-        .order_by('pub_date') \
-        .select_related('thread')
-
-    reflections = Reflection.objects.filter(pub_date__range=period) \
-        .order_by('pub_date') \
-        .select_related('thread')
-
-    thread = request.GET.get('thread')
-
-    if thread:
-        plans = plans.filter(thread_id=thread)
-        reflections = reflections.filter(thread_id=thread)
-
-    view = request.GET.get('view', 'list')
-
-    if view not in ('list', 'table'):
-        view = 'list'
-
-    template = 'periodical_{}.html'.format(view)
-
-    return render(request, template, {
-        'period': period,
-        'plans': plans,
-        'reflections': reflections,
-        'combined': Periodical(plans, reflections),
-    })
 
 DayCount = namedtuple('DayCount', ['date', 'count'])
 
@@ -426,8 +422,80 @@ def _event_calendar(start, end):
 def adjust_start_date_to_monday(date):
     if date.weekday() == 0:
         return date
-    
+
     return date - datetime.timedelta(days=date.weekday())
+
+
+def adjust_date_to_sunday(date):
+    """Adjust date to the Sunday of its week (6 = Sunday in Python's weekday system)"""
+    days_until_sunday = (6 - date.weekday()) % 7
+    return date + datetime.timedelta(days=days_until_sunday)
+
+
+def get_week_period(date):
+    """Get the (start, end) tuple for the week containing the given date"""
+    monday = adjust_start_date_to_monday(date)
+    sunday = monday + datetime.timedelta(days=6)
+    return (monday, sunday)
+
+
+def get_month_period(date):
+    """Get the (start, end) tuple for the month containing the given date"""
+    month_start = date.replace(day=1)
+    month_end = date.replace(day=monthrange(date.year, date.month)[1])
+    return (month_start, month_end)
+
+
+def generate_periods(start, end, period_func):
+    """Generate all periods between start and end using the given period function"""
+    periods = []
+    seen_periods = set()
+
+    current = start
+    while current <= end:
+        period = period_func(current)
+        if period not in seen_periods:
+            periods.append(period)
+            seen_periods.add(period)
+
+        # Move forward by the period duration
+        if period_func == get_week_period:
+            current += datetime.timedelta(days=7)
+        else:  # monthly
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+
+    return periods
+
+
+def get_summary_calendar(start, end, thread_name, period_func):
+    """Generic function to get summary calendar for any period type"""
+    # Get all reflections for this thread
+    reflections = Reflection.objects.filter(
+        pub_date__range=(start, end),
+        thread__name=thread_name
+    ).values('pub_date')
+
+    # Group reflections by their periods
+    periods_with_summaries = Counter()
+    for reflection in reflections:
+        period = period_func(reflection['pub_date'])
+        periods_with_summaries[period] += 1
+
+    # Generate all periods in the date range
+    all_periods = generate_periods(start, end, period_func)
+
+    # Create result list with period end dates and counts
+    result = []
+    for period_start, period_end in all_periods:
+        period_tuple = (period_start, period_end)
+        count = periods_with_summaries.get(period_tuple, 0)
+        has_summary = 1 if count > 0 else 0
+        result.append(DayCount(date=period_end, count=has_summary))
+
+    return result
 
 
 def event_calendar(start, end):
@@ -441,12 +509,58 @@ def event_calendar(start, end):
     )
 
 
+def weekly_summary_calendar(start, end):
+    """Generate calendar data for weekly summaries - one indicator per week"""
+    start = adjust_start_date_to_monday(start)
+    return get_summary_calendar(start, end, 'Weekly', get_week_period)
+
+
+def monthly_summary_calendar(start, end):
+    """Generate calendar data for monthly summaries - mark ALL weeks within months that have summaries"""
+    start = adjust_start_date_to_monday(start)
+
+    # Get monthly reflections
+    reflections = Reflection.objects.filter(
+        pub_date__range=(start, end),
+        thread__name='big-picture'
+    ).values('pub_date')
+
+    # Map monthly summaries to months
+    months_with_summaries = set()
+    for reflection in reflections:
+        month_key = (reflection['pub_date'].year, reflection['pub_date'].month)
+        months_with_summaries.add(month_key)
+
+    # Generate all weekly periods in the date range
+    all_weekly_periods = generate_periods(start, end, get_week_period)
+
+    # Create result list - mark ALL weeks that fall within months with summaries
+    result = []
+    for period_start, period_end in all_weekly_periods:
+        # Check if any day in this week falls within a month that has a summary
+        has_summary = 0
+
+        # Check each day in this week
+        current_day = period_start
+        while current_day <= period_end:
+            month_key = (current_day.year, current_day.month)
+            if month_key in months_with_summaries:
+                has_summary = 1
+                break
+            current_day += datetime.timedelta(days=1)
+
+        result.append(DayCount(date=period_end, count=has_summary))
+
+    return result
+
+
 def make_last_day_of_the_week(date):
     return date + datetime.timedelta(days=(6 - date.weekday()))
 
 def make_last_day_of_the_month(date):
     return date.replace(day=monthrange(date.year, date.month)[1])
 
+@login_required
 def today(request):
     if request.method == 'POST':
         thread_name = request.POST.get('thread')
@@ -533,6 +647,7 @@ def today(request):
 
     journals = JournalAdded.objects.filter(
         published__gte=today - datetime.timedelta(days=1),
+        thread=thread,
     ).order_by('published')
 
     def get_last_date(date, thread):
@@ -584,9 +699,11 @@ def today(request):
 
         'journals': journals,
         'event_calendar': event_calendar(day_start - datetime.timedelta(weeks=52), day_end),
+        'weekly_summary_calendar': weekly_summary_calendar((day_start - datetime.timedelta(weeks=52)).date(), day_end.date()),
+        'monthly_summary_calendar': monthly_summary_calendar((day_start - datetime.timedelta(weeks=52)).date(), day_end.date()),
     })
 
-class ObservationListView(ListView):
+class ObservationListView(LoginRequiredMixin, ListView):
     model = Observation
     queryset = Observation.objects \
         .select_related('thread', 'type') \
@@ -599,15 +716,20 @@ class ObservationListView(ListView):
 
         context['open_count'] = Observation.objects.count()
         context['closed_count'] = ObservationClosed.objects.count()
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
+
+        # Add attach mode context
+        context['attach_mode'] = self.request.GET.get('attach_mode') == 'true'
+        context['attach_observation_id'] = self.request.GET.get('observation_id')
 
         return context
 
-class ObservationClosedListView(ListView):
+class ObservationClosedListView(LoginRequiredMixin, ListView):
     model = ObservationClosed
     queryset = ObservationClosed.objects \
         .select_related('thread', 'type') \
         .order_by('-published')
-    
+
     paginate_by = 100
 
     def get_context_data(self, **kwargs):
@@ -615,9 +737,58 @@ class ObservationClosedListView(ListView):
 
         context['open_count'] = Observation.objects.count()
         context['closed_count'] = ObservationClosed.objects.count()
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
 
         return context
 
+class ObservationMineListView(LoginRequiredMixin, ListView):
+    model = Observation
+    template_name = 'tree/observation_list.html'
+    paginate_by = 200
+
+    def get_queryset(self):
+        return Observation.objects \
+            .filter(user=self.request.user) \
+            .select_related('thread', 'type') \
+            .prefetch_related('observationupdated_set') \
+            .order_by('-pub_date', '-pk')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['open_count'] = Observation.objects.count()
+        context['closed_count'] = ObservationClosed.objects.count()
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
+
+        # Add attach mode context
+        context['attach_mode'] = self.request.GET.get('attach_mode') == 'true'
+        context['attach_observation_id'] = self.request.GET.get('observation_id')
+
+        return context
+
+class LessonsListView(LoginRequiredMixin, ListView):
+    model = ObservationClosed
+    template_name = 'tree/lessons_list.html'
+    paginate_by = 100
+
+    def get_queryset(self):
+        return ObservationClosed.objects \
+            .select_related('thread', 'type') \
+            .exclude(approach__isnull=True) \
+            .exclude(approach__exact='') \
+            .exclude(approach__exact='?') \
+            .order_by('-published')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context['open_count'] = Observation.objects.count()
+        context['closed_count'] = ObservationClosed.objects.count()
+        context['mine_count'] = Observation.objects.filter(user=self.request.user).count()
+
+        return context
+
+@login_required
 def observation_closed_detail(request, event_stream_id):
     observation_closed = get_object_or_404(ObservationClosed, event_stream_id=event_stream_id)
     
@@ -634,6 +805,7 @@ def observation_closed_detail(request, event_stream_id):
         'time_to_closed': time_to_closed
     })
 
+@login_required
 def observation_edit(request, observation_id=None):
     if observation_id is not None:
         observation = get_object_or_404(Observation, id=observation_id)        
@@ -664,6 +836,8 @@ def observation_edit(request, observation_id=None):
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 obj = form.save(commit=False)
+                if not obj.pk:
+                    obj.user = request.user
                 obj.save()
                 
                 events = spawn_observation_events(previous, obj, published=now)
@@ -701,8 +875,11 @@ def observation_edit(request, observation_id=None):
     
     if observation.event_stream_id:
         events = Event.objects.filter(event_stream_id=observation.event_stream_id)
+        # Initialize ComplexPresenter for this observation
+        complex_presenter = ComplexPresenter(observation.event_stream_id)
     else:
         events = []
+        complex_presenter = None
 
     return render(request, "tree/observation_edit.html", {
         "events": events,
@@ -710,6 +887,7 @@ def observation_edit(request, observation_id=None):
         "formset": formset,
         "instance": observation,
         "thread_as_link": True,
+        "complex_presenter": complex_presenter,
     })
 
 
@@ -774,11 +952,12 @@ def track_habit(request):
 
 
 @require_POST
+@login_required
 def add_quick_note_hx(request):
     if not request.htmx:
         return HttpResponse("Only HTMX allowed", status=status.HTTP_400_BAD_REQUEST)
 
-    form = QuickNoteForm(request.POST)
+    form = QuickContentForm(request.POST)
 
     if not form.is_valid():
         response = render(request, "tree/quick_note/form.html", {
@@ -789,16 +968,53 @@ def add_quick_note_hx(request):
 
         return response
     
-    form.save()
+    content_type = form.cleaned_data['content_type']
+    content = form.cleaned_data['content']
+    
+    if content_type == 'quick_note':
+        QuickNote.objects.create(note=content)
+    elif content_type == 'task':
+        # Add task to current inbox board
+        _add_task_to_board(content, 'Inbox')
+    elif content_type == 'plan_focus':
+        timeframe = form.cleaned_data['focus_timeframe']
+        from datetime import date, timedelta
+        
+        if timeframe == 'today':
+            focus_date = date.today()
+            thread = Thread.objects.get(name='Daily')
+        elif timeframe == 'tomorrow':
+            focus_date = date.today() + timedelta(days=1)
+            thread = Thread.objects.get(name='Daily')
+        elif timeframe == 'this_week':
+            focus_date = date.today()
+            thread = Thread.objects.get(name='Weekly')
+        
+        plan, created = Plan.objects.get_or_create(
+            pub_date=focus_date,
+            thread=thread,
+            defaults={'focus': content}
+        )
+        if not created:
+            # Append to existing focus content
+            if plan.focus:
+                plan.focus += '\n' + content
+            else:
+                plan.focus = content
+            plan.save()
 
     return HttpResponseClientRefresh()
 
 
+@login_required
 def quick_notes(request):
-    return render(request, "tree/quick_note.html", {
+    context = {
         'notes': QuickNote.objects.order_by('published'),
-        'form': QuickNoteForm(),
-    })
+        'form': QuickContentForm(),
+    }
+    context.update(_get_current_plans())
+    
+    return render(request, "tree/quick_note.html", context)
 
 
 ### XXX TODO 
@@ -837,7 +1053,9 @@ class EventArchiveContextMixin:
         )
         return context
 
-class CurrentMonthArchiveView(MonthArchiveView):
+class CurrentMonthArchiveView(LoginRequiredMixin, MonthArchiveView):
+    allow_empty = True
+
     def get_month(self):
         return timezone.now().month
 
@@ -853,14 +1071,12 @@ class CurrentMonthArchiveView(MonthArchiveView):
 class JournalCurrentMonthArchiveView(JournalArchiveContextMixin, CurrentMonthArchiveView):
     model = JournalAdded
     date_field = 'published'
-    allow_future = True
-    allow_empty = True
-    
+    allow_future = True    
 
     template_name = 'tree/journaladded_archive_month.html'
 
 
-class JournalArchiveMonthView(JournalArchiveContextMixin, MonthArchiveView):
+class JournalArchiveMonthView(LoginRequiredMixin, JournalArchiveContextMixin, MonthArchiveView):
     model = JournalAdded
     date_field = 'published'
     allow_future = True
@@ -874,7 +1090,7 @@ class JournalTagArchiveContextMixin(JournalArchiveContextMixin):
 
         return context
 
-class JournalTagArchiveMonthView(JournalTagArchiveContextMixin, MonthArchiveView):
+class JournalTagArchiveMonthView(LoginRequiredMixin, JournalTagArchiveContextMixin, MonthArchiveView):
     model = JournalAdded
     date_field = 'published'
     allow_future = True
@@ -900,7 +1116,7 @@ class EventCurrentMonthArchiveView(EventArchiveContextMixin, CurrentMonthArchive
     date_field = 'published'
     allow_future = True
 
-class EventArchiveMonthView(EventArchiveContextMixin, MonthArchiveView):
+class EventArchiveMonthView(LoginRequiredMixin, EventArchiveContextMixin, MonthArchiveView):
     model = Event
     date_field = 'published'
     allow_future = True
@@ -937,7 +1153,7 @@ def habit_calendar(habit, start, end):
         item_type=DayCount
     )
 
-class HabitDetailView(DetailView):
+class HabitDetailView(LoginRequiredMixin, DetailView):
     model = Habit
 
     def get_slug_field(self) -> str:
@@ -960,7 +1176,7 @@ class HabitDetailView(DetailView):
 
         return context
 
-class HabitListView(ListView):
+class HabitListView(LoginRequiredMixin, ListView):
     model = Habit
 
 
@@ -980,6 +1196,7 @@ def migrate_observation_updates_to_journal(request, observation_id):
 
     return redirect(reverse('public-observation-list'))
 
+@login_required
 def breakthrough(request, year):
     year = int(year)
     last_year = year - 1
@@ -1026,6 +1243,28 @@ def breakthrough(request, year):
         'projected_outcome_queryset': projected_outcome_queryset,
     })
 
+
+@login_required
+def projected_outcome_events_history(request, event_stream_id):
+    """Display the event history for a specific ProjectedOutcome by event_stream_id"""
+    from .presentation import ProjectedOutcomePresentation
+    
+    # Create a presentation object that handles both active and complete scenarios
+    presentation = ProjectedOutcomePresentation.from_event_stream_id(event_stream_id)
+    
+    return render(request, "tree/projected_outcome_events_history.html", {
+        'presentation': presentation,
+        # Legacy context for backwards compatibility (can be removed once template is updated)
+        'projected_outcome': presentation.active_instance,
+        'latest_closed_event': presentation.closed_events[-1] if presentation.closed_events else None,
+        'all_events': presentation.events,
+        'made_events': presentation.made_events,
+        'redefined_events': presentation.redefined_events,
+        'rescheduled_events': presentation.rescheduled_events,
+        'closed_events': presentation.closed_events,
+    })
+
+@login_required
 def stats(request):
     journal_qs = JournalAdded.objects.all()
     habit_qs = HabitTracked.objects.all()
@@ -1036,6 +1275,10 @@ def stats(request):
     observation_recontextualized_qs = ObservationRecontextualized.objects.all()
     observation_reflected_upon_qs = ObservationReflectedUpon.objects.all()
     observation_reinterpreted_qs = ObservationReinterpreted.objects.all()
+    projected_outcome_made_qs = ProjectedOutcomeMade.objects.all()
+    projected_outcome_redefined_qs = ProjectedOutcomeRedefined.objects.all()
+    projected_outcome_rescheduled_qs = ProjectedOutcomeRescheduled.objects.all()
+    projected_outcome_closed_qs = ProjectedOutcomeClosed.objects.all()
 
     try:
         year = int(request.GET.get('year'))
@@ -1052,6 +1295,13 @@ def stats(request):
         observation_recontextualized_qs = observation_recontextualized_qs.filter(published__year=year)
         observation_reflected_upon_qs = observation_reflected_upon_qs.filter(published__year=year)
         observation_reinterpreted_qs = observation_reinterpreted_qs.filter(published__year=year)
+        projected_outcome_made_qs = projected_outcome_made_qs.filter(published__year=year)
+        projected_outcome_redefined_qs = projected_outcome_redefined_qs.filter(published__year=year)
+        projected_outcome_rescheduled_qs = projected_outcome_rescheduled_qs.filter(published__year=year)
+        projected_outcome_closed_qs = projected_outcome_closed_qs.filter(published__year=year)
+
+    # Get word count statistic
+    word_count, word_count_updated = get_word_count_statistic(year=year)
 
     return render(request, "tree/stats.html", {
         'year': year,
@@ -1065,7 +1315,234 @@ def stats(request):
         'observation_recontextualized_count': observation_recontextualized_qs.count(),
         'observation_reflected_upon_count': observation_reflected_upon_qs.count(),
         'observation_reinterpreted_count': observation_reinterpreted_qs.count(),
+        'projected_outcome_made_count': projected_outcome_made_qs.count(),
+        'projected_outcome_redefined_count': projected_outcome_redefined_qs.count(),
+        'projected_outcome_rescheduled_count': projected_outcome_rescheduled_qs.count(),
+        'projected_outcome_closed_count': projected_outcome_closed_qs.count(),
+        'word_count': word_count,
+        'word_count_updated': word_count_updated,
     })
+
+@api_view(['POST'])
+def observation_attach(request, observation_id):
+    """Attach another observation to this observation (making it a complex observation)"""
+    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    
+    # Get the observation to attach - can be either observation_id or event_stream_id
+    other_observation_id = request.data.get('other_observation_id')
+    other_event_stream_id = request.data.get('other_event_stream_id')
+    
+    if not other_observation_id and not other_event_stream_id:
+        return RestResponse(
+            {'error': 'Either other_observation_id or other_event_stream_id is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Find the other observation
+    other_observation = None
+    if other_observation_id:
+        try:
+            other_observation = Observation.objects.get(pk=other_observation_id)
+            other_event_stream_id = other_observation.event_stream_id
+        except Observation.DoesNotExist:
+            return RestResponse(
+                {'error': 'Observation to attach does not exist'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+    else:
+        # Try to find by event_stream_id (might be a closed observation)
+        try:
+            other_observation = Observation.objects.get(event_stream_id=other_event_stream_id)
+        except Observation.DoesNotExist:
+            # It's okay if observation doesn't exist (could be closed)
+            other_observation = None
+    
+    # Check if the observation is already attached by replaying events
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    if complex_presenter.is_attached(other_event_stream_id):
+        # Already attached, find the most recent attach event and return it
+        latest_attach_event = ObservationAttached.objects.filter(
+            event_stream_id=complex_observation.event_stream_id,
+            other_event_stream_id=other_event_stream_id
+        ).order_by('-published').first()
+        
+        if latest_attach_event:
+            serializer = ObservationAttachedSerializer(latest_attach_event, context={'request': request})
+            return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+    
+    # Create the attach event
+    attach_event = ObservationAttached(
+        thread=complex_observation.thread,
+        event_stream_id=complex_observation.event_stream_id,
+        other_event_stream_id=other_event_stream_id,
+        observation=other_observation
+    )
+    attach_event.save()
+    
+    serializer = ObservationAttachedSerializer(attach_event, context={'request': request})
+    return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def observation_detach(request, observation_id):
+    """Detach an observation from this complex observation"""
+    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    
+    # Get the event_stream_id to detach
+    other_event_stream_id = request.data.get('other_event_stream_id')
+    if not other_event_stream_id:
+        return RestResponse(
+            {'error': 'other_event_stream_id is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Check if the observation is currently attached by replaying events
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    if not complex_presenter.is_attached(other_event_stream_id):
+        # Not attached, find the most recent detach event and return it
+        latest_detach_event = ObservationDetached.objects.filter(
+            event_stream_id=complex_observation.event_stream_id,
+            other_event_stream_id=other_event_stream_id
+        ).order_by('-published').first()
+        
+        if latest_detach_event:
+            serializer = ObservationDetachedSerializer(latest_detach_event, context={'request': request})
+            return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+    
+    # Create the detach event
+    detach_event = ObservationDetached(
+        thread=complex_observation.thread,
+        event_stream_id=complex_observation.event_stream_id,
+        other_event_stream_id=other_event_stream_id
+    )
+    detach_event.save()
+    
+    serializer = ObservationDetachedSerializer(detach_event, context={'request': request})
+    return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
+
+
+def filter_out_attached_observations(observations, observation_id):
+    """
+    Filter out observations that are already attached to the given observation,
+    including the base observation itself.
+    """
+    if not observation_id:
+        return observations
+    
+    try:
+        base_observation = Observation.objects.get(pk=observation_id)
+        from .presenters import ComplexPresenter
+        complex_presenter = ComplexPresenter(base_observation.event_stream_id)
+        attached_stream_ids = complex_presenter.get_attached_stream_ids()
+        
+        # Exclude the base observation itself and any attached observations
+        observations = observations.exclude(pk=observation_id)
+        if attached_stream_ids:
+            observations = observations.exclude(event_stream_id__in=attached_stream_ids)
+    except Observation.DoesNotExist:
+        pass  # If observation doesn't exist, proceed without filtering
+    
+    return observations
+
+
+@api_view(['GET'])
+def observation_search(request):
+    """Search observations by situation, interpretation, and approach text fields, or by primary key pattern"""
+    query = request.GET.get('q', '').strip()
+    observation_id = request.GET.get('observation')  # Optional parameter to filter out attached observations
+    
+    if not query:
+        return RestResponse(
+            {'error': 'Query parameter "q" is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Check if query is a primary key pattern search (numeric or #numeric)
+    pk_query = query
+    if query.startswith('#'):
+        pk_query = query[1:]
+    
+    if pk_query.isdigit():
+        # Search by primary key pattern - find PKs that start with the number
+        observations = Observation.objects.extra(
+            where=["CAST(id AS TEXT) LIKE %s"],
+            params=[pk_query + '%']
+        ).order_by('id')
+        
+        # Filter out attached observations if observation_id is provided
+        observations = filter_out_attached_observations(observations, observation_id)
+        
+        # Apply pagination
+        paginator = ObservationPagination()
+        page = paginator.paginate_queryset(observations, request)
+        
+        if page is not None:
+            serializer = ObservationSerializer(page, many=True, context={'request': request})
+            return paginator.get_paginated_response(serializer.data)
+        
+        serializer = ObservationSerializer(observations, many=True, context={'request': request})
+        return RestResponse({
+            'count': len(observations),
+            'next': None,
+            'previous': None,
+            'results': serializer.data
+        })
+    
+    # Create search vectors with different weights
+    # Situation field gets higher weight (A = highest weight)
+    # Interpretation and approach get lower weight (B)
+    search_vector = (
+        SearchVector('situation', weight='A') +
+        SearchVector('interpretation', weight='B') + 
+        SearchVector('approach', weight='B')
+    )
+    
+    search_query = SearchQuery(query)
+    
+    # Search observations and rank by relevance
+    observations = Observation.objects.annotate(
+        search=search_vector,
+        rank=SearchRank(search_vector, search_query)
+    ).filter(
+        search=search_query
+    ).order_by('-rank', '-pub_date')
+    
+    # Filter out attached observations if observation_id is provided
+    observations = filter_out_attached_observations(observations, observation_id)
+    
+    # Apply pagination
+    paginator = ObservationPagination()
+    page = paginator.paginate_queryset(observations, request)
+    
+    if page is not None:
+        serializer = ObservationSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+    
+    serializer = ObservationSerializer(observations, many=True, context={'request': request})
+    return RestResponse(serializer.data)
+
+
+@api_view(['GET'])
+def observation_attachments(request, observation_id):
+    """Get all currently attached observations for a given observation"""
+    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    
+    from .presenters import ComplexPresenter
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    
+    # Get all currently attached stream IDs
+    attached_stream_ids = complex_presenter.get_attached_stream_ids()
+    
+    # Return the list of stream IDs for frontend processing
+    return RestResponse({
+        'attached_observation_stream_ids': list(attached_stream_ids),
+        'count': len(attached_stream_ids)
+    })
+
 
 @api_view(['GET'])
 def daily_events(request):
@@ -1073,7 +1550,7 @@ def daily_events(request):
 
     thread_name = request.GET.get('thread', 'Daily')
 
-    events = Event.objects.filter(published__date=day).not_instance_of(BoardCommitted)
+    events = Event.objects.filter(published__date=day, thread__name=thread_name).not_instance_of(BoardCommitted)
 
     try:
         plan = Plan.objects.get(pub_date=day, thread__name=thread_name)
@@ -1090,4 +1567,40 @@ def daily_events(request):
         'events': EventSerializer(events, many=True, context={'request': request}).data,
         'plan': PlanSerializer(plan, context={'request': request}).data if plan else None,
         'reflection': ReflectionSerializer(reflection, context={'request': request}).data if reflection else None,
+    })
+
+@login_required
+def account_settings(request):
+    try:
+        profile = Profile.objects.get(user=request.user)
+    except Profile.DoesNotExist:
+        profile = Profile(user=request.user)
+
+    if request.method == 'POST':
+        profile_form = ProfileForm(request.POST, instance=profile)
+        user_form = UserForm(request.POST, instance=request.user)
+        if profile_form.is_valid() and user_form.is_valid():
+            profile_form.save()
+            user_form.save()
+            messages.success(request, 'Settings saved successfully!')
+            return redirect('account-settings')
+    else:
+        profile_form = ProfileForm(instance=profile)
+        user_form = UserForm(instance=request.user)
+
+    return render(request, 'tree/account_settings.html', {
+        'profile_form': profile_form,
+        'user_form': user_form,
+        'profile': profile,
+    })
+
+@login_required
+def todo(request):
+    try:
+        profile = Profile.objects.get(user=request.user)
+    except Profile.DoesNotExist:
+        profile = None
+    
+    return render(request, 'tree/tasks.html', {
+        'profile': profile,
     })

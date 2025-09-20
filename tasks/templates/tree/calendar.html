@@ -1,11 +1,35 @@
 
 
+<div class="calendar-daily-row">
 {% for event in event_calendar %}
-    <div 
-        title="{{ event.count }} contribution{{ event.count|pluralize }} on {{ event.date|date:"Y-m-d" }}" 
-        class="event-day" 
-        data-count="{{ event.count }}" 
+    <div
+        title="{{ event.count }} contribution{{ event.count|pluralize }} on {{ event.date|date:"Y-m-d" }}"
+        class="event-day"
+        data-count="{{ event.count }}"
         data-date="{{ event.date|date:"Y-m-d" }}"
     ></div>
 {% endfor %}
+</div>
+
+<div class="calendar-row weekly-summary-row">
+    {% for event in weekly_summary_calendar %}
+        <div
+            title="{% if event.count %}Weekly summary available{% else %}No weekly summary{% endif %} for week ending {{ event.date|date:"M d, Y" }}"
+            class="summary-day weekly-summary"
+            data-has-summary="{{ event.count }}"
+            data-date="{{ event.date|date:"Y-m-d" }}"
+        ></div>
+    {% endfor %}
+</div>
+
+<div class="calendar-row monthly-summary-row">
+    {% for event in monthly_summary_calendar %}
+        <div
+            title="{% if event.count %}Monthly summary available{% else %}No monthly summary{% endif %} for {{ event.date|date:"F Y" }}"
+            class="summary-day monthly-summary"
+            data-has-summary="{{ event.count }}"
+            data-date="{{ event.date|date:"Y-m-d" }}"
+        ></div>
+    {% endfor %}
+</div>
 

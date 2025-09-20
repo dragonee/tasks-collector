@@ -30,7 +30,7 @@ services:
             - tasks
         depends_on:
             - tasks-queue
-        command: "/app/tools/run-celery.sh"
+        command: "/app/docker/development/scripts/run-celery.sh"
         working_dir: /app
     tasks-backend:
         image: "python:3.10-alpine"
@@ -43,11 +43,11 @@ services:
         depends_on:
             tasks-db:
                 condition: service_healthy
-        command: "/app/tools/run-development.sh"
+        command: "/app/docker/development/scripts/run-development.sh"
         working_dir: /app
     tasks-frontend:
         image: "node:22-alpine"
         volumes:
             - "../..:/app"
-        command: "/app/tools/run-frontend.sh"
+        command: "/app/docker/development/scripts/run-frontend.sh"
         working_dir: /app

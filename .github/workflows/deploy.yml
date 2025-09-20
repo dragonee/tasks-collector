@@ -7,19 +7,108 @@ on:
     paths-ignore:
       - 'docker/**'
       - '**.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docker/**'
+      - '**.md'
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tasks_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/test.txt', 'requirements/base.txt', 'requirements/dist.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install backend packages
+        run: pip install -r requirements/test.txt
+
+      - name: Install frontend packages
+        run: npm ci
+
+      - name: Build assets for testing
+        run: npm run build
+
+      - name: Run Django tests
+        env:
+          DJANGO_SETTINGS_MODULE: tasks.settings.local
+          DB_NAME: tasks_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_TEST_NAME: tasks_test
+        run: python manage.py test --noinput
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/dist.txt', 'requirements/base.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install backend packages
         run: pip install -r requirements/dist.txt
       - name: Install frontend packages
-        run: npm install
+        run: npm ci
       - name: Build production assets
         run: npm run build-dist
       - name: Copy static assets
