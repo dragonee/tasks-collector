@@ -3,7 +3,8 @@
 // Load app-wide styles. Those will affect
 // every component. For Vue-component-specific styles
 // see scoped CSS.
-require('./app.scss')
+import "./scripts/shared.js";
+import "./app.scss";
 
 const nodeList = document.querySelectorAll(
     'article.observation'

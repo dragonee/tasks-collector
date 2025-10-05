@@ -14,6 +14,7 @@
     "@rsbuild/core": "^1.5.8",
     "@rsbuild/plugin-sass": "^1.4.0",
     "@rsbuild/plugin-vue2": "^1.0.4",
+    "html-rspack-plugin": "^6.1.3",
     "rimraf": "^6.0.1",
     "sass": "^1.79.3"
   },

@@ -1,4 +1,5 @@
 import { defineConfig } from '@rsbuild/core';
+import HtmlRspackPlugin from 'html-rspack-plugin';
 import { pluginVue2 } from '@rsbuild/plugin-vue2';
 import { pluginSass } from '@rsbuild/plugin-sass';
 
@@ -7,9 +8,7 @@ export default defineConfig({
 
   source: {
     entry: {
-      vendor: './tasks/assets/vendor.js',
       app: './tasks/assets/app.js',
-      shared: './tasks/assets/scripts/shared.js',
       hello_world_mount: './tasks/assets/components/hello_world_mount.js',
     },
   },
@@ -39,10 +38,34 @@ export default defineConfig({
         plugin => plugin.constructor.name !== 'HtmlRspackPlugin'
       );
 
-      config.optimization = {
-        ...config.optimization,
-        runtimeChunk: 'single',
-      };
+      // Generate separate JS and CSS tag files for each entry point
+      const entryPoints = ['app', 'hello_world_mount'];
+
+      entryPoints.forEach(entryName => {
+        config.plugins.push(
+          new HtmlRspackPlugin({
+            inject: false,
+            filename: `${entryName}-css-tags.html`,
+            chunks: [entryName],
+            templateContent: ({ htmlWebpackPlugin }) => {
+              const { css = [] } = htmlWebpackPlugin.files;
+              return css.map(href => `<link rel="stylesheet" href="${href}">`).join('\n');
+            },
+          })
+        );
+
+        config.plugins.push(
+          new HtmlRspackPlugin({
+            inject: false,
+            filename: `${entryName}-js-tags.html`,
+            chunks: [entryName],
+            templateContent: ({ htmlWebpackPlugin }) => {
+              const { js = [] } = htmlWebpackPlugin.files;
+              return js.map(src => `<script defer src="${src}"></script>`).join('\n');
+            },
+          })
+        );
+      });
 
       config.plugins.push(
         // Generate manifest file compatible with webpack-assets-manifest

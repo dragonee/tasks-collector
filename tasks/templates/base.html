@@ -9,40 +9,25 @@
         <title>{% block title %}Tasks Collector{% endblock %}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        {% render_css 'vendor' %}
-        {% render_css 'app' %}
+        {% block extracss %}
+            {% render_css 'app' %}
+        {% endblock %}
 
-        {% block extrastyles %} {% endblock %}
+        <script 
+            src="https://unpkg.com/htmx.org@2.0.1" 
+            integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/" 
+            crossorigin="anonymous"
+            defer
+        ></script>
 
         {% block extrahead %} {% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}">
         {% block content %} {% endblock %}
 
-        {% block preextrajs %} {% endblock %}
-
-        <script src="https://unpkg.com/htmx.org@2.0.1" integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/" crossorigin="anonymous"></script>
-
-        <!-- Webpack's boilerplate and manifest -->
-        {% render_js 'runtime' %}
-
-        <!-- Common modules - require only if file was generated -->
-        <!-- render_js 'common' -->
-
-        <!-- Dependencies -->
-        {% render_js 'vendor' %}
-
-        <!-- Application's codebase -->
-        {% render_js 'app' %}
-
-        <!-- Shared codebase -->
-        {% render_js 'shared' %}
-
-        {% render_js 'lib-vue' %}
-        {% render_js 'lib-router' %}
-        {% render_js '112' %}
-
-        {% block extrajs %} {% endblock %}
+        {% block extrajs %}
+            {% render_js 'app' %}
+        {% endblock %}
     </body>
 </html>
 {% endblock %}

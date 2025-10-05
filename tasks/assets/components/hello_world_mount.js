@@ -9,6 +9,9 @@ import store from '../store'
 
 import LiquorTree from '../liquor-tree/src/main.js'
 
+import "../app.scss";
+import "../scripts/shared.js";
+
 Vue.use(LiquorTree)
 Vue.use(Vuex)
 Vue.use(VueRouter)
