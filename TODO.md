@@ -112,7 +112,8 @@
 - [ ] Add plan templates for a day (e.g. Cleaning: ..., Writing: ..., etc.)
 - [ ] Add [ ] to journal processing so that it can be used to add a plan for tomorrow
 - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
-- [ ] Plan from tasks
+- [x] Plan from tasks
+  - [x] Add context menu option to add tasks to plans (today/tomorrow/this week)
 - [ ] The same view as eventdump but on web
 - [ ] migrate distractions to integrity? true-to-self
 - [x] Make good summary view for weeks, etc
