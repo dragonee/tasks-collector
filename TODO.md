@@ -60,16 +60,23 @@
   - [x] Made progress resets
 - [x] Add markings if weekly summary and monthy summary has been added for this period
 - [x] If it has leaves, don't progress marks on the category – set to 0
+- [x] Add a special symbol in journal to add a line to a reflection
+  - Symbols: [x] [~] [^]
+- [x] Add a Journal archive view set
+- [x] Show plan on the tasks utility and journal so that focus/want is more visible
+- [x] Plan from tasks
+  - [x] Add context menu option to add tasks to plans (today/tomorrow/this week)
+- [x] Make good summary view for weeks, etc
+- [x] Better weekly summarization
+  - [x] Either show something like in tasks-collector-tools (summary of each day with plan/reflection/etc.)
+  - [x] Or make a console tool
+- [x] Add markings if weekly summary and monthy summary has been added for this period
 
 ## Pending Tasks
 
-- [x] Add a special symbol in journal to add a line to a reflection
-  - Symbols: [x] [~] [^]
-  - [ ] How about [ ] for Plan?
-    - Need to rethink that / possible to use other input method
-- [x] Add a Journal archive view set
-  - [ ] Add an event archive view set
-  - [ ] Check #253 – is ObservationMade done here?
+- [ ] How about [ ] for Plan?
+  - Need to rethink that / possible to use other input method
+- [ ] Show weekly plan on the tasks utility and journal so that focus/want is more visible
 - [ ] a weekly report could list out count and a summary of all items as email (for example)
   - [ ] Add ell and personality cores to summary
 - [ ] Add journal to the `today` view
@@ -101,34 +108,33 @@
     - Internal with events
     - External with GH API
 - [ ] Add Expectation model to Habit to track redline/greenline, goal, etc.
-- [x] Show plan on the tasks utility and journal so that focus/want is more visible
-  - [ ] Weekly plan?
 - [ ] Habit: plan satisfied?
 - [ ] Threads / split into threads and scopes
 - [ ] Journal with reflections from daily reflection from past 7 days
 - [ ] Split/merge observations
-- [ ] Allow text in parsing triplets if no hashtag is found
 - [ ] Add ObservationMentioned event
 - [ ] Add plan templates for a day (e.g. Cleaning: ..., Writing: ..., etc.)
 - [ ] Add [ ] to journal processing so that it can be used to add a plan for tomorrow
 - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
-- [x] Plan from tasks
-  - [x] Add context menu option to add tasks to plans (today/tomorrow/this week)
 - [ ] The same view as eventdump but on web
 - [ ] migrate distractions to integrity? true-to-self
-- [x] Make good summary view for weeks, etc
 - [ ] ell / use that for a quantified satori element
   - on a scale 1-10 how was I close to the "true-to-self" (breakthrough) goal? Was there some task that was connected to the projected outcome elements?
 - [ ] Enable login on every page and request
-- [ ] Random: Three events and and "find a connection"
+- Creativity Explorer
+  - [ ] Random: Three events and and "find a connection"
   - Pseudorandom -> navigate left/right/top (leave one item, add two random)
   - A graph / network of connections between events
-- [ ] Better weekly summarization
-  - [ ] Either show something like in tasks-collector-tools (summary of each day with plan/reflection/etc.)
-  - [ ] Or make a console tool
+  - Do I need web interface for that?
+- Year-on-Year Explorer
+  - [ ] See journal entries from last 5 years
+  - [ ] Allow to write a journal with a specific tag
 - [ ] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
 - [ ] Either remove projected outcome events from events or handle them in tasks-collector-tools
-- [x] Add markings if weekly summary and monthy summary has been added for this period
-  - [ ] Completely REFACTOR this code into a better shape
+- [ ] Completely REFACTOR weekly/monthly summary code into a better shape
 - [ ] How about I do the AREAS for life?
   - [ ] To mark then reflection templates (weekly monthly)
+- [ ] Better product roadmap than this TODO file
+- [ ] Tasks -> Plan to Reflection
+  - Mark tasks as tied to plan/reflection
+  - On complete (?) tasks can be written into daily reflection
