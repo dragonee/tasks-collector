@@ -4,8 +4,6 @@ from django import template
 from django.conf import settings
 from django.utils.safestring import mark_safe
 
-from ..utils import get_static_url
-
 register = template.Library()
 
 # In-memory caches for CSS and JS tag files
@@ -104,16 +102,4 @@ def render_css(entry_point):
     """
     content = read_cached_css(entry_point)
     return mark_safe(content)
-
-
-@register.simple_tag
-def static_image(resource_path):
-    """Gets full path to image file wih HTML tag.
-
-    Args:
-        resource_path - Path to image in webserver without extension.
-    Returns:
-        HTML tag with full url to image file.
-    """
-    return get_static_url(resource_path)
 

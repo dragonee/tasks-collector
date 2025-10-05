@@ -97,5 +97,3 @@ CACHES = {
         'LOCATION': '/var/tmp/django_cache',
     }
 }
-
-WEBPACK_MANIFEST_FILE = os.path.join(BASE_DIR, '../webpack-stats.dist.json')
