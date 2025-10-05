@@ -360,12 +360,16 @@ def _add_task_to_plan(text, timeframe):
         defaults={'focus': text}
     )
     if not created:
-        # Append to existing focus content
+        # Check if the text already exists in the plan (prevent duplicates)
         if plan.focus:
-            plan.focus += '\n' + text
+            existing_lines = plan.focus.split('\n')
+            if text not in existing_lines:
+                plan.focus += '\n' + text
+                plan.save()
+            # If text already exists, don't add it again (but still return success)
         else:
             plan.focus = text
-        plan.save()
+            plan.save()
 
     return plan
 
