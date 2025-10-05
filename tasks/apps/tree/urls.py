@@ -26,6 +26,7 @@ urlpatterns = [
 
     path('boards/<int:id>/commit/', views.commit_board),
     path('boards/append/', views.add_task),
+    path('plans/add-task/', views.add_task_to_plan, name='plan-add-task'),
     path('observations/add/', views.observation_edit, name='public-observation-add'),
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/$', views.observation_edit, name='public-observation-edit'),
     path('observations/', views.ObservationMineListView.as_view(), name='public-observation-list'),

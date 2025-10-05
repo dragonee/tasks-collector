@@ -89,6 +89,21 @@
                     </li>
                 </ul>
             </li>
+            <li class="v-context__sub">
+                <a>Add to Plan</a>
+
+                <ul class="v-context">
+                    <li>
+                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'today' })">Today</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'tomorrow' })">Tomorrow</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'this_week' })">This Week</a>
+                    </li>
+                </ul>
+            </li>
             <li>
                 <a href="#" @click.prevent="onClick('remove', { ...child.data  })">Remove</a>
             </li>
@@ -110,6 +125,7 @@
   import { VueContext }from 'vue-context';
 
   import { mapGetters } from 'vuex';
+  import { Notifier } from '../../../notifier';
 
   const UNSET = '__UNSET';
 
@@ -239,9 +255,42 @@
                 }
 
                 this.$emit('LIQUOR_NOISE')
+            } else if (method === 'addToPlan') {
+                const taskText = node.data.text
+                const timeframe = value  // 'today', 'tomorrow', 'this_week'
+                const notifier = Notifier({ time: 3000 })
+
+                try {
+                    const response = await fetch('/plans/add-task/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken(),
+                        },
+                        body: JSON.stringify({
+                            text: taskText,
+                            timeframe: timeframe
+                        })
+                    })
+
+                    if (!response.ok) {
+                        const errorData = await response.json()
+                        notifier.error(errorData.error || 'Failed to add task to plan')
+                        return
+                    }
+
+                    const timeframeLabel = timeframe === 'this_week' ? 'this week' : timeframe
+                    notifier.success(`Task added to ${timeframeLabel}'s plan`)
+                } catch (error) {
+                    notifier.error(`Error: ${error.message}`)
+                }
             } else if (method === 'remove') {
                 node.remove()
             }
+        },
+        getCsrfToken() {
+            const token = document.body.querySelector('[name=csrfmiddlewaretoken]')
+            return token ? token.value : ''
         }
     },
 

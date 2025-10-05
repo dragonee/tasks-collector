@@ -4,6 +4,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 
 from rest_framework import viewsets
 from rest_framework import status
+from rest_framework.decorators import action
 
 
 from .serializers import *
@@ -329,6 +330,50 @@ def _get_current_plans():
         'big_picture_plan': big_picture_plan,
     }
 
+def _add_task_to_plan(text, timeframe):
+    """Helper function to add a task to a plan
+
+    Args:
+        text: The task text to add
+        timeframe: One of 'today', 'tomorrow', 'this_week'
+
+    Returns:
+        The Plan object that was created or updated
+    """
+    from datetime import date, timedelta
+
+    if timeframe == 'today':
+        focus_date = date.today()
+        thread = Thread.objects.get(name='Daily')
+    elif timeframe == 'tomorrow':
+        focus_date = date.today() + timedelta(days=1)
+        thread = Thread.objects.get(name='Daily')
+    elif timeframe == 'this_week':
+        focus_date = make_last_day_of_the_week(date.today())
+        thread = Thread.objects.get(name='Weekly')
+    else:
+        raise ValueError(f"Invalid timeframe: {timeframe}")
+
+    plan, created = Plan.objects.get_or_create(
+        pub_date=focus_date,
+        thread=thread,
+        defaults={'focus': text}
+    )
+    if not created:
+        # Check if the text already exists in the plan (prevent duplicates)
+        if plan.focus:
+            existing_lines = plan.focus.split('\n')
+            if text not in existing_lines:
+                plan.focus += '\n' + text
+                plan.save()
+            # If text already exists, don't add it again (but still return success)
+        else:
+            plan.focus = text
+            plan.save()
+
+    return plan
+
+
 def _add_task_to_board(text, thread_name):
     """Helper function to add a task to a board"""
     thread = get_object_or_404(Thread, name=thread_name)
@@ -362,9 +407,42 @@ def add_task(request):
     # XXX hackish
     if 'text' not in item or 'thread-name' not in item:
         return RestResponse({'errors': 'no thread-name and text'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     board = _add_task_to_board(item['text'], item['thread-name'])
     return RestResponse(BoardSerializer(board).data)
+
+@api_view(['POST'])
+def add_task_to_plan(request):
+    """Add a task to a plan (today, tomorrow, or this week)"""
+    task_text = request.data.get('text')
+    timeframe = request.data.get('timeframe')  # 'today', 'tomorrow', 'this_week'
+
+    if not task_text or not timeframe:
+        return RestResponse(
+            {'error': 'text and timeframe are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        plan = _add_task_to_plan(task_text, timeframe)
+        return RestResponse(
+            {
+                'success': True,
+                'plan_id': plan.id,
+                'plan_date': plan.pub_date,
+            },
+            status=status.HTTP_200_OK
+        )
+    except Thread.DoesNotExist:
+        return RestResponse(
+            {'error': 'Required thread not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except ValueError as e:
+        return RestResponse(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 @login_required
 def board_summary(request, id):
