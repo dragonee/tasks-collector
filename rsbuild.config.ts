@@ -67,37 +67,6 @@ export default defineConfig({
         );
       });
 
-      config.plugins.push(
-        // Generate manifest file compatible with webpack-assets-manifest
-        {
-          apply(compiler) {
-            compiler.hooks.emit.tap('ManifestPlugin', (compilation) => {
-              const manifest = {};
-
-              // Generate manifest in the same format as webpack-assets-manifest
-              for (const [name, asset] of Object.entries(compilation.assets)) {
-                if (name.endsWith('.js') || name.endsWith('.css')) {
-                  // Remove hash from key but keep full filename as value
-                  const chunkName = name.replace(/\.[a-f0-9]+\./, '.');
-                  manifest[chunkName] = name;
-                }
-              }
-
-              const manifestContent = JSON.stringify(manifest, null, 2);
-              const manifestPath = environment.name === 'dist'
-                ? 'webpack-stats.dist.json'
-                : 'webpack-stats.local.json';
-
-              console.log(`[Rsbuild] Environment: ${environment.name}, generating manifest: ${manifestPath}`);
-
-              const fs = require('fs');
-              const path = require('path');
-              fs.writeFileSync(path.resolve(manifestPath), manifestContent);
-            });
-          },
-        }
-      );
-
       return config;
     },
   },

@@ -6,7 +6,6 @@
 /node_modules/
 /tasks/logs/*
 !/tasks/logs/.gitkeep
-/webpack-stats.*.json
 
 # Created by https://www.gitignore.io/api/vim,node,linux,macos,django,python,windows,notepadpp,sublimetext
 
