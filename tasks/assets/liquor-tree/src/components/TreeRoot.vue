@@ -89,6 +89,21 @@
                     </li>
                 </ul>
             </li>
+            <li class="v-context__sub">
+                <a>Add to Plan</a>
+
+                <ul class="v-context">
+                    <li>
+                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'today' })">Today</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'tomorrow' })">Tomorrow</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'this_week' })">This Week</a>
+                    </li>
+                </ul>
+            </li>
             <li>
                 <a href="#" @click.prevent="onClick('remove', { ...child.data  })">Remove</a>
             </li>
@@ -239,9 +254,39 @@
                 }
 
                 this.$emit('LIQUOR_NOISE')
+            } else if (method === 'addToPlan') {
+                const taskText = node.data.text
+                const timeframe = value  // 'today', 'tomorrow', 'this_week'
+
+                try {
+                    const response = await fetch('/plans/add-task/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken(),
+                        },
+                        body: JSON.stringify({
+                            text: taskText,
+                            timeframe: timeframe
+                        })
+                    })
+
+                    if (!response.ok) {
+                        throw new Error('Failed to add task to plan')
+                    }
+
+                    const data = await response.json()
+                    console.log('Task added to plan:', data)
+                } catch (error) {
+                    console.error('Error adding task to plan:', error)
+                }
             } else if (method === 'remove') {
                 node.remove()
             }
+        },
+        getCsrfToken() {
+            const token = document.body.querySelector('[name=csrfmiddlewaretoken]')
+            return token ? token.value : ''
         }
     },
 
