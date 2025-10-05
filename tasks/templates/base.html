@@ -9,8 +9,11 @@
         <title>{% block title %}Tasks Collector{% endblock %}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        {% block extracss %}
+        {% block cssmount %}
             {% render_css 'app' %}
+        {% endblock %}
+
+        {% block extracss %}
         {% endblock %}
 
         <script 
@@ -25,8 +28,11 @@
     <body class="{% block body_class %}{% endblock %}">
         {% block content %} {% endblock %}
 
-        {% block extrajs %}
+        {% block jsmount %}
             {% render_js 'app' %}
+        {% endblock %}
+
+        {% block extrajs %}
         {% endblock %}
     </body>
 </html>
