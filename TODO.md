@@ -95,12 +95,6 @@
   - [ ] PoC: https://developers.google.com/tasks/quickstart/python
   - [ ] Board action
   - [ ] Board status - scheduled
-- [ ] Implement $ on tasks, so that only part of information is shown on the task list, all can be edited
-- [ ] Make events out of reflections and plans
-  - A single event suffices?
-  - [ ] Add autocommit mechanism
-    - [ ] Remove on autocommit?
-  - [ ] Add manual commit
 - [ ] Habits – shift around
   - [ ] Define a list of habits I'd like to track
   - Possible integrations:
@@ -116,13 +110,12 @@
 - [ ] Allow text in parsing triplets if no hashtag is found
 - [ ] Add ObservationMentioned event
 - [ ] Add plan templates for a day (e.g. Cleaning: ..., Writing: ..., etc.)
-- [ ] Add Breakthroughs Plan
 - [ ] Add [ ] to journal processing so that it can be used to add a plan for tomorrow
 - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
 - [ ] Plan from tasks
 - [ ] The same view as eventdump but on web
 - [ ] migrate distractions to integrity? true-to-self
-- [ ] Make good summary view for weeks, etc
+- [x] Make good summary view for weeks, etc
 - [ ] ell / use that for a quantified satori element
   - on a scale 1-10 how was I close to the "true-to-self" (breakthrough) goal? Was there some task that was connected to the projected outcome elements?
 - [ ] Enable login on every page and request
