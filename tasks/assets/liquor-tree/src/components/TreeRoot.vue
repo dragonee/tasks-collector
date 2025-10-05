@@ -125,6 +125,7 @@
   import { VueContext }from 'vue-context';
 
   import { mapGetters } from 'vuex';
+  import { Notifier } from '../../../notifier';
 
   const UNSET = '__UNSET';
 
@@ -257,6 +258,7 @@
             } else if (method === 'addToPlan') {
                 const taskText = node.data.text
                 const timeframe = value  // 'today', 'tomorrow', 'this_week'
+                const notifier = Notifier({ time: 3000 })
 
                 try {
                     const response = await fetch('/plans/add-task/', {
@@ -272,13 +274,15 @@
                     })
 
                     if (!response.ok) {
-                        throw new Error('Failed to add task to plan')
+                        const errorData = await response.json()
+                        notifier.error(errorData.error || 'Failed to add task to plan')
+                        return
                     }
 
-                    const data = await response.json()
-                    console.log('Task added to plan:', data)
+                    const timeframeLabel = timeframe === 'this_week' ? 'this week' : timeframe
+                    notifier.success(`Task added to ${timeframeLabel}'s plan`)
                 } catch (error) {
-                    console.error('Error adding task to plan:', error)
+                    notifier.error(`Error: ${error.message}`)
                 }
             } else if (method === 'remove') {
                 node.remove()
