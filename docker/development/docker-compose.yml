@@ -51,3 +51,22 @@ services:
             - "../..:/app"
         command: "/app/docker/development/scripts/run-frontend.sh"
         working_dir: /app
+    mcp-postgres:
+        image: bytebase/dbhub:latest
+        ports:
+            - "7079:8080"
+        networks:
+            - tasks
+        environment:
+            - DBHUB_LOG_LEVEL=info
+        command:
+            - --transport
+            - http
+            - --port
+            - "8080"
+            - --readonly
+            - --dsn
+            - "postgres://tasks:secret@tasks-db:5432/tasks"
+        depends_on:
+            tasks-db:
+                condition: service_healthy
