@@ -4,6 +4,7 @@ from django.views.generic import TemplateView
 
 from rest_framework import routers
 from . import views
+from . import views_today
 
 from django.urls import include, path
 
@@ -51,7 +52,7 @@ urlpatterns = [
     re_path(r'^observations/(?P<observation_id>[a-f0-9\-]+)/attachments/$', views.observation_attachments, name='public-observation-attachments'),
     path('observations/search/', views.observation_search, name='public-observation-search'),
 
-    path('', views.today, name='public-today'),
+    path('', views_today.today, name='public-today'),
     path('', include(router.urls)),
     path('todo/', views.todo, name='todo'),
     path('q/', views.quick_notes, name='quick-notes'),
