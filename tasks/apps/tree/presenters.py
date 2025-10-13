@@ -105,3 +105,9 @@ class ComplexPresenter:
             )
         
         return event_presenters
+
+def get_complex_presenter(observation):
+    if not observation.event_stream_id:
+        return None
+    
+    return ComplexPresenter(observation.event_stream_id)
