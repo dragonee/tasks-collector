@@ -26,14 +26,19 @@ class ProjectedOutcomePresentation:
         self.active_instance = active_instance
         self._build_state()
     
+    def _decorate_with_events(self, property_name, event_type):
+        """Decorate the state with the events of the given type."""
+        events = [e for e in self.events if isinstance(e, event_type)]
+        setattr(self, property_name, events)
+
     def _build_state(self):
         """Build the current state by replaying events in chronological order."""
         # Filter events by type
-        self.made_events = [e for e in self.events if isinstance(e, ProjectedOutcomeMade)]
-        self.redefined_events = [e for e in self.events if isinstance(e, ProjectedOutcomeRedefined)]
-        self.rescheduled_events = [e for e in self.events if isinstance(e, ProjectedOutcomeRescheduled)]
-        self.closed_events = [e for e in self.events if isinstance(e, ProjectedOutcomeClosed)]
-        
+        self._decorate_with_events('made_events', ProjectedOutcomeMade)
+        self._decorate_with_events('redefined_events', ProjectedOutcomeRedefined)
+        self._decorate_with_events('rescheduled_events', ProjectedOutcomeRescheduled)
+        self._decorate_with_events('closed_events', ProjectedOutcomeClosed)
+     
         # Start with initial state from Made event
         if not self.made_events:
             raise ValueError("ProjectedOutcome must have at least one Made event")
