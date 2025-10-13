@@ -1,6 +1,7 @@
 import re
-from django.db.models import Q
-from ..models import Event, Statistics, Plan, Reflection, HabitTracked, JournalAdded
+from ..models import Event, Statistics, Plan
+
+from functools import reduce
 
 
 def count_words_in_text(text):
@@ -10,6 +11,17 @@ def count_words_in_text(text):
     # Split by whitespace and count non-empty strings
     return len([word for word in re.split(r'\s+', text.strip()) if word])
 
+
+fields = [
+    'comment',
+    'note',
+    'situation',
+    'interpretation',
+    'approach',
+    'description',
+    'name',
+    'success_criteria',
+]
 
 def calculate_total_word_count(year=None):
     """Calculate total word count from all events and plans with text content
@@ -27,33 +39,15 @@ def calculate_total_word_count(year=None):
         events = events.filter(published__year=year)
     
     for event in events:
-        # Check for text fields in different event types
-        text_fields = []
-        
-        # Common text fields across event types
-        if hasattr(event, 'comment') and event.comment:
-            text_fields.append(event.comment)
-        
-        if hasattr(event, 'note') and event.note:
-            text_fields.append(event.note)
-            
-        if hasattr(event, 'situation') and event.situation:
-            text_fields.append(event.situation)
-            
-        if hasattr(event, 'interpretation') and event.interpretation:
-            text_fields.append(event.interpretation)
-            
-        if hasattr(event, 'approach') and event.approach:
-            text_fields.append(event.approach)
-            
-        if hasattr(event, 'description') and event.description:
-            text_fields.append(event.description)
-            
-        if hasattr(event, 'name') and event.name:
-            text_fields.append(event.name)
-            
-        if hasattr(event, 'success_criteria') and event.success_criteria:
-            text_fields.append(event.success_criteria)
+        # Find all text fields present on this event
+        filtered_fields = filter(lambda x: bool(getattr(event, x, None)), fields)
+
+        # Create a list of all text fields for this event
+        text_fields = reduce(
+            lambda acc, x: acc + [getattr(event, x, None)],
+            filtered_fields,
+            []
+        )
         
         # Count words in all text fields for this event
         for text in text_fields:
