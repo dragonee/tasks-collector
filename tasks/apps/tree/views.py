@@ -53,7 +53,7 @@ from .utils.itertools import itemize
 
 from .observation_operations import migrate_observation_updates_to_journal as _migrate_observation_updates_to_journal
 from .utils.statistics import get_word_count_statistic
-from .presenters import ComplexPresenter
+from .presenters import get_complex_presenter
 from .utils.datetime import (
     make_last_day_of_the_week,
     make_last_day_of_the_month,
@@ -583,6 +583,22 @@ def observation_closed_detail(request, event_stream_id):
         'time_to_closed': time_to_closed
     })
 
+
+def _get_initial_dict_for_observation(observation):
+    initial_dict = {}
+
+    if not observation.pub_date:
+        initial_dict['pub_date'] = date.today()
+    
+    if not observation.type_id:
+        initial_dict['type'] = ObservationType.objects.get(name='Observation')
+    
+    if not observation.thread_id:
+        initial_dict['thread'] = Thread.objects.get(name='big-picture')
+    
+    return initial_dict
+
+
 @login_required
 def observation_edit(request, observation_id=None):
     if observation_id is not None:
@@ -591,11 +607,6 @@ def observation_edit(request, observation_id=None):
         observation = Observation()
 
     previous = observation.copy(as_new=False)
-
-    # XXX TODO add ability to set events on a specific day... OR NOT
-    # We can actually add the date attribute to an event
-    # And because of that we can still set published date always to the current date
-    # And leave out affected
 
     ObservationUpdatedFormSet = inlineformset_factory(Observation, ObservationUpdated, fields=('comment',), extra=3)
 
@@ -634,38 +645,21 @@ def observation_edit(request, observation_id=None):
             return redirect(reverse('public-observation-edit', args=[observation.pk]))
 
     else:
-        initial_dict = {}
-
-        if not observation.pub_date:
-            initial_dict['pub_date'] = date.today()
-        
-        if not observation.type_id:
-            initial_dict['type'] = ObservationType.objects.get(name='Observation')
-        
-        if not observation.thread_id:
-            initial_dict['thread'] = Thread.objects.get(name='big-picture')
+        initial_dict = _get_initial_dict_for_observation(observation)
 
         form = ObservationForm(instance=observation, initial=initial_dict)
         formset = ObservationUpdatedFormSet(
             instance=observation,
             queryset=observation_updated_queryset,
         )
-    
-    if observation.event_stream_id:
-        events = Event.objects.filter(event_stream_id=observation.event_stream_id)
-        # Initialize ComplexPresenter for this observation
-        complex_presenter = ComplexPresenter(observation.event_stream_id)
-    else:
-        events = []
-        complex_presenter = None
 
     return render(request, "tree/observation_edit.html", {
-        "events": events,
+        "events": observation.get_events(),
         "form": form,
         "formset": formset,
         "instance": observation,
         "thread_as_link": True,
-        "complex_presenter": complex_presenter,
+        "complex_presenter": get_complex_presenter(observation),
     })
 
 

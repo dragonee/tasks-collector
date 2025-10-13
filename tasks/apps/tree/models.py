@@ -273,6 +273,15 @@ class Observation(models.Model):
     def situation_truncated(self):
         return Truncator(self.situation).words(6)
 
+
+    def get_events(self):
+        if not self.event_stream_id:
+            return Event.objects.none()
+        
+        return Event.objects.filter(event_stream_id=self.event_stream_id)
+
+
+    @property
     def get_absolute_url(self):
         return reverse('public-observation-edit', kwargs={'observation_id': self.pk})
 
