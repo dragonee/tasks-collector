@@ -1036,8 +1036,8 @@ def projected_outcome_events_history(request, event_stream_id):
         'closed_events': presentation.closed_events,
     })
 
-@login_required
-def stats(request):
+
+def _stats(year=None):
     journal_qs = JournalAdded.objects.all()
     habit_qs = HabitTracked.objects.all()
     observation_qs = ObservationMade.objects.all()
@@ -1051,11 +1051,6 @@ def stats(request):
     projected_outcome_redefined_qs = ProjectedOutcomeRedefined.objects.all()
     projected_outcome_rescheduled_qs = ProjectedOutcomeRescheduled.objects.all()
     projected_outcome_closed_qs = ProjectedOutcomeClosed.objects.all()
-
-    try:
-        year = int(request.GET.get('year'))
-    except (ValueError, TypeError):
-        year = None
 
     if year:
         journal_qs = journal_qs.filter(published__year=year)
@@ -1075,9 +1070,9 @@ def stats(request):
     # Get word count statistic
     word_count, word_count_updated = get_word_count_statistic(year=year)
 
-    return render(request, "tree/stats.html", {
+    return {
         'year': year,
-        'years': range(timezone.now().year, 2018, -1),
+        'years': list(range(timezone.now().year, 2018, -1)),
         'journal_count': journal_qs.count(),
         'habit_count': habit_qs.count(),
         'observation_count': observation_qs.count(),
@@ -1093,7 +1088,25 @@ def stats(request):
         'projected_outcome_closed_count': projected_outcome_closed_qs.count(),
         'word_count': word_count,
         'word_count_updated': word_count_updated,
-    })
+    }
+
+@login_required
+def stats(request):
+    try:
+        year = int(request.GET.get('year'))
+    except (ValueError, TypeError):
+        year = None
+
+    return render(request, "tree/stats.html", _stats(year))
+
+@api_view(['GET'])
+def stats_json(request):
+    try:
+        year = int(request.GET.get('year'))
+    except (ValueError, TypeError):
+        year = None
+
+    return RestResponse(_stats(year))
 
 @api_view(['POST'])
 def observation_attach(request, observation_id):
