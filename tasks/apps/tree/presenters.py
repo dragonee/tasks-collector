@@ -92,19 +92,47 @@ class ComplexPresenter:
         """All events with their situation at the time of the event"""
         events = self.all_attached_events_chronological()
         event_presenters = []
-        
+
         for event in events:
             # Get the situation at the time of this event
             try:
                 situation_at_event = event.situation_at_creation() if hasattr(event, 'situation_at_creation') else event.situation() if hasattr(event, 'situation') else "No situation available"
             except:
                 situation_at_event = "No situation available"
-            
+
             event_presenters.append(
                 ObservationEventPresenter(event, situation_at_event)
             )
-        
+
         return event_presenters
+
+    def _get_observation_info(self, stream_id):
+        """Helper to get observation info for a given stream_id"""
+        from .models import ObservationClosed
+
+        # Try to get the open observation
+        try:
+            obs = Observation.objects.get(event_stream_id=stream_id)
+            return {
+                'event_stream_id': stream_id,
+                'observation': obs,
+                'is_closed': False,
+            }
+        except Observation.DoesNotExist:
+            # Must be closed - get the ObservationClosed
+            obs_closed = ObservationClosed.objects.get(event_stream_id=stream_id)
+            return {
+                'event_stream_id': stream_id,
+                'observation_closed': obs_closed,
+                'is_closed': True,
+            }
+
+    def all_attached_observations_with_status(self):
+        """
+        Returns a list of dicts with info about all attached observations.
+        Each dict contains: event_stream_id, observation (if open), observation_closed (if closed), is_closed
+        """
+        return list(map(self._get_observation_info, self._get_attached_stream_ids()))
 
 def get_complex_presenter(observation):
     if not observation.event_stream_id:

@@ -432,6 +432,9 @@ class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMi
 
     template = "tree/events/observation_closed.html"
 
+    def situation_truncated(self):
+        return Truncator(self.situation).words(6)
+
     @staticmethod
     def from_observation(observation, published=None):
         return ObservationClosed(

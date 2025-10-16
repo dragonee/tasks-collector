@@ -48,29 +48,45 @@
         
         <!-- Attached Observations -->
         <div class="attached-section">
-            <h4>Attached Observations 
+            <h4>Attached Observations
                 {% if complex_presenter %}
                     ({{ complex_presenter.total_unique_observations_count }})
                 {% endif %}
             </h4>
             <div id="attached-observations">
                 {% if complex_presenter %}
-                    {% for attached_obs in complex_presenter.open_observations_list %}
-                    <div class="attached-observation" data-stream-id="{{ attached_obs.event_stream_id }}">
+                    {% for attached_info in complex_presenter.all_attached_observations_with_status %}
+                    <div class="attached-observation {% if attached_info.is_closed %}closed{% endif %}" data-stream-id="{{ attached_info.event_stream_id }}">
                         <div class="attached-obs-header">
-                            <strong>{{ attached_obs.situation_truncated }}</strong>
-                            <button type="button" class="detach-btn" data-obs-id="{{ attached_obs.pk }}" data-stream-id="{{ attached_obs.event_stream_id }}">×</button>
+                            {% if attached_info.is_closed %}
+                                <strong>[CLOSED] {{ attached_info.observation_closed.situation_truncated }}</strong>
+                            {% else %}
+                                <strong>{{ attached_info.observation.situation_truncated }}</strong>
+                            {% endif %}
+                            <button type="button" class="detach-btn" data-stream-id="{{ attached_info.event_stream_id }}">×</button>
                         </div>
                         <div class="attached-obs-content">
-                            <div class="attached-obs-situation">
-                                <strong>Situation:</strong> {{ attached_obs.situation|default:"—" }}
-                            </div>
-                            <div class="attached-obs-interpretation">
-                                <strong>Interpretation:</strong> {{ attached_obs.interpretation|default:"—" }}
-                            </div>
-                            <div class="attached-obs-approach">
-                                <strong>Approach:</strong> {{ attached_obs.approach|default:"—" }}
-                            </div>
+                            {% if attached_info.is_closed %}
+                                <div class="attached-obs-situation">
+                                    <strong>Situation:</strong> {{ attached_info.observation_closed.situation|default:"—" }}
+                                </div>
+                                <div class="attached-obs-interpretation">
+                                    <strong>Interpretation:</strong> {{ attached_info.observation_closed.interpretation|default:"—" }}
+                                </div>
+                                <div class="attached-obs-approach">
+                                    <strong>Approach:</strong> {{ attached_info.observation_closed.approach|default:"—" }}
+                                </div>
+                            {% else %}
+                                <div class="attached-obs-situation">
+                                    <strong>Situation:</strong> {{ attached_info.observation.situation|default:"—" }}
+                                </div>
+                                <div class="attached-obs-interpretation">
+                                    <strong>Interpretation:</strong> {{ attached_info.observation.interpretation|default:"—" }}
+                                </div>
+                                <div class="attached-obs-approach">
+                                    <strong>Approach:</strong> {{ attached_info.observation.approach|default:"—" }}
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                     {% empty %}
@@ -510,6 +526,16 @@ document.addEventListener('DOMContentLoaded', function() {
     border-radius: 4px;
     margin-bottom: 0.75rem;
     overflow: hidden;
+}
+
+.attached-observation.closed {
+    background: #f8f9fa;
+    border-left: 3px solid #6c757d;
+}
+
+.attached-observation.closed .attached-obs-header {
+    background: #e9ecef;
+    color: #6c757d;
 }
 
 .attached-obs-header {
