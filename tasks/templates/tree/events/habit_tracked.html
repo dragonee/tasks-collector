@@ -1,8 +1,6 @@
 <p class="event-meta" data-time="{{ event.published|time:"H:i" }}">
-    <strong>{% if event.occured %}Tracked{% else %}Skipped{% endif %}</strong> 
+    <strong>{% if event.occured %}✓{% else %}✗{% endif %} {{ event.habit.name }}</strong>
     {% if event.note %}
         · {{ event.note }}
-    {% else %}
-        · {% if event.occured %}#{% else %}!{% endif %}{{ event.habit.tagname }}
     {% endif %}
 </p>

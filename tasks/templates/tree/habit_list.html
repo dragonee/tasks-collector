@@ -18,7 +18,7 @@
         <dl>
             {% for habit in object_list %}
                 <dt>
-                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.name }}</a></strong> ({{ habit.as_hashtag }})
+                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.name }}</a></strong> ({{ habit.as_hashtags|join:', ' }})
                 </dt>
                 {% if habit.description %}
                     <dd>

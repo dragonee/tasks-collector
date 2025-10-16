@@ -48,10 +48,19 @@ def habits_line_to_habits_tracked(line):
     items = list(filter(lambda x: x.startswith("!") or x.startswith("#"), map(lambda x: x.strip(), items)))
 
     habits = list(Habit.objects.all())
-    habit_names = list(map(lambda x: x.tagname, habits))
+    # TODO: Simplify when tagname gets removed
+    # Build a flat list of all keywords across all habits, maintaining habit order
+    # Each habit's keywords are listed together
+    habit_names = []
+    expanded_habits = []
+    for habit in habits:
+        keywords = habit.get_keywords()
+        habit_names.extend(keywords)
+        # Repeat the habit reference for each keyword
+        expanded_habits.extend([habit] * len(keywords))
 
     return list(filter(None, map(
-        lambda x: note_to_habit_tracked_tuple_or_none(x, habit_names, habits),
+        lambda x: note_to_habit_tracked_tuple_or_none(x, habit_names, expanded_habits),
         items
     )))
     
