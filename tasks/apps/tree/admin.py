@@ -12,8 +12,18 @@ class ObservationTypeAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+class HabitKeywordInline(admin.TabularInline):
+    model = HabitKeyword
+    extra = 1
+
 class HabitAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'tagname', 'event_stream_id')
+    list_display = ('name', 'slug', 'display_keywords', 'event_stream_id')
+    readonly_fields = ('tagname', 'event_stream_id')
+    inlines = [HabitKeywordInline]
+
+    def display_keywords(self, obj):
+        return ', '.join(obj.get_keywords())
+    display_keywords.short_description = 'Keywords'
 
 class ThreadAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):

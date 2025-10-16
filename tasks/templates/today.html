@@ -102,7 +102,7 @@
                 <h3>Habits</h3>
                 <p>
                     Use the <code>journal</code> tool to add habits to the application. Use the following tags:<br>
-                    <small>{% for habit in habits %}{{ habit.as_hashtag }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>
+                    <small>{% for habit in habits %}{{ habit.as_hashtags|join:', ' }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>
                 </p>
                 {% if tracked_habits %}
                     <p>

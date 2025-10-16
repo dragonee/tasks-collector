@@ -30,9 +30,14 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
     today_tracked = serializers.IntegerField(read_only=True)
+    keywords = serializers.SerializerMethodField()
+
+    def get_keywords(self, obj):
+        return list(obj.get_keywords())
+
     class Meta:
         model = Habit
-        fields = ['id', 'name', 'description', 'slug', 'tagname', 'today_tracked']
+        fields = ['id', 'name', 'description', 'slug', 'tagname', 'keywords', 'today_tracked']
 
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

@@ -93,11 +93,11 @@ def update_board_committed_event_stream_id(sender, instance, *args, **kwargs):
 class Habit(models.Model):
     # Display name
     name = models.CharField(max_length=255)
-    
+
     # URL Slug
     slug = models.SlugField(max_length=255, unique=True)
 
-    # hashtag for matching
+    # hashtag for matching (kept for backwards compatibility, will be deprecated)
     tagname = models.SlugField(max_length=255, unique=True, allow_unicode=True)
 
     event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
@@ -110,8 +110,27 @@ class Habit(models.Model):
     class Meta:
         ordering = ('name', )
 
-    def as_hashtag(self):
-        return '#{}'.format(self.tagname)
+    def as_hashtags(self):
+        return ['#{}'.format(keyword) for keyword in self.get_keywords()]
+
+    def get_keywords(self):
+        """Get all keywords for this habit as a set, including the legacy tagname"""
+        keywords = set(self.keywords.values_list('keyword', flat=True))
+        # Include tagname for backwards compatibility
+        if self.tagname:
+            keywords.add(self.tagname)
+        return keywords
+
+
+class HabitKeyword(models.Model):
+    habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name='keywords')
+    keyword = models.SlugField(max_length=255, unique=True, allow_unicode=True)
+
+    class Meta:
+        ordering = ('keyword',)
+
+    def __str__(self):
+        return f"{self.habit.name}: {self.keyword}"
 
 
 Diff = namedtuple('Diff', ['old', 'new'])
