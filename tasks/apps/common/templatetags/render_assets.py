@@ -7,6 +7,7 @@ from django.utils.safestring import mark_safe
 register = template.Library()
 
 # In-memory caches for CSS and JS tag files
+# Structure: {entry_point: {'content': str, 'mtime': float, 'path': Path}}
 CSS_FILES = {}
 JS_FILES = {}
 
@@ -29,9 +30,14 @@ def get_potential_staticfile_paths(filename):
         for static_dir in settings.STATICFILES_DIRS:
             yield Path(static_dir) / filename
 
+def _empty_cache_entry():
+    return {'content': '', 'mtime': None, 'path': None}
 
 def read_cached_staticfile(entry_point, file_type, cache):
     """Reads and caches static tag files.
+
+    In DEBUG mode, checks file mtime and reloads if changed.
+    In production, uses permanent in-memory cache.
 
     Args:
         entry_point - Name of the entry point (e.g., 'app', 'hello_world_mount')
@@ -40,9 +46,10 @@ def read_cached_staticfile(entry_point, file_type, cache):
     Returns:
         HTML content from the cached file or empty string if not found.
     """
-    # Check if already cached
-    if entry_point in cache:
-        return cache[entry_point]
+
+    # In production, use permanent in-memory cache
+    if not settings.DEBUG and entry_point in cache:
+        return cache[entry_point]['content']
 
     filename = f'{entry_point}-{file_type}-tags.html'
 
@@ -54,17 +61,38 @@ def read_cached_staticfile(entry_point, file_type, cache):
 
     if html_file_path is None:
         # No file found, cache empty string
-        cache[entry_point] = ''
+        if entry_point not in cache:
+            cache[entry_point] = _empty_cache_entry()
         return ''
 
     try:
+        # In DEBUG mode, check if file has been modified
+        if settings.DEBUG and entry_point in cache:
+            cached_mtime = cache[entry_point].get('mtime')
+            current_mtime = html_file_path.stat().st_mtime
+
+            # If mtime changed, invalidate cache
+            if cached_mtime is not None and cached_mtime != current_mtime:
+                del cache[entry_point]
+
+        # Check if already cached (and still valid)
+        if entry_point in cache:
+            return cache[entry_point]['content']
+
+        # Read and cache the content
         content = html_file_path.read_text()
-        # Cache the content
-        cache[entry_point] = content
+        mtime = html_file_path.stat().st_mtime if settings.DEBUG else None
+
+        cache[entry_point] = {
+            'content': content,
+            'mtime': mtime,
+            'path': html_file_path
+        }
         return content
     except (FileNotFoundError, OSError):
         # Cache empty string to avoid repeated file lookups
-        cache[entry_point] = ''
+        if entry_point not in cache:
+            cache[entry_point] = _empty_cache_entry()
         return ''
 
 
