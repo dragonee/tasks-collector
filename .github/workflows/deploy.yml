@@ -8,6 +8,9 @@ on:
       - 'docker/**'
       - '**.md'
       - 'tasks/apps/tree/tests/**'
+      - 'tasks/settings/local.py'
+      - 'requirements/local.txt'
+      - 'requirements/test.txt'
 
 jobs:
   deploy:
