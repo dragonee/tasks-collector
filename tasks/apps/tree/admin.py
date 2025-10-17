@@ -18,7 +18,7 @@ class HabitKeywordInline(admin.TabularInline):
 
 class HabitAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug', 'display_keywords', 'event_stream_id')
-    readonly_fields = ('tagname', 'event_stream_id')
+    readonly_fields = ('event_stream_id',)
     inlines = [HabitKeywordInline]
 
     def display_keywords(self, obj):

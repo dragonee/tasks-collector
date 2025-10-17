@@ -37,7 +37,7 @@ class HabitSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Habit
-        fields = ['id', 'name', 'description', 'slug', 'tagname', 'keywords', 'today_tracked']
+        fields = ['id', 'name', 'description', 'slug', 'keywords', 'today_tracked']
 
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
