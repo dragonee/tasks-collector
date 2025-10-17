@@ -71,16 +71,17 @@
   - [x] Either show something like in tasks-collector-tools (summary of each day with plan/reflection/etc.)
   - [x] Or make a console tool
 - [x] Add markings if weekly summary and monthy summary has been added for this period
+- [x] Either remove projected outcome events from events or handle them in tasks-collector-tools
+- [x] Show weekly plan on the tasks utility and journal so that focus/want is more visible
+- [x] Enable login on every page and request
 
 ## Pending Tasks
 
-- [ ] How about [ ] for Plan?
-  - Need to rethink that / possible to use other input method
-- [ ] Show weekly plan on the tasks utility and journal so that focus/want is more visible
-- [ ] a weekly report could list out count and a summary of all items as email (for example)
-  - [ ] Add ell and personality cores to summary
-- [ ] Add journal to the `today` view
-- [ ] add `pub_date` to events and allow for setting different day (yesterday) than now for events affecting a specific date (e.g. HabitsTracked)
+- AI Ideas
+  - [ ] a weekly report could list out count and a summary of all items as email (for example)
+  - [ ] Add personality cores to summary
+  - [ ] create a quantified satori element
+  - [ ] on a scale 1-10 how was I close to the "true-to-self" (breakthrough) goal? Was there some task that was connected to the projected outcome elements?
 - [ ] Add post-it boards for ideas
   - [ ] Use the tasks backend
   - [ ] Add another view (with two components – a "shelf" and a "board")
@@ -89,11 +90,8 @@
   - [ ] Put things back from board to shelf
     - [ ] Coordinates remove
   - [ ] ability to move board around
-- [ ] Observation Closed History View
-  - [ ] [Merge View](https://codemirror.net/try/?example=Merge%20View)
-  - [ ] Event timeline component
-  - [ ] Better styling
-- [ ] Dump database before automatic migration / deployment
+- Devops
+  - [ ] Dump database before automatic migration / deployment
 - [ ] Quests: merge them with journals
   - [ ] (draft) Use journal for journalling, and quest object as a side to it
     - JournalQuestMeta: quest_id, journal_id, stage
@@ -102,25 +100,13 @@
   - [ ] PoC: https://developers.google.com/tasks/quickstart/python
   - [ ] Board action
   - [ ] Board status - scheduled
-- [ ] Habits – shift around
-  - [ ] Define a list of habits I'd like to track
-  - Possible integrations:
-    - Internal with events
-    - External with GH API
 - [ ] Add Expectation model to Habit to track redline/greenline, goal, etc.
-- [ ] Habit: plan satisfied?
-- [ ] Threads / split into threads and scopes
-- [ ] Journal with reflections from daily reflection from past 7 days
+  - [ ] Habit: plan satisfied?
 - [ ] Split/merge observations
-- [ ] Add ObservationMentioned event
-- [ ] Add plan templates for a day (e.g. Cleaning: ..., Writing: ..., etc.)
+- [ ] Add plan templates to Journal (e.g. Cleaning: ..., Writing: ..., etc.)
 - [ ] Add [ ] to journal processing so that it can be used to add a plan for tomorrow
-- [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
 - [ ] The same view as eventdump but on web
 - [ ] migrate distractions to integrity? true-to-self
-- [ ] ell / use that for a quantified satori element
-  - on a scale 1-10 how was I close to the "true-to-self" (breakthrough) goal? Was there some task that was connected to the projected outcome elements?
-- [ ] Enable login on every page and request
 - Creativity Explorer
   - [ ] Random: Three events and and "find a connection"
   - Pseudorandom -> navigate left/right/top (leave one item, add two random)
@@ -129,9 +115,11 @@
 - Year-on-Year Explorer
   - [ ] See journal entries from last 5 years
   - [ ] Allow to write a journal with a specific tag
-- [ ] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
-- [ ] Either remove projected outcome events from events or handle them in tasks-collector-tools
+- Side-effects refactor
+  - [ ] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
+  - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
 - [ ] Completely REFACTOR weekly/monthly summary code into a better shape
+- [ ] Threads / split into threads and scopes
 - [ ] How about I do the AREAS for life?
   - [ ] To mark then reflection templates (weekly monthly)
 - [ ] Better product roadmap than this TODO file
