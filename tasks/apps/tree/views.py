@@ -1007,12 +1007,21 @@ def breakthrough(request, year):
         habit__slug='breakthrough',
     ).select_related('habit')
 
+    # Get closed ProjectedOutcomes for this year's breakthrough
+    if breakthrough.pk:
+        closed_outcomes = ProjectedOutcomeClosed.objects.filter(
+            breakthrough=breakthrough
+        ).order_by('-published')
+    else:
+        closed_outcomes = ProjectedOutcomeClosed.objects.none()
+
     return render(request, "tree/breakthrough.html", {
         'year': year,
         'breakthrough_habits': breakthrough_habits,
         'form': form,
         'formset': formset,
         'projected_outcome_queryset': projected_outcome_queryset,
+        'closed_outcomes': closed_outcomes,
     })
 
 
@@ -1385,7 +1394,23 @@ def todo(request):
         profile = Profile.objects.get(user=request.user)
     except Profile.DoesNotExist:
         profile = None
-    
+
     return render(request, 'tree/tasks.html', {
         'profile': profile,
     })
+
+@api_view(['POST'])
+def projected_outcome_close(request, projected_outcome_id):
+    projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
+
+    projected_outcome_closed = ProjectedOutcomeClosed.from_projected_outcome(projected_outcome)
+
+    with transaction.atomic():
+        projected_outcome_closed.save()
+
+        projected_outcome.delete()
+
+    response = RestResponse({'ok': True}, status=status.HTTP_200_OK)
+    response['HX-Redirect'] = reverse('breakthrough', args=[projected_outcome.breakthrough.slug])
+
+    return response

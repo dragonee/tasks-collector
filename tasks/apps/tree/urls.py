@@ -61,6 +61,7 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
     path('breakthrough/<int:year>/', views.breakthrough, name='breakthrough'),
     re_path(r'^projected-outcome/(?P<event_stream_id>[a-f0-9\-]+)/events/$', views.projected_outcome_events_history, name='projected-outcome-events-history'),
+    path('projected-outcome/<int:projected_outcome_id>/close/', views.projected_outcome_close, name='projected-outcome-close'),
     path('stats/', views.stats, name='stats'),
     path('stats/json/', views.stats_json, name='stats-json'),
     path('api/events/daily/', views.daily_events, name='daily-events'),
