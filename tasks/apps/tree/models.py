@@ -97,9 +97,6 @@ class Habit(models.Model):
     # URL Slug
     slug = models.SlugField(max_length=255, unique=True)
 
-    # hashtag for matching (kept for backwards compatibility, will be deprecated)
-    tagname = models.SlugField(max_length=255, unique=True, allow_unicode=True)
-
     event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
 
     description = models.TextField(null=True, blank=True)
@@ -114,12 +111,8 @@ class Habit(models.Model):
         return ['#{}'.format(keyword) for keyword in self.get_keywords()]
 
     def get_keywords(self):
-        """Get all keywords for this habit as a set, including the legacy tagname"""
-        keywords = set(self.keywords.values_list('keyword', flat=True))
-        # Include tagname for backwards compatibility
-        if self.tagname:
-            keywords.add(self.tagname)
-        return keywords
+        """Get all keywords for this habit as a set"""
+        return set(self.keywords.values_list('keyword', flat=True))
 
 
 class HabitKeyword(models.Model):

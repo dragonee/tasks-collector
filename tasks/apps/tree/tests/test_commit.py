@@ -1,5 +1,5 @@
 from django.test import TestCase
-from .commit import calculate_changes_per_board
+from ..commit import calculate_changes_per_board
 
 
 class CommitTestCase(TestCase):
