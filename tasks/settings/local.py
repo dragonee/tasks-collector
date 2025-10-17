@@ -46,3 +46,7 @@ INTERNAL_IPS = [
 ]
 
 CELERY_BROKER_URL = 'redis://tasks-queue'
+
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda _request: DEBUG,
+}
