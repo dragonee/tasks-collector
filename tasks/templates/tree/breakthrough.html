@@ -85,8 +85,52 @@
                     {{ formset.non_form_errors }}
 
                     {% for form in formset %}
-                    
+
+                    {% if not form.instance.pk %}
+                        {% if closed_outcomes %}
+                            {% for closed_outcome in closed_outcomes %}
+                                <div class="breakthrough-outcome closed">
+                                    <div class="breakthrough-outcome-name">
+                                        <div class="grow">
+                                            <input type="text" value="{{ closed_outcome.name }}" readonly disabled>
+                                        </div>
+                                        <div class="by">
+                                            <span class="confidence-level">✅</span>
+                                        </div>
+                                        <div>
+                                            <input type="date" value="{{ closed_outcome.resolved_by|date:'Y-m-d' }}" readonly disabled>
+                                        </div>
+                                        <div class="outcome-menu">
+                                            <button type="button" class="menu-toggle" title="More actions">⋯</button>
+                                            <div class="menu-dropdown">
+                                                <a href="{% url 'projected-outcome-events-history' event_stream_id=closed_outcome.event_stream_id %}" class="menu-item">
+                                                    📕 View History
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="accordion">Open</button>
+                                    </div>
+                                    <div class="breakthrough-outcome-extra hidden">
+                                        {% if closed_outcome.description %}
+                                        <div class="field">
+                                            <textarea readonly disabled>{{ closed_outcome.description }}</textarea>
+                                            <div class="meta"></div>
+                                        </div>
+                                        {% endif %}
+                                        {% if closed_outcome.success_criteria %}
+                                        <div class="field">
+                                            <textarea readonly disabled>{{ closed_outcome.success_criteria }}</textarea>
+                                            <div class="meta">Success criteria</div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endif %}
                         <div class="breakthrough-outcome {% if not form.instance.pk %}empty{% endif %} {% if form.errors %}open{% endif %}">
+                            
+
                             {{ form.id }}
 
                             <div class="breakthrough-outcome-name">
@@ -100,8 +144,23 @@
                                 </div>
                                 <div>{{ form.resolved_by }}</div>
                                 {% if form.instance.pk %}
-                                    <a href="{% url 'projected-outcome-events-history' event_stream_id=form.instance.event_stream_id %}" class="history-link" title="View event history">📋</a>
-                                    <button class="accordion">Open</button>
+                                    <div class="outcome-menu">
+                                        <button type="button" class="menu-toggle" title="More actions">⋯</button>
+                                        <div class="menu-dropdown">
+                                            <a href="{% url 'projected-outcome-events-history' event_stream_id=form.instance.event_stream_id %}" class="menu-item">
+                                                📕 View History
+                                            </a>
+                                            <button
+                                                type="button"
+                                                class="menu-item close-outcome-btn {% if form.instance.confidence_level != 100 %}disabled{% endif %}"
+                                                data-outcome-id="{{ form.instance.pk }}"
+                                                {% if form.instance.confidence_level != 100 %}disabled{% endif %}
+                                                title="{% if form.instance.confidence_level != 100 %}Set confidence to 100% to close{% else %}Close this outcome{% endif %}">
+                                                ✅ Close Outcome
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="accordion">Open</button>
                                 {% endif %}
                             </div>
                             <div class="breakthrough-outcome-extra {% if form.instance.pk %}hidden{% endif %}">
@@ -126,10 +185,105 @@
                             </div>
                         </div>
                     {% endfor %}
+                   
 
             </section>
             </div>
         </main>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle menu toggle
+    const menuToggles = document.querySelectorAll('.menu-toggle');
+
+    menuToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const dropdown = this.nextElementSibling;
+            const isOpen = dropdown.classList.contains('show');
+
+            // Close all other dropdowns
+            document.querySelectorAll('.menu-dropdown.show').forEach(d => {
+                if (d !== dropdown) d.classList.remove('show');
+            });
+
+            // Toggle current dropdown
+            dropdown.classList.toggle('show');
+        });
+    });
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.outcome-menu')) {
+            document.querySelectorAll('.menu-dropdown.show').forEach(d => {
+                d.classList.remove('show');
+            });
+        }
+    });
+
+    // Get all close buttons
+    const closeButtons = document.querySelectorAll('.close-outcome-btn');
+
+    // Setup dynamic enable/disable based on confidence level
+    closeButtons.forEach(button => {
+        const outcomeDiv = button.closest('.breakthrough-outcome');
+        const confidenceInput = outcomeDiv.querySelector('.breakthrough-outcome-confidence input');
+
+        if (confidenceInput) {
+            // Update button state when slider changes
+            confidenceInput.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                if (value === 100) {
+                    button.disabled = false;
+                    button.classList.remove('disabled');
+                    button.title = 'Close this outcome';
+                } else {
+                    button.disabled = true;
+                    button.classList.add('disabled');
+                    button.title = 'Set confidence to 100% to close';
+                }
+            });
+        }
+
+        // Handle close button click
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            if (this.disabled) return;
+
+            const outcomeId = this.dataset.outcomeId;
+            const outcomeName = outcomeDiv.querySelector('input[name*="name"]').value;
+
+            if (!confirm(`Are you sure you want to close "${outcomeName}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            // Make POST request to close the outcome
+            fetch(`/projected-outcome/${outcomeId}/close/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Failed to close outcome');
+            })
+            .then(data => {
+                // Reload the page to show updated state
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to close the outcome. Please try again.');
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

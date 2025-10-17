@@ -711,7 +711,8 @@ class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
 
 class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
     projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE)
+
     name = models.CharField(max_length=255)
     description = models.TextField()
     resolved_by = models.DateField()
@@ -721,6 +722,7 @@ class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
     def from_projected_outcome(projected_outcome):
         return ProjectedOutcomeClosed(
             projected_outcome=projected_outcome,
+            breakthrough=projected_outcome.breakthrough,
             name=projected_outcome.name,
             description=projected_outcome.description,
             resolved_by=projected_outcome.resolved_by,
