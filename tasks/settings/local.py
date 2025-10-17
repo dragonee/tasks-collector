@@ -1,4 +1,4 @@
-import os
+import os, sys
 
 DATABASES = {
     'default': {
@@ -22,13 +22,18 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEBUG = True
 
-INSTALLED_APPS += ('debug_toolbar',)
+is_running_tests = 'test' in sys.argv or os.environ.get("PYTEST_VERSION") is not None
 
-DEBUG_TOOLBAR_PATCH_SETTINGS = False
+if not is_running_tests:
+    INSTALLED_APPS += ('debug_toolbar',)
+    MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE
+    DEBUG_TOOLBAR_PATCH_SETTINGS = False
+    DEBUG_TOOLBAR_CONFIG = {
+        'SHOW_TOOLBAR_CALLBACK': lambda _request: DEBUG,
+    }
+
 
 VALIDATE_FRONT_PASSWORD = False
-
-MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware', ] + MIDDLEWARE
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static', 'local')
@@ -46,7 +51,3 @@ INTERNAL_IPS = [
 ]
 
 CELERY_BROKER_URL = 'redis://tasks-queue'
-
-DEBUG_TOOLBAR_CONFIG = {
-    'SHOW_TOOLBAR_CALLBACK': lambda _request: DEBUG,
-}
