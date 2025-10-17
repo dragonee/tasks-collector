@@ -30,115 +30,74 @@ class HabitParsingTestCase(TestCase):
         )
         HabitKeyword.objects.create(habit=self.meditation_habit, keyword='medytacja')
 
-    def test_parse_single_habit_tracked(self):
-        """Test parsing a single tracked habit (#)."""
-        result = habits_line_to_habits_tracked('#food pizza')
+    def _parse_and_check(self, line, expected_result):
+        """Run habits_line_to_habits_tracked and assert the result matches the expected result."""
 
-        self.assertEqual(len(result), 1)
-        occured, habit, note = result[0]
-        self.assertTrue(occured)
-        self.assertEqual(habit, self.food_habit)
-        self.assertEqual(note, '#food pizza')
+        result = habits_line_to_habits_tracked(line)
+        
+        self.assertEqual(len(result), len(expected_result))
 
-    def test_parse_single_habit_skipped(self):
-        """Test parsing a single skipped habit (!)."""
-        result = habits_line_to_habits_tracked('!food nie dzisiaj')
+        for i in range(len(result)):
+            occured, habit, note = result[i]
+            expected_occured, expected_habit, expected_note = expected_result[i]
+            self.assertEqual(occured, expected_occured)
+            self.assertEqual(habit, expected_habit)
+            self.assertEqual(note, expected_note)
 
-        self.assertEqual(len(result), 1)
-        occured, habit, note = result[0]
-        self.assertFalse(occured)
-        self.assertEqual(habit, self.food_habit)
-        self.assertEqual(note, '!food nie dzisiaj')
+    def test_a_single_habit_tracked_can_be_parsed(self):
+        """A single tracked habit (#) can be parsed."""
+        self._parse_and_check('#food pizza', [
+            (True, self.food_habit, '#food pizza'),
+        ])
 
-    def test_parse_multiple_habits_in_many_lines(self):
-        """Test parsing multiple habits in a single line."""
-        result = habits_line_to_habits_tracked('#food kebab\n#workout trening')
+    def test_a_single_skipped_habit_can_be_parsed(self):
+        """A single skipped habit (!) can be parsed."""
+        self._parse_and_check('!food nie dzisiaj', [
+            (False, self.food_habit, '!food nie dzisiaj')
+        ])
 
-        self.assertEqual(len(result), 2)
+    def test_multiple_habits_can_be_separated_by_space(self):
+        """Multiple habits can be separated by space."""
+        self._parse_and_check('#food kebab #workout trening', [
+            (True, self.food_habit, '#food kebab'), 
+            (True, self.workout_habit, '#workout trening')
+        ])
 
-        # First habit
-        occured1, habit1, note1 = result[0]
-        self.assertTrue(occured1)
-        self.assertEqual(habit1, self.food_habit)
-        self.assertEqual(note1, '#food kebab')
+    def test_multiple_habits_can_be_separated_by_new_line(self):
+        """Multiple habits can also be separated by new line."""
+        self._parse_and_check('#food kebab\n#workout trening', [
+            (True, self.food_habit, '#food kebab'), 
+            (True, self.workout_habit, '#workout trening')
+        ])
 
-        # Second habit
-        occured2, habit2, note2 = result[1]
-        self.assertTrue(occured2)
-        self.assertEqual(habit2, self.workout_habit)
-        self.assertEqual(note2, '#workout trening')
+    def test_multiple_habits_can_mix_tracked_and_skipped_markers(self):
+        """Multiple habits can mix tracked and skipped markers."""
+        self._parse_and_check('#food pizza !medytacja niestety', [
+            (True, self.food_habit, '#food pizza'),
+            (False, self.meditation_habit, '!medytacja niestety')
+        ])
 
-    def test_parse_multiple_habits_in_one_line(self):
-        """Test parsing multiple habits in a single line."""
-        result = habits_line_to_habits_tracked('#food kebab #workout trening')
-
-        self.assertEqual(len(result), 2)
-
-        # First habit
-        occured1, habit1, note1 = result[0]
-        self.assertTrue(occured1)
-        self.assertEqual(habit1, self.food_habit)
-        self.assertEqual(note1, '#food kebab')
-
-        # Second habit
-        occured2, habit2, note2 = result[1]
-        self.assertTrue(occured2)
-        self.assertEqual(habit2, self.workout_habit)
-        self.assertEqual(note2, '#workout trening')
-
-    def test_parse_habit_with_multiple_keywords(self):
-        """Test parsing a habit using alternative keyword."""
+    def test_a_habit_can_be_referenced_by_alternative_keyword(self):
+        """A habit can be referenced by alternative keyword."""
         # Use 'siłka' keyword which maps to workout habit
-        result = habits_line_to_habits_tracked('#siłka dzisiaj')
+        self._parse_and_check('#siłka dzisiaj', [
+            (True, self.workout_habit, '#siłka dzisiaj')
+        ])
 
-        self.assertEqual(len(result), 1)
-        occured, habit, note = result[0]
-        self.assertTrue(occured)
-        self.assertEqual(habit, self.workout_habit)
-        self.assertEqual(note, '#siłka dzisiaj')
+    def test_non_existent_keywords_are_ignored(self):
+        """Non-existent keywords are ignored."""
+        self._parse_and_check('#nonexistent test', [])
 
-    def test_parse_no_matching_keyword(self):
-        """Test parsing when no keyword matches."""
-        # 'nonexistent' is not a valid keyword
-        result = habits_line_to_habits_tracked('#nonexistent test')
+    def test_empty_line_does_not_raise_any_errors(self):
+        """An empty line does not raise any errors."""
+        self._parse_and_check('', [])
 
-        # Should return empty list when no match
-        self.assertEqual(len(result), 0)
+    def test_a_line_without_habit_markers_is_ignored(self):
+        """A line without # or ! markers is ignored."""
+        self._parse_and_check('just some text', [])
 
-    def test_parse_empty_line(self):
-        """Test parsing an empty line."""
-        result = habits_line_to_habits_tracked('')
-
-        self.assertEqual(len(result), 0)
-
-    def test_parse_line_without_habit_markers(self):
-        """Test parsing a line without # or ! markers."""
-        result = habits_line_to_habits_tracked('just some text')
-
-        self.assertEqual(len(result), 0)
-
-    def test_parse_mixed_tracked_and_skipped(self):
-        """Test parsing a line with both tracked and skipped habits."""
-        result = habits_line_to_habits_tracked('#food pizza !medytacja niestety')
-
-        self.assertEqual(len(result), 2)
-
-        # First habit - tracked
-        occured1, habit1, note1 = result[0]
-        self.assertTrue(occured1)
-        self.assertEqual(habit1, self.food_habit)
-
-        # Second habit - skipped
-        occured2, habit2, note2 = result[1]
-        self.assertFalse(occured2)
-        self.assertEqual(habit2, self.meditation_habit)
-
-    def test_parse_unicode_keyword(self):
-        """Test parsing with unicode characters in keyword."""
-        result = habits_line_to_habits_tracked('#medytacja dziś rano')
-
-        self.assertEqual(len(result), 1)
-        occured, habit, note = result[0]
-        self.assertTrue(occured)
-        self.assertEqual(habit, self.meditation_habit)
-        self.assertEqual(note, '#medytacja dziś rano')
+    def test_unicode_strings_are_supported(self):
+        """Unicode strings are supported."""
+        self._parse_and_check('#medytacja dziś rano', [
+            (True, self.meditation_habit, '#medytacja dziś rano')
+        ])
