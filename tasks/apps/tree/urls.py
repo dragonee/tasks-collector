@@ -40,10 +40,6 @@ urlpatterns = [
     # Home / Today view
     path('', views_today.today, name='public-today'),
 
-    # API Router (REST Framework)
-    path('', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-
     # === Board & Task Management (views_board_tasks) ===
     path('todo/', views.todo, name='todo'),
     path('boards/<int:id>/summary/', views_board_tasks.board_summary),
@@ -103,4 +99,8 @@ urlpatterns = [
 
     # === User / Settings (views) ===
     path('accounts/settings/', views.account_settings, name='account-settings'),
+
+    # API Router (REST Framework)
+    path('', include(router.urls)),
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
 ]
