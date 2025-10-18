@@ -1,7 +1,27 @@
 import re
-from ..models import Event, Statistics, Plan
-
 from functools import reduce
+
+from django.utils import timezone
+
+from .itertools import _in_second, compose
+
+from ..models import (
+    Event,
+    Statistics,
+    Plan,
+    JournalAdded,
+    HabitTracked,
+    ObservationMade,
+    ObservationUpdated,
+    ObservationClosed,
+    ObservationRecontextualized,
+    ObservationReflectedUpon,
+    ObservationReinterpreted,
+    ProjectedOutcomeMade,
+    ProjectedOutcomeRedefined,
+    ProjectedOutcomeRescheduled,
+    ProjectedOutcomeClosed,
+)
 
 
 def count_words_in_text(text):
@@ -100,15 +120,13 @@ def get_all_years_in_database():
 
 def update_all_word_count_statistics():
     """Update word count statistics for all years and overall total
-    
+
     Only updates current year and previous year if they already exist.
     Creates statistics for other years only if they don't exist.
-    
+
     Returns:
         dict: Dictionary with 'total' and 'years' containing word counts
     """
-    from django.utils import timezone
-    
     results = {}
     
     # Update overall total (always update)
@@ -144,14 +162,67 @@ def update_all_word_count_statistics():
 
 def get_word_count_statistic(year=None):
     """Get the current word count statistic
-    
+
     Args:
         year (int, optional): Year to get statistic for. If None, gets overall statistic.
     """
     key = f'total_word_count_{year}' if year else 'total_word_count'
-    
+
     try:
         stat = Statistics.objects.get(key=key)
         return stat.value, stat.last_updated
     except Statistics.DoesNotExist:
         return None, None
+
+
+aggregate_models_dict = {
+    'journal_count': JournalAdded,
+    'habit_count': HabitTracked,
+    'observation_count': ObservationMade,
+    'observation_updated_count': ObservationUpdated,
+    'observation_closed_count': ObservationClosed,
+    'observation_recontextualized_count': ObservationRecontextualized,
+    'observation_reflected_upon_count': ObservationReflectedUpon,
+    'observation_reinterpreted_count': ObservationReinterpreted,
+    'projected_outcome_made_count': ProjectedOutcomeMade,
+    'projected_outcome_redefined_count': ProjectedOutcomeRedefined,
+    'projected_outcome_rescheduled_count': ProjectedOutcomeRescheduled,
+    'projected_outcome_closed_count': ProjectedOutcomeClosed,
+    'event_count': Event,
+}
+
+def get_aggregate_statistics(year=None):
+    """Get aggregate statistics for all events and activities
+
+    Args:
+        year (int, optional): Year to filter statistics by. If None, includes all records.
+
+    Returns:
+        dict: Dictionary containing counts for various event types and word counts
+    """
+
+    if year:
+        year_filter = lambda qs: qs.filter(published__year=year)
+    else:
+        year_filter = lambda qs: qs
+
+    _count_with_year_filter = compose(
+        lambda model: model.objects.all(),
+        year_filter,
+        lambda qs: qs.count(),
+    )
+
+    all_counts = dict(map(
+        _in_second(_count_with_year_filter), 
+        aggregate_models_dict.items()
+    ))
+
+    # Get word count statistic
+    word_count, word_count_updated = get_word_count_statistic(year=year)
+
+    return all_counts | {
+        'year': year,
+        'years': list(range(timezone.now().year, 2018, -1)),
+        'word_count': word_count,
+        'word_count_updated': word_count_updated,
+    }
