@@ -82,6 +82,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'tasks.apps.tree.context_processors.menu',
+                'tasks.apps.tree.context_processors.app_version',
             ],
         },
     },

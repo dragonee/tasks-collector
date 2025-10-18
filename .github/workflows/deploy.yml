@@ -48,6 +48,12 @@ jobs:
         run: npm run build-dist
       - name: Copy static assets
         run: python3 manage.dist.py collectstatic --noinput
+      - name: Generate REVISION file
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0")
+          REVISION=$(git rev-parse --short=8 HEAD)
+          echo "${VERSION}-${REVISION}" > tasks/REVISION
+          echo "Generated version: ${VERSION}-${REVISION}"
       - name: Copy files to the server
         uses: burnett01/rsync-deployments@5.2
         with:

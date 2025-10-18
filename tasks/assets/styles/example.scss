@@ -1858,3 +1858,23 @@ $calendar-color: rgba(223, 9, 9, 0.7);
     border-color: #f5c6cb;
     color: #721c24;
 }
+
+.app-version-footer {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    padding: 4px 8px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    color: #999;
+    z-index: 100;
+
+    .app-version {
+        font-family: monospace;
+    }
+
+    .app-tasks & {
+        display: none;
+    }
+}
