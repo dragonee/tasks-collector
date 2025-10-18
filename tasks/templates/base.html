@@ -28,6 +28,12 @@
     <body class="{% block body_class %}{% endblock %}">
         {% block content %} {% endblock %}
 
+        {% if APP_VERSION %}
+        <footer class="app-version-footer">
+            <span class="app-version">{{ APP_VERSION }}</span>
+        </footer>
+        {% endif %}
+
         {% block jsmount %}
             {% render_js 'app' %}
         {% endblock %}
