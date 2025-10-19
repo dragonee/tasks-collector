@@ -17,6 +17,10 @@
 
             <label for="to">To:</label>
             <input type="date" id="to" name="to" value="{{ request.GET.to }}" onchange="this.form.submit()">
+
+            {% if request.GET.from or request.GET.to %}
+            <a href="{% url 'summaries' %}" style="margin-left: 10px;">Reset</a>
+            {% endif %}
         </form>
     </div>
     {% endif %}
