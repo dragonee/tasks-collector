@@ -582,15 +582,3 @@ class BoardSummary(object):
 
     def days(self):
         return (self.board.published - self.board.date_started).days
-
-    def observations(self):
-        # XXX TODO optimize N-question problem
-
-        # XXX TODO hack
-        if self.board.thread.name != 'Daily':
-            return []
-
-        return Observation.objects.filter(pub_date__range=(
-            self.board.date_started,
-            self.board.published
-        ))

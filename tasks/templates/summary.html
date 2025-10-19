@@ -50,28 +50,6 @@
             </ol>
             {% endif %}
         </div>
-        
-        {% with observations=summary.observations %}
-        {% if observations %}
-        <div class="observation-list">
-            <h3>Obserwacje</h3>
-            <ul>
-            {% for item in observations %}
-                <li {% if item.date_closed %}class="closed" {% endif %}>
-                    <strong>{{ item.situation }}</strong> 
-                    <em>
-                        <small>
-                                ({{item.type}}, 
-                                {{ item.thread }}
-                                <a href="/observations/#observation-{{ item.pk }}">#</a>)
-                        </small>
-                    </em>
-                </li>
-            {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        {% endwith %}
     </article>
 
     {% endfor %}
