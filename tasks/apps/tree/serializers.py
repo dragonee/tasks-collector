@@ -563,8 +563,9 @@ class BoardSummary(object):
     def removed(self):
         weeks_in_list = marker('weeksInList')
         checked = state('checked')
+        postponed_for = marker('postponedFor')
 
-        return self.filter_tree(lambda item: weeks_in_list(item) >= 5 and not checked(item))
+        return self.filter_tree(lambda item: weeks_in_list(item) >= 5 and not checked(item) and postponed_for(item) == 0)
 
     def finished_count(self):
         return ilen(self.finished())
