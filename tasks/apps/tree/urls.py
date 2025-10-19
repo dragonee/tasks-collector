@@ -42,10 +42,10 @@ urlpatterns = [
 
     # === Board & Task Management (views_board_tasks) ===
     path('todo/', views.todo, name='todo'),
-    path('boards/<int:id>/summary/', views_board_tasks.board_summary),
+    path('boards/<int:id>/summary/', views_board_tasks.board_summary, name='board-summary'),
     path('boards/<int:id>/commit/', views_board_tasks.commit_board),
     path('boards/append/', views_board_tasks.add_task),
-    path('summaries/', views_board_tasks.summaries),
+    path('summaries/', views_board_tasks.summaries, name='summaries'),
 
     # === Plans (views) ===
     path('plans/add-task/', views.add_task_to_plan, name='plan-add-task'),

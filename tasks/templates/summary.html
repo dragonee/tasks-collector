@@ -9,11 +9,33 @@
 <div class="summaries">
     {% include "menu.html" %}
 
+    {% if not single_view %}
+    <div class="date-filters" style="margin-bottom: 20px;">
+        <form method="get" action="{% url 'summaries' %}" style="display: flex; gap: 10px; align-items: center;">
+            <label for="from">From:</label>
+            <input type="date" id="from" name="from" value="{{ request.GET.from }}" onchange="this.form.submit()">
+
+            <label for="to">To:</label>
+            <input type="date" id="to" name="to" value="{{ request.GET.to }}" onchange="this.form.submit()">
+
+            {% if request.GET.from or request.GET.to %}
+            <a href="{% url 'summaries' %}" style="margin-left: 10px;">Reset</a>
+            {% endif %}
+        </form>
+    </div>
+    {% endif %}
+
     {% for summary in summaries %}
 
     <article class="summary">
         <h2>
+            {% if not single_view %}
+            <a href="{% url 'board-summary' summary.board.id %}">
+                {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
+            </a>
+            {% else %}
             {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
+            {% endif %}
             <span class="focus">
                 {{ summary.board.focus }}
 
@@ -50,28 +72,6 @@
             </ol>
             {% endif %}
         </div>
-        
-        {% with observations=summary.observations %}
-        {% if observations %}
-        <div class="observation-list">
-            <h3>Obserwacje</h3>
-            <ul>
-            {% for item in observations %}
-                <li {% if item.date_closed %}class="closed" {% endif %}>
-                    <strong>{{ item.situation }}</strong> 
-                    <em>
-                        <small>
-                                ({{item.type}}, 
-                                {{ item.thread }}
-                                <a href="/observations/#observation-{{ item.pk }}">#</a>)
-                        </small>
-                    </em>
-                </li>
-            {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        {% endwith %}
     </article>
 
     {% endfor %}
