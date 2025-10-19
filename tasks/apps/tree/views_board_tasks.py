@@ -105,14 +105,21 @@ def board_summary(request, id):
     return render(request, 'summary.html', {
         'boards': [board],
         'summaries': [summary],
+        'single_view': True,
     })
 
 
 def period_from_request(request, days=7, start=None, end=None):
-    return (
-        request.GET.get('from', start or datetime.date.today() - datetime.timedelta(days=days)),
-        request.GET.get('to', end or datetime.date.today() + datetime.timedelta(days=1))
-    )
+    from_date = request.GET.get('from', '').strip()
+    to_date = request.GET.get('to', '').strip()
+
+    if not from_date:
+        from_date = start or datetime.date.today() - datetime.timedelta(days=days)
+
+    if not to_date:
+        to_date = end or datetime.date.today() + datetime.timedelta(days=1)
+
+    return (from_date, to_date)
 
 
 @login_required
@@ -126,4 +133,5 @@ def summaries(request):
     return render(request, 'summary.html', {
         'boards': boards,
         'summaries': summaries,
+        'single_view': False,
     })
