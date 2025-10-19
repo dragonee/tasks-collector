@@ -560,11 +560,20 @@ class BoardSummary(object):
     def postponed(self):
         return self.filter_tree(marker('postponedFor'))
 
+    def removed(self):
+        weeks_in_list = marker('weeksInList')
+        checked = state('checked')
+
+        return self.filter_tree(lambda item: weeks_in_list(item) >= 5 and not checked(item))
+
     def finished_count(self):
         return ilen(self.finished())
 
     def postponed_count(self):
         return ilen(self.postponed())
+
+    def removed_count(self):
+        return ilen(self.removed())
 
     def task_count(self):
         return ilen(tree_iterator(self.board.before))
@@ -580,6 +589,6 @@ class BoardSummary(object):
             return []
 
         return Observation.objects.filter(pub_date__range=(
-            self.board.date_started, 
+            self.board.date_started,
             self.board.published
         ))

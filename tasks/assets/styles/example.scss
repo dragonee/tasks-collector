@@ -355,6 +355,10 @@ h1 + .cont .menu a:first-child {
             border-left: 32px solid #31d0ff73;
         }
 
+        .removed li {
+            border-left: 32px solid #8b5cf6;
+        }
+
         .has-finalizing {
             left: 10px;
         }

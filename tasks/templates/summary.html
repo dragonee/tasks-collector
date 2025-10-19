@@ -27,20 +27,28 @@
         </h2>
 
         <div class="boxes">
-            <div class="left">
-                <ol class="finished">
-                    {% for item in summary.finished %}
-                        {% include "item.html" %}
-                    {% endfor %}
-                </ol>
-            </div>
-            <div class="right">
-                <ol class="postponed">
-                    {% for item in summary.postponed %}
-                        {% include "item.html" %}
-                    {% endfor %}
-                </ol>
-            </div>
+            {% if summary.finished_count > 0 %}
+            <ol class="finished">
+                {% for item in summary.finished %}
+                    {% include "item.html" %}
+                {% endfor %}
+            </ol>
+            {% endif %}
+    
+            {% if summary.postponed_count > 0 %}
+            <ol class="postponed">
+                {% for item in summary.postponed %}
+                    {% include "item.html" %}
+                {% endfor %}
+            </ol>
+            {% endif %}
+            {% if summary.removed_count > 0 %}
+            <ol class="removed">
+                {% for item in summary.removed %}
+                    {% include "item.html" %}
+                {% endfor %}
+            </ol>
+            {% endif %}
         </div>
         
         {% with observations=summary.observations %}
