@@ -114,6 +114,9 @@ def filter_out_checked_items(x):
     # Don't remove postponed tasks
     if x.get('data', {}).get('meaningfulMarkers', {}).get('postponedFor', 0) > 0:
         return False
+    
+    if x.get('data', {}).get('meaningfulMarkers', {}).get('madeProgress', False):
+        return False
 
     # Filter out tasks that have been in the list for 6 weeks or more (force removal)
     weeks_in_list = x.get('data', {}).get('meaningfulMarkers', {}).get('weeksInList', 0)
