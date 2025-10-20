@@ -126,3 +126,8 @@
 - [ ] Tasks -> Plan to Reflection
   - Mark tasks as tied to plan/reflection
   - On complete (?) tasks can be written into daily reflection
+- Better reflections
+  - Categories / AREAS
+  - Daily reflection has good/better/best
+  - Weekly and Monthly have areas
+  - Good better best give a score to area
