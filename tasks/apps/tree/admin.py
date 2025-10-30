@@ -9,6 +9,7 @@ from django.db import transaction
 
 
 class ObservationTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'color')
     prepopulated_fields = {"slug": ("name",)}
 
 
