@@ -234,6 +234,7 @@ class Plan(models.Model):
 class ObservationType(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255)
+    color = models.CharField(max_length=7, default='#ca8911', help_text=_("Color in hex format (e.g., #FF5733)"))
 
     def __str__(self):
         return self.name

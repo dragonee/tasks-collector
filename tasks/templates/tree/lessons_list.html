@@ -23,9 +23,9 @@
         <article class="observation" id="observation-{{ observation.pk }}">
 
             <div class="meta">
-                {{ observation.published|date }} 
-                (<span class="type">{{ observation.type }}</span>; 
-                <span class="thread">{{ observation.thread }}</span> 
+                {{ observation.published|date }}
+                (<span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>;
+                <span class="thread">{{ observation.thread }}</span>
                 <a href="{% url 'public-observation-closed-detail' observation.event_stream_id %}">$</a>)
             </div>
             <div class="strong">{{ observation.approach|linebreaks }}</div>
