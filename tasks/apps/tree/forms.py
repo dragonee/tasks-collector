@@ -2,7 +2,7 @@ from django import forms
 
 from django.core.exceptions import ValidationError
 
-from .models import Plan, Reflection, Observation, QuickNote, Thread, JournalAdded, Breakthrough, ProjectedOutcome, Profile
+from .models import Plan, Reflection, Observation, QuickNote, Thread, JournalAdded, JournalTag, Breakthrough, ProjectedOutcome, Profile
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -208,3 +208,67 @@ class UserForm(forms.ModelForm):
                 'placeholder': 'Last name...',
             }),
         }
+
+class JournalAddedForm(forms.ModelForm):
+    # Handle tags manually - use single select for tags
+    tag = forms.ModelChoiceField(
+        queryset=JournalTag.objects.all(),
+        required=False,
+        empty_label='Select a tag (optional)',
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+        }),
+        label='Tag'
+    )
+    
+    class Meta:
+        model = JournalAdded
+        fields = ['comment', 'thread']
+        widgets = {
+            'comment': forms.Textarea(attrs={
+                'rows': 10,
+                'placeholder': 'Enter your journal entry...\n\nYou can use:\n- [x] for good things\n- [~] for things to improve\n- [^] for best practices\n- #habit_name or !habit_name to track habits',
+            }),
+            'thread': forms.Select(attrs={
+                'class': 'form-control',
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Make thread required and remove empty option
+        self.fields['thread'].required = True
+        self.fields['thread'].empty_label = None
+        
+        # Set default thread to 'Daily' if not provided
+        if not self.instance.pk and 'thread' not in self.initial:
+            try:
+                daily_thread = Thread.objects.get(name='Daily')
+                self.initial['thread'] = daily_thread.id
+            except Thread.DoesNotExist:
+                pass
+        
+        # Load existing tag if editing (just the first one if multiple exist)
+        if self.instance.pk:
+            existing_tag = self.instance.tags.first()
+            if existing_tag:
+                self.initial['tag'] = existing_tag.id
+    
+    def save(self, commit=True):
+        # Set published to now if not set
+        from django.utils import timezone
+        instance = super().save(commit=False)
+        if not instance.published:
+            instance.published = timezone.now()
+        
+        if commit:
+            instance.save()
+            # Save the selected tag
+            selected_tag = self.cleaned_data.get('tag')
+            if selected_tag:
+                instance.tags.set([selected_tag])
+            else:
+                instance.tags.clear()
+        
+        return instance

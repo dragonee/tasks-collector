@@ -1,18 +1,31 @@
 <div class="cont">
     <p class="menu">
-        <a href="/">Daily</a>
-        <a href="/todo/">Tasks</a>
-        <a href="/observations/">Observations</a>
-        <a href="/observations/add/">+O</a>
-        <a href="/summaries/">Summaries</a>
+        <span class="menu-group">
+            <a href="/">Daily</a>
+            <a href="{% url 'public-journal-add' %}" class="plus">＋</a>
+            <a href="/diary/">Journal</a>
+        </span>
+        <span class="menu-group">
+            <a href="/observations/">Observations</a>
+            <a href="/observations/add/" class="plus">＋</a>
+        </span>
+        <span class="menu-group">
+            <a href="/todo/">Tasks</a>
+            <a href="/summaries/">Summaries</a>
+        </span>
         <!--<a href="/quests/">Quests</a>
         <a href="/quests/view/">Journal</a> -->
-        <a href="/habits/">Habits</a>
-        <a href="/diary/">Diary</a>
-        <a href="/breakthrough/{{ current_year }}/">Breakthrough</a>
-        {% if user.is_authenticated %}
-            <a href="{% url 'account-settings' %}" style="float: right;">⚙</a>
-            <a href="{% url 'logout' %}" style="float: right;">Logout</a>
-        {% endif %}
+        <span class="menu-group">
+            <a href="/habits/">Habits</a>
+        </span>
+        <span class="menu-group">
+            <a href="/breakthrough/{{ current_year }}/">Breakthrough</a>
+        </span>
+        <span class="menu-group on-right">
+            {% if user.is_authenticated %}
+                <a href="{% url 'account-settings' %}">⚙</a>
+                <a href="{% url 'logout' %}">Logout</a>
+            {% endif %}
+        </span>
     </p>
 </div>

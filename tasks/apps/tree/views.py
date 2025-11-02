@@ -428,3 +428,39 @@ def todo(request):
         'profile': profile,
     })
 
+@login_required
+@transaction.atomic
+def journal_add(request):
+    """View to add a journal entry via web form"""
+    if request.method == 'POST':
+        form = JournalAddedForm(request.POST)
+        if form.is_valid():
+            journal_added = form.save()
+            
+            # Replicate API behavior: add reflection items and extract habits
+            add_reflection_items(journal_added)
+            
+            # Handle reflect command
+            if 'reflection' not in request.POST:
+                triplets = habits_line_to_habits_tracked(journal_added.comment)
+                
+                for occured, habit, note in triplets:
+                    HabitTracked.objects.create(
+                        occured=occured,
+                        habit=habit,
+                        note=note,
+                        published=journal_added.published,
+                        thread=Thread.objects.get(name='Daily'),
+                    )
+            
+            from django.utils import timezone
+            messages.success(request, 'Journal entry added successfully!')
+            today_str = timezone.now().date().isoformat()
+            return redirect(f"{reverse('public-today')}?date={today_str}")
+    else:
+        form = JournalAddedForm()
+    
+    return render(request, 'tree/journal_add.html', {
+        'form': form,
+    })
+
