@@ -131,3 +131,16 @@
   - Daily reflection has good/better/best
   - Weekly and Monthly have areas
   - Good better best give a score to area
+- Habit vs habit
+  - presence / jestem
+  - OR habit by keyword?
+- Breakthrough: podsumowanie roku
+  - Progress / Close with message if not 100% / - 
+- Reverse prompting
+  - Ask AI tools to provide me with a prompt to achieve this day
+  - Quantified Satori, basically, agent
+  - LLM Agent writing?
+  - https://developer.nvidia.com/blog/building-your-first-llm-agent-application/
+  - https://github.com/NVIDIA/GenerativeAIExamples/tree/main#end-to-end-rag-examples-and-notebooks
+- Add filtration by type to observation page (and api?)
+- Add sorting by last updated to observations

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}Add Journal Entry | Tasks Collector{% endblock %}
+
+{% block content %}
+
+<div class="journal-add">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+    <div class="journal-add-form">
+        <h1>Add Journal Entry</h1>
+        
+        <form method="post" action="">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                {{ form.comment.label_tag }}
+                {{ form.comment }}
+                {% if form.comment.errors %}
+                    <div class="error">{{ form.comment.errors }}</div>
+                {% endif %}
+                <small class="form-text text-muted">
+                    You can use:
+                    <ul>
+                        <li><code>[x]</code> for good things</li>
+                        <li><code>[~]</code> for things to improve</li>
+                        <li><code>[^]</code> for best practices</li>
+                        <li><code>#habit_name</code> or <code>!habit_name</code> to track habits</li>
+                    </ul>
+                </small>
+            </div>
+
+            <div class="form-group">
+                {{ form.thread.label_tag }}
+                {{ form.thread }}
+                {% if form.thread.errors %}
+                    <div class="error">{{ form.thread.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                {{ form.tag.label_tag }}
+                {{ form.tag }}
+                {% if form.tag.errors %}
+                    <div class="error">{{ form.tag.errors }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Journal Entry</button>
+                <a href="{% url 'public-today' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+

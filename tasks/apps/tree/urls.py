@@ -79,6 +79,7 @@ urlpatterns = [
     path('projected-outcome/<int:projected_outcome_id>/close/', views_breakthrough.projected_outcome_close, name='projected-outcome-close'),
 
     # === Journal / Diary (views) ===
+    path('diary/add/', views.journal_add, name='public-journal-add'),
     path('diary/', views.JournalCurrentMonthArchiveView.as_view(month_format="%m"), name='public-diary-archive-current-month'),
     path('diary/<int:year>/<int:month>/', views.JournalArchiveMonthView.as_view(month_format="%m"), name='public-diary-archive-month'),
     path('diary/<slug:slug>/', views.JournalTagCurrentMonthArchiveView.as_view(month_format="%m"), name='public-diary-archive-current-month-tag'),

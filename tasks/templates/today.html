@@ -16,6 +16,8 @@
 <form action="" method="POST">
     {% csrf_token %}
     <div class="cont">
+        {% include "menu.html" %}
+
         <h2>
             <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&lt;</a>
             {% if not is_today and thread.name == 'Daily' %}
@@ -47,9 +49,6 @@
             </script>
             <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&gt;</a>
         </h2>
-
-        
-        {% include "menu.html" %}
 
     </div>
 
@@ -124,7 +123,8 @@
 </form>
 
     <section class="journal">
-        <h1>Journal Entries</h1>
+        <h1>Journal Entries </h1>
+        <a href="{% url 'public-journal-add' %}">+Add Journal Entry</a>
 
         <main>
             <ul>
