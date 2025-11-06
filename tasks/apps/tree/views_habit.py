@@ -158,6 +158,7 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
         context.update({
             'event_calendar': habit_calendar(self.object, start, end),
             'tracked_habits': self.tracked_habits,
+            'total_event_count': self.tracked_habits.count(),
         })
 
         return context
