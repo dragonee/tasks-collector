@@ -13,6 +13,7 @@
     </div>
 
     <h1>Habit: {{ object.name }}</h1>
+    <p class="text-muted">Total events: {{ total_event_count }}</p>
 
     <div class="calendar" data-color-from="#8de0f3" data-color-to="#4199ad" data-color-negative="#bfab59">
         {% include "tree/calendar.html" %}
