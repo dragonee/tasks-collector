@@ -144,3 +144,7 @@
   - https://github.com/NVIDIA/GenerativeAIExamples/tree/main#end-to-end-rag-examples-and-notebooks
 - Add filtration by type to observation page (and api?)
 - Add sorting by last updated to observations
+- [ ] Add action points to journal
+  - Creates a task?
+  - Adds to a plan?
+- [ ] /q/ allows for habit tracking
