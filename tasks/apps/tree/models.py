@@ -318,7 +318,6 @@ class Observation(models.Model):
         return Event.objects.filter(event_stream_id=self.event_stream_id)
 
 
-    @property
     def get_absolute_url(self):
         return reverse('public-observation-edit', kwargs={'observation_id': self.pk})
 
