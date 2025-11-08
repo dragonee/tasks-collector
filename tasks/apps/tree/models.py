@@ -240,6 +240,28 @@ class ObservationType(models.Model):
         return self.name
 
 
+class ObservationQuerySet(models.QuerySet):
+    def with_last_event_published(self):
+        """Annotate queryset with the last event published date"""
+        from django.db.models import OuterRef, Subquery
+
+        last_event_subquery = Event.objects.filter(
+            event_stream_id=OuterRef('event_stream_id')
+        ).order_by('-published').values('published')[:1]
+
+        return self.annotate(
+            last_event_published=Subquery(last_event_subquery)
+        )
+
+
+class ObservationManager(models.Manager):
+    def get_queryset(self):
+        return ObservationQuerySet(self.model, using=self._db)
+
+    def with_last_event_published(self):
+        return self.get_queryset().with_last_event_published()
+
+
 class Observation(models.Model):
     pub_date = models.DateField()
 
@@ -248,6 +270,8 @@ class Observation(models.Model):
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
     event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    objects = ObservationManager()
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
     interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)

@@ -96,7 +96,7 @@ class EventFilter(filters.FilterSet):
 
 
 class ObservationViewSet(viewsets.ModelViewSet):
-    queryset = Observation.objects.all()
+    queryset = Observation.objects.with_last_event_published()
 
     filter_backends = [DjangoFilterBackend]
     filter_class = ObservationFilter
@@ -504,7 +504,7 @@ def observation_search(request):
 
     if pk_query.isdigit():
         # Search by primary key pattern - find PKs that start with the number
-        observations = Observation.objects.extra(
+        observations = Observation.objects.with_last_event_published().extra(
             where=["CAST(id AS TEXT) LIKE %s"],
             params=[pk_query + '%']
         ).order_by('id')
@@ -540,7 +540,7 @@ def observation_search(request):
     search_query = SearchQuery(query)
 
     # Search observations and rank by relevance
-    observations = Observation.objects.annotate(
+    observations = Observation.objects.with_last_event_published().annotate(
         search=search_vector,
         rank=SearchRank(search_vector, search_query)
     ).filter(
