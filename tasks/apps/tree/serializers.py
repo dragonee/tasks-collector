@@ -140,10 +140,11 @@ class ObservationUserSerializer(serializers.ModelSerializer):
 
 class ObservationSerializer(BaseTypeThreadSerializer):
     user = ObservationUserSerializer(read_only=True)
-    
+    last_event_published = serializers.DateTimeField(read_only=True)
+
     class Meta:
         model = Observation
-        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'user']
+        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'user', 'last_event_published']
         
 
     @transaction.atomic
