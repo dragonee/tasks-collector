@@ -174,19 +174,30 @@ def my_habit_keywords(request):
 
     Query parameters:
     - all=true: Return all habit keywords instead of just filtered ones
+
+    If the user's profile has no keywords selected, returns all keywords.
     """
+    from .models import HabitKeyword
+
     # Check if all keywords should be returned
     if request.query_params.get('all') == 'true':
-        from .models import HabitKeyword
         habit_keywords = HabitKeyword.objects.all()
         serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
         return RestResponse(serializer.data)
 
-    # Return only filtered keywords
+    # Return filtered keywords, or all if none selected
     try:
         profile = Profile.objects.get(user=request.user)
         habit_keywords = profile.habit_keywords.all()
+
+        # If no keywords are selected, return all keywords
+        if not habit_keywords.exists():
+            habit_keywords = HabitKeyword.objects.all()
+
         serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
         return RestResponse(serializer.data)
     except Profile.DoesNotExist:
-        return RestResponse([], status=status.HTTP_200_OK)
+        # If no profile exists, return all keywords
+        habit_keywords = HabitKeyword.objects.all()
+        serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
+        return RestResponse(serializer.data)
