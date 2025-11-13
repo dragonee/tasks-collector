@@ -864,6 +864,24 @@ class Statistics(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     default_board_thread = models.ForeignKey(Thread, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    habit_keywords = models.ManyToManyField(HabitKeyword, related_name='profiles', blank=True)
+
     def __str__(self):
         return f"Profile for {self.user.username}"
+
+
+@receiver(post_save, sender=Profile)
+def add_all_habit_keywords_to_new_profile(sender, instance, created, **kwargs):
+    """When a new Profile is created, add all existing HabitKeywords to it"""
+    if created:
+        all_keywords = HabitKeyword.objects.all()
+        instance.habit_keywords.set(all_keywords)
+
+
+@receiver(post_save, sender=HabitKeyword)
+def add_new_habit_keyword_to_all_profiles(sender, instance, created, **kwargs):
+    """When a new HabitKeyword is created, add it to all existing Profiles"""
+    if created:
+        all_profiles = Profile.objects.all()
+        for profile in all_profiles:
+            profile.habit_keywords.add(instance)

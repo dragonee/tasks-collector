@@ -187,11 +187,12 @@ class ProjectedOutcomeForm(forms.ModelForm):
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['default_board_thread']
+        fields = ['default_board_thread', 'habit_keywords']
         widgets = {
             'default_board_thread': forms.Select(attrs={
                 'class': 'form-control',
             }),
+            'habit_keywords': forms.CheckboxSelectMultiple(),
         }
 
 class UserForm(forms.ModelForm):
