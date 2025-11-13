@@ -864,6 +864,7 @@ class Statistics(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     default_board_thread = models.ForeignKey(Thread, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    habit_keywords = models.ManyToManyField(HabitKeyword, related_name='profiles', blank=True)
+
     def __str__(self):
         return f"Profile for {self.user.username}"

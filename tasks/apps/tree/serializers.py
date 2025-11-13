@@ -21,13 +21,6 @@ class ThreadSerializer(serializers.HyperlinkedModelSerializer):
         model = Thread
         fields = ['id', 'name']
 
-class ProfileSerializer(serializers.ModelSerializer):
-    default_board_thread = ThreadSerializer(read_only=True)
-    
-    class Meta:
-        model = Profile
-        fields = ['id', 'default_board_thread']
-
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
     today_tracked = serializers.IntegerField(read_only=True)
     keywords = serializers.SerializerMethodField()
@@ -38,6 +31,21 @@ class HabitSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Habit
         fields = ['id', 'name', 'description', 'slug', 'keywords', 'today_tracked']
+
+class HabitKeywordSerializer(serializers.ModelSerializer):
+    habit = HabitSerializer(read_only=True)
+
+    class Meta:
+        model = HabitKeyword
+        fields = ['id', 'keyword', 'habit']
+
+class ProfileSerializer(serializers.ModelSerializer):
+    default_board_thread = ThreadSerializer(read_only=True)
+    habit_keywords = HabitKeywordSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Profile
+        fields = ['id', 'default_board_thread', 'habit_keywords']
 
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:

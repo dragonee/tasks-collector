@@ -20,8 +20,8 @@ from functools import cached_property
 import datetime
 from datetime import date
 
-from .serializers import HabitSerializer
-from .models import Habit, HabitTracked, Thread
+from .serializers import HabitSerializer, HabitKeywordSerializer
+from .models import Habit, HabitTracked, Thread, Profile
 from .forms import SingleHabitTrackedForm, OnlyTextSingleHabitTrackedForm
 
 from .utils.itertools import itemize
@@ -166,3 +166,15 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
 
 class HabitListView(LoginRequiredMixin, ListView):
     model = Habit
+
+
+@api_view(['GET'])
+def my_habit_keywords(request):
+    """Return the habit keywords filtered by the current user's profile"""
+    try:
+        profile = Profile.objects.get(user=request.user)
+        habit_keywords = profile.habit_keywords.all()
+        serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
+        return RestResponse(serializer.data)
+    except Profile.DoesNotExist:
+        return RestResponse([], status=status.HTTP_200_OK)

@@ -54,6 +54,7 @@ urlpatterns = [
     path('habits/', views_habit.HabitListView.as_view(), name='public-habit-list'),
     path('habits/<slug:slug>/', views_habit.HabitDetailView.as_view(), name='public-habit-detail'),
     path('habit/track/', views_habit.track_habit, name='public-habit-track'),
+    path('habit/keywords/mine/', views_habit.my_habit_keywords, name='my-habit-keywords'),
 
     # === Observations (views_observation) ===
     # List views
