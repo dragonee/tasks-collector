@@ -39,8 +39,15 @@
             <a class="menulink" href="/quests/view/">Journal</a>
             <a class="menulink" href="/accounts/settings/">⚙</a>
 
-            <button @click.prevent="close" class="on-right">commit</button>
+            <button @click.prevent="prepareCommit" class="on-right">commit</button>
         </div>
+
+        <CommitConfirmationModal
+            :show="showCommitModal"
+            :items-to-remove="itemsToRemove"
+            @confirm="confirmCommit"
+            @cancel="cancelCommit"
+        />
 
         <GlobalEvents
             v-if="normalContext"
@@ -63,13 +70,16 @@ import GlobalEvents from 'vue-global-events'
 
 import NodeContent from './NodeContent.vue'
 
+import CommitConfirmationModal from './CommitConfirmationModal.vue'
+
 import moment from 'moment'
 
 export default {
 
     components: {
         GlobalEvents,
-        NodeContent
+        NodeContent,
+        CommitConfirmationModal
     },
 
     computed: {
@@ -85,6 +95,10 @@ export default {
 
         startDate() {
             return moment(this.currentBoard.date_started).format('YYYY-MM-DD')
+        },
+
+        itemsToRemove() {
+            return this.findItemsWithWeeksInList(this.currentBoard.state)
         },
 
         options() {
@@ -113,6 +127,7 @@ export default {
         editingContext: false,
         focus: "",
         unwatch: null,
+        showCommitModal: false,
     }),
 
     mounted() {
@@ -197,6 +212,39 @@ export default {
                 'changeThread',
                 ev.target.value
             )
+        },
+
+        findItemsWithWeeksInList(items, targetWeeks = 5) {
+            let result = []
+
+            const traverse = (node) => {
+                if (node.data?.meaningfulMarkers?.weeksInList === targetWeeks) {
+                    result.push({
+                        text: node.text,
+                        weeksInList: node.data.meaningfulMarkers.weeksInList
+                    })
+                }
+
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => traverse(child))
+                }
+            }
+
+            items.forEach(item => traverse(item))
+            return result
+        },
+
+        prepareCommit() {
+            this.showCommitModal = true
+        },
+
+        confirmCommit() {
+            this.showCommitModal = false
+            this.close()
+        },
+
+        cancelCommit() {
+            this.showCommitModal = false
         }
 
     }
