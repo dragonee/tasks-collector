@@ -170,7 +170,19 @@ class HabitListView(LoginRequiredMixin, ListView):
 
 @api_view(['GET'])
 def my_habit_keywords(request):
-    """Return the habit keywords filtered by the current user's profile"""
+    """Return the habit keywords filtered by the current user's profile
+
+    Query parameters:
+    - all=true: Return all habit keywords instead of just filtered ones
+    """
+    # Check if all keywords should be returned
+    if request.query_params.get('all') == 'true':
+        from .models import HabitKeyword
+        habit_keywords = HabitKeyword.objects.all()
+        serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
+        return RestResponse(serializer.data)
+
+    # Return only filtered keywords
     try:
         profile = Profile.objects.get(user=request.user)
         habit_keywords = profile.habit_keywords.all()
