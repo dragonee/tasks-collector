@@ -151,4 +151,4 @@
 - [ ] PostHog
 - [ ] Emoji working
 - [x] Preferencje dookola toola habits z API
-- [ ] Write a modal - these items will drop if you commit?
+- [x] Write a modal - these items will drop if you commit?
