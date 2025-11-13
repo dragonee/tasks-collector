@@ -167,6 +167,34 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
 class HabitListView(LoginRequiredMixin, ListView):
     model = Habit
 
+def get_habit_keywords_for_user(user, all=False):
+    from .models import HabitKeyword
+    from django.db.models import Count
+
+    def profile_has_keywords(user):
+        return Profile.objects.annotate(
+            keyword_count=Count('habit_keywords')
+        ).filter(user=user, keyword_count__gt=0).exists()
+   
+    should_return_all_checks = [
+        all,
+        not profile_has_keywords(user),
+    ]
+
+    if any(should_return_all_checks):
+        return HabitKeyword.objects.all()
+
+    return Profile.objects.get(user=user).habit_keywords.all()
+
+
+def get_habit_keywords_for_user_and_date(user, date, all=False):
+    habit_keywords = get_habit_keywords_for_user(user, all=all)
+
+    tracked_habit_ids = HabitTracked.objects.filter(
+        published__date=date
+    ).values_list('habit_id', flat=True).distinct()
+    
+    return habit_keywords.exclude(habit_id__in=tracked_habit_ids)
 
 @api_view(['GET'])
 def my_habit_keywords(request):
@@ -174,30 +202,29 @@ def my_habit_keywords(request):
 
     Query parameters:
     - all=true: Return all habit keywords instead of just filtered ones
+    - date=YYYY-MM-DD: Filter out keywords for habits already tracked on this date (defaults to today)
 
     If the user's profile has no keywords selected, returns all keywords.
+    If habits have been tracked on the specified date, their keywords are excluded.
     """
-    from .models import HabitKeyword
+    import datetime
 
-    # Check if all keywords should be returned
-    if request.query_params.get('all') == 'true':
-        habit_keywords = HabitKeyword.objects.all()
-        serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
-        return RestResponse(serializer.data)
+    # Parse date parameter (defaults to today)
+    date_param = request.query_params.get('date')
+    if date_param:
+        try:
+            target_date = datetime.datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            return RestResponse({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        target_date = datetime.date.today()
 
-    # Return filtered keywords, or all if none selected
-    try:
-        profile = Profile.objects.get(user=request.user)
-        habit_keywords = profile.habit_keywords.all()
-
-        # If no keywords are selected, return all keywords
-        if not habit_keywords.exists():
-            habit_keywords = HabitKeyword.objects.all()
-
-        serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
-        return RestResponse(serializer.data)
-    except Profile.DoesNotExist:
-        # If no profile exists, return all keywords
-        habit_keywords = HabitKeyword.objects.all()
-        serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
-        return RestResponse(serializer.data)
+    habit_keywords = get_habit_keywords_for_user_and_date(
+        request.user, 
+        target_date, 
+        all=request.query_params.get('all') == 'true'
+    )
+    
+    serializer = HabitKeywordSerializer(habit_keywords, many=True, context={'request': request})
+    return RestResponse(serializer.data)
+   
