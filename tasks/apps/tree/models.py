@@ -532,6 +532,24 @@ def update_journal_added_event_stream_id(sender, instance, *args, **kwargs):
     instance.event_stream_id = journal_added_event_stream_id(instance)
 
 
+class Discovery(Event):
+    name = models.CharField(max_length=255)
+    comment = models.TextField(help_text=_("Discovery details"))
+
+    events = models.ManyToManyField(Event, related_name='discoveries', blank=True)
+
+    template = "tree/events/discovery.html"
+
+    def __str__(self):
+        return self.name
+
+@receiver(pre_save, sender=Discovery)
+def update_discovery_event_stream_id(sender, instance, *args, **kwargs):
+    # Generate unique event_stream_id for each Discovery if not already set
+    if not instance.event_stream_id:
+        instance.event_stream_id = uuid.uuid4()
+
+
 class QuickNote(models.Model):
     published = models.DateTimeField(default=timezone.now)
 
