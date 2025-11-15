@@ -7,6 +7,7 @@ from . import views_board_tasks
 from . import views_habit
 from . import views_observation
 from . import views_breakthrough
+from . import views_discovery
 
 
 # API Router - REST Framework ViewSets
@@ -27,6 +28,9 @@ router.register(r'quick-notes', views.QuickNoteViewSet)
 router.register(r'observation-api', views_observation.ObservationViewSet)
 router.register(r'updates', views_observation.ObservationUpdatedViewSet)
 router.register(r'observation-events', views_observation.ObservationEventViewSet)
+
+# Discovery
+router.register(r'discoveries', views_discovery.DiscoveryViewSet)
 
 # Habits
 router.register(r'habit-api', views_habit.HabitViewSet)
@@ -90,6 +94,7 @@ urlpatterns = [
     path('events/', views.EventCurrentMonthArchiveView.as_view(month_format="%m"), name='public-event-archive-current-month'),
     path('events/<int:year>/<int:month>/', views.EventArchiveMonthView.as_view(month_format="%m"), name='public-event-archive-month'),
     path('api/events/daily/', views.daily_events, name='daily-events'),
+    path('api/events/discovery/', views_discovery.discovery_events, name='discovery-events'),
 
     # === Quick Notes (views) ===
     path('q/', views.quick_notes, name='quick-notes'),
