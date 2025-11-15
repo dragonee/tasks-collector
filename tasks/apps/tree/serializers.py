@@ -211,6 +211,87 @@ class JournalAddedSerializer(serializers.ModelSerializer):
         model = JournalAdded
         fields = [ 'id', 'comment', 'published', 'thread', 'tags' ]
 
+class BasicDiscoverySerializer(serializers.ModelSerializer):
+    """Basic Discovery serializer without nested events to avoid circular references"""
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+
+    class Meta:
+        model = Discovery
+        fields = [ 'id', 'name', 'comment', 'published', 'thread', 'event_stream_id' ]
+
+
+class DiscoveryEventsRequestSerializer(serializers.Serializer):
+    """Serializer for validating discovery events API request"""
+
+    EVENT_TYPE_CHOICES = ['journal', 'observation', 'other']
+
+    number = serializers.IntegerField(
+        default=3,
+        min_value=1,
+        max_value=100,
+        help_text="Number of events to return"
+    )
+
+    events = serializers.ListField(
+        child=serializers.IntegerField(allow_null=True, min_value=1),
+        required=False,
+        allow_null=True,
+        help_text="List of event IDs (int) or null for random selection"
+    )
+
+    from_datetime = serializers.DateTimeField(
+        required=False,
+        allow_null=True,
+        source='from',
+        help_text="Start datetime for event range (ISO format)"
+    )
+
+    to_datetime = serializers.DateTimeField(
+        required=False,
+        allow_null=True,
+        source='to',
+        help_text="End datetime for event range (ISO format)"
+    )
+
+    type = serializers.ListField(
+        child=serializers.ChoiceField(choices=EVENT_TYPE_CHOICES),
+        required=False,
+        allow_null=True,
+        help_text="List of event types: journal, observation, other"
+    )
+
+    def validate(self, data):
+        """Cross-field validation"""
+        from_dt = data.get('from')
+        to_dt = data.get('to')
+        number = data.get('number', 3)
+        events = data.get('events', [None] * number)
+
+        if len(events) != number:
+            raise serializers.ValidationError({
+                'events': f'Events list length ({len(events)}) must match number parameter ({number})'
+            })
+
+        data['events'] = events
+
+        # Set defaults for datetime fields
+        if from_dt is None:
+            data['from'] = timezone.now() - timedelta(days=30)
+
+        if to_dt is None:
+            data['to'] = timezone.now()
+
+        # Validate that from is before to
+        if data['from'] >= data['to']:
+            raise serializers.ValidationError({
+                'from': 'Start datetime must be before end datetime'
+            })
+
+        return data
+
 class QuickNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuickNote
@@ -486,12 +567,39 @@ class EventSerializer(PolymorphicSerializer):
         ObservationAttached: ObservationAttachedSerializer,
         ObservationDetached: ObservationDetachedSerializer,
         JournalAdded: JournalAddedSerializer,
+        Discovery: BasicDiscoverySerializer,
         HabitTracked: HabitTrackedSerializer,
         ProjectedOutcomeMade: ProjectedOutcomeMadeSerializer,
         ProjectedOutcomeRedefined: ProjectedOutcomeRedefinedSerializer,
         ProjectedOutcomeRescheduled: ProjectedOutcomeRescheduledSerializer,
         ProjectedOutcomeClosed: ProjectedOutcomeClosedSerializer,
     }
+
+
+class DiscoverySerializer(serializers.ModelSerializer):
+    """Full Discovery serializer with expanded event data"""
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(),
+        slug_field='name'
+    )
+
+    events = serializers.SerializerMethodField()
+    event_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Event.objects.all(),
+        source='events',
+        write_only=True,
+        required=False
+    )
+
+    def get_events(self, obj):
+        """Return full event data using EventSerializer"""
+        return EventSerializer(obj.events.all(), many=True, context=self.context).data
+
+    class Meta:
+        model = Discovery
+        fields = [ 'id', 'name', 'comment', 'published', 'thread', 'event_stream_id', 'events', 'event_ids' ]
+
 
 class tree_iterator:
     """Preorder traversal tree iterator"""
