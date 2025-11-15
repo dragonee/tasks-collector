@@ -76,6 +76,7 @@ class EventAdmin(PolymorphicParentModelAdmin):
         ObservationReflectedUpon,
         ObservationReinterpreted,
         JournalAdded,
+        Discovery,
         ProjectedOutcomeMade,
         ProjectedOutcomeRedefined,
         ProjectedOutcomeRescheduled,
@@ -114,8 +115,16 @@ class ObservationClosedAdmin(PolymorphicChildModelAdmin):
 
 class JournalAddedAdmin(PolymorphicChildModelAdmin):
     base_model = JournalAdded
-    
+
     list_display = ('__str__', 'thread', 'published')
+
+
+class DiscoveryAdmin(PolymorphicChildModelAdmin):
+    base_model = Discovery
+
+    list_display = ('__str__', 'name', 'thread', 'published')
+    readonly_fields = ('event_stream_id', 'published')
+    filter_horizontal = ('events',)
 
 
 class ProjectedOutcomeMadeAdmin(PolymorphicChildModelAdmin):
@@ -188,6 +197,7 @@ admin.site.register(Habit, HabitAdmin)
 admin.site.register(HabitTracked, HabitTrackedAdmin)
 admin.site.register(ObservationUpdated, ObservationUpdatedAdmin)
 admin.site.register(JournalAdded, JournalAddedAdmin)
+admin.site.register(Discovery, DiscoveryAdmin)
 admin.site.register(Event, EventAdmin)
 admin.site.register(QuickNote)
 admin.site.register(JournalTag, JournalTagAdmin)
