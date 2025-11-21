@@ -152,3 +152,7 @@
 - [ ] Emoji working
 - [x] Preferencje dookola toola habits z API
 - [x] Write a modal - these items will drop if you commit?
+- [ ] Discovery mode
+  - [ ] Better display (tasks discoveries - simple accordion)
+  - [ ] Probably would like to refactor events to show a bit different template box (for example, date)
+  - [ ] Add a discovery history page
