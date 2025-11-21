@@ -16,6 +16,10 @@ from .templatetags.model_presenters import first_line
 from django.contrib.auth import get_user_model
 from django.conf import settings
 
+from .utils.datetime import (
+    make_aware_start,
+    make_aware_end
+)
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
@@ -283,6 +287,9 @@ class DiscoveryEventsRequestSerializer(serializers.Serializer):
 
         if to_dt is None:
             data['to'] = timezone.now()
+
+        data['from'] = make_aware_start(data['from'].date())
+        data['to'] = make_aware_end(data['to'].date())
 
         # Validate that from is before to
         if data['from'] >= data['to']:

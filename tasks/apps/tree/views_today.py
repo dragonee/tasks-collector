@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
-from .models import Plan, Reflection, Habit, HabitTracked, JournalAdded, Thread, Event
+from .models import Plan, Reflection, Habit, HabitTracked, JournalAdded, Thread, Event, Discovery
 from .forms import PlanForm, ReflectionForm
 
 from collections import Counter
@@ -21,20 +21,11 @@ from .utils.datetime import (
     make_last_day_of_the_month,
     get_week_period,
     generate_periods,
+    make_aware_start,
+    make_aware_end
 )
 
 from django.urls import reverse
-
-
-def make_aware_start(date):
-    """Convert a date to timezone-aware datetime at the start of the day"""
-    return timezone.make_aware(datetime.datetime.combine(date, datetime.datetime.min.time()))
-
-
-def make_aware_end(date):
-    """Convert a date to timezone-aware datetime at the end of the day"""
-    return timezone.make_aware(datetime.datetime.combine(date, datetime.datetime.max.time()))
-
 
 class Period(ABC):
     """Base class for time periods (Daily, Weekly, Monthly)"""
@@ -430,6 +421,11 @@ def today(request):
         thread=thread,
     ).order_by('published')
 
+    discoveries = Discovery.objects.filter(
+        published__range=period.as_tuple(),
+        thread=thread,
+    ).prefetch_related('events').order_by('published')
+
     actual_today = timezone.now().date()
 
     return render(request, 'today.html', {
@@ -454,6 +450,7 @@ def today(request):
         'threads': Thread.objects.all(),
 
         'journals': journals,
+        'discoveries': discoveries,
         'event_calendar': event_calendar(period.start - datetime.timedelta(weeks=52), period.end),
         'weekly_summary_calendar': weekly_summary_calendar((period.start - datetime.timedelta(weeks=52)).date(), period.end.date()),
         'monthly_summary_calendar': monthly_summary_calendar((period.start - datetime.timedelta(weeks=52)).date(), period.end.date()),

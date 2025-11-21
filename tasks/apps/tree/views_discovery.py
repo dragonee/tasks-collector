@@ -1,8 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response as RestResponse
 from rest_framework import status, viewsets
-from django.utils import timezone
-import random
 
 from .models import Event, JournalAdded, observation_event_types, HabitTracked, Discovery, ProjectedOutcomeMade, ProjectedOutcomeRedefined, ProjectedOutcomeRescheduled, ProjectedOutcomeClosed
 from .serializers import EventSerializer, DiscoveryEventsRequestSerializer, DiscoverySerializer

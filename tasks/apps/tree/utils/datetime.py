@@ -4,8 +4,19 @@ from datetime import datetime, timedelta
 from collections import namedtuple
 from calendar import monthrange
 
+
+def make_aware_start(date):
+    """Convert a date to timezone-aware datetime at the start of the day"""
+    return timezone.make_aware(datetime.combine(date, datetime.min.time()))
+
+
 def aware_from_date(d):
-    return timezone.make_aware(datetime.combine(d, datetime.min.time()))
+    return make_aware_start(d)
+
+
+def make_aware_end(date):
+    """Convert a date to timezone-aware datetime at the end of the day"""
+    return timezone.make_aware(datetime.combine(date, datetime.max.time()))
 
 
 DayCount = namedtuple('DayCount', ['date', 'count'])
