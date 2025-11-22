@@ -144,6 +144,29 @@
                     <li>No journal entries for this month.</li>
                 {% endfor %}
             </ul>
+
+            {% if discoveries %}
+            <h2>Discoveries</h2>
+            <ul>
+                {% for discovery in discoveries %}
+                    <li>
+                        <h3>{{ discovery.name }}</h3>
+                        {{ discovery.comment|linebreaks }}
+                        <ul>
+                            {% for event in discovery.events.all %}
+                                <li>
+                                {% if event.template %}
+                                    {% include event.template %}
+                                {% else %}
+                                    {{ event }}
+                                {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
         </main>
     </section>
 </div>
