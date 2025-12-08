@@ -63,8 +63,8 @@ export default {
 
         // empty?
         currentThread(state) {
-            return state.threads && state.threads.count
-                ? state.threads.results.find(state.currentThreadPtr.finder)
+            return state.threads && state.threads.length
+                ? state.threads.find(state.currentThreadPtr.finder)
                 : null;
         },
 
@@ -73,8 +73,8 @@ export default {
         },
 
         threads(state) {
-            return  state.threads && state.threads.count
-                ? state.threads.results
+            return  state.threads && state.threads.length
+                ? state.threads
                 : [];
         }
     },
