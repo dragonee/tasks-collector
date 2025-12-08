@@ -98,7 +98,7 @@ export default {
         },
 
         itemsToRemove() {
-            return this.findItemsWithWeeksInList(this.currentBoard.state)
+            return this.findItemsToBeRemoved(this.currentBoard.state)
         },
 
         options() {
@@ -214,14 +214,49 @@ export default {
             )
         },
 
-        findItemsWithWeeksInList(items, targetWeeks = 5) {
+        findItemsToBeRemoved(items) {
             let result = []
 
+            const shouldBeRemoved = (node) => {
+                const markers = node.data?.meaningfulMarkers || {}
+                const state = node.state || {}
+
+                // Keep categories (nodes with children)
+                if (node.children && node.children.length > 0) {
+                    return false
+                }
+
+                // Keep canBePostponed tasks
+                if (markers.canBePostponed) {
+                    return false
+                }
+
+                // Keep postponed tasks
+                if ((markers.postponedFor || 0) > 0) {
+                    return false
+                }
+
+                // Keep tasks that made progress
+                if (markers.madeProgress) {
+                    return false
+                }
+
+                // Remove tasks in list for 5+ weeks
+                const weeksInList = markers.weeksInList || 0
+                if (weeksInList >= 5) {
+                    return true
+                }
+
+                // Remove checked tasks
+                return state.checked || false
+            }
+
             const traverse = (node) => {
-                if (node.data?.meaningfulMarkers?.weeksInList === targetWeeks) {
+                if (shouldBeRemoved(node)) {
                     result.push({
                         text: node.text,
-                        weeksInList: node.data.meaningfulMarkers.weeksInList
+                        weeksInList: node.data?.meaningfulMarkers?.weeksInList || 0,
+                        checked: node.state?.checked || false
                     })
                 }
 
