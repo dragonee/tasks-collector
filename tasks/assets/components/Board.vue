@@ -217,9 +217,14 @@ export default {
         findItemsToBeRemoved(items) {
             let result = []
 
-            const shouldBeRemoved = (node) => {
+            const willBeForceRemoved = (node) => {
                 const markers = node.data?.meaningfulMarkers || {}
-                const state = node.state || {}
+
+                // Only show items with weeksInList >= 5 that will be force-removed
+                const weeksInList = markers.weeksInList || 0
+                if (weeksInList < 5) {
+                    return false
+                }
 
                 // Keep categories (nodes with children)
                 if (node.children && node.children.length > 0) {
@@ -241,22 +246,19 @@ export default {
                     return false
                 }
 
-                // Remove tasks in list for 5+ weeks
-                const weeksInList = markers.weeksInList || 0
-                if (weeksInList >= 5) {
-                    return true
+                // Do not show checked tasks
+                if (node.state?.checked) {
+                    return false
                 }
 
-                // Remove checked tasks
-                return state.checked || false
+                return true
             }
 
             const traverse = (node) => {
-                if (shouldBeRemoved(node)) {
+                if (willBeForceRemoved(node)) {
                     result.push({
                         text: node.text,
-                        weeksInList: node.data?.meaningfulMarkers?.weeksInList || 0,
-                        checked: node.state?.checked || false
+                        weeksInList: node.data?.meaningfulMarkers?.weeksInList || 0
                     })
                 }
 
