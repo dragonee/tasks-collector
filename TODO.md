@@ -156,3 +156,20 @@
   - [ ] Better display (tasks discoveries - simple accordion)
   - [ ] Probably would like to refactor events to show a bit different template box (for example, date)
   - [ ] Add a discovery history page
+- Architecture around discoveries
+  - [ ] Separate Sequence / Set (Bag) from the meaning
+  - [ ] That allows for making other types, such as Discovery, Story, YOY, etc.
+  - [ ] Think of Attached/Detached – should that be its own implementation?
+- [ ] "ADHD" strategy core
+  - Keeps tasks with timers
+  - Reminds you with them until done
+  - Sends emails or does something?
+  - Break tasks down or force breaking them down
+  - Activation Aids (working with/near someone etc)
+  - Daily choice of plan - time blocking for 8 stones technique
+  - Dynamic Prioritization Engine → removes decision paralysis
+  - Anti-Overwhelm Auto Breakdown → converts big tasks into doable steps
+  - Consistency Loop / Follow-through engine → prevents dropped tasks
+  - State-Based Task Surfacing → aligns tasks with actual cognitive state
+  - Automatic Post-Event Follow-Through Engine (“Aftercare Mode”)
+  - see https://chatgpt.com/share/692bc5f0-6210-8002-a868-e1ce2b76aba0
