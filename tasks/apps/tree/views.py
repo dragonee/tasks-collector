@@ -17,6 +17,7 @@ from django_htmx.http import retarget, HttpResponseClientRefresh
 
 from rest_framework.response import Response as RestResponse
 from rest_framework.decorators import api_view
+from rest_framework.pagination import PageNumberPagination
 
 from django.utils import timezone
 
@@ -86,9 +87,16 @@ class QuickNoteViewSet(viewsets.ModelViewSet):
     queryset = QuickNote.objects.order_by('published')
     serializer_class = QuickNoteSerializer
 
+
+class ThreadPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
 class ThreadViewSet(viewsets.ModelViewSet):
     queryset = Thread.objects.all()
     serializer_class = ThreadSerializer
+    pagination_class = ThreadPagination
 
 class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProfileSerializer
