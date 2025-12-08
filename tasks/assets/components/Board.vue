@@ -98,7 +98,7 @@ export default {
         },
 
         itemsToRemove() {
-            return this.findItemsWithWeeksInList(this.currentBoard.state)
+            return this.findItemsToBeRemoved(this.currentBoard.state)
         },
 
         options() {
@@ -214,14 +214,51 @@ export default {
             )
         },
 
-        findItemsWithWeeksInList(items, targetWeeks = 5) {
+        findItemsToBeRemoved(items) {
             let result = []
 
+            const willBeForceRemoved = (node) => {
+                const markers = node.data?.meaningfulMarkers || {}
+
+                // Only show items with weeksInList >= 5 that will be force-removed
+                const weeksInList = markers.weeksInList || 0
+                if (weeksInList < 5) {
+                    return false
+                }
+
+                // Keep categories (nodes with children)
+                if (node.children && node.children.length > 0) {
+                    return false
+                }
+
+                // Keep canBePostponed tasks
+                if (markers.canBePostponed) {
+                    return false
+                }
+
+                // Keep postponed tasks
+                if ((markers.postponedFor || 0) > 0) {
+                    return false
+                }
+
+                // Keep tasks that made progress
+                if (markers.madeProgress) {
+                    return false
+                }
+
+                // Do not show checked tasks
+                if (node.state?.checked) {
+                    return false
+                }
+
+                return true
+            }
+
             const traverse = (node) => {
-                if (node.data?.meaningfulMarkers?.weeksInList === targetWeeks) {
+                if (willBeForceRemoved(node)) {
                     result.push({
                         text: node.text,
-                        weeksInList: node.data.meaningfulMarkers.weeksInList
+                        weeksInList: node.data?.meaningfulMarkers?.weeksInList || 0
                     })
                 }
 
