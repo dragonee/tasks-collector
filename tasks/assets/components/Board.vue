@@ -5,17 +5,18 @@
         </div>
 
         <tree
+            v-show="!listViewMode"
             :data="currentBoard.state"
             :options="options"
             ref="tree"
-
-
         >
             <template slot-scope="{ node }">
                 <node-content :node="node" class="tree-text">
                 </node-content>
             </template>
         </tree>
+
+        <TreeListView v-show="listViewMode" />
 
         <div class="lower-pane">
             <button @click.prevent="addItem">+</button>
@@ -24,6 +25,8 @@
                     {{ thread.name }}
                 </option>
             </select>
+
+            <button @click.prevent="toggleListViewMode" class="secondary">{{ listViewMode ? 'tree' : 'list' }}</button>
 
             <router-link class="menulink" to="/">Board</router-link>
             <router-link class="menulink" to="/journal">Journal</router-link>
@@ -72,6 +75,8 @@ import NodeContent from './NodeContent.vue'
 
 import CommitConfirmationModal from './CommitConfirmationModal.vue'
 
+import TreeListView from './TreeListView.vue'
+
 import moment from 'moment'
 
 export default {
@@ -79,7 +84,8 @@ export default {
     components: {
         GlobalEvents,
         NodeContent,
-        CommitConfirmationModal
+        CommitConfirmationModal,
+        TreeListView
     },
 
     computed: {
@@ -128,6 +134,7 @@ export default {
         focus: "",
         unwatch: null,
         showCommitModal: false,
+        listViewMode: false,
     }),
 
     mounted() {
@@ -180,6 +187,10 @@ export default {
     },
 
     methods: {
+        toggleListViewMode() {
+            this.listViewMode = !this.listViewMode
+        },
+
         async addItem() {
             const node = this.$refs.tree.append(createTreeItem('Hi'))
 
@@ -287,3 +298,17 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+    .secondary {
+        background-color: #c4c4c4;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        margin: 0 0.5rem;
+
+        &:hover {
+            background-color: #bbbaba;
+        }
+    }
+</style>
