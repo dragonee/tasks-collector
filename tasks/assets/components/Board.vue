@@ -5,17 +5,18 @@
         </div>
 
         <tree
+            v-show="!listViewMode"
             :data="currentBoard.state"
             :options="options"
             ref="tree"
-
-
         >
             <template slot-scope="{ node }">
                 <node-content :node="node" class="tree-text">
                 </node-content>
             </template>
         </tree>
+
+        <TreeListView v-show="listViewMode" />
 
         <div class="lower-pane">
             <button @click.prevent="addItem">+</button>
@@ -39,6 +40,7 @@
             <a class="menulink" href="/quests/view/">Journal</a>
             <a class="menulink" href="/accounts/settings/">⚙</a>
 
+            <button @click.prevent="listViewMode = !listViewMode" class="on-right">{{ listViewMode ? 'tree' : 'list' }}</button>
             <button @click.prevent="prepareCommit" class="on-right">commit</button>
         </div>
 
@@ -72,6 +74,8 @@ import NodeContent from './NodeContent.vue'
 
 import CommitConfirmationModal from './CommitConfirmationModal.vue'
 
+import TreeListView from './TreeListView.vue'
+
 import moment from 'moment'
 
 export default {
@@ -79,7 +83,8 @@ export default {
     components: {
         GlobalEvents,
         NodeContent,
-        CommitConfirmationModal
+        CommitConfirmationModal,
+        TreeListView
     },
 
     computed: {
@@ -128,6 +133,7 @@ export default {
         focus: "",
         unwatch: null,
         showCommitModal: false,
+        listViewMode: false,
     }),
 
     mounted() {
