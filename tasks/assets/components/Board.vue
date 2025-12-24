@@ -26,6 +26,8 @@
                 </option>
             </select>
 
+            <button @click.prevent="toggleListViewMode" class="secondary">{{ listViewMode ? 'tree' : 'list' }}</button>
+
             <router-link class="menulink" to="/">Board</router-link>
             <router-link class="menulink" to="/journal">Journal</router-link>
 
@@ -40,7 +42,6 @@
             <a class="menulink" href="/quests/view/">Journal</a>
             <a class="menulink" href="/accounts/settings/">⚙</a>
 
-            <button @click.prevent="listViewMode = !listViewMode" class="on-right">{{ listViewMode ? 'tree' : 'list' }}</button>
             <button @click.prevent="prepareCommit" class="on-right">commit</button>
         </div>
 
@@ -186,6 +187,10 @@ export default {
     },
 
     methods: {
+        toggleListViewMode() {
+            this.listViewMode = !this.listViewMode
+        },
+
         async addItem() {
             const node = this.$refs.tree.append(createTreeItem('Hi'))
 
@@ -293,3 +298,17 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+    .secondary {
+        background-color: #c4c4c4;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        margin: 0 0.5rem;
+
+        &:hover {
+            background-color: #bbbaba;
+        }
+    }
+</style>
