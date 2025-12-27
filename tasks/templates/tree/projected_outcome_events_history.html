@@ -138,6 +138,20 @@
                                             {% endif %}
                                         </div>
                                     </div>
+                                {% elif event in moved_events %}
+                                    <div class="event-type event-moved">
+                                        <h3>➡️ Projected Outcome Moved</h3>
+                                        <div class="event-details">
+                                            <p><strong>Moved from:</strong> {{ event.old_breakthrough.slug }} → <strong>{{ event.new_breakthrough.slug }}</strong></p>
+                                            <p><strong>Confidence at move:</strong> {{ event.confidence_level|floatformat }}%</p>
+                                            <p><strong>Name:</strong> {{ event.name }}</p>
+                                            <p><strong>Target Date:</strong> {{ event.resolved_by }}</p>
+                                            <p><strong>Description:</strong> {{ event.description|linebreaksbr }}</p>
+                                            {% if event.success_criteria %}
+                                                <p><strong>Success Criteria:</strong> {{ event.success_criteria|linebreaksbr }}</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 {% endif %}
                             </div>
                         </div>

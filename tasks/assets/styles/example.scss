@@ -1542,6 +1542,12 @@ body.quick-notes {
         }
     }
 
+    .breakthrough-outcome.moved {
+        input, textarea {
+            color: #4a7dfb;
+        }
+    }
+
     label {
         display: none;
     }

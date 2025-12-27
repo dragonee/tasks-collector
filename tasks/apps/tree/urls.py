@@ -78,6 +78,7 @@ urlpatterns = [
     path('breakthrough/<int:year>/', views_breakthrough.breakthrough, name='breakthrough'),
     re_path(r'^projected-outcome/(?P<event_stream_id>[a-f0-9\-]+)/events/$', views_breakthrough.projected_outcome_events_history, name='projected-outcome-events-history'),
     path('projected-outcome/<int:projected_outcome_id>/close/', views_breakthrough.projected_outcome_close, name='projected-outcome-close'),
+    path('projected-outcome/<int:projected_outcome_id>/move/', views_breakthrough.projected_outcome_move, name='projected-outcome-move'),
 
     # === Journal / Diary (views) ===
     path('diary/add/', views.journal_add, name='public-journal-add'),
