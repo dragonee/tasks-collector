@@ -756,6 +756,34 @@ class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
         )
 
 
+class ProjectedOutcomeMoved(Event, ProjectedOutcomeEventMixin):
+    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
+    old_breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE, related_name='moved_outcomes_from')
+    new_breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE, related_name='moved_outcomes_to')
+
+    confidence_level = models.DecimalField(max_digits=5, decimal_places=2)
+
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    resolved_by = models.DateField()
+    success_criteria = models.TextField(null=True, blank=True)
+
+    @staticmethod
+    def from_projected_outcome(projected_outcome, old_breakthrough, new_breakthrough):
+        return ProjectedOutcomeMoved(
+            projected_outcome=projected_outcome,
+            old_breakthrough=old_breakthrough,
+            new_breakthrough=new_breakthrough,
+            confidence_level=projected_outcome.confidence_level,
+            name=projected_outcome.name,
+            description=projected_outcome.description,
+            resolved_by=projected_outcome.resolved_by,
+            success_criteria=projected_outcome.success_criteria,
+            event_stream_id=projected_outcome.event_stream_id,
+            thread=old_breakthrough.thread if hasattr(old_breakthrough, 'thread') else Thread.objects.get(name='Daily')
+        )
+
+
 def normalize_for_comparison(value):
     """Normalize None and empty strings to empty string for comparison"""
     return coalesce(value, '')
@@ -818,6 +846,12 @@ def update_projected_outcome_rescheduled_event_stream_id(sender, instance, **kwa
 
 @receiver(pre_save, sender=ProjectedOutcomeClosed)
 def update_projected_outcome_closed_event_stream_id(sender, instance, **kwargs):
+    if instance.projected_outcome:
+        instance.event_stream_id = instance.projected_outcome.event_stream_id
+
+
+@receiver(pre_save, sender=ProjectedOutcomeMoved)
+def update_projected_outcome_moved_event_stream_id(sender, instance, **kwargs):
     if instance.projected_outcome:
         instance.event_stream_id = instance.projected_outcome.event_stream_id
 

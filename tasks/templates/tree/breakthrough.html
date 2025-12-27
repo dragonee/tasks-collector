@@ -132,6 +132,49 @@
                                 </div>
                             {% endfor %}
                         {% endif %}
+                        {% if moved_outcomes %}
+                            {% for moved_outcome in moved_outcomes %}
+                                <div class="breakthrough-outcome moved">
+                                    <div class="breakthrough-outcome-name">
+                                        <div class="grow">
+                                            <input type="text" value="{{ moved_outcome.name }}" readonly disabled>
+                                        </div>
+                                        <div class="by">
+                                            <span class="confidence-level">➡️</span>
+                                        </div>
+                                        <div>
+                                            <input type="date" value="{{ moved_outcome.resolved_by|date:'Y-m-d' }}" readonly disabled>
+                                        </div>
+                                        <div class="outcome-menu">
+                                            <button type="button" class="menu-toggle" title="More actions">⋯</button>
+                                            <div class="menu-dropdown">
+                                                <a href="{% url 'projected-outcome-events-history' event_stream_id=moved_outcome.event_stream_id %}" class="menu-item">
+                                                    📕 View History
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="accordion">Open</button>
+                                    </div>
+                                    <div class="breakthrough-outcome-extra hidden">
+                                        {% if moved_outcome.description %}
+                                        <div class="field">
+                                            <textarea readonly disabled>{{ moved_outcome.description }}</textarea>
+                                            <div class="meta"></div>
+                                        </div>
+                                        {% endif %}
+                                        {% if moved_outcome.success_criteria %}
+                                        <div class="field">
+                                            <textarea readonly disabled>{{ moved_outcome.success_criteria }}</textarea>
+                                            <div class="meta">Success criteria</div>
+                                        </div>
+                                        {% endif %}
+                                        <div class="field">
+                                            <div class="meta">Confidence at move: {{ moved_outcome.confidence_level }}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
                     {% endif %}
                         <div class="breakthrough-outcome {% if not form.instance.pk %}empty{% endif %} {% if form.errors %}open{% endif %}">
                             
@@ -162,6 +205,14 @@
                                                 {% if form.instance.confidence_level != 100 %}disabled{% endif %}
                                                 title="{% if form.instance.confidence_level != 100 %}Set confidence to 100% to close{% else %}Close this outcome{% endif %}">
                                                 ✅ Close Outcome
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="menu-item move-outcome-btn"
+                                                data-outcome-id="{{ form.instance.pk }}"
+                                                data-next-year="{{ year|add:'1' }}"
+                                                title="Move this outcome to {{ year|add:'1' }}">
+                                                ➡️ Move to {{ year|add:'1' }}
                                             </button>
                                         </div>
                                     </div>
@@ -286,6 +337,47 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Error:', error);
                 alert('Failed to close the outcome. Please try again.');
+            });
+        });
+    });
+
+    // Get all move buttons
+    const moveButtons = document.querySelectorAll('.move-outcome-btn');
+
+    moveButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const outcomeId = this.dataset.outcomeId;
+            const nextYear = this.dataset.nextYear;
+            const outcomeDiv = this.closest('.breakthrough-outcome');
+            const outcomeName = outcomeDiv.querySelector('input[name*="name"]').value;
+
+            if (!confirm(`Are you sure you want to move "${outcomeName}" to ${nextYear}?`)) {
+                return;
+            }
+
+            // Make POST request to move the outcome
+            fetch(`/projected-outcome/${outcomeId}/move/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Failed to move outcome');
+            })
+            .then(data => {
+                // Reload the page to show updated state
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to move the outcome. Please try again.');
             });
         });
     });

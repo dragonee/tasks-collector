@@ -3,7 +3,7 @@ from django.utils import timezone
 from typing import List, Optional, Union
 from .models import (
     Event, ProjectedOutcome, ProjectedOutcomeMade, ProjectedOutcomeRedefined,
-    ProjectedOutcomeRescheduled, ProjectedOutcomeClosed
+    ProjectedOutcomeRescheduled, ProjectedOutcomeClosed, ProjectedOutcomeMoved
 )
 
 
@@ -38,6 +38,7 @@ class ProjectedOutcomePresentation:
         self._decorate_with_events('redefined_events', ProjectedOutcomeRedefined)
         self._decorate_with_events('rescheduled_events', ProjectedOutcomeRescheduled)
         self._decorate_with_events('closed_events', ProjectedOutcomeClosed)
+        self._decorate_with_events('moved_events', ProjectedOutcomeMoved)
      
         # Start with initial state from Made event
         if not self.made_events:
