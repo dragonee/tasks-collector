@@ -20,7 +20,8 @@ from .forms import BreakthroughForm, ProjectedOutcomeForm
 @login_required
 def breakthrough(request, year):
     year = int(year)
-    last_year = year - 1
+    review_mode = request.GET.get('review') == '1'
+    last_year = year if review_mode else year - 1
 
     try:
         breakthrough = Breakthrough.objects.get(slug=f'{year}')
@@ -43,7 +44,10 @@ def breakthrough(request, year):
                 form.save()
                 formset.save()
 
-            return redirect(reverse('breakthrough', args=[year]))
+            url = reverse('breakthrough', args=[year])
+            if review_mode:
+                url += '?review=1'
+            return redirect(url)
     else:
         form = BreakthroughForm(instance=breakthrough)
         formset = ProjectedOutcomeFormSet(
@@ -66,6 +70,8 @@ def breakthrough(request, year):
 
     return render(request, "tree/breakthrough.html", {
         'year': year,
+        'last_year': last_year,
+        'review_mode': review_mode,
         'breakthrough_habits': breakthrough_habits,
         'form': form,
         'formset': formset,

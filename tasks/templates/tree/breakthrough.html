@@ -15,8 +15,13 @@
         <main class="breakthrough" id="year" data-year="{{ year }}">
             <header>
                 <div class="year-navigation">
-                    <a href="{% url 'breakthrough' year=year|add:'-1' %}" class="nav-link prev-year">&larr; {{ year|add:'-1' }}</a>
-                    <a href="{% url 'breakthrough' year=year|add:'1' %}" class="nav-link next-year">{{ year|add:'1' }} &rarr;</a>
+                    <a href="{% url 'breakthrough' year=year|add:'-1' %}{% if review_mode %}?review=1{% endif %}" class="nav-link prev-year">&larr; {{ year|add:'-1' }}</a>
+                    {% if review_mode %}
+                        <a href="{% url 'breakthrough' year=year %}" class="nav-link review-toggle">Exit Review</a>
+                    {% else %}
+                        <a href="{% url 'breakthrough' year=year %}?review=1" class="nav-link review-toggle">Review</a>
+                    {% endif %}
+                    <a href="{% url 'breakthrough' year=year|add:'1' %}{% if review_mode %}?review=1{% endif %}" class="nav-link next-year">{{ year|add:'1' }} &rarr;</a>
                 </div>
                 <h1>Your {{ year }} breakthrough</h1>
 
@@ -27,7 +32,7 @@
                 <section class="menu">{% include "menu.html" %}</section>
 
                 <section class="breakthrough-summary">
-                    <h2>Your {{ year|add:"-1" }} Timeline</h2>
+                    <h2>Your {{ last_year }} Timeline</h2>
                     {% if breakthrough_habits.count > 0 %}
                     
                     {% regroup breakthrough_habits by published|date:"F Y" as grouped_habits %}
