@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Reward, RewardTableItem, Claim, Claimed
+
+from .models import Claim, Claimed, Reward, RewardTableItem
 
 
 class RewardTableInline(admin.TabularInline):
@@ -10,11 +11,15 @@ class RewardTableInline(admin.TabularInline):
 class RewardAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
-    list_display = ('__str__', 'slug', 'emoji', 'has_table',)
+    list_display = (
+        "__str__",
+        "slug",
+        "emoji",
+        "has_table",
+    )
 
-    inlines = [
-        RewardTableInline
-    ]
+    inlines = [RewardTableInline]
+
 
 admin.site.register(Reward, RewardAdmin)
 admin.site.register(Claim)

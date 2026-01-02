@@ -1,39 +1,40 @@
+import datetime
+from abc import ABC, abstractmethod
+from collections import Counter
+from datetime import date
 from re import A
-from django.shortcuts import render, redirect
+
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
-from .models import Plan, Reflection, Habit, HabitTracked, JournalAdded, Thread, Event
 from .forms import PlanForm, ReflectionForm
-
-from collections import Counter
-from abc import ABC, abstractmethod
-
-import datetime
-from datetime import date
-
-from .utils.itertools import itemize
+from .models import Event, Habit, HabitTracked, JournalAdded, Plan, Reflection, Thread
 from .utils.datetime import (
     DayCount,
-    date_range_generator,
     adjust_start_date_to_monday,
-    make_last_day_of_the_week,
-    make_last_day_of_the_month,
-    get_week_period,
+    date_range_generator,
     generate_periods,
+    get_week_period,
+    make_last_day_of_the_month,
+    make_last_day_of_the_week,
 )
-
-from django.urls import reverse
+from .utils.itertools import itemize
 
 
 def make_aware_start(date):
     """Convert a date to timezone-aware datetime at the start of the day"""
-    return timezone.make_aware(datetime.datetime.combine(date, datetime.datetime.min.time()))
+    return timezone.make_aware(
+        datetime.datetime.combine(date, datetime.datetime.min.time())
+    )
 
 
 def make_aware_end(date):
     """Convert a date to timezone-aware datetime at the end of the day"""
-    return timezone.make_aware(datetime.datetime.combine(date, datetime.datetime.max.time()))
+    return timezone.make_aware(
+        datetime.datetime.combine(date, datetime.datetime.max.time())
+    )
 
 
 class Period(ABC):
@@ -63,7 +64,7 @@ class Period(ABC):
         if self._end is None:
             self._end = self._calculate_end()
         return self._end
-    
+
     def as_tuple(self):
         """Get the start and end dates of the period as a tuple"""
         return (self.start, self.end)
@@ -157,12 +158,16 @@ class Weekly(Period):
 
     def get_previous(self):
         """Get the previous week (canonical = Sunday)"""
-        prev_week_date = adjust_start_date_to_monday(self.date) - datetime.timedelta(days=7)
+        prev_week_date = adjust_start_date_to_monday(self.date) - datetime.timedelta(
+            days=7
+        )
         return Weekly(prev_week_date).canonical()
 
     def get_next(self):
         """Get the next week (canonical = Sunday)"""
-        next_week_date = make_last_day_of_the_week(self.date) + datetime.timedelta(days=1)
+        next_week_date = make_last_day_of_the_week(self.date) + datetime.timedelta(
+            days=1
+        )
         return Weekly(next_week_date).canonical()
 
 
@@ -199,14 +204,18 @@ class Monthly(Period):
 
 
 def _event_calendar(start, end):
-    events = Event.objects.filter(
-        published__range=(start, end),
-    ).order_by('published').values('published')
+    events = (
+        Event.objects.filter(
+            published__range=(start, end),
+        )
+        .order_by("published")
+        .values("published")
+    )
 
     c = Counter()
 
     for event in events:
-        c[event['published'].date()] += 1
+        c[event["published"].date()] += 1
 
     return c
 
@@ -215,14 +224,13 @@ def get_summary_calendar(start, end, thread_name, period_func):
     """Generic function to get summary calendar for any period type"""
     # Get all reflections for this thread
     reflections = Reflection.objects.filter(
-        pub_date__range=(start, end),
-        thread__name=thread_name
-    ).values('pub_date')
+        pub_date__range=(start, end), thread__name=thread_name
+    ).values("pub_date")
 
     # Group reflections by their periods
     periods_with_summaries = Counter()
     for reflection in reflections:
-        period = period_func(reflection['pub_date'])
+        period = period_func(reflection["pub_date"])
         periods_with_summaries[period] += 1
 
     # Generate all periods in the date range
@@ -246,14 +254,14 @@ def event_calendar(start, end):
         date_range_generator(start, end),
         _event_calendar(start, end),
         default=0,
-        item_type=DayCount
+        item_type=DayCount,
     )
 
 
 def weekly_summary_calendar(start, end):
     """Generate calendar data for weekly summaries - one indicator per week"""
     start = adjust_start_date_to_monday(start)
-    return get_summary_calendar(start, end, 'Weekly', get_week_period)
+    return get_summary_calendar(start, end, "Weekly", get_week_period)
 
 
 def monthly_summary_calendar(start, end):
@@ -262,14 +270,13 @@ def monthly_summary_calendar(start, end):
 
     # Get monthly reflections
     reflections = Reflection.objects.filter(
-        pub_date__range=(start, end),
-        thread__name='big-picture'
-    ).values('pub_date')
+        pub_date__range=(start, end), thread__name="big-picture"
+    ).values("pub_date")
 
     # Map monthly summaries to months
     months_with_summaries = set()
     for reflection in reflections:
-        month_key = (reflection['pub_date'].year, reflection['pub_date'].month)
+        month_key = (reflection["pub_date"].year, reflection["pub_date"].month)
         months_with_summaries.add(month_key)
 
     # Generate all weekly periods in the date range
@@ -306,10 +313,10 @@ def save_or_remove_object_if_empty(object, fields):
 
 def validate_form_and_perform_save_or_delete(form, fields):
     is_valid = form.is_valid()
-    
+
     if is_valid:
         save_or_remove_object_if_empty(form.instance, fields)
-    
+
     return is_valid, form
 
 
@@ -322,9 +329,9 @@ def yesterday(date):
 
 
 def get_period_by_thread(thread):
-    if thread.name == 'Weekly':
+    if thread.name == "Weekly":
         return Weekly
-    elif thread.name == 'big-picture':
+    elif thread.name == "big-picture":
         return Monthly
     else:
         return Daily
@@ -332,8 +339,8 @@ def get_period_by_thread(thread):
 
 def get_larger_plan(period, thread):
     mapping = {
-        'Weekly': ('big-picture', Monthly),
-        'Daily': ('Weekly', Weekly),
+        "Weekly": ("big-picture", Monthly),
+        "Daily": ("Weekly", Weekly),
     }
 
     try:
@@ -344,27 +351,29 @@ def get_larger_plan(period, thread):
     larger_period = larger_period_cls(period.get_canonical_date())
 
     try:
-        return Plan.objects.get(pub_date=larger_period.get_canonical_date(), thread__name=larger_thread)
+        return Plan.objects.get(
+            pub_date=larger_period.get_canonical_date(), thread__name=larger_thread
+        )
     except Plan.DoesNotExist:
         return None
 
 
 def get_larger_plans(period, thread):
     plans = []
-    
+
     larger_plan = get_larger_plan(period, thread)
     while larger_plan:
         plans.append(larger_plan)
         period = get_period_by_thread(larger_plan.thread)(larger_plan.pub_date)
         larger_plan = get_larger_plan(period, larger_plan.thread)
-    
+
     return plans
 
 
 def get_period_from_request(request, thread):
     """Extract date from request and create appropriate period instance"""
     try:
-        today = date.fromisoformat(request.GET['date'])
+        today = date.fromisoformat(request.GET["date"])
     except (KeyError, ValueError):
         today = yesterday(date.today()) if is_before_noon() else date.today()
 
@@ -382,17 +391,20 @@ def get_or_initial(model_class, **kwargs):
 
 @login_required
 def today(request):
-    if request.method == 'POST':
-        thread_name = request.POST.get('thread')
+    if request.method == "POST":
+        thread_name = request.POST.get("thread")
     else:
-        thread_name = request.GET.get('thread', 'Daily')
+        thread_name = request.GET.get("thread", "Daily")
 
     thread = Thread.objects.get(name=thread_name)
-    
+
     period = get_period_from_request(request, thread)
 
     if not period.is_canonical():
-        return redirect(reverse('public-today') + '?date={}&thread={}'.format(period.get_canonical_date(), thread.name))
+        return redirect(
+            reverse("public-today")
+            + "?date={}&thread={}".format(period.get_canonical_date(), thread.name)
+        )
 
     canonical_date = period.get_canonical_date()
 
@@ -400,22 +412,32 @@ def today(request):
     prev_period = period.get_previous()
 
     today_plan = get_or_initial(Plan, pub_date=canonical_date, thread=thread)
-    tomorrow_plan = get_or_initial(Plan, pub_date=next_period.get_canonical_date(), thread=thread)
+    tomorrow_plan = get_or_initial(
+        Plan, pub_date=next_period.get_canonical_date(), thread=thread
+    )
     reflection = get_or_initial(Reflection, pub_date=canonical_date, thread=thread)
 
     habits = Habit.objects.all()
-    tracked_habits = HabitTracked.objects.filter(
-         published__range=period.as_tuple()
-    )
+    tracked_habits = HabitTracked.objects.filter(published__range=period.as_tuple())
 
-    if request.method == 'POST':
+    if request.method == "POST":
         plan = PlanForm(request.POST, instance=today_plan, prefix="today_plan")
-        tomorrow_plan = PlanForm(request.POST, instance=tomorrow_plan, prefix="tomorrow_plan")
-        reflection = ReflectionForm(request.POST, instance=reflection, prefix="reflection")
+        tomorrow_plan = PlanForm(
+            request.POST, instance=tomorrow_plan, prefix="tomorrow_plan"
+        )
+        reflection = ReflectionForm(
+            request.POST, instance=reflection, prefix="reflection"
+        )
 
-        today_valid, today_plan_form = validate_form_and_perform_save_or_delete(plan, ['focus', 'want'])
-        tomorrow_valid, tomorrow_plan_form = validate_form_and_perform_save_or_delete(tomorrow_plan, ['focus', 'want'])
-        reflection_valid, reflection_form = validate_form_and_perform_save_or_delete(reflection, ['good', 'better', 'best'])
+        today_valid, today_plan_form = validate_form_and_perform_save_or_delete(
+            plan, ["focus", "want"]
+        )
+        tomorrow_valid, tomorrow_plan_form = validate_form_and_perform_save_or_delete(
+            tomorrow_plan, ["focus", "want"]
+        )
+        reflection_valid, reflection_form = validate_form_and_perform_save_or_delete(
+            reflection, ["good", "better", "best"]
+        )
 
         if all((today_valid, tomorrow_valid, reflection_valid)):
             return redirect(request.get_full_path())
@@ -428,33 +450,39 @@ def today(request):
     journals = JournalAdded.objects.filter(
         published__range=period.as_tuple(),
         thread=thread,
-    ).order_by('published')
+    ).order_by("published")
 
     actual_today = timezone.now().date()
 
-    return render(request, 'today.html', {
-        'yesterday': prev_period.get_canonical_date(),
-        'today': canonical_date,
-        'actual_today': actual_today,
-        'is_today': canonical_date == actual_today,
-        'tomorrow': next_period.get_canonical_date(),
-        'today_plan': today_plan,
-        'tomorrow_plan': tomorrow_plan,
-        'reflection': reflection,
-        'larger_plans': get_larger_plans(period, thread),
-
-        'today_plan_form': today_plan_form,
-        'tomorrow_plan_form': tomorrow_plan_form,
-        'reflection_form': reflection_form,
-
-        'habits': habits,
-        'tracked_habits': tracked_habits,
-
-        'thread': thread,
-        'threads': Thread.objects.all(),
-
-        'journals': journals,
-        'event_calendar': event_calendar(period.start - datetime.timedelta(weeks=52), period.end),
-        'weekly_summary_calendar': weekly_summary_calendar((period.start - datetime.timedelta(weeks=52)).date(), period.end.date()),
-        'monthly_summary_calendar': monthly_summary_calendar((period.start - datetime.timedelta(weeks=52)).date(), period.end.date()),
-    })
+    return render(
+        request,
+        "today.html",
+        {
+            "yesterday": prev_period.get_canonical_date(),
+            "today": canonical_date,
+            "actual_today": actual_today,
+            "is_today": canonical_date == actual_today,
+            "tomorrow": next_period.get_canonical_date(),
+            "today_plan": today_plan,
+            "tomorrow_plan": tomorrow_plan,
+            "reflection": reflection,
+            "larger_plans": get_larger_plans(period, thread),
+            "today_plan_form": today_plan_form,
+            "tomorrow_plan_form": tomorrow_plan_form,
+            "reflection_form": reflection_form,
+            "habits": habits,
+            "tracked_habits": tracked_habits,
+            "thread": thread,
+            "threads": Thread.objects.all(),
+            "journals": journals,
+            "event_calendar": event_calendar(
+                period.start - datetime.timedelta(weeks=52), period.end
+            ),
+            "weekly_summary_calendar": weekly_summary_calendar(
+                (period.start - datetime.timedelta(weeks=52)).date(), period.end.date()
+            ),
+            "monthly_summary_calendar": monthly_summary_calendar(
+                (period.start - datetime.timedelta(weeks=52)).date(), period.end.date()
+            ),
+        },
+    )

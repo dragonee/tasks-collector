@@ -22,16 +22,18 @@ def get_potential_staticfile_paths(filename):
     """
 
     # First check STATIC_ROOT (production)
-    if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
+    if hasattr(settings, "STATIC_ROOT") and settings.STATIC_ROOT:
         yield Path(settings.STATIC_ROOT) / filename
 
     # Then check all STATICFILES_DIRS (development)
-    if hasattr(settings, 'STATICFILES_DIRS') and settings.STATICFILES_DIRS:
+    if hasattr(settings, "STATICFILES_DIRS") and settings.STATICFILES_DIRS:
         for static_dir in settings.STATICFILES_DIRS:
             yield Path(static_dir) / filename
 
+
 def _empty_cache_entry():
-    return {'content': '', 'mtime': None, 'path': None}
+    return {"content": "", "mtime": None, "path": None}
+
 
 def read_cached_staticfile(entry_point, file_type, cache):
     """Reads and caches static tag files.
@@ -49,26 +51,26 @@ def read_cached_staticfile(entry_point, file_type, cache):
 
     # In production, use permanent in-memory cache
     if not settings.DEBUG and entry_point in cache:
-        return cache[entry_point]['content']
+        return cache[entry_point]["content"]
 
-    filename = f'{entry_point}-{file_type}-tags.html'
+    filename = f"{entry_point}-{file_type}-tags.html"
 
     # Find first existing file
     html_file_path = next(
         (path for path in get_potential_staticfile_paths(filename) if path.exists()),
-        None
+        None,
     )
 
     if html_file_path is None:
         # No file found, cache empty string
         if entry_point not in cache:
             cache[entry_point] = _empty_cache_entry()
-        return ''
+        return ""
 
     try:
         # In DEBUG mode, check if file has been modified
         if settings.DEBUG and entry_point in cache:
-            cached_mtime = cache[entry_point].get('mtime')
+            cached_mtime = cache[entry_point].get("mtime")
             current_mtime = html_file_path.stat().st_mtime
 
             # If mtime changed, invalidate cache
@@ -77,33 +79,33 @@ def read_cached_staticfile(entry_point, file_type, cache):
 
         # Check if already cached (and still valid)
         if entry_point in cache:
-            return cache[entry_point]['content']
+            return cache[entry_point]["content"]
 
         # Read and cache the content
         content = html_file_path.read_text()
         mtime = html_file_path.stat().st_mtime if settings.DEBUG else None
 
         cache[entry_point] = {
-            'content': content,
-            'mtime': mtime,
-            'path': html_file_path
+            "content": content,
+            "mtime": mtime,
+            "path": html_file_path,
         }
         return content
     except (FileNotFoundError, OSError):
         # Cache empty string to avoid repeated file lookups
         if entry_point not in cache:
             cache[entry_point] = _empty_cache_entry()
-        return ''
+        return ""
 
 
 def read_cached_js(entry_point, cache=JS_FILES):
     """Reads and caches JS tag files."""
-    return read_cached_staticfile(entry_point, 'js', cache)
+    return read_cached_staticfile(entry_point, "js", cache)
 
 
 def read_cached_css(entry_point, cache=CSS_FILES):
     """Reads and caches CSS tag files."""
-    return read_cached_staticfile(entry_point, 'css', cache)
+    return read_cached_staticfile(entry_point, "css", cache)
 
 
 @register.simple_tag
@@ -130,4 +132,3 @@ def render_css(entry_point):
     """
     content = read_cached_css(entry_point)
     return mark_safe(content)
-

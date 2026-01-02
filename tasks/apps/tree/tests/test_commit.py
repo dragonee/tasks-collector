@@ -1,4 +1,5 @@
 from django.test import TestCase
+
 from ..commit import calculate_changes_per_board
 
 
@@ -11,22 +12,22 @@ class CommitTestCase(TestCase):
         # Start with a single item at week 0
         board_state = [
             {
-                'text': 'Test item',
-                'data': {
-                    'text': 'Test item',
-                    'state': 'active',
-                    'meaningfulMarkers': {
-                        'weeksInList': 0,
-                        'canBePostponed': False,
-                        'postponedFor': 0,
-                        'important': False,
-                        'finalizing': False,
-                        'canBeDoneOutsideOfWork': False,
-                        'madeProgress': False
-                    }
+                "text": "Test item",
+                "data": {
+                    "text": "Test item",
+                    "state": "active",
+                    "meaningfulMarkers": {
+                        "weeksInList": 0,
+                        "canBePostponed": False,
+                        "postponedFor": 0,
+                        "important": False,
+                        "finalizing": False,
+                        "canBeDoneOutsideOfWork": False,
+                        "madeProgress": False,
+                    },
                 },
-                'state': {'checked': False},
-                'children': []
+                "state": {"checked": False},
+                "children": [],
             }
         ]
 
@@ -36,16 +37,25 @@ class CommitTestCase(TestCase):
 
             if week < 5:  # Weeks 0-4 (transitions 1-5)
                 # Item should still be present in current board (None key)
-                self.assertIn(None, result, f"Current board should exist at week {week}")
+                self.assertIn(
+                    None, result, f"Current board should exist at week {week}"
+                )
                 current_board = result[None]
-                self.assertEqual(len(current_board), 1, f"Item should be present at week {week}")
-                self.assertEqual(current_board[0]['text'], 'Test item')
+                self.assertEqual(
+                    len(current_board), 1, f"Item should be present at week {week}"
+                )
+                self.assertEqual(current_board[0]["text"], "Test item")
 
                 # Verify weeksInList is incremented correctly
                 expected_weeks = week + 1
-                actual_weeks = current_board[0]['data']['meaningfulMarkers']['weeksInList']
-                self.assertEqual(actual_weeks, expected_weeks,
-                               f"weeksInList should be {expected_weeks} at transition {week + 1}")
+                actual_weeks = current_board[0]["data"]["meaningfulMarkers"][
+                    "weeksInList"
+                ]
+                self.assertEqual(
+                    actual_weeks,
+                    expected_weeks,
+                    f"weeksInList should be {expected_weeks} at transition {week + 1}",
+                )
 
                 # Update board_state for next iteration
                 board_state = current_board
@@ -53,11 +63,16 @@ class CommitTestCase(TestCase):
                 # Item should be removed (either no current board or empty current board)
                 if None in result:
                     current_board = result[None]
-                    self.assertEqual(len(current_board), 0,
-                                   "Item should be removed after 6th week (weeksInList=5)")
+                    self.assertEqual(
+                        len(current_board),
+                        0,
+                        "Item should be removed after 6th week (weeksInList=5)",
+                    )
                 else:
                     # No current board means no items
-                    self.assertTrue(True, "No current board means item was filtered out")
+                    self.assertTrue(
+                        True, "No current board means item was filtered out"
+                    )
 
     def test_postponed_item_exempt_from_5_week_rule(self):
         """Test that a postponed item survives beyond 5 weeks."""
@@ -65,22 +80,22 @@ class CommitTestCase(TestCase):
         # Start with a postponed item
         board_state = [
             {
-                'text': 'Postponed item',
-                'data': {
-                    'text': 'Postponed item',
-                    'state': 'active',
-                    'meaningfulMarkers': {
-                        'weeksInList': 4,  # Start at week 4
-                        'canBePostponed': False,
-                        'postponedFor': 2,  # Postponed for 2 weeks
-                        'important': False,
-                        'finalizing': False,
-                        'canBeDoneOutsideOfWork': False,
-                        'madeProgress': False
-                    }
+                "text": "Postponed item",
+                "data": {
+                    "text": "Postponed item",
+                    "state": "active",
+                    "meaningfulMarkers": {
+                        "weeksInList": 4,  # Start at week 4
+                        "canBePostponed": False,
+                        "postponedFor": 2,  # Postponed for 2 weeks
+                        "important": False,
+                        "finalizing": False,
+                        "canBeDoneOutsideOfWork": False,
+                        "madeProgress": False,
+                    },
                 },
-                'state': {'checked': False},
-                'children': []
+                "state": {"checked": False},
+                "children": [],
             }
         ]
 
@@ -91,7 +106,9 @@ class CommitTestCase(TestCase):
             # Item should always be present because it's postponed
             self.assertIn(None, result)
             current_board = result[None]
-            self.assertEqual(len(current_board), 1, f"Postponed item should survive week {week + 4}")
+            self.assertEqual(
+                len(current_board), 1, f"Postponed item should survive week {week + 4}"
+            )
 
             # Update for next iteration
             board_state = current_board
