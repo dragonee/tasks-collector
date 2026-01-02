@@ -1,18 +1,15 @@
-from django.shortcuts import render
-from django.http import HttpRequest, Http404, JsonResponse
+from datetime import date
+
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.http import Http404, HttpRequest, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from rest_framework import viewsets
 
-from django.utils import timezone
-from django.shortcuts import get_object_or_404, redirect
-
-from datetime import date
-
-from .models import DataclassJSONEncoder, claim_reward, Claim, Claimed
-from .serializers import ClaimSerializer, ClaimedSerializer
-
-from django.db import transaction
+from .models import Claim, Claimed, DataclassJSONEncoder, claim_reward
+from .serializers import ClaimedSerializer, ClaimSerializer
 
 
 class ClaimViewSet(viewsets.ModelViewSet):
@@ -31,13 +28,13 @@ def claim_view(request: HttpRequest, id: int):
         return claimed_view(request, id)
     except Http404:
         pass
-    
+
     claim = get_object_or_404(Claim, pk=id)
-    
+
     if request.method == "POST":
         claimed = Claimed(
             claimed=claim_reward(claim.reward),
-            claimed_date = date.today(),
+            claimed_date=date.today(),
             pk=claim.pk,
         )
 
@@ -46,7 +43,7 @@ def claim_view(request: HttpRequest, id: int):
             claim.delete()
 
         if request.accepts("text/html"):
-            return redirect('claim', id=claimed.pk)
+            return redirect("claim", id=claimed.pk)
 
         if request.accepts("application/json"):
             return JsonResponse(
@@ -56,13 +53,21 @@ def claim_view(request: HttpRequest, id: int):
 
         raise Http404
 
-    return render(request, "rewards/claim.html", {
-        "claim": claim,
-    })
+    return render(
+        request,
+        "rewards/claim.html",
+        {
+            "claim": claim,
+        },
+    )
 
 
 @login_required
 def claimed_view(request: HttpRequest, id: int):
-    return render(request, "rewards/claimed.html", {
-        "claim": get_object_or_404(Claimed, pk=id),
-    })
+    return render(
+        request,
+        "rewards/claimed.html",
+        {
+            "claim": get_object_or_404(Claimed, pk=id),
+        },
+    )

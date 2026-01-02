@@ -1,25 +1,23 @@
-from rest_framework import serializers
-
-from .models import *
-
 from functools import partial
-
-from django.utils import timezone
 from operator import itemgetter
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils import timezone
 
+from rest_framework import serializers
 from rest_polymorphic.serializers import PolymorphicSerializer
 
+from .models import *
 from .templatetags.model_presenters import first_line
 
-from django.contrib.auth import get_user_model
-from django.conf import settings
 
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
-        fields = ['id', 'name']
+        fields = ["id", "name"]
+
 
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
     today_tracked = serializers.IntegerField(read_only=True)
@@ -30,14 +28,16 @@ class HabitSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Habit
-        fields = ['id', 'name', 'description', 'slug', 'keywords', 'today_tracked']
+        fields = ["id", "name", "description", "slug", "keywords", "today_tracked"]
+
 
 class HabitKeywordSerializer(serializers.ModelSerializer):
     habit = HabitSerializer(read_only=True)
 
     class Meta:
         model = HabitKeyword
-        fields = ['id', 'keyword', 'habit']
+        fields = ["id", "keyword", "habit"]
+
 
 class ProfileSerializer(serializers.ModelSerializer):
     default_board_thread = ThreadSerializer(read_only=True)
@@ -45,29 +45,34 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ['id', 'default_board_thread', 'habit_keywords']
+        fields = ["id", "default_board_thread", "habit_keywords"]
+
 
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Plan
-        fields = ['id', 'pub_date', 'want', 'focus']
+        fields = ["id", "pub_date", "want", "focus"]
+
 
 class ReflectionSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Reflection
-        fields = ['id', 'pub_date', 'good', 'better', 'best']
+        fields = ["id", "pub_date", "good", "better", "best"]
+
 
 class BoardSerializer(serializers.HyperlinkedModelSerializer):
     thread = ThreadSerializer(read_only=True)
 
     class Meta:
         model = Board
-        fields = ['id', 'date_started', 'state', 'focus', 'thread']
+        fields = ["id", "date_started", "state", "focus", "thread"]
+
 
 class JournalTagSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = JournalTag
-        fields = ['id', 'name', 'slug']
+        fields = ["id", "name", "slug"]
+
 
 def spawn_observation_events(previous, current, published=None):
     if not published:
@@ -79,10 +84,16 @@ def spawn_observation_events(previous, current, published=None):
 
         not_changing_null_into_empty = bool(old) or bool(new)
 
-        same_excluding_whitespace = type(old) == type(new) == str and old.strip().replace('\r', '') == new.strip().replace('\r', '')
+        same_excluding_whitespace = type(old) == type(
+            new
+        ) == str and old.strip().replace("\r", "") == new.strip().replace("\r", "")
 
-        return old != new and not_changing_null_into_empty and not same_excluding_whitespace
-    
+        return (
+            old != new
+            and not_changing_null_into_empty
+            and not same_excluding_whitespace
+        )
+
     def was_set(x):
         return getattr(previous, x) is None and getattr(current, x) is not None
 
@@ -92,59 +103,69 @@ def spawn_observation_events(previous, current, published=None):
         return f(x)
 
     changed_checks = [
-        ('pk', was_set),
-        ('situation', was_changed), 
-        ('interpretation', was_changed),
-        ('approach', was_changed),
+        ("pk", was_set),
+        ("situation", was_changed),
+        ("interpretation", was_changed),
+        ("approach", was_changed),
     ]
 
     changed_data = list(map(itemgetter(0), filter(filter_func, changed_checks)))
 
-    if 'pk' in changed_data:
-        observation_made = ObservationMade.from_observation(current, published=published)
+    if "pk" in changed_data:
+        observation_made = ObservationMade.from_observation(
+            current, published=published
+        )
 
         return [observation_made]
 
     events = []
 
-    if 'situation' in changed_data:
-        obj = ObservationRecontextualized.from_observation(current, previous.situation, published=published)
+    if "situation" in changed_data:
+        obj = ObservationRecontextualized.from_observation(
+            current, previous.situation, published=published
+        )
         events.append(obj)
-    
-    if 'interpretation' in changed_data:
-        obj = ObservationReinterpreted.from_observation(current, previous.interpretation, published=published)
+
+    if "interpretation" in changed_data:
+        obj = ObservationReinterpreted.from_observation(
+            current, previous.interpretation, published=published
+        )
         events.append(obj)
-    
-    if 'approach' in changed_data:
-        obj = ObservationReflectedUpon.from_observation(current, previous.approach, published=published)
+
+    if "approach" in changed_data:
+        obj = ObservationReflectedUpon.from_observation(
+            current, previous.approach, published=published
+        )
         events.append(obj)
-    
+
     return events
+
 
 def get_unsaved_object(model, obj):
     if not obj:
         return model()
-    
+
     try:
         return model.objects.get(pk=obj.pk)
     except model.DoesNotExist:
         return model()
 
+
 class BaseTypeThreadSerializer(serializers.HyperlinkedModelSerializer):
     type = serializers.SlugRelatedField(
-        queryset=ObservationType.objects.all(),
-        slug_field='slug'
+        queryset=ObservationType.objects.all(), slug_field="slug"
     )
 
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
+
 
 class ObservationUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ['id', 'username']
+        fields = ["id", "username"]
+
 
 class ObservationSerializer(BaseTypeThreadSerializer):
     user = ObservationUserSerializer(read_only=True)
@@ -152,23 +173,28 @@ class ObservationSerializer(BaseTypeThreadSerializer):
 
     class Meta:
         model = Observation
-        fields = ['id', 'pub_date', 'thread', 'type', 'situation', 'interpretation', 'approach', 'user', 'last_event_published']
-        
+        fields = [
+            "id",
+            "pub_date",
+            "thread",
+            "type",
+            "situation",
+            "interpretation",
+            "approach",
+            "user",
+            "last_event_published",
+        ]
 
     @transaction.atomic
     def save(self, *args, **kwargs):
         old_obj = get_unsaved_object(Observation, self.instance)
         new_obj = super().save(*args, **kwargs)
 
-        events = spawn_observation_events(
-            old_obj,
-            new_obj,
-            published=timezone.now()
-        )
+        events = spawn_observation_events(old_obj, new_obj, published=timezone.now())
 
         for event in events:
             event.save()
-        
+
         return new_obj
 
 
@@ -177,151 +203,162 @@ class ObservationUpdatedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ObservationUpdated
-        fields = [ 'id', 'comment', 'published', 'observation_fields', 'observation' ]
+        fields = ["id", "comment", "published", "observation_fields", "observation"]
+
 
 class MultipleObservationUpdatedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ObservationUpdated
-        fields = [ 'id', 'comment', 'published', 'event_stream_id' ]
+        fields = ["id", "comment", "published", "event_stream_id"]
+
 
 class ObservationWithUpdatesSerializer(ObservationSerializer):
     updates = MultipleObservationUpdatedSerializer(
-        many=True, 
-        read_only=True, 
-        source='observationupdated_set'
+        many=True, read_only=True, source="observationupdated_set"
     )
 
     class Meta(ObservationSerializer.Meta):
-        fields = ObservationSerializer.Meta.fields + ['updates']
+        fields = ObservationSerializer.Meta.fields + ["updates"]
+
 
 class JournalAddedSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
 
     tags = serializers.SlugRelatedField(
         many=True,
         queryset=JournalTag.objects.all(),
-        slug_field='slug',
+        slug_field="slug",
     )
 
     class Meta:
         model = JournalAdded
-        fields = [ 'id', 'comment', 'published', 'thread', 'tags' ]
+        fields = ["id", "comment", "published", "thread", "tags"]
+
 
 class QuickNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuickNote
-        fields = [ 'id', 'published', 'note']
+        fields = ["id", "published", "note"]
 
 
 class ObservationMadeSerializer(BaseTypeThreadSerializer):
     url = serializers.SerializerMethodField()
 
     def get_url(self, obj):
-        if 'request' in self.context:
-            return self.context['request'].build_absolute_uri(obj.url())
-        
+        if "request" in self.context:
+            return self.context["request"].build_absolute_uri(obj.url())
+
         return obj.url()
+
     class Meta:
         model = ObservationMade
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'type',
-            'situation',
-            'interpretation',
-            'approach',
-            'url'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "type",
+            "situation",
+            "interpretation",
+            "approach",
+            "url",
         ]
+
 
 class ObservationRecontextualizedSerializer(BaseTypeThreadSerializer):
     url = serializers.SerializerMethodField()
 
     def get_url(self, obj):
-        if 'request' in self.context:
-            return self.context['request'].build_absolute_uri(obj.url())
-        
+        if "request" in self.context:
+            return self.context["request"].build_absolute_uri(obj.url())
+
         return obj.url()
+
     class Meta:
         model = ObservationRecontextualized
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'situation',
-            'old_situation',
-            'url'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "situation",
+            "old_situation",
+            "url",
         ]
+
 
 class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
     url = serializers.SerializerMethodField()
 
     def get_url(self, obj):
-        if 'request' in self.context:
-            return self.context['request'].build_absolute_uri(obj.url())
-        
+        if "request" in self.context:
+            return self.context["request"].build_absolute_uri(obj.url())
+
         return obj.url()
+
     class Meta:
         model = ObservationReinterpreted
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'interpretation',
-            'old_interpretation',
-            'situation_at_creation',
-            'url'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "interpretation",
+            "old_interpretation",
+            "situation_at_creation",
+            "url",
         ]
+
 
 class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
     url = serializers.SerializerMethodField()
 
     def get_url(self, obj):
-        if 'request' in self.context:
-            return self.context['request'].build_absolute_uri(obj.url())
-        
+        if "request" in self.context:
+            return self.context["request"].build_absolute_uri(obj.url())
+
         return obj.url()
+
     class Meta:
         model = ObservationReflectedUpon
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'approach',
-            'old_approach',
-            'situation_at_creation',
-            'url'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "approach",
+            "old_approach",
+            "situation_at_creation",
+            "url",
         ]
+
 
 class ObservationClosedSerializer(BaseTypeThreadSerializer):
     url = serializers.SerializerMethodField()
 
     def get_url(self, obj):
-        if 'request' in self.context:
-            return self.context['request'].build_absolute_uri(obj.url())
-        
+        if "request" in self.context:
+            return self.context["request"].build_absolute_uri(obj.url())
+
         return obj.url()
+
     class Meta:
         model = ObservationClosed
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'type',
-            'situation',
-            'interpretation',
-            'approach',
-            'url'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "type",
+            "situation",
+            "interpretation",
+            "approach",
+            "url",
         ]
+
 
 class ObservationEventSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
@@ -333,145 +370,150 @@ class ObservationEventSerializer(PolymorphicSerializer):
         ObservationUpdated: MultipleObservationUpdatedSerializer,
     }
 
+
 class HabitTrackedSerializer(serializers.ModelSerializer):
     habit = HabitSerializer(read_only=True)
 
     class Meta:
         model = HabitTracked
-        fields = ['id', 'published', 'habit', 'occured', 'note']
+        fields = ["id", "published", "habit", "occured", "note"]
 
 
 class ProjectedOutcomeMadeSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
-    
+
     class Meta:
         model = ProjectedOutcomeMade
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'name',
-            'description',
-            'resolved_by',
-            'success_criteria'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "name",
+            "description",
+            "resolved_by",
+            "success_criteria",
         ]
 
 
 class ProjectedOutcomeRedefinedSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
-    
+
     class Meta:
         model = ProjectedOutcomeRedefined
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'old_name',
-            'new_name',
-            'old_description',
-            'new_description',
-            'old_success_criteria',
-            'new_success_criteria'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "old_name",
+            "new_name",
+            "old_description",
+            "new_description",
+            "old_success_criteria",
+            "new_success_criteria",
         ]
 
 
 class ProjectedOutcomeRescheduledSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
-    
+
     class Meta:
         model = ProjectedOutcomeRescheduled
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'old_resolved_by',
-            'new_resolved_by'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "old_resolved_by",
+            "new_resolved_by",
         ]
 
 
 class ProjectedOutcomeClosedSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
-    
+
     class Meta:
         model = ProjectedOutcomeClosed
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'name',
-            'description',
-            'resolved_by',
-            'success_criteria'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "name",
+            "description",
+            "resolved_by",
+            "success_criteria",
         ]
+
 
 def get_observation_object(obj):
     if obj.observation:
         return obj.observation
-    
+
     return ObservationMade.objects.get(event_stream_id=obj.event_stream_id)
+
 
 class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
 
     def get_url(self, obj):
-        if 'request' in self.context:
-            return self.context['request'].build_absolute_uri(obj.url())
-        
+        if "request" in self.context:
+            return self.context["request"].build_absolute_uri(obj.url())
+
         return obj.url()
-    
+
     class Meta:
         model = ObservationUpdated
-        fields = [ 'id', 'comment', 'published', 'event_stream_id', 'observation_id', 'situation_at_creation', 'url']
+        fields = [
+            "id",
+            "comment",
+            "published",
+            "event_stream_id",
+            "observation_id",
+            "situation_at_creation",
+            "url",
+        ]
 
 
 class ObservationAttachedSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
-    
+
     class Meta:
         model = ObservationAttached
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'other_event_stream_id',
-            'observation'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "other_event_stream_id",
+            "observation",
         ]
 
 
 class ObservationDetachedSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(),
-        slug_field='name'
+        queryset=Thread.objects.all(), slug_field="name"
     )
-    
+
     class Meta:
         model = ObservationDetached
         fields = [
-            'id',
-            'published',
-            'event_stream_id',
-            'thread',
-            'other_event_stream_id'
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "other_event_stream_id",
         ]
 
 
@@ -493,10 +535,11 @@ class EventSerializer(PolymorphicSerializer):
         ProjectedOutcomeClosed: ProjectedOutcomeClosedSerializer,
     }
 
+
 class tree_iterator:
     """Preorder traversal tree iterator"""
 
-    def __init__(self, tree, key='children'):
+    def __init__(self, tree, key="children"):
         self.key = key
 
         # Internally this iterator requires top-level list,
@@ -505,9 +548,7 @@ class tree_iterator:
         if key in tree:
             tree = [tree]
 
-        self.iterators = [
-            iter(tree)
-        ]
+        self.iterators = [iter(tree)]
 
     def __iter__(self):
         return self
@@ -541,20 +582,26 @@ class tree_iterator:
             # We have popped out of self.iterators to use
             raise StopIteration
 
+
 def _state(key, default, item):
-    return item.get('state', {}).get(key, default)
+    return item.get("state", {}).get(key, default)
+
 
 def state(key, default=None):
     return partial(_state, key, default)
 
+
 def _marker(key, default, item):
-    return item.get('data', {}).get('meaningfulMarkers', {}).get(key, default)
+    return item.get("data", {}).get("meaningfulMarkers", {}).get(key, default)
+
 
 def marker(key, default=None):
     return partial(_marker, key, default)
 
+
 def ilen(iter):
     return sum(1 for _ in iter)
+
 
 class BoardSummary(object):
     def __init__(self, board):
@@ -564,18 +611,23 @@ class BoardSummary(object):
         return filter(pred, tree_iterator(self.board.before))
 
     def finished(self):
-        return self.filter_tree(state('checked'))
+        return self.filter_tree(state("checked"))
 
     def postponed(self):
-        return self.filter_tree(marker('postponedFor'))
+        return self.filter_tree(marker("postponedFor"))
 
     def removed(self):
-        weeks_in_list = marker('weeksInList')
-        checked = state('checked')
-        postponed_for = marker('postponedFor')
-        made_progress = marker('madeProgress')
+        weeks_in_list = marker("weeksInList")
+        checked = state("checked")
+        postponed_for = marker("postponedFor")
+        made_progress = marker("madeProgress")
 
-        return self.filter_tree(lambda item: weeks_in_list(item) >= 5 and not checked(item) and postponed_for(item) == 0 and not made_progress(item))
+        return self.filter_tree(
+            lambda item: weeks_in_list(item) >= 5
+            and not checked(item)
+            and postponed_for(item) == 0
+            and not made_progress(item)
+        )
 
     def finished_count(self):
         return ilen(self.finished())

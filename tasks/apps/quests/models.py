@@ -1,8 +1,6 @@
 from django.db import models
-
-from django.utils.translation import gettext_lazy as _
-
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 
 class Quest(models.Model):
@@ -18,7 +16,7 @@ class Quest(models.Model):
 
     def get_absolute_url(self):
         return reverse("show_quest", kwargs={"slug": self.slug})
-    
+
 
 class QuestJournal(models.Model):
     quest = models.ForeignKey(Quest, on_delete=models.CASCADE)
@@ -28,4 +26,3 @@ class QuestJournal(models.Model):
     pub_date = models.DateTimeField(auto_now_add=True)
 
     text = models.TextField()
-

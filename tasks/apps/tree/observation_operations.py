@@ -1,6 +1,6 @@
 from django.db import transaction
 
-from .models import JournalAdded, Event 
+from .models import Event, JournalAdded
 
 
 def migrate_observation_updates_to_journal(observation, thread_id):

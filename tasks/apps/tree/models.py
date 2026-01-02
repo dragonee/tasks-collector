@@ -1,36 +1,36 @@
-from collections import namedtuple
-
-from django.db import models
-
-from django.utils.translation import gettext_lazy as _
-from django.utils.text import Truncator, slugify
-
-from django.utils import timezone
-
-from django.db.models.signals import pre_save, post_save
-from django.dispatch import receiver
-from polymorphic.models import PolymorphicModel
-
-from calendar import monthrange
-
-from datetime import timedelta
-
-from django.urls import reverse
-
-from decimal import Decimal
 import uuid
+from calendar import monthrange
+from collections import namedtuple
+from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
+from django.db import models
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.text import Truncator, slugify
+from django.utils.translation import gettext_lazy as _
 
-from .uuid_generators import board_event_stream_id, habit_event_stream_id, journal_added_event_stream_id, board_event_stream_id_from_thread
+from polymorphic.models import PolymorphicModel
 
 from .utils.datetime import aware_from_date
+from .uuid_generators import (
+    board_event_stream_id,
+    board_event_stream_id_from_thread,
+    habit_event_stream_id,
+    journal_added_event_stream_id,
+)
+
 
 def empty_dict():
     return {}
 
+
 def default_state():
     return []
+
 
 class Thread(models.Model):
     # readonly-once-set
@@ -41,7 +41,7 @@ class Thread(models.Model):
         return self.name
 
     class Meta:
-        ordering = ('name', )
+        ordering = ("name",)
 
 
 class Event(PolymorphicModel):
@@ -53,18 +53,15 @@ class Event(PolymorphicModel):
 
     class Meta:
         indexes = [
-            models.Index(fields=['published']),
-            models.Index(fields=['event_stream_id', 'published'])
+            models.Index(fields=["published"]),
+            models.Index(fields=["event_stream_id", "published"]),
         ]
 
-        ordering = (
-            'published',
-        )
+        ordering = ("published",)
 
     def __str__(self):
         return "[{cls}] #{pk}".format(
-            cls=self.get_real_instance_class().__name__, 
-            pk=self.pk
+            cls=self.get_real_instance_class().__name__, pk=self.pk
         )
 
 
@@ -84,6 +81,7 @@ class BoardCommitted(Event):
     @property
     def date_closed(self):
         return self.published
+
 
 @receiver(pre_save, sender=BoardCommitted)
 def update_board_committed_event_stream_id(sender, instance, *args, **kwargs):
@@ -105,28 +103,29 @@ class Habit(models.Model):
         return self.name
 
     class Meta:
-        ordering = ('name', )
+        ordering = ("name",)
 
     def as_hashtags(self):
-        return ['#{}'.format(keyword) for keyword in self.get_keywords()]
+        return ["#{}".format(keyword) for keyword in self.get_keywords()]
 
     def get_keywords(self):
         """Get all keywords for this habit as a set"""
-        return set(self.keywords.values_list('keyword', flat=True))
+        return set(self.keywords.values_list("keyword", flat=True))
 
 
 class HabitKeyword(models.Model):
-    habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name='keywords')
+    habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name="keywords")
     keyword = models.SlugField(max_length=255, unique=True, allow_unicode=True)
 
     class Meta:
-        ordering = ('keyword',)
+        ordering = ("keyword",)
 
     def __str__(self):
         return f"{self.habit.name}: {self.keyword}"
 
 
-Diff = namedtuple('Diff', ['old', 'new'])
+Diff = namedtuple("Diff", ["old", "new"])
+
 
 def field_has_changed(instance, field):
     model = type(instance)
@@ -140,7 +139,7 @@ def field_has_changed(instance, field):
 
         if getattr(old, field) == getattr(instance, field):
             return False
-        
+
         return Diff(old=old_value, new=new_value)
     except model.DoesNotExist:
         return Diff(old=None, new=new_value)
@@ -148,16 +147,15 @@ def field_has_changed(instance, field):
 
 @receiver(pre_save, sender=Habit)
 def on_habit_name_change_update_event_stream_id(sender, instance, *args, **kwargs):
-    changed = field_has_changed(instance, 'event_stream_id')
+    changed = field_has_changed(instance, "event_stream_id")
 
     if not changed or not changed.old:
         return
-    
-    Event.objects.filter(
-        event_stream_id=changed.old
-    ).update(
+
+    Event.objects.filter(event_stream_id=changed.old).update(
         event_stream_id=changed.new
     )
+
 
 class HabitTracked(Event):
     # thread must be set manually
@@ -174,11 +172,12 @@ class HabitTracked(Event):
     def __str__(self):
         return "{} {}".format(self.habit, self.published)
 
+
 @receiver(pre_save, sender=HabitTracked)
 def update_habit_tracked_event_stream_id(sender, instance, *args, **kwargs):
     instance.event_stream_id = habit_event_stream_id(instance)
 
-    
+
 class Board(models.Model):
     date_started = models.DateTimeField(default=timezone.now)
 
@@ -187,15 +186,16 @@ class Board(models.Model):
     focus = models.CharField(max_length=255, null=True, blank=True)
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE, null=True)
+
     class Meta:
-        ordering = ('-date_started',)
+        ordering = ("-date_started",)
 
     def __str__(self):
         if not self.focus:
             return str(self.thread)
 
         return "{} {}".format(self.focus, self.thread)
-    
+
     @property
     def event_stream_id(self):
         return board_event_stream_id(self)
@@ -206,12 +206,24 @@ class Reflection(models.Model):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    good = models.TextField(help_text=_("What did you do well today?"), null=True, blank=True)
-    better = models.TextField(help_text=_("How could you improve? What could you do better?"), null=True, blank=True)
-    best = models.TextField(help_text=_("What do you need to do if you want to be the best version of yourself?"), null=True, blank=True)
+    good = models.TextField(
+        help_text=_("What did you do well today?"), null=True, blank=True
+    )
+    better = models.TextField(
+        help_text=_("How could you improve? What could you do better?"),
+        null=True,
+        blank=True,
+    )
+    best = models.TextField(
+        help_text=_(
+            "What do you need to do if you want to be the best version of yourself?"
+        ),
+        null=True,
+        blank=True,
+    )
 
     class Meta:
-        ordering = ('-pub_date', )
+        ordering = ("-pub_date",)
 
     def __str__(self):
         return "{} ({})".format(self.pub_date, self.thread)
@@ -222,19 +234,30 @@ class Plan(models.Model):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    focus = models.TextField(help_text=_("What is your primary focus?"), null=True, blank=True)
-    want = models.TextField(help_text=_("What feelings/thoughts/desires are currently on your mind?"), null=True, blank=True)
+    focus = models.TextField(
+        help_text=_("What is your primary focus?"), null=True, blank=True
+    )
+    want = models.TextField(
+        help_text=_("What feelings/thoughts/desires are currently on your mind?"),
+        null=True,
+        blank=True,
+    )
 
     class Meta:
-        ordering = ('-pub_date', )
+        ordering = ("-pub_date",)
 
     def __str__(self):
         return "{} ({})".format(self.pub_date, self.thread)
 
+
 class ObservationType(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255)
-    color = models.CharField(max_length=7, default='#ca8911', help_text=_("Color in hex format (e.g., #FF5733)"))
+    color = models.CharField(
+        max_length=7,
+        default="#ca8911",
+        help_text=_("Color in hex format (e.g., #FF5733)"),
+    )
 
     def __str__(self):
         return self.name
@@ -245,13 +268,13 @@ class ObservationQuerySet(models.QuerySet):
         """Annotate queryset with the last event published date"""
         from django.db.models import OuterRef, Subquery
 
-        last_event_subquery = Event.objects.filter(
-            event_stream_id=OuterRef('event_stream_id')
-        ).order_by('-published').values('published')[:1]
-
-        return self.annotate(
-            last_event_published=Subquery(last_event_subquery)
+        last_event_subquery = (
+            Event.objects.filter(event_stream_id=OuterRef("event_stream_id"))
+            .order_by("-published")
+            .values("published")[:1]
         )
+
+        return self.annotate(last_event_published=Subquery(last_event_subquery))
 
 
 class ObservationManager(models.Manager):
@@ -274,60 +297,61 @@ class Observation(models.Model):
     objects = ObservationManager()
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
-    interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
-    approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
+    interpretation = models.TextField(
+        help_text=_("How you saw it, what you felt?"), null=True, blank=True
+    )
+    approach = models.TextField(
+        help_text=_("How should you approach it in the future?"), null=True, blank=True
+    )
 
     class Meta:
-        ordering = ('-pub_date', '-pk')
+        ordering = ("-pub_date", "-pk")
 
     def __str__(self):
         return "{}: {} ({})".format(
-            self.pub_date,
-            Truncator(self.situation).words(6),
-            self.thread
+            self.pub_date, Truncator(self.situation).words(6), self.thread
         )
-    
+
     def copy(self, as_new=True):
         kwargs = {}
 
         if not as_new:
-            kwargs['pk'] = self.pk
-            kwargs['event_stream_id'] = self.event_stream_id
+            kwargs["pk"] = self.pk
+            kwargs["event_stream_id"] = self.event_stream_id
 
         return Observation(
             pub_date=self.pub_date,
             thread_id=self.thread_id,
             type_id=self.type_id,
             user_id=self.user_id,
-
             situation=self.situation,
             interpretation=self.interpretation,
             approach=self.approach,
-
-            **kwargs
+            **kwargs,
         )
 
     def situation_truncated(self):
         return Truncator(self.situation).words(6)
 
-
     def get_events(self):
         if not self.event_stream_id:
             return Event.objects.none()
-        
+
         return Event.objects.filter(event_stream_id=self.event_stream_id)
 
-
     def get_absolute_url(self):
-        return reverse('public-observation-edit', kwargs={'observation_id': self.pk})
+        return reverse("public-observation-edit", kwargs={"observation_id": self.pk})
 
-def coalesce(value, default=''):
+
+def coalesce(value, default=""):
     return value if value is not None else default
+
 
 class ObservationPropertyEventMixin:
     @property
     def observation(self):
         return Observation.objects.get(event_stream_id=self.event_stream_id)
+
 
 class ObservationEventMixin:
     def url(self):
@@ -335,40 +359,39 @@ class ObservationEventMixin:
             observation = Observation.objects.get(event_stream_id=self.event_stream_id)
             return observation.get_absolute_url()
         except Observation.DoesNotExist:
-            return reverse('public-observation-closed-detail', kwargs={'event_stream_id': self.event_stream_id})
+            return reverse(
+                "public-observation-closed-detail",
+                kwargs={"event_stream_id": self.event_stream_id},
+            )
 
     def situation(self):
         ### XXX Situation at the time of the event or current?
         ### For now, current is implemented here
-        event = Event.objects.instance_of(
-            ObservationMade,
-            ObservationRecontextualized
-        ).filter(
-            event_stream_id=self.event_stream_id
-        ).order_by(
-            '-published'
-        ).first()
+        event = (
+            Event.objects.instance_of(ObservationMade, ObservationRecontextualized)
+            .filter(event_stream_id=self.event_stream_id)
+            .order_by("-published")
+            .first()
+        )
 
         if not event:
             raise Observation.DoesNotExist
-        
+
         return event.situation
 
     def situation_at_creation(self):
-        event = Event.objects.instance_of(
-            ObservationMade,
-            ObservationRecontextualized
-        ).filter(
-            event_stream_id=self.event_stream_id,
-            published__lte=self.published
-        ).order_by(
-            '-published'
-        ).first()
+        event = (
+            Event.objects.instance_of(ObservationMade, ObservationRecontextualized)
+            .filter(event_stream_id=self.event_stream_id, published__lte=self.published)
+            .order_by("-published")
+            .first()
+        )
 
         if not event:
             raise Observation.DoesNotExist
-        
+
         return event.situation
+
 
 class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     # event_stream_id <- Observation
@@ -377,8 +400,12 @@ class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixi
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
-    interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
-    approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
+    interpretation = models.TextField(
+        help_text=_("How you saw it, what you felt?"), null=True, blank=True
+    )
+    approach = models.TextField(
+        help_text=_("How should you approach it in the future?"), null=True, blank=True
+    )
 
     template = "tree/events/observation_made.html"
 
@@ -396,13 +423,14 @@ class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixi
 
     def __str__(self):
         return "{}: {} ({})".format(
-            self.published,
-            Truncator(self.situation).words(6),
-            self.thread
+            self.published, Truncator(self.situation).words(6), self.thread
         )
 
+
 class ObservationUpdated(Event, ObservationEventMixin):
-    observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True, blank=True)
+    observation = models.ForeignKey(
+        Observation, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     template = "tree/events/observation_updated.html"
 
@@ -411,7 +439,10 @@ class ObservationUpdated(Event, ObservationEventMixin):
     def __str__(self):
         return self.comment
 
-class ObservationRecontextualized(Event, ObservationEventMixin, ObservationPropertyEventMixin):
+
+class ObservationRecontextualized(
+    Event, ObservationEventMixin, ObservationPropertyEventMixin
+):
     old_situation = models.TextField(blank=True)
     situation = models.TextField()
 
@@ -427,7 +458,10 @@ class ObservationRecontextualized(Event, ObservationEventMixin, ObservationPrope
             situation=coalesce(observation.situation),
         )
 
-class ObservationReinterpreted(Event, ObservationEventMixin, ObservationPropertyEventMixin):
+
+class ObservationReinterpreted(
+    Event, ObservationEventMixin, ObservationPropertyEventMixin
+):
     old_interpretation = models.TextField(blank=True)
     interpretation = models.TextField()
 
@@ -443,7 +477,10 @@ class ObservationReinterpreted(Event, ObservationEventMixin, ObservationProperty
             interpretation=coalesce(observation.interpretation),
         )
 
-class ObservationReflectedUpon(Event, ObservationEventMixin, ObservationPropertyEventMixin):
+
+class ObservationReflectedUpon(
+    Event, ObservationEventMixin, ObservationPropertyEventMixin
+):
     old_approach = models.TextField(blank=True)
     approach = models.TextField()
 
@@ -459,12 +496,17 @@ class ObservationReflectedUpon(Event, ObservationEventMixin, ObservationProperty
             approach=coalesce(observation.approach),
         )
 
+
 class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMixin):
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
     situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
-    interpretation = models.TextField(help_text=_("How you saw it, what you felt?"), null=True, blank=True)
-    approach = models.TextField(help_text=_("How should you approach it in the future?"), null=True, blank=True)
+    interpretation = models.TextField(
+        help_text=_("How you saw it, what you felt?"), null=True, blank=True
+    )
+    approach = models.TextField(
+        help_text=_("How should you approach it in the future?"), null=True, blank=True
+    )
 
     template = "tree/events/observation_closed.html"
 
@@ -483,6 +525,7 @@ class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMi
             approach=observation.approach,
         )
 
+
 observation_event_types = (
     ObservationMade,
     ObservationClosed,
@@ -491,6 +534,7 @@ observation_event_types = (
     ObservationReinterpreted,
     ObservationUpdated,
 )
+
 
 @receiver(pre_save)
 def copy_observation_to_update_events(sender, instance, *args, **kwargs):
@@ -505,7 +549,7 @@ def copy_observation_to_update_events(sender, instance, *args, **kwargs):
 
 @receiver(pre_save, sender=Observation)
 def on_observation_thread_change_update_events(sender, instance, *args, **kwargs):
-    changed = field_has_changed(instance, 'thread_id')
+    changed = field_has_changed(instance, "thread_id")
 
     if not changed or not changed.old:
         return
@@ -513,11 +557,10 @@ def on_observation_thread_change_update_events(sender, instance, *args, **kwargs
     if instance.event_stream_id is None:
         return
 
-    Event.objects.filter(
-        event_stream_id=instance.event_stream_id
-    ).update(
+    Event.objects.filter(event_stream_id=instance.event_stream_id).update(
         thread=instance.thread
     )
+
 
 class JournalAdded(Event):
     comment = models.TextField(help_text=_("Update"))
@@ -526,6 +569,7 @@ class JournalAdded(Event):
 
     def __str__(self):
         return self.comment
+
 
 @receiver(pre_save, sender=JournalAdded)
 def update_journal_added_event_stream_id(sender, instance, *args, **kwargs):
@@ -537,17 +581,19 @@ class QuickNote(models.Model):
 
     note = models.TextField()
 
+
 REFLECTION_LINE_PREFIXES = (
-    ('[x] ', 'good'),
-    ('[~] ', 'better'),
-    ('[^] ', 'best'),
+    ("[x] ", "good"),
+    ("[~] ", "better"),
+    ("[^] ", "best"),
 )
 
+
 def extract_reflection_lines(note):
-    lines = note.split('\n')
+    lines = note.split("\n")
 
     return [
-        (field, line.replace(prefix, '', 1))
+        (field, line.replace(prefix, "", 1))
         for line in lines
         for prefix, field in REFLECTION_LINE_PREFIXES
         if prefix in line[:12]
@@ -556,22 +602,22 @@ def extract_reflection_lines(note):
 
 def append_lines_to_value(value, lines):
     if not value:
-        return '\n'.join(lines)
-    
+        return "\n".join(lines)
+
     if not lines:
         return value
 
-    return (value + '\n' + '\n'.join(lines)).strip()
+    return (value + "\n" + "\n".join(lines)).strip()
 
 
 def add_reflection_items(journal_added):
     pub_date = journal_added.published.date()
 
     # This allows us to contribute to one weekly/monthly reflection
-    if journal_added.thread.name == 'Weekly':
+    if journal_added.thread.name == "Weekly":
         pub_date = pub_date + timedelta(days=(6 - pub_date.weekday()))
-    
-    if journal_added.thread.name == 'big-picture':
+
+    if journal_added.thread.name == "big-picture":
         pub_date = pub_date.replace(day=monthrange(pub_date.year, pub_date.month)[1])
 
     reflection_lines = extract_reflection_lines(journal_added.comment)
@@ -581,22 +627,15 @@ def add_reflection_items(journal_added):
 
     try:
         reflection = Reflection.objects.get(
-            pub_date=pub_date,
-            thread=journal_added.thread
+            pub_date=pub_date, thread=journal_added.thread
         )
     except Reflection.DoesNotExist:
-        reflection = Reflection(
-            pub_date=pub_date,
-            thread=journal_added.thread
-        )
+        reflection = Reflection(pub_date=pub_date, thread=journal_added.thread)
 
-    for field_name in ('good', 'better', 'best'):
+    for field_name in ("good", "better", "best"):
         items = (line for field, line in reflection_lines if field == field_name)
 
-        new_value = append_lines_to_value(
-            getattr(reflection, field_name), 
-            items
-        )
+        new_value = append_lines_to_value(getattr(reflection, field_name), items)
 
         setattr(reflection, field_name, new_value)
 
@@ -616,10 +655,11 @@ class JournalTag(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True)
 
-    journals = models.ManyToManyField(JournalAdded, related_name='tags', blank=True)
+    journals = models.ManyToManyField(JournalAdded, related_name="tags", blank=True)
 
     def __str__(self):
         return self.name
+
 
 class Breakthrough(models.Model):
     slug = models.SlugField(max_length=255, unique=True)
@@ -627,9 +667,16 @@ class Breakthrough(models.Model):
     published = models.DateTimeField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
 
-    areas_of_concern = models.TextField(_('Areas of concern'), help_text=_("List areas of life thet give you most discomfort"))
+    areas_of_concern = models.TextField(
+        _("Areas of concern"),
+        help_text=_("List areas of life thet give you most discomfort"),
+    )
 
-    theme = models.CharField(_('Theme of the year'), max_length=255, help_text=_("A phrase that captures your year"))
+    theme = models.CharField(
+        _("Theme of the year"),
+        max_length=255,
+        help_text=_("A phrase that captures your year"),
+    )
 
 
 class ProjectedOutcome(models.Model):
@@ -639,7 +686,9 @@ class ProjectedOutcome(models.Model):
 
     resolved_by = models.DateField()
 
-    confidence_level = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal(0))
+    confidence_level = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal(0)
+    )
 
     name = models.CharField(max_length=255)
 
@@ -648,7 +697,7 @@ class ProjectedOutcome(models.Model):
     success_criteria = models.TextField(
         help_text=_("List the criteria you’ll use to define success for this outcome"),
         null=True,
-        blank=True
+        blank=True,
     )
 
     event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
@@ -657,7 +706,7 @@ class ProjectedOutcome(models.Model):
         return self.name
 
     class Meta:
-        ordering = ['-published']
+        ordering = ["-published"]
 
 
 class ProjectedOutcomeEventMixin:
@@ -669,8 +718,10 @@ class ProjectedOutcomeEventMixin:
 
 
 class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    projected_outcome = models.ForeignKey(
+        ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
     name = models.CharField(max_length=255)
     description = models.TextField()
     resolved_by = models.DateField()
@@ -685,19 +736,25 @@ class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
             resolved_by=projected_outcome.resolved_by,
             success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+            thread=(
+                projected_outcome.breakthrough.thread
+                if hasattr(projected_outcome.breakthrough, "thread")
+                else Thread.objects.get(name="Daily")
+            ),
         )
 
 
 class ProjectedOutcomeRedefined(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    projected_outcome = models.ForeignKey(
+        ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
     old_name = models.CharField(max_length=255, null=True, blank=True)
     new_name = models.CharField(max_length=255, null=True, blank=True)
-    
+
     old_description = models.TextField(null=True, blank=True)
     new_description = models.TextField(null=True, blank=True)
-    
+
     old_success_criteria = models.TextField(null=True, blank=True)
     new_success_criteria = models.TextField(null=True, blank=True)
 
@@ -705,20 +762,26 @@ class ProjectedOutcomeRedefined(Event, ProjectedOutcomeEventMixin):
     def from_projected_outcome(projected_outcome, old_values):
         return ProjectedOutcomeRedefined(
             projected_outcome=projected_outcome,
-            old_name=old_values.get('name'),
+            old_name=old_values.get("name"),
             new_name=projected_outcome.name,
-            old_description=old_values.get('description'),
+            old_description=old_values.get("description"),
             new_description=projected_outcome.description,
-            old_success_criteria=old_values.get('success_criteria'),
+            old_success_criteria=old_values.get("success_criteria"),
             new_success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+            thread=(
+                projected_outcome.breakthrough.thread
+                if hasattr(projected_outcome.breakthrough, "thread")
+                else Thread.objects.get(name="Daily")
+            ),
         )
 
 
 class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    projected_outcome = models.ForeignKey(
+        ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
     old_resolved_by = models.DateField()
     new_resolved_by = models.DateField()
 
@@ -729,12 +792,18 @@ class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
             old_resolved_by=old_resolved_by,
             new_resolved_by=projected_outcome.resolved_by,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+            thread=(
+                projected_outcome.breakthrough.thread
+                if hasattr(projected_outcome.breakthrough, "thread")
+                else Thread.objects.get(name="Daily")
+            ),
         )
 
 
 class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
+    projected_outcome = models.ForeignKey(
+        ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
+    )
     breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE)
 
     name = models.CharField(max_length=255)
@@ -752,14 +821,24 @@ class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
             resolved_by=projected_outcome.resolved_by,
             success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=projected_outcome.breakthrough.thread if hasattr(projected_outcome.breakthrough, 'thread') else Thread.objects.get(name='Daily')
+            thread=(
+                projected_outcome.breakthrough.thread
+                if hasattr(projected_outcome.breakthrough, "thread")
+                else Thread.objects.get(name="Daily")
+            ),
         )
 
 
 class ProjectedOutcomeMoved(Event, ProjectedOutcomeEventMixin):
-    projected_outcome = models.ForeignKey(ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True)
-    old_breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE, related_name='moved_outcomes_from')
-    new_breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE, related_name='moved_outcomes_to')
+    projected_outcome = models.ForeignKey(
+        ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    old_breakthrough = models.ForeignKey(
+        Breakthrough, on_delete=models.CASCADE, related_name="moved_outcomes_from"
+    )
+    new_breakthrough = models.ForeignKey(
+        Breakthrough, on_delete=models.CASCADE, related_name="moved_outcomes_to"
+    )
 
     confidence_level = models.DecimalField(max_digits=5, decimal_places=2)
 
@@ -780,13 +859,17 @@ class ProjectedOutcomeMoved(Event, ProjectedOutcomeEventMixin):
             resolved_by=projected_outcome.resolved_by,
             success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=old_breakthrough.thread if hasattr(old_breakthrough, 'thread') else Thread.objects.get(name='Daily')
+            thread=(
+                old_breakthrough.thread
+                if hasattr(old_breakthrough, "thread")
+                else Thread.objects.get(name="Daily")
+            ),
         )
 
 
 def normalize_for_comparison(value):
     """Normalize None and empty strings to empty string for comparison"""
-    return coalesce(value, '')
+    return coalesce(value, "")
 
 
 # Signal handlers for ProjectedOutcome event sourcing
@@ -801,28 +884,38 @@ def create_initial_projected_outcome_made_event(sender, instance, created, **kwa
 def create_projected_outcome_events(sender, instance, **kwargs):
     if instance.pk is None:
         return
-    
+
     try:
         old_instance = ProjectedOutcome.objects.get(pk=instance.pk)
     except ProjectedOutcome.DoesNotExist:
         return
-    
+
     # Check for redefined fields (name, description, success_criteria)
     redefined_fields = {}
-    if normalize_for_comparison(old_instance.name) != normalize_for_comparison(instance.name):
-        redefined_fields['name'] = old_instance.name
-    if normalize_for_comparison(old_instance.description) != normalize_for_comparison(instance.description):
-        redefined_fields['description'] = old_instance.description
-    if normalize_for_comparison(old_instance.success_criteria) != normalize_for_comparison(instance.success_criteria):
-        redefined_fields['success_criteria'] = old_instance.success_criteria
-    
+    if normalize_for_comparison(old_instance.name) != normalize_for_comparison(
+        instance.name
+    ):
+        redefined_fields["name"] = old_instance.name
+    if normalize_for_comparison(old_instance.description) != normalize_for_comparison(
+        instance.description
+    ):
+        redefined_fields["description"] = old_instance.description
+    if normalize_for_comparison(
+        old_instance.success_criteria
+    ) != normalize_for_comparison(instance.success_criteria):
+        redefined_fields["success_criteria"] = old_instance.success_criteria
+
     if redefined_fields:
-        event = ProjectedOutcomeRedefined.from_projected_outcome(instance, redefined_fields)
+        event = ProjectedOutcomeRedefined.from_projected_outcome(
+            instance, redefined_fields
+        )
         event.save()
-    
+
     # Check for rescheduled
     if old_instance.resolved_by != instance.resolved_by:
-        event = ProjectedOutcomeRescheduled.from_projected_outcome(instance, old_instance.resolved_by)
+        event = ProjectedOutcomeRescheduled.from_projected_outcome(
+            instance, old_instance.resolved_by
+        )
         event.save()
 
 
@@ -856,49 +949,64 @@ def update_projected_outcome_moved_event_stream_id(sender, instance, **kwargs):
         instance.event_stream_id = instance.projected_outcome.event_stream_id
 
 
-
 class ObservationAttached(Event, ObservationEventMixin):
-    observation = models.ForeignKey(Observation, on_delete=models.SET_NULL, null=True, blank=True)
-    other_event_stream_id = models.UUIDField(help_text="Event stream ID of the observation being attached")
-    
+    observation = models.ForeignKey(
+        Observation, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    other_event_stream_id = models.UUIDField(
+        help_text="Event stream ID of the observation being attached"
+    )
+
     template = "tree/events/observation_attached.html"
 
     def __str__(self):
         try:
-            attached_observation = Observation.objects.get(event_stream_id=self.other_event_stream_id)
+            attached_observation = Observation.objects.get(
+                event_stream_id=self.other_event_stream_id
+            )
             return f"Attached to: {attached_observation.situation_truncated()}"
         except Observation.DoesNotExist:
             return f"Attached observation (stream: {self.other_event_stream_id})"
 
 
 class ObservationDetached(Event, ObservationEventMixin):
-    other_event_stream_id = models.UUIDField(help_text="Event stream ID of the observation being detached")
-    
+    other_event_stream_id = models.UUIDField(
+        help_text="Event stream ID of the observation being detached"
+    )
+
     template = "tree/events/observation_detached.html"
 
     def __str__(self):
         try:
-            detached_observation = Observation.objects.get(event_stream_id=self.other_event_stream_id)
+            detached_observation = Observation.objects.get(
+                event_stream_id=self.other_event_stream_id
+            )
             return f"Detached from: {detached_observation.situation_truncated()}"
         except Observation.DoesNotExist:
             return f"Detached observation (stream: {self.other_event_stream_id})"
+
 
 class Statistics(models.Model):
     key = models.CharField(max_length=255, unique=True)
     value = models.JSONField()
     last_updated = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name_plural = "Statistics"
-        ordering = ('key',)
-    
+        ordering = ("key",)
+
     def __str__(self):
         return f"{self.key}: {self.value}"
 
+
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    default_board_thread = models.ForeignKey(Thread, on_delete=models.SET_NULL, null=True, blank=True)
-    habit_keywords = models.ManyToManyField(HabitKeyword, related_name='profiles', blank=True)
+    default_board_thread = models.ForeignKey(
+        Thread, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    habit_keywords = models.ManyToManyField(
+        HabitKeyword, related_name="profiles", blank=True
+    )
 
     def __str__(self):
         return f"Profile for {self.user.username}"

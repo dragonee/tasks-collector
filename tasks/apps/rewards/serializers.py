@@ -1,8 +1,9 @@
+import dataclasses
+
 from rest_framework import serializers
 
 from .models import Claim, Claimed, ClaimedReward, Reward
 
-import dataclasses
 
 class CRField(serializers.Field):
     def to_representation(self, value):
@@ -15,11 +16,10 @@ class CRField(serializers.Field):
 class ClaimSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Claim
-        fields = ['id', 'reward', 'rewarded_for', 'url']
-    
+        fields = ["id", "reward", "rewarded_for", "url"]
+
     reward = serializers.SlugRelatedField(
-        slug_field="slug",
-        queryset=Reward.objects.all()
+        slug_field="slug", queryset=Reward.objects.all()
     )
 
     url = serializers.SerializerMethodField()
@@ -31,6 +31,6 @@ class ClaimSerializer(serializers.HyperlinkedModelSerializer):
 class ClaimedSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Claimed
-        fields = ['id', 'claimed', 'claimed_date']
-    
+        fields = ["id", "claimed", "claimed_date"]
+
     claimed = CRField()

@@ -1,14 +1,15 @@
+from calendar import monthrange
+from collections import namedtuple
+from datetime import datetime, timedelta
+
 from django.utils import timezone
 
-from datetime import datetime, timedelta
-from collections import namedtuple
-from calendar import monthrange
 
 def aware_from_date(d):
     return timezone.make_aware(datetime.combine(d, datetime.min.time()))
 
 
-DayCount = namedtuple('DayCount', ['date', 'count'])
+DayCount = namedtuple("DayCount", ["date", "count"])
 
 
 def date_range_generator(start, end):

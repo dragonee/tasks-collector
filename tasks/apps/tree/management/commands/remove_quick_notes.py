@@ -12,6 +12,5 @@ class Command(BaseCommand):
             default=1440,
         )
 
-
     def handle(self, *args, **options):
-        remove_quick_notes_after(minutes=options['minutes'])
+        remove_quick_notes_after(minutes=options["minutes"])
