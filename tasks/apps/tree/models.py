@@ -717,6 +717,13 @@ class ProjectedOutcomeEventMixin:
         return f"ProjectedOutcome event: {self.projected_outcome().name}"
 
 
+def _get_thread_from_breakthrough(breakthrough):
+    """Get the thread from a breakthrough, falling back to Daily thread."""
+    if hasattr(breakthrough, "thread"):
+        return breakthrough.thread
+    return Thread.objects.get(name="Daily")
+
+
 class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
     projected_outcome = models.ForeignKey(
         ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
@@ -736,11 +743,7 @@ class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
             resolved_by=projected_outcome.resolved_by,
             success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=(
-                projected_outcome.breakthrough.thread
-                if hasattr(projected_outcome.breakthrough, "thread")
-                else Thread.objects.get(name="Daily")
-            ),
+            thread=_get_thread_from_breakthrough(projected_outcome.breakthrough),
         )
 
 
@@ -769,11 +772,7 @@ class ProjectedOutcomeRedefined(Event, ProjectedOutcomeEventMixin):
             old_success_criteria=old_values.get("success_criteria"),
             new_success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=(
-                projected_outcome.breakthrough.thread
-                if hasattr(projected_outcome.breakthrough, "thread")
-                else Thread.objects.get(name="Daily")
-            ),
+            thread=_get_thread_from_breakthrough(projected_outcome.breakthrough),
         )
 
 
@@ -792,11 +791,7 @@ class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
             old_resolved_by=old_resolved_by,
             new_resolved_by=projected_outcome.resolved_by,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=(
-                projected_outcome.breakthrough.thread
-                if hasattr(projected_outcome.breakthrough, "thread")
-                else Thread.objects.get(name="Daily")
-            ),
+            thread=_get_thread_from_breakthrough(projected_outcome.breakthrough),
         )
 
 
@@ -821,11 +816,7 @@ class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
             resolved_by=projected_outcome.resolved_by,
             success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=(
-                projected_outcome.breakthrough.thread
-                if hasattr(projected_outcome.breakthrough, "thread")
-                else Thread.objects.get(name="Daily")
-            ),
+            thread=_get_thread_from_breakthrough(projected_outcome.breakthrough),
         )
 
 
@@ -859,11 +850,7 @@ class ProjectedOutcomeMoved(Event, ProjectedOutcomeEventMixin):
             resolved_by=projected_outcome.resolved_by,
             success_criteria=projected_outcome.success_criteria,
             event_stream_id=projected_outcome.event_stream_id,
-            thread=(
-                old_breakthrough.thread
-                if hasattr(old_breakthrough, "thread")
-                else Thread.objects.get(name="Daily")
-            ),
+            thread=_get_thread_from_breakthrough(old_breakthrough),
         )
 
 
