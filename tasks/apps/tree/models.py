@@ -906,34 +906,20 @@ def create_projected_outcome_events(sender, instance, **kwargs):
         event.save()
 
 
-@receiver(pre_save, sender=ProjectedOutcomeMade)
-def update_projected_outcome_made_event_stream_id(sender, instance, **kwargs):
+def _update_event_stream_id_from_projected_outcome(sender, instance, **kwargs):
+    """Update event_stream_id from projected_outcome if present."""
     if instance.projected_outcome:
         instance.event_stream_id = instance.projected_outcome.event_stream_id
 
 
-@receiver(pre_save, sender=ProjectedOutcomeRedefined)
-def update_projected_outcome_redefined_event_stream_id(sender, instance, **kwargs):
-    if instance.projected_outcome:
-        instance.event_stream_id = instance.projected_outcome.event_stream_id
-
-
-@receiver(pre_save, sender=ProjectedOutcomeRescheduled)
-def update_projected_outcome_rescheduled_event_stream_id(sender, instance, **kwargs):
-    if instance.projected_outcome:
-        instance.event_stream_id = instance.projected_outcome.event_stream_id
-
-
-@receiver(pre_save, sender=ProjectedOutcomeClosed)
-def update_projected_outcome_closed_event_stream_id(sender, instance, **kwargs):
-    if instance.projected_outcome:
-        instance.event_stream_id = instance.projected_outcome.event_stream_id
-
-
-@receiver(pre_save, sender=ProjectedOutcomeMoved)
-def update_projected_outcome_moved_event_stream_id(sender, instance, **kwargs):
-    if instance.projected_outcome:
-        instance.event_stream_id = instance.projected_outcome.event_stream_id
+for _model in [
+    ProjectedOutcomeMade,
+    ProjectedOutcomeRedefined,
+    ProjectedOutcomeRescheduled,
+    ProjectedOutcomeClosed,
+    ProjectedOutcomeMoved,
+]:
+    pre_save.connect(_update_event_stream_id_from_projected_outcome, sender=_model)
 
 
 class ObservationAttached(Event, ObservationEventMixin):
