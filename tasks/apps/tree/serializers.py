@@ -13,6 +13,15 @@ from .models import *
 from .templatetags.model_presenters import first_line
 
 
+class AbsoluteURLSerializerMixin:
+    """Mixin providing get_url method that returns absolute URL when request is available."""
+
+    def get_url(self, obj):
+        if "request" in self.context:
+            return self.context["request"].build_absolute_uri(obj.url())
+        return obj.url()
+
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
@@ -244,14 +253,8 @@ class QuickNoteSerializer(serializers.ModelSerializer):
         fields = ["id", "published", "note"]
 
 
-class ObservationMadeSerializer(BaseTypeThreadSerializer):
+class ObservationMadeSerializer(AbsoluteURLSerializerMixin, BaseTypeThreadSerializer):
     url = serializers.SerializerMethodField()
-
-    def get_url(self, obj):
-        if "request" in self.context:
-            return self.context["request"].build_absolute_uri(obj.url())
-
-        return obj.url()
 
     class Meta:
         model = ObservationMade
@@ -268,14 +271,10 @@ class ObservationMadeSerializer(BaseTypeThreadSerializer):
         ]
 
 
-class ObservationRecontextualizedSerializer(BaseTypeThreadSerializer):
+class ObservationRecontextualizedSerializer(
+    AbsoluteURLSerializerMixin, BaseTypeThreadSerializer
+):
     url = serializers.SerializerMethodField()
-
-    def get_url(self, obj):
-        if "request" in self.context:
-            return self.context["request"].build_absolute_uri(obj.url())
-
-        return obj.url()
 
     class Meta:
         model = ObservationRecontextualized
@@ -290,14 +289,10 @@ class ObservationRecontextualizedSerializer(BaseTypeThreadSerializer):
         ]
 
 
-class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
+class ObservationReinterpretedSerializer(
+    AbsoluteURLSerializerMixin, BaseTypeThreadSerializer
+):
     url = serializers.SerializerMethodField()
-
-    def get_url(self, obj):
-        if "request" in self.context:
-            return self.context["request"].build_absolute_uri(obj.url())
-
-        return obj.url()
 
     class Meta:
         model = ObservationReinterpreted
@@ -313,14 +308,10 @@ class ObservationReinterpretedSerializer(BaseTypeThreadSerializer):
         ]
 
 
-class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
+class ObservationReflectedUponSerializer(
+    AbsoluteURLSerializerMixin, BaseTypeThreadSerializer
+):
     url = serializers.SerializerMethodField()
-
-    def get_url(self, obj):
-        if "request" in self.context:
-            return self.context["request"].build_absolute_uri(obj.url())
-
-        return obj.url()
 
     class Meta:
         model = ObservationReflectedUpon
@@ -336,14 +327,8 @@ class ObservationReflectedUponSerializer(BaseTypeThreadSerializer):
         ]
 
 
-class ObservationClosedSerializer(BaseTypeThreadSerializer):
+class ObservationClosedSerializer(AbsoluteURLSerializerMixin, BaseTypeThreadSerializer):
     url = serializers.SerializerMethodField()
-
-    def get_url(self, obj):
-        if "request" in self.context:
-            return self.context["request"].build_absolute_uri(obj.url())
-
-        return obj.url()
 
     class Meta:
         model = ObservationClosed
@@ -462,14 +447,10 @@ def get_observation_object(obj):
     return ObservationMade.objects.get(event_stream_id=obj.event_stream_id)
 
 
-class ObservationUpdatedEventSerializer(serializers.ModelSerializer):
+class ObservationUpdatedEventSerializer(
+    AbsoluteURLSerializerMixin, serializers.ModelSerializer
+):
     url = serializers.SerializerMethodField()
-
-    def get_url(self, obj):
-        if "request" in self.context:
-            return self.context["request"].build_absolute_uri(obj.url())
-
-        return obj.url()
 
     class Meta:
         model = ObservationUpdated
