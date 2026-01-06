@@ -1,5 +1,5 @@
 """
-Habit tracking parsing utilities.
+Habit tracking extraction from journal entries.
 
 This module provides functions for parsing habit tokens from text
 and matching them to Habit instances.
@@ -7,7 +7,7 @@ and matching them to Habit instances.
 
 import re
 
-from .models import Habit
+from ...models import Habit
 
 PATTERN = re.compile(r"(?<=\s)(?=[#!])", re.MULTILINE)
 

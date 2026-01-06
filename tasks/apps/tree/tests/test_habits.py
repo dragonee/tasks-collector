@@ -1,7 +1,7 @@
 from django.test import TestCase
 
-from ..habits import habits_line_to_habits_tracked
 from ..models import Habit, HabitKeyword
+from ..services.journalling.habit_extraction import habits_line_to_habits_tracked
 
 
 class HabitParsingTestCase(TestCase):

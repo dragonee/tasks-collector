@@ -1,6 +1,4 @@
 import uuid
-from calendar import monthrange
-from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -495,75 +493,6 @@ class QuickNote(models.Model):
     published = models.DateTimeField(default=timezone.now)
 
     note = models.TextField()
-
-
-REFLECTION_LINE_PREFIXES = (
-    ("[x] ", "good"),
-    ("[~] ", "better"),
-    ("[^] ", "best"),
-)
-
-
-def extract_reflection_lines(note):
-    lines = note.split("\n")
-
-    return [
-        (field, line.replace(prefix, "", 1))
-        for line in lines
-        for prefix, field in REFLECTION_LINE_PREFIXES
-        if prefix in line[:12]
-    ]
-
-
-def append_lines_to_value(value, lines):
-    if not value:
-        return "\n".join(lines)
-
-    if not lines:
-        return value
-
-    return (value + "\n" + "\n".join(lines)).strip()
-
-
-def add_reflection_items(journal_added):
-    pub_date = journal_added.published.date()
-
-    # This allows us to contribute to one weekly/monthly reflection
-    if journal_added.thread.name == "Weekly":
-        pub_date = pub_date + timedelta(days=(6 - pub_date.weekday()))
-
-    if journal_added.thread.name == "big-picture":
-        pub_date = pub_date.replace(day=monthrange(pub_date.year, pub_date.month)[1])
-
-    reflection_lines = extract_reflection_lines(journal_added.comment)
-
-    if not reflection_lines:
-        return
-
-    try:
-        reflection = Reflection.objects.get(
-            pub_date=pub_date, thread=journal_added.thread
-        )
-    except Reflection.DoesNotExist:
-        reflection = Reflection(pub_date=pub_date, thread=journal_added.thread)
-
-    for field_name in ("good", "better", "best"):
-        items = (line for field, line in reflection_lines if field == field_name)
-
-        new_value = append_lines_to_value(getattr(reflection, field_name), items)
-
-        setattr(reflection, field_name, new_value)
-
-    reflection.save()
-
-
-def save_or_remove_object_if_empty(object, fields):
-    is_empty = not any(getattr(object, field) for field in fields)
-
-    if not is_empty:
-        object.save()
-    elif object.pk:
-        object.delete()
 
 
 class JournalTag(models.Model):

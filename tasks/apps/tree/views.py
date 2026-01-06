@@ -18,9 +18,9 @@ from rest_framework.response import Response as RestResponse
 
 from .board_operations import add_task_to_board
 from .forms import *
-from .habits import habits_line_to_habits_tracked
 from .models import *
 from .serializers import *
+from .services.journalling import process_journal_entry
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
 
@@ -56,23 +56,8 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def perform_create(self, serializer):
         journal_added = serializer.save()
-
-        add_reflection_items(journal_added)
-
-        # Handle reflect command
-        if "reflection" in self.request.data:
-            return
-
-        triplets = habits_line_to_habits_tracked(journal_added.comment)
-
-        for occured, habit, note in triplets:
-            HabitTracked.objects.create(
-                occured=occured,
-                habit=habit,
-                note=note,
-                published=journal_added.published,
-                thread=Thread.objects.get(name="Daily"),
-            )
+        skip_habits = "reflection" in self.request.data
+        process_journal_entry(journal_added, skip_habits=skip_habits)
 
 
 class QuickNoteViewSet(viewsets.ModelViewSet):
@@ -477,24 +462,8 @@ def journal_add(request):
         form = JournalAddedForm(request.POST)
         if form.is_valid():
             journal_added = form.save()
-
-            # Replicate API behavior: add reflection items and extract habits
-            add_reflection_items(journal_added)
-
-            # Handle reflect command
-            if "reflection" not in request.POST:
-                triplets = habits_line_to_habits_tracked(journal_added.comment)
-
-                for occured, habit, note in triplets:
-                    HabitTracked.objects.create(
-                        occured=occured,
-                        habit=habit,
-                        note=note,
-                        published=journal_added.published,
-                        thread=Thread.objects.get(name="Daily"),
-                    )
-
-            from django.utils import timezone
+            skip_habits = "reflection" in request.POST
+            process_journal_entry(journal_added, skip_habits=skip_habits)
 
             messages.success(request, "Journal entry added successfully!")
             today_str = timezone.now().date().isoformat()
