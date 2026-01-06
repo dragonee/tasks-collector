@@ -19,7 +19,7 @@ User = get_user_model()
 
 from django.utils import timezone
 
-from .habits import habits_line_to_habits_tracked
+from .services.journalling import habits_line_to_habits_tracked
 
 
 class PlanForm(forms.ModelForm):
