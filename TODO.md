@@ -116,8 +116,17 @@
   - [ ] See journal entries from last 5 years
   - [ ] Allow to write a journal with a specific tag
 - Side-effects refactor
-  - [ ] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
+  - [x] Refactor text processing for side-effects as a separate layer (e.g. journal -> reflection + habits, etc) – so that can become a more unified mechanism (allowing for on/off processing etc)
+    - Done: services/journalling module with process_journal_entry orchestration
   - [ ] Ideally if journal add, etc. returned in their json additional objects that were created, so that can be printed out as a summary then on the frontend
+- Architectural refactorings (tree app)
+  - [ ] Move event creation from serializers to services (`ObservationSerializer.save()` calls `create_observation_change_events()` directly)
+  - [ ] Consolidate event reconstruction patterns (currently split between `ObservationEventMixin` in models, `ProjectedOutcomePresentation`, `ComplexPresenter`, `ObservationEventPresenter`)
+  - [ ] Extract business logic from forms (`SingleHabitTrackedForm.clean()` parses habits)
+  - [ ] Split oversized view files (`views_observation.py` 643 lines, `views_today.py` 488 lines) - move business logic to services
+  - [ ] Move complex iterator logic from templatetags (`missing_months()` filter)
+  - [ ] Create `BoardState` value object (board state JSON manipulated in `board_operations.py`, `commit.py`, `serializers.py`)
+  - [ ] Consider creating services for remaining domains: boards, habits (standalone tracking)
 - [ ] Completely REFACTOR weekly/monthly summary code into a better shape
 - [ ] Threads / split into threads and scopes
 - [ ] How about I do the AREAS for life?
