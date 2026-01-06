@@ -1,13 +1,10 @@
 import uuid
 from calendar import monthrange
-from collections import namedtuple
 from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models.signals import post_save, pre_save
-from django.dispatch import receiver
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import Truncator, slugify
@@ -16,12 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
 
 from .utils.datetime import aware_from_date
-from .uuid_generators import (
-    board_event_stream_id,
-    board_event_stream_id_from_thread,
-    habit_event_stream_id,
-    journal_added_event_stream_id,
-)
+from .uuid_generators import board_event_stream_id
 
 
 def empty_dict():
@@ -83,11 +75,6 @@ class BoardCommitted(Event):
         return self.published
 
 
-@receiver(pre_save, sender=BoardCommitted)
-def update_board_committed_event_stream_id(sender, instance, *args, **kwargs):
-    instance.event_stream_id = board_event_stream_id_from_thread(instance.thread)
-
-
 class Habit(models.Model):
     # Display name
     name = models.CharField(max_length=255)
@@ -124,39 +111,6 @@ class HabitKeyword(models.Model):
         return f"{self.habit.name}: {self.keyword}"
 
 
-Diff = namedtuple("Diff", ["old", "new"])
-
-
-def field_has_changed(instance, field):
-    model = type(instance)
-
-    new_value = getattr(instance, field)
-
-    try:
-        old = model.objects.get(pk=instance.pk)
-
-        old_value = getattr(old, field)
-
-        if getattr(old, field) == getattr(instance, field):
-            return False
-
-        return Diff(old=old_value, new=new_value)
-    except model.DoesNotExist:
-        return Diff(old=None, new=new_value)
-
-
-@receiver(pre_save, sender=Habit)
-def on_habit_name_change_update_event_stream_id(sender, instance, *args, **kwargs):
-    changed = field_has_changed(instance, "event_stream_id")
-
-    if not changed or not changed.old:
-        return
-
-    Event.objects.filter(event_stream_id=changed.old).update(
-        event_stream_id=changed.new
-    )
-
-
 class HabitTracked(Event):
     # thread must be set manually
     # event_stream_id <- habit.event_stream_id (v2)
@@ -171,11 +125,6 @@ class HabitTracked(Event):
 
     def __str__(self):
         return "{} {}".format(self.habit, self.published)
-
-
-@receiver(pre_save, sender=HabitTracked)
-def update_habit_tracked_event_stream_id(sender, instance, *args, **kwargs):
-    instance.event_stream_id = habit_event_stream_id(instance)
 
 
 class Board(models.Model):
@@ -536,32 +485,6 @@ observation_event_types = (
 )
 
 
-@receiver(pre_save)
-def copy_observation_to_update_events(sender, instance, *args, **kwargs):
-    if not isinstance(instance, observation_event_types):
-        return
-
-    if not instance.thread_id and instance.observation:
-        instance.thread_id = instance.observation.thread_id
-
-    instance.event_stream_id = instance.observation.event_stream_id
-
-
-@receiver(pre_save, sender=Observation)
-def on_observation_thread_change_update_events(sender, instance, *args, **kwargs):
-    changed = field_has_changed(instance, "thread_id")
-
-    if not changed or not changed.old:
-        return
-
-    if instance.event_stream_id is None:
-        return
-
-    Event.objects.filter(event_stream_id=instance.event_stream_id).update(
-        thread=instance.thread
-    )
-
-
 class JournalAdded(Event):
     comment = models.TextField(help_text=_("Update"))
 
@@ -569,11 +492,6 @@ class JournalAdded(Event):
 
     def __str__(self):
         return self.comment
-
-
-@receiver(pre_save, sender=JournalAdded)
-def update_journal_added_event_stream_id(sender, instance, *args, **kwargs):
-    instance.event_stream_id = journal_added_event_stream_id(instance)
 
 
 class QuickNote(models.Model):
@@ -854,74 +772,6 @@ class ProjectedOutcomeMoved(Event, ProjectedOutcomeEventMixin):
         )
 
 
-def normalize_for_comparison(value):
-    """Normalize None and empty strings to empty string for comparison"""
-    return coalesce(value, "")
-
-
-# Signal handlers for ProjectedOutcome event sourcing
-@receiver(post_save, sender=ProjectedOutcome)
-def create_initial_projected_outcome_made_event(sender, instance, created, **kwargs):
-    if created:
-        event = ProjectedOutcomeMade.from_projected_outcome(instance)
-        event.save()
-
-
-@receiver(pre_save, sender=ProjectedOutcome)
-def create_projected_outcome_events(sender, instance, **kwargs):
-    if instance.pk is None:
-        return
-
-    try:
-        old_instance = ProjectedOutcome.objects.get(pk=instance.pk)
-    except ProjectedOutcome.DoesNotExist:
-        return
-
-    # Check for redefined fields (name, description, success_criteria)
-    redefined_fields = {}
-    if normalize_for_comparison(old_instance.name) != normalize_for_comparison(
-        instance.name
-    ):
-        redefined_fields["name"] = old_instance.name
-    if normalize_for_comparison(old_instance.description) != normalize_for_comparison(
-        instance.description
-    ):
-        redefined_fields["description"] = old_instance.description
-    if normalize_for_comparison(
-        old_instance.success_criteria
-    ) != normalize_for_comparison(instance.success_criteria):
-        redefined_fields["success_criteria"] = old_instance.success_criteria
-
-    if redefined_fields:
-        event = ProjectedOutcomeRedefined.from_projected_outcome(
-            instance, redefined_fields
-        )
-        event.save()
-
-    # Check for rescheduled
-    if old_instance.resolved_by != instance.resolved_by:
-        event = ProjectedOutcomeRescheduled.from_projected_outcome(
-            instance, old_instance.resolved_by
-        )
-        event.save()
-
-
-def _update_event_stream_id_from_projected_outcome(sender, instance, **kwargs):
-    """Update event_stream_id from projected_outcome if present."""
-    if instance.projected_outcome:
-        instance.event_stream_id = instance.projected_outcome.event_stream_id
-
-
-for _model in [
-    ProjectedOutcomeMade,
-    ProjectedOutcomeRedefined,
-    ProjectedOutcomeRescheduled,
-    ProjectedOutcomeClosed,
-    ProjectedOutcomeMoved,
-]:
-    pre_save.connect(_update_event_stream_id_from_projected_outcome, sender=_model)
-
-
 class ObservationAttached(Event, ObservationEventMixin):
     observation = models.ForeignKey(
         Observation, on_delete=models.SET_NULL, null=True, blank=True
@@ -983,20 +833,3 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile for {self.user.username}"
-
-
-@receiver(post_save, sender=Profile)
-def add_all_habit_keywords_to_new_profile(sender, instance, created, **kwargs):
-    """When a new Profile is created, add all existing HabitKeywords to it"""
-    if created:
-        all_keywords = HabitKeyword.objects.all()
-        instance.habit_keywords.set(all_keywords)
-
-
-@receiver(post_save, sender=HabitKeyword)
-def add_new_habit_keyword_to_all_profiles(sender, instance, created, **kwargs):
-    """When a new HabitKeyword is created, add it to all existing Profiles"""
-    if created:
-        all_profiles = Profile.objects.all()
-        for profile in all_profiles:
-            profile.habit_keywords.add(instance)
