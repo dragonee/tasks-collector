@@ -1,0 +1,1 @@
+- How introducing a Keyword model maintained a semigroup structure with habits
