@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from polymorphic.models import PolymorphicModel
 
 from .utils.datetime import aware_from_date
+from .utils.strings import coalesce
 from .uuid_generators import board_event_stream_id
 
 
@@ -290,10 +291,6 @@ class Observation(models.Model):
 
     def get_absolute_url(self):
         return reverse("public-observation-edit", kwargs={"observation_id": self.pk})
-
-
-def coalesce(value, default=""):
-    return value if value is not None else default
 
 
 class ObservationPropertyEventMixin:

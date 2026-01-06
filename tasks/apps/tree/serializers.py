@@ -1,5 +1,4 @@
 from functools import partial
-from operator import itemgetter
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -10,6 +9,7 @@ from rest_framework import serializers
 from rest_polymorphic.serializers import PolymorphicSerializer
 
 from .models import *
+from .services.observations.event_creation import create_observation_change_events
 from .templatetags.model_presenters import first_line
 
 
@@ -83,83 +83,6 @@ class JournalTagSerializer(serializers.HyperlinkedModelSerializer):
         fields = ["id", "name", "slug"]
 
 
-def spawn_observation_events(previous, current, published=None):
-    if not published:
-        published = timezone.now()
-
-    def was_changed(x):
-        new = getattr(current, x)
-        old = getattr(previous, x)
-
-        not_changing_null_into_empty = bool(old) or bool(new)
-
-        same_excluding_whitespace = type(old) == type(
-            new
-        ) == str and old.strip().replace("\r", "") == new.strip().replace("\r", "")
-
-        return (
-            old != new
-            and not_changing_null_into_empty
-            and not same_excluding_whitespace
-        )
-
-    def was_set(x):
-        return getattr(previous, x) is None and getattr(current, x) is not None
-
-    def filter_func(t):
-        x, f = t
-
-        return f(x)
-
-    changed_checks = [
-        ("pk", was_set),
-        ("situation", was_changed),
-        ("interpretation", was_changed),
-        ("approach", was_changed),
-    ]
-
-    changed_data = list(map(itemgetter(0), filter(filter_func, changed_checks)))
-
-    if "pk" in changed_data:
-        observation_made = ObservationMade.from_observation(
-            current, published=published
-        )
-
-        return [observation_made]
-
-    events = []
-
-    if "situation" in changed_data:
-        obj = ObservationRecontextualized.from_observation(
-            current, previous.situation, published=published
-        )
-        events.append(obj)
-
-    if "interpretation" in changed_data:
-        obj = ObservationReinterpreted.from_observation(
-            current, previous.interpretation, published=published
-        )
-        events.append(obj)
-
-    if "approach" in changed_data:
-        obj = ObservationReflectedUpon.from_observation(
-            current, previous.approach, published=published
-        )
-        events.append(obj)
-
-    return events
-
-
-def get_unsaved_object(model, obj):
-    if not obj:
-        return model()
-
-    try:
-        return model.objects.get(pk=obj.pk)
-    except model.DoesNotExist:
-        return model()
-
-
 class BaseTypeThreadSerializer(serializers.HyperlinkedModelSerializer):
     type = serializers.SlugRelatedField(
         queryset=ObservationType.objects.all(), slug_field="slug"
@@ -196,12 +119,11 @@ class ObservationSerializer(BaseTypeThreadSerializer):
 
     @transaction.atomic
     def save(self, *args, **kwargs):
-        old_obj = get_unsaved_object(Observation, self.instance)
         new_obj = super().save(*args, **kwargs)
 
-        events = spawn_observation_events(old_obj, new_obj, published=timezone.now())
-
-        for event in events:
+        for event in create_observation_change_events(
+            new_obj, published=timezone.now()
+        ):
             event.save()
 
         return new_obj

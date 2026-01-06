@@ -42,8 +42,8 @@ from .serializers import (
     ObservationSerializer,
     ObservationUpdatedSerializer,
     ObservationWithUpdatesSerializer,
-    spawn_observation_events,
 )
+from .services.observations.event_creation import create_observation_change_events
 
 
 class ObservationPagination(PageNumberPagination):
@@ -311,8 +311,9 @@ def observation_edit(request, observation_id=None):
                     obj.user = request.user
                 obj.save()
 
-                events = spawn_observation_events(previous, obj, published=now)
-                for event in events:
+                for event in create_observation_change_events(
+                    obj, previous, published=now
+                ):
                     event.save()
 
                 updates = formset.save(commit=False)
