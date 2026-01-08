@@ -1,3 +1,4 @@
+import { nextTick } from 'vue'
 import Tree from '../lib/Tree'
 import initKeyboardNavigation from '../utils/keyboardNavigation'
 import assert from '../utils/assert'
@@ -10,9 +11,9 @@ function initEvents (vm) {
     const selected = vm.selected()
 
     if (!checkbox) {
-      vm.$emit('input', multiple ? selected : (selected[0] || null))
+      vm.$emit('update:modelValue', multiple ? selected : (selected[0] || null))
     } else {
-      vm.$emit('input', {
+      vm.$emit('update:modelValue', {
         selected: multiple ? selected : (selected[0] || null),
         checked: vm.checked()
       })
@@ -29,7 +30,9 @@ function initEvents (vm) {
     tree.$on('node:unchecked', emitter)
   }
 
-  tree.$on('node:added', (targetNode, newNode) => {
+  tree.$on('node:added', (args) => {
+    const targetNode = Array.isArray(args) ? args[0] : args
+    const newNode = Array.isArray(args) ? args[1] : undefined
     const node = newNode || targetNode
 
     if (checkbox) {
@@ -54,7 +57,7 @@ export default {
     let dataProvider
 
     this.tree = tree
-    this._provided.tree = tree
+    // For provide/inject in Vue 3, we'll set this in the component
 
     if (!this.data && this.opts.fetchData) {
       // Get initial data if we don't have a data directly
@@ -104,18 +107,20 @@ export default {
         assert(Array.isArray(mutations), '`mutations` must be an array')
       }
 
-      Store.subscribe((action, state) => {
+      // Pinia uses $subscribe instead of Vuex's subscribe
+      Store.$subscribe((mutation, state) => {
         if (!mutations) {
           this.tree.setModel(getter())
-        } else if (mutations.includes(action.type)) {
+        } else if (mutations.includes(mutation.type)) {
           this.tree.setModel(getter())
         }
       })
 
       this.tree.setModel(getter())
 
-      this.$on('LIQUOR_NOISE', () => {
-        this.$nextTick(_ => {
+      // Listen for LIQUOR_NOISE events from the tree's emitter
+      this.tree.$on('LIQUOR_NOISE', () => {
+        nextTick(() => {
           dispatcher(this.toJSON())
         })
       })

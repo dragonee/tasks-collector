@@ -509,12 +509,12 @@ export default class Node {
       tree.selectedNodes.remove(this)
       tree.selectedNodes.add(clone)
 
-      tree.vm.$set(this.state, 'selected', false)
-      tree.vm.$set(clone.state, 'selected', true)
+      this.states.selected = false
+      clone.states.selected = true
     }
 
     if (this.tree.options.store) {
-      this.tree.vm.$emit('LIQUOR_NOISE')
+      this.tree.emitter.emit('LIQUOR_NOISE')
     }
   }
 

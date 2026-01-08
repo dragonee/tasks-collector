@@ -13,19 +13,19 @@
   "devDependencies": {
     "@rsbuild/core": "^1.5.8",
     "@rsbuild/plugin-sass": "^1.4.0",
-    "@rsbuild/plugin-vue2": "^1.0.4",
+    "@rsbuild/plugin-vue": "^1.0.3",
     "html-rspack-plugin": "^6.1.3",
     "rimraf": "^6.0.1",
     "sass": "^1.79.3"
   },
   "dependencies": {
+    "@imengyu/vue3-context-menu": "^1.5.0",
     "bootstrap": "^4.6.2",
     "deep-equal": "^2.2.3",
+    "mitt": "^3.0.1",
     "moment": "^2.30.1",
-    "vue": "^2.7.8",
-    "vue-context": "^5.2.0",
-    "vue-global-events": "^1.2.1",
-    "vue-router": "^3.6.5",
-    "vuex": "^3.6.2"
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
   }
 }

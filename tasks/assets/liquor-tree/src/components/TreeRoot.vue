@@ -1,5 +1,5 @@
 <template>
-  <component :is="tag" role="tree" :class="{'tree': true, 'tree-loading': this.loading, 'tree--draggable' : !!this.draggableNode}">
+  <component :is="tag" role="tree" :class="{'tree': true, 'tree-loading': loading, 'tree--draggable' : !!draggableNode}">
     <template v-if="filter && matches.length == 0" >
       <div class="tree-filter-empty" v-html="opts.filter.emptyText"></div>
     </template>
@@ -7,9 +7,7 @@
       <ul class="tree-root" @dragstart="onDragStart">
         <template v-if="opts.filter.plainList && matches.length > 0">
           <TreeNode
-            v-for="node in matches"
-            v-if="node.visible()"
-
+            v-for="node in visibleMatches"
             :key="node.id"
             :node="node"
             :options="opts"
@@ -17,9 +15,7 @@
         </template>
         <template v-else>
           <TreeNode
-            v-for="node in model"
-            v-if="node && node.visible()"
-
+            v-for="node in visibleModel"
             :key="node.id"
             :node="node"
             :options="opts"
@@ -28,106 +24,22 @@
       </ul>
     </template>
 
-    <vue-context ref="menu">
-        <template slot-scope="child">
-           <li class="v-context__sub">
-                <a>Importance</a>
-                <ul class="v-context v-context-inline">
-                    <li>
-                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 1 })">1</a>
-
-                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 2 })">2</a>
-
-                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 3 })">3</a>
-
-                         <a href="#" @click.prevent="onClick('important', {... child.data, value: 0 })">Reset</a>
-                    </li>
-                </ul>
-            </li>
-
-            <li>
-                <a href="#" @click.prevent="onClick('finalizing', { ...child.data  })">Clearable</a>
-            </li>
-            <li>
-                <a href="#" @click.prevent="onClick('madeProgress', { ...child.data  })">Made progress</a>
-            </li>
-            <li>
-                <a href="#" @click.prevent="onClick('canBePostponed', { ...child.data  })">⟳ Repeat</a>
-            </li>
-
-            <li class="v-context__sub">
-                 <a>Postpone for</a>
-                 <ul class="v-context v-context-inline">
-                     <li>
-                          <a href="#" @click.prevent="onClick('postponedFor', {... child.data, value: 1 })">1</a>
-
-                          <a href="#" @click.prevent="onClick('postponedFor', {... child.data, value: 2 })">2</a>
-
-                          <a href="#" @click.prevent="onClick('postponedFor', {... child.data, value: 3 })">3</a>
-                     </li>
-                 </ul>
-             </li>
-
-             <li class="v-context__sub" v-if="currentThread">
-                <a>Move to</a>
-
-                <ul class="v-context">
-                    <li>
-                        <a href="#" v-if="currentThread.name != 'Sidetrack'" @click.prevent="onClick('transition', {... child.data, value: 'Sidetrack' })">Sidetrack</a>
-                    </li>
-                    <li>
-                        <a href="#" v-if="currentThread.name != 'Daily'" @click.prevent="onClick('transition', {... child.data, value: 'Daily' })">Daily</a>
-                    </li>
-                    <li>
-                        <a href="#" v-if="currentThread.name == 'Books'" @click.prevent="onClick('transition', {... child.data, value: 'Read' })">Read (backlog)</a>
-                    </li>
-                    <li>
-                        <a href="#" v-if="currentThread.name != 'Trash'" @click.prevent="onClick('transition', {... child.data, value: 'Trash' })">🗑 Trash</a>
-                    </li>
-                    <li>
-                        <a href="#" @click.prevent="onClick('transition', {... child.data, value: UNSET })">Clear</a>
-                    </li>
-                </ul>
-            </li>
-            <li class="v-context__sub">
-                <a>Add to Plan</a>
-
-                <ul class="v-context">
-                    <li>
-                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'today' })">Today</a>
-                    </li>
-                    <li>
-                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'tomorrow' })">Tomorrow</a>
-                    </li>
-                    <li>
-                        <a href="#" @click.prevent="onClick('addToPlan', {... child.data, value: 'this_week' })">This Week</a>
-                    </li>
-                </ul>
-            </li>
-            <li>
-                <a href="#" @click.prevent="onClick('remove', { ...child.data  })">Remove</a>
-            </li>
-
-       </template>
-   </vue-context>
-
     <DraggableNode v-if="draggableNode" :target="draggableNode" />
   </component>
 </template>
 
 <script>
+  import { computed, provide, ref } from 'vue'
+  import ContextMenu from '@imengyu/vue3-context-menu'
   import TreeNode from './TreeNode'
   import DraggableNode from './DraggableNode'
   import TreeMixin from '../mixins/TreeMixin'
   import TreeDnd from '../mixins/DndMixin'
-  import Tree from '../lib/Tree'
 
-  import { VueContext }from 'vue-context';
+  import { useBoardStore } from '../../../stores/boardStore'
+  import { Notifier } from '../../../notifier'
 
-  import { mapGetters } from 'vuex';
-  import { Notifier } from '../../../notifier';
-
-  const UNSET = '__UNSET';
+  const UNSET = '__UNSET'
 
   const defaults = {
     direction: 'ltr',
@@ -155,7 +67,7 @@
           ...data.meaningfulMarkers,
           ...object,
       }
-  });
+  })
 
   const clearMeaningfulMarker = (data, key) => {
       let markers = {...data.meaningfulMarkers}
@@ -165,8 +77,8 @@
       return {
           ...data,
           meaningfulMarkers: markers,
-      };
-  };
+      }
+  }
 
   const filterDefaults = {
     emptyText: 'Nothing found!',
@@ -190,16 +102,22 @@
     components: {
       TreeNode,
       DraggableNode,
-      VueContext
     },
 
     mixins: [TreeMixin, TreeDnd],
 
-    provide() {
-        return {
-            tree: null,
-            menu: () => this.$refs.menu,
-        }
+    setup() {
+      const boardStore = useBoardStore()
+      const menuRef = ref(null)
+
+      provide('tree', null)
+      provide('menu', () => menuRef.value)
+
+      return {
+        boardStore,
+        menuRef,
+        currentThread: computed(() => boardStore.currentThread),
+      }
     },
 
     props: {
@@ -224,7 +142,69 @@
       }
     },
 
+    computed: {
+      visibleMatches() {
+        return this.matches.filter(node => node.visible())
+      },
+      visibleModel() {
+        return (this.model || []).filter(node => node && node.visible())
+      }
+    },
+
     methods: {
+        showContextMenu(event, node) {
+            const threadName = this.currentThread?.name
+
+            const importanceSubmenu = [
+                { label: '1', onClick: () => this.onClick('important', { node, value: 1 }) },
+                { label: '2', onClick: () => this.onClick('important', { node, value: 2 }) },
+                { label: '3', onClick: () => this.onClick('important', { node, value: 3 }) },
+                { label: 'Reset', onClick: () => this.onClick('important', { node, value: 0 }) },
+            ]
+
+            const postponeSubmenu = [
+                { label: '1', onClick: () => this.onClick('postponedFor', { node, value: 1 }) },
+                { label: '2', onClick: () => this.onClick('postponedFor', { node, value: 2 }) },
+                { label: '3', onClick: () => this.onClick('postponedFor', { node, value: 3 }) },
+            ]
+
+            const moveToSubmenu = []
+            if (threadName !== 'Sidetrack') {
+                moveToSubmenu.push({ label: 'Sidetrack', onClick: () => this.onClick('transition', { node, value: 'Sidetrack' }) })
+            }
+            if (threadName !== 'Daily') {
+                moveToSubmenu.push({ label: 'Daily', onClick: () => this.onClick('transition', { node, value: 'Daily' }) })
+            }
+            if (threadName === 'Books') {
+                moveToSubmenu.push({ label: 'Read (backlog)', onClick: () => this.onClick('transition', { node, value: 'Read' }) })
+            }
+            if (threadName !== 'Trash') {
+                moveToSubmenu.push({ label: 'Trash', onClick: () => this.onClick('transition', { node, value: 'Trash' }) })
+            }
+            moveToSubmenu.push({ label: 'Clear', onClick: () => this.onClick('transition', { node, value: UNSET }) })
+
+            const addToPlanSubmenu = [
+                { label: 'Today', onClick: () => this.onClick('addToPlan', { node, value: 'today' }) },
+                { label: 'Tomorrow', onClick: () => this.onClick('addToPlan', { node, value: 'tomorrow' }) },
+                { label: 'This Week', onClick: () => this.onClick('addToPlan', { node, value: 'this_week' }) },
+            ]
+
+            ContextMenu.showContextMenu({
+                x: event.x,
+                y: event.y,
+                items: [
+                    { label: 'Importance', children: importanceSubmenu },
+                    { label: 'Clearable', onClick: () => this.onClick('finalizing', { node }) },
+                    { label: 'Made progress', onClick: () => this.onClick('madeProgress', { node }) },
+                    { label: 'Repeat', onClick: () => this.onClick('canBePostponed', { node }) },
+                    { label: 'Postpone for', children: postponeSubmenu },
+                    { label: 'Move to', children: moveToSubmenu },
+                    { label: 'Add to Plan', children: addToPlanSubmenu },
+                    { label: 'Remove', onClick: () => this.onClick('remove', { node }) },
+                ]
+            })
+        },
+
         async onClick(method, { node, value }) {
             const markerMethods = [
                 'weeksInList',
@@ -235,7 +215,7 @@
                 'postponedFor',
                 'madeProgress',
                 'transition',
-            ];
+            ]
 
             if (markerMethods.includes(method)) {
                 if (value === undefined) {
@@ -254,7 +234,7 @@
                     node.hide()
                 }
 
-                this.$emit('LIQUOR_NOISE')
+                this.tree.emitter.emit('LIQUOR_NOISE')
             } else if (method === 'addToPlan') {
                 const taskText = node.data.text
                 const timeframe = value  // 'today', 'tomorrow', 'this_week'
@@ -294,10 +274,6 @@
         }
     },
 
-    computed: {
-        ...mapGetters(['currentThread']),
-    },
-
     data () {
       // we should not mutating a prop directly...
       // that's why we have to create a new object
@@ -322,4 +298,3 @@
     }
   }
 </script>
-

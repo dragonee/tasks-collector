@@ -19,73 +19,73 @@
     </div>
 </template>
 <script>
+import { computed, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 
-import { mapGetters, mapActions, mapState } from 'vuex'
-
+import { useBoardStore } from '../stores/boardStore'
 import { createTreeItem, promisifyTimeout } from '../utils'
-
-import GlobalEvents from 'vue-global-events'
 
 import NodeContent from './NodeContent.vue'
 
 import moment from 'moment'
 
 export default {
-
     components: {
-        GlobalEvents,
         NodeContent
     },
 
-    computed: {
-        ...mapGetters([
-            'currentBoard',
-            'threads',
-        ]),
+    setup() {
+        const boardStore = useBoardStore()
+        const tree = ref(null)
 
-        normalContext() {
-            return !this.editingContext
-        },
+        const { currentBoard, allThreads } = storeToRefs(boardStore)
 
-        startDate() {
-            return moment(this.currentBoard.date_started).format('YYYY-MM-DD')
-        },
-    },
+        const editingContext = ref(false)
+        const focus = ref("")
 
-    data: () => ({
-        editingContext: false,
-        focus: "",
-    }),
+        const normalContext = computed(() => !editingContext.value)
 
-    methods: {
-        async addItem() {
-            const node = this.$refs.tree.append(createTreeItem('Hi'))
+        const startDate = computed(() => {
+            return moment(currentBoard.value.date_started).format('YYYY-MM-DD')
+        })
 
+        async function addItem() {
+            if (!tree.value) return
+
+            const node = tree.value.append(createTreeItem('Hi'))
             node.select()
 
             await promisifyTimeout(500)
 
-            this.$refs.tree.find(node).startEditing()
-        },
-
-        ...mapActions([
-            'close',
-        ]),
-
-        saveState() {
-            this.$store.dispatch('save', {
-                state: this.$refs.tree.toJSON(),
-                focus: this.focus
-            })
-        },
-
-        async changeThread(ev) {
-            await this.$store.dispatch(
-                'changeThread',
-                ev.target.value
-            )
+            tree.value.find(node).startEditing()
         }
 
+        function saveState() {
+            if (!tree.value) return
+
+            boardStore.save({
+                state: tree.value.toJSON(),
+                focus: focus.value
+            })
+        }
+
+        async function changeThread(ev) {
+            await boardStore.changeThread(ev.target.value)
+        }
+
+        return {
+            tree,
+            currentBoard,
+            allThreads,
+            editingContext,
+            focus,
+            normalContext,
+            startDate,
+            addItem,
+            saveState,
+            changeThread,
+            close: boardStore.close,
+        }
     }
 }
 </script>

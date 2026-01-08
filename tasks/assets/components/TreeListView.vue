@@ -6,13 +6,16 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
+import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useBoardStore } from '../stores/boardStore'
 
 export default {
-    computed: {
-        ...mapGetters(['currentBoard']),
+    setup() {
+        const boardStore = useBoardStore()
+        const { currentBoard } = storeToRefs(boardStore)
 
-        formattedList() {
+        const formattedList = computed(() => {
             const renderNodes = (nodes, depth) => {
                 if (!nodes || nodes.length === 0) return ''
 
@@ -41,13 +44,17 @@ export default {
                 return result.join('\n')
             }
 
-            return renderNodes(this.currentBoard.state, 0)
-        }
-    },
+            return renderNodes(currentBoard.value.state, 0)
+        })
 
-    methods: {
-        copyToClipboard() {
-            navigator.clipboard.writeText(this.formattedList)
+        function copyToClipboard() {
+            navigator.clipboard.writeText(formattedList.value)
+        }
+
+        return {
+            currentBoard,
+            formattedList,
+            copyToClipboard
         }
     }
 }

@@ -1,51 +1,50 @@
+import { h, nextTick } from 'vue'
+
 const NodeContent = {
   name: 'node-content',
   props: ['node'],
-  render (h) {
+  render () {
     const node = this.node
     const vm = this.node.tree.vm
+    const slots = vm.$slots
 
     if (node.isEditing) {
       let nodeText = node.text
 
-      this.$nextTick(_ => {
-        this.$refs.editCtrl.focus()
+      nextTick(() => {
+        if (this.$refs.editCtrl) {
+          this.$refs.editCtrl.focus()
+        }
       })
 
       return h('input', {
-        domProps: {
-          value: node.text,
-          type: 'text'
-        },
+        value: node.text,
+        type: 'text',
         class: 'tree-input',
-        on: {
-          input (e) {
-            nodeText = e.target.value
-          },
-          blur () {
+        onInput: (e) => {
+          nodeText = e.target.value
+        },
+        onBlur: () => {
+          node.stopEditing(nodeText)
+        },
+        onKeyup: (e) => {
+          if (e.keyCode === 13) {
             node.stopEditing(nodeText)
-          },
-          keyup (e) {
-            if (e.keyCode === 13) {
-              node.stopEditing(nodeText)
-            }
-          },
-          mouseup (e) {
-            e.stopPropagation()
           }
+        },
+        onMouseup: (e) => {
+          e.stopPropagation()
         },
         ref: 'editCtrl'
       })
     }
 
-    if (vm.$scopedSlots.default) {
-      return vm.$scopedSlots.default({ node: this.node })
+    if (slots.default) {
+      return slots.default({ node: this.node })
     }
 
     return h('span', {
-      domProps: {
-        innerHTML: node.text
-      }
+      innerHTML: node.text
     })
   }
 }
