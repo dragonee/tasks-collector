@@ -1,3 +1,4 @@
+import mitt from 'mitt'
 import Node from './Node'
 import Selection from './Selection'
 
@@ -14,6 +15,7 @@ export default class Tree {
   constructor (vm) {
     this.vm = vm
     this.options = vm.opts
+    this.emitter = mitt()
 
     this.activeElement = null
 
@@ -31,16 +33,20 @@ export default class Tree {
     }
   }
 
-  $on (name, ...args) {
-    this.vm.$on(name, ...args)
+  $on (name, fn) {
+    this.emitter.on(name, fn)
   }
 
-  $once (name, ...args) {
-    this.vm.$once(name, ...args)
+  $once (name, fn) {
+    const handler = (...args) => {
+      this.emitter.off(name, handler)
+      fn(...args)
+    }
+    this.emitter.on(name, handler)
   }
 
-  $off (name, ...args) {
-    this.vm.$off(name, ...args)
+  $off (name, fn) {
+    this.emitter.off(name, fn)
   }
 
   $emit (name, ...args) {
@@ -48,10 +54,10 @@ export default class Tree {
       return
     }
 
-    this.vm.$emit(name, ...args)
+    this.emitter.emit(name, args.length === 1 ? args[0] : args)
 
     if (this.options.store) {
-      this.vm.$emit('LIQUOR_NOISE')
+      this.emitter.emit('LIQUOR_NOISE')
     }
   }
 

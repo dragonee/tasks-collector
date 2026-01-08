@@ -29,9 +29,7 @@
         v-if="hasChildren() && node.states.expanded"
         class="tree-children">
           <node
-            v-for="child in node.children"
-            v-if="child && child.visible()"
-
+            v-for="child in visibleChildren"
             :key="child.id"
             :node="child"
             :options="options"
@@ -71,6 +69,10 @@
     computed: {
       padding() {
         return this.node.depth * (this.options.paddingLeft ? this.options.paddingLeft : this.options.nodeIndent) + 'px'
+      },
+
+      visibleChildren() {
+        return this.node.children.filter(child => child && child.visible())
       },
 
       nodeClass() {
@@ -179,10 +181,9 @@
         }
       },
 
-      openMenu($event){
-          this.menu().open($event, {
-              node: this.node
-          })
+      openMenu($event) {
+          // Call the showContextMenu method on TreeRoot
+          this.tree.vm.showContextMenu($event, this.node)
       },
 
       toggleExpand() {
@@ -219,4 +220,3 @@
 
   export default TreeNode
 </script>
-

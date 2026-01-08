@@ -10,7 +10,7 @@
             :options="options"
             ref="tree"
         >
-            <template slot-scope="{ node }">
+            <template #default="{ node }">
                 <node-content :node="node" class="tree-text">
                 </node-content>
             </template>
@@ -21,7 +21,7 @@
         <div class="lower-pane">
             <button @click.prevent="addItem">+</button>
             <select @change="changeThread($event)">
-                <option v-for="thread in threads" :key="thread.id" :value="thread.id" :selected="thread.id == currentThreadId">
+                <option v-for="thread in allThreads" :key="thread.id" :value="thread.id" :selected="thread.id == currentThreadId">
                     {{ thread.name }}
                 </option>
             </select>
@@ -40,7 +40,7 @@
             <a class="menulink" href="/summaries/">Summaries</a>
             <a class="menulink" href="/quests/">Quests</a>
             <a class="menulink" href="/quests/view/">Journal</a>
-            <a class="menulink" href="/accounts/settings/">⚙</a>
+            <a class="menulink" href="/accounts/settings/">Settings</a>
 
             <button @click.prevent="prepareCommit" class="on-right">commit</button>
         </div>
@@ -51,181 +51,107 @@
             @confirm="confirmCommit"
             @cancel="cancelCommit"
         />
-
-        <GlobalEvents
-            v-if="normalContext"
-            @keyup.i="addItem"
-        />
-
-        <GlobalEvents
-            target="window"
-            @focus="reloadBoards"
-        />
     </div>
 </template>
 <script>
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
-import { mapGetters, mapActions, mapState } from 'vuex'
-
+import { useBoardStore } from '../stores/boardStore'
 import { createTreeItem, promisifyTimeout } from '../utils'
 
-import GlobalEvents from 'vue-global-events'
-
 import NodeContent from './NodeContent.vue'
-
 import CommitConfirmationModal from './CommitConfirmationModal.vue'
-
 import TreeListView from './TreeListView.vue'
 
 import moment from 'moment'
 
 export default {
-
     components: {
-        GlobalEvents,
         NodeContent,
         CommitConfirmationModal,
         TreeListView
     },
 
-    computed: {
-        ...mapGetters([
-            'currentBoard',
-            'threads',
-            'currentThreadId',
-        ]),
+    setup() {
+        const boardStore = useBoardStore()
+        const router = useRouter()
+        const route = useRoute()
+        const tree = ref(null)
 
-        normalContext() {
-            return !this.editingContext
-        },
+        const { currentBoard, allThreads, currentThreadId } = storeToRefs(boardStore)
 
-        startDate() {
-            return moment(this.currentBoard.date_started).format('YYYY-MM-DD')
-        },
+        const editingContext = ref(false)
+        const focus = ref("")
+        const showCommitModal = ref(false)
+        const listViewMode = ref(false)
 
-        itemsToRemove() {
-            return this.findItemsToBeRemoved(this.currentBoard.state)
-        },
+        // Window focus event listener
+        const handleWindowFocus = () => {
+            boardStore.reloadBoards()
+        }
 
-        options() {
-            return {
-                checkbox: true,
-                editing: true,
-                dnd: true,
-                deletion: true,
-                keyboardNavigation: true,
-
-                store: {
-                    store: this.$store,
-                    getter: () => this.$store.getters.currentBoard.state,
-                    dispatcher: (tree) => {
-                        return this.$store.dispatch('save', {
-                            state: tree,
-                            focus: this.focus,
-                        })
-                    }
-                }
+        // Keyboard event listener
+        const handleKeyup = (e) => {
+            if (e.key === 'i' && !editingContext.value) {
+                addItem()
             }
         }
-    },
 
-    data: () => ({
-        editingContext: false,
-        focus: "",
-        unwatch: null,
-        showCommitModal: false,
-        listViewMode: false,
-    }),
+        const normalContext = computed(() => !editingContext.value)
 
-    mounted() {
-        this.$refs.tree.$on('node:text:changed', (node, text, old) => {
-            // console.log('changed text', node, text, old)
+        const startDate = computed(() => {
+            return moment(currentBoard.value.date_started).format('YYYY-MM-DD')
         })
 
-        this.$refs.tree.$on('node:editing:start', (node) => {
-            this.editingContext = true
+        const itemsToRemove = computed(() => {
+            return findItemsToBeRemoved(currentBoard.value.state)
         })
 
-        this.$refs.tree.$on('node:editing:stop', (node) => {
-            this.editingContext = false
+        const options = computed(() => ({
+            checkbox: true,
+            editing: true,
+            dnd: true,
+            deletion: true,
+            keyboardNavigation: true,
 
-            //this.$store.dispatch('save', this.$refs.tree.toJSON())
-        })
-
-        this.unwatch = this.$store.watch(
-            (state, getters) => getters.currentBoard,
-            () => {
-                this.focus = this.currentBoard.focus;
-                
-                const path = `/board/${this.currentBoard.thread.name}`;
-
-                if (this.$route.path !== path) {
-                    this.$router.push(path);
+            store: {
+                store: boardStore,
+                getter: () => boardStore.currentBoard.state,
+                dispatcher: (treeData) => {
+                    return boardStore.save({
+                        state: treeData,
+                        focus: focus.value,
+                    })
                 }
             }
-        )
+        }))
 
-        if (this.$route.params.slug) {
-            this.$store.dispatch('initBoard', this.$route.params.slug);
-        } else {
-            const appElement = document.getElementById('app-meta');
-       
-            const defaultThread = appElement 
-                ? appElement.dataset.defaultThread 
-                : this.$store.state.currentThreadPtr.Name;
-            
-            this.$store.dispatch('initBoard', defaultThread);
+        function toggleListViewMode() {
+            listViewMode.value = !listViewMode.value
         }
 
-        if (this.$store.getters.currentBoard) {
-            this.focus = this.$store.getters.currentBoard.focus
+        function addItem() {
+            if (tree.value) {
+                tree.value.append(createTreeItem('Hi'))
+            }
         }
-    },
 
-    beforeDestroy() {
-        this.unwatch()
-    },
+        function saveState() {
+            if (tree.value) {
+                boardStore.save({
+                    state: tree.value.toJSON(),
+                    focus: focus.value
+                })
+            }
+        }
 
-    methods: {
-        toggleListViewMode() {
-            this.listViewMode = !this.listViewMode
-        },
+        async function changeThread(ev) {
+            await boardStore.changeThread(ev.target.value)
+        }
 
-        async addItem() {
-            const node = this.$refs.tree.append(createTreeItem('Hi'))
-
-            /*
-            await promisifyTimeout(500)
-
-            node.vm.$el.querySelector('.tree-anchor')
-                .dispatchEvent(new Event('dblclick'))
-
-            //node.select()
-
-            //this.$refs.tree.find(node).startEditing()
-            */
-        },
-
-        ...mapActions([
-            'close',
-            'reloadBoards',
-        ]),
-
-        saveState() {
-            this.$store.dispatch('save', {
-                state: this.$refs.tree.toJSON(),
-                focus: this.focus
-            })
-        },
-
-        async changeThread(ev) {
-            await this.$store.dispatch(
-                'changeThread',
-                ev.target.value
-            )
-        },
-
-        findItemsToBeRemoved(items) {
+        function findItemsToBeRemoved(items) {
             let result = []
 
             const willBeForceRemoved = (node) => {
@@ -278,23 +204,103 @@ export default {
                 }
             }
 
-            items.forEach(item => traverse(item))
+            if (items) {
+                items.forEach(item => traverse(item))
+            }
             return result
-        },
-
-        prepareCommit() {
-            this.showCommitModal = true
-        },
-
-        confirmCommit() {
-            this.showCommitModal = false
-            this.close()
-        },
-
-        cancelCommit() {
-            this.showCommitModal = false
         }
 
+        function prepareCommit() {
+            showCommitModal.value = true
+        }
+
+        function confirmCommit() {
+            showCommitModal.value = false
+            boardStore.close()
+        }
+
+        function cancelCommit() {
+            showCommitModal.value = false
+        }
+
+        onMounted(() => {
+            // Set up tree event listeners
+            if (tree.value && tree.value.tree) {
+                tree.value.tree.$on('node:text:changed', (args) => {
+                    // console.log('changed text', args)
+                })
+
+                tree.value.tree.$on('node:editing:start', () => {
+                    editingContext.value = true
+                })
+
+                tree.value.tree.$on('node:editing:stop', () => {
+                    editingContext.value = false
+                })
+            }
+
+            // Set up window focus listener
+            window.addEventListener('focus', handleWindowFocus)
+            document.addEventListener('keyup', handleKeyup)
+
+            // Initialize board
+            if (route.params.slug) {
+                boardStore.initBoard(route.params.slug)
+            } else {
+                const appElement = document.getElementById('app-meta')
+                const defaultThread = appElement
+                    ? appElement.dataset.defaultThread
+                    : 'Daily'
+                boardStore.initBoard(defaultThread)
+            }
+
+            if (boardStore.currentBoard) {
+                focus.value = boardStore.currentBoard.focus
+            }
+        })
+
+        // Watch for currentBoard changes
+        watch(currentBoard, (newBoard) => {
+            if (newBoard) {
+                focus.value = newBoard.focus || ""
+
+                if (newBoard.thread) {
+                    const path = `/board/${newBoard.thread.name}`
+                    if (route.path !== path) {
+                        router.push(path)
+                    }
+                }
+            }
+        })
+
+        onBeforeUnmount(() => {
+            window.removeEventListener('focus', handleWindowFocus)
+            document.removeEventListener('keyup', handleKeyup)
+        })
+
+        return {
+            tree,
+            currentBoard,
+            allThreads,
+            currentThreadId,
+            editingContext,
+            focus,
+            showCommitModal,
+            listViewMode,
+            normalContext,
+            startDate,
+            itemsToRemove,
+            options,
+            toggleListViewMode,
+            addItem,
+            saveState,
+            changeThread,
+            prepareCommit,
+            confirmCommit,
+            cancelCommit,
+            close: boardStore.close,
+            reloadBoards: boardStore.reloadBoards,
+        }
     }
 }
 </script>

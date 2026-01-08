@@ -174,7 +174,7 @@ export default {
         }
 
         this.$$possibleDragNode = null
-        this.$set(this, 'draggableNode', null)
+        this.draggableNode = null
 
         removeListeners()
       }
@@ -194,7 +194,7 @@ export default {
             return
           }
 
-          this.$set(this, 'draggableNode', { node: this.$$possibleDragNode, left: 0, top: 0 })
+          this.draggableNode = { node: this.$$possibleDragNode, left: 0, top: 0 }
           this.$$possibleDragNode = null
         }
 
