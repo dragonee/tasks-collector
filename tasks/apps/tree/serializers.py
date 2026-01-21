@@ -119,10 +119,15 @@ class ObservationSerializer(BaseTypeThreadSerializer):
 
     @transaction.atomic
     def save(self, *args, **kwargs):
+        # Capture the previous state BEFORE saving so we can detect new vs update
+        from .utils.db import get_object_or_new
+
+        previous = get_object_or_new(Observation, self.instance)
+
         new_obj = super().save(*args, **kwargs)
 
         for event in create_observation_change_events(
-            new_obj, published=timezone.now()
+            new_obj, previous=previous, published=timezone.now()
         ):
             event.save()
 
