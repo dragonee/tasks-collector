@@ -32,12 +32,19 @@ def main():
         print("Error: 'jira' command not found. Please install jira CLI first.")
         sys.exit(1)
 
+    # Build jira command with date options
+    jira_cmd = ['jira', '-l']
+    if arguments['--date']:
+        jira_cmd.extend(['-d', arguments['--date']])
+    if arguments['--yesterday']:
+        jira_cmd.append('-Y')
+
     # Run jira -l and capture output
     try:
-        result = subprocess.run(['jira', '-l'], capture_output=True, text=True)
+        result = subprocess.run(jira_cmd, capture_output=True, text=True)
         jira_output = result.stdout
     except Exception as e:
-        print(f"Error running 'jira -l': {e}")
+        print(f"Error running '{' '.join(jira_cmd)}': {e}")
         sys.exit(1)
 
     # Process jira output: prepend tasks with checkbox, skip Total line
