@@ -164,3 +164,8 @@
 - [x] Copy the items from the tree / Or Markdown mode
 - [ ] Black stone task modes / deep / connected / giving back
 - [ ] Create gift cards
+- [ ] I feel like I need to put things in retrospective because I'll not read them back. What to implement here?
+- [ ] Prep for the day list (and daily tasks)
+- [ ] Per-user projected outcomes
+  - add created_by to Event
+  - add user to Breakthrough
