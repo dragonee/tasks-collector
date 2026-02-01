@@ -35,7 +35,7 @@ def main():
     # Build jira command with date options
     jira_cmd = ['jira', '-l']
     if arguments['--date']:
-        jira_cmd.extend(['-d', arguments['--date']])
+        jira_cmd.extend(['--date', arguments['--date']])
     if arguments['--yesterday']:
         jira_cmd.append('-Y')
 
