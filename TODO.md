@@ -156,7 +156,7 @@
 - [ ] Add action points to journal
   - Creates a task?
   - Adds to a plan?
-- [ ] /q/ allows for habit tracking
+- [x] /q/ allows for habit tracking
 - [ ] PostHog
 - [ ] Emoji working
 - [x] Preferencje dookola toola habits z API
