@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -21,8 +23,10 @@ from .forms import *
 from .models import *
 from .serializers import *
 from .services.journalling import process_journal_entry
+from .services.journalling.habit_extraction import habits_line_to_habits_tracked
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
+from .views_habit import get_habit_keywords_for_user_and_date
 
 
 class PlanFilter(filters.FilterSet):
@@ -225,11 +229,47 @@ def add_quick_note_hx(request):
     return HttpResponseClientRefresh()
 
 
+@require_POST
+@login_required
+def track_habit_q_hx(request):
+    if not request.htmx:
+        return HttpResponse("Only HTMX allowed", status=400)
+
+    text = request.POST.get("text", "")
+
+    if not text or (not text.startswith("#") and not text.startswith("!")):
+        return HttpResponseClientRefresh()
+
+    try:
+        triplets = habits_line_to_habits_tracked(text)
+    except ValueError:
+        return HttpResponseClientRefresh()
+
+    thread = Thread.objects.get(name="Daily")
+
+    for occured, habit, note in triplets:
+        HabitTracked.objects.create(
+            occured=occured,
+            habit=habit,
+            note=note,
+            published=timezone.now(),
+            thread=thread,
+        )
+
+    return HttpResponseClientRefresh()
+
+
 @login_required
 def quick_notes(request):
+    today = date.today()
+
     context = {
         "notes": QuickNote.objects.order_by("published"),
         "form": QuickContentForm(),
+        "habit_keywords": get_habit_keywords_for_user_and_date(request.user, today),
+        "tracked_today": HabitTracked.objects.filter(published__date=today)
+        .select_related("habit")
+        .order_by("-published"),
     }
     context.update(_get_current_plans())
 

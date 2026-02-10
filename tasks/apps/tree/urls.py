@@ -188,6 +188,7 @@ urlpatterns = [
     # === Quick Notes (views) ===
     path("q/", views.quick_notes, name="quick-notes"),
     path("q/post/", views.add_quick_note_hx, name="quick-note-add"),
+    path("q/track/", views.track_habit_q_hx, name="quick-habit-track"),
     # === Statistics (views) ===
     path("stats/", views.stats, name="stats"),
     path("stats/json/", views.stats_json, name="stats-json"),

@@ -1393,6 +1393,63 @@ body.quick-notes {
         float: right;
     }
 
+    .habit-keywords {
+        margin: 0.75rem 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+
+        .habit-btn {
+            font-family: 'Raleway', sans-serif;
+            font-size: 0.95rem;
+            padding: 0.4rem 0.85rem;
+            border: 1px solid #ccc;
+            border-radius: 1rem;
+            background-color: #fff;
+            color: #205e7d;
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &:hover {
+                background-color: #205e7d;
+                color: #fff;
+                border-color: #205e7d;
+            }
+        }
+    }
+
+    .tracked-today {
+        margin: 0.75rem 0;
+        padding: 0.6rem 0.75rem;
+        background-color: #fff;
+        border-radius: 3px;
+
+        h4 {
+            margin: 0 0 0.4rem;
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .tracked-habit {
+            display: inline-block;
+            font-size: 0.85rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.75rem;
+            margin-right: 0.35rem;
+            margin-bottom: 0.25rem;
+
+            &.done {
+                background-color: #d4edda;
+                color: #155724;
+            }
+
+            &.skipped {
+                background-color: #f8d7da;
+                color: #721c24;
+            }
+        }
+    }
+
     .quick-note-list {
 
         background-color: #fff;

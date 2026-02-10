@@ -12,6 +12,29 @@
         {% include "tree/quick_note/form.html" %}
     </form>
 
+    {% if habit_keywords %}
+    <div class="habit-keywords">
+        {% for kw in habit_keywords %}
+        <form hx-post="{% url 'quick-habit-track' %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="text" value="#{{ kw.keyword }}">
+            <button type="submit" class="habit-btn">{{ kw.keyword }}</button>
+        </form>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if tracked_today %}
+    <div class="tracked-today">
+        <h4>Tracked Today</h4>
+        {% for ht in tracked_today %}
+        <span class="tracked-habit {% if ht.occured %}done{% else %}skipped{% endif %}">
+            {{ ht.habit.name }}
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="quick-note-list">
         {% for note in notes %}
             <div class="note">
