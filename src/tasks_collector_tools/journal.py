@@ -11,6 +11,7 @@ Options:
     -Y, --yesterday  Use yesterday's date for the journal entry.
     -t THREAD, --thread THREAD  Use this thread [default: Daily]
     -f FILE, --file FILE  Use this file instead of the generated template.
+    -F, --force      Send even if content is unchanged from template.
     -L, --today      List journals from today.
     -h, --help       Show this message.
     --version        Show version information.
@@ -190,7 +191,7 @@ def main():
     with open(tmpfile.name) as f:
         edited_content = f.read()
 
-    if not edited_content.strip() or edited_content.strip() == template.strip():
+    if not edited_content.strip() or (edited_content.strip() == template.strip() and not arguments['--force']):
         print("No changes were made.")
         os.unlink(tmpfile.name)
         sys.exit(0)
