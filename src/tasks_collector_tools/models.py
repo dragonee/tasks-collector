@@ -151,14 +151,10 @@ class ProjectedOutcomeClosed(BaseEvent):
 class Plan(BaseModel):
     id: int
     focus: str|None
-    want: str|None
     pub_date: date
 
     def empty(self):
-        return not self.has_want() and not self.has_focus()
-
-    def has_want(self):
-        return not_empty(self.want)
+        return not self.has_focus()
 
     def has_focus(self):
         return not_empty(self.focus)

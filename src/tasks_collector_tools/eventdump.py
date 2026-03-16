@@ -54,12 +54,6 @@ TEMPLATE = """
 {{ plan.focus_list }}
 {% endif %}
 
-{% if plan and plan.model.has_want %}
-## Want
-
-{{ plan.want_list }}
-{% endif %}
-
 {% if habits %}
 ## Habits
 

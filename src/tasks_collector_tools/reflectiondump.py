@@ -89,12 +89,6 @@ TEMPLATE = """
 {{ plans.focus }}
 {% endif %}
 
-{% if plans.want %}
-## Want
-
-{{ plans.want }}
-{% endif %}
-
 {% if habits.habit_groups %}
 # Habits
 
@@ -313,7 +307,6 @@ class ResultAggregator:
 
         return {
             'focus': '\n\n'.join(presenter.focus_list(prefix='- [ ] ') for presenter in presenters),
-            'want': '\n\n'.join(presenter.want_list(prefix='- [ ] ') for presenter in presenters),
         }
 
     def _render_events(self, events: List[Event], separator='\n'):

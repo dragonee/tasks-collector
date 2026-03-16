@@ -269,9 +269,6 @@ class BaseModelPresenter:
         self.model = model
 
 class PlanPresenter(BaseModelPresenter):
-    def want_list(self, prefix='- '):
-        return listize(self.model.want, prefix=prefix)
-    
     def focus_list(self, prefix='- '):
         return listize(self.model.focus, prefix=prefix)
 
