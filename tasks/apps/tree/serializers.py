@@ -60,7 +60,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Plan
-        fields = ["id", "pub_date", "want", "focus"]
+        fields = ["id", "pub_date", "focus"]
 
 
 class ReflectionSerializer(serializers.HyperlinkedModelSerializer):
