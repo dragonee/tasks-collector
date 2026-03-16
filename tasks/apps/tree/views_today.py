@@ -430,10 +430,10 @@ def today(request):
         )
 
         today_valid, today_plan_form = validate_form_and_perform_save_or_delete(
-            plan, ["focus", "want"]
+            plan, ["focus"]
         )
         tomorrow_valid, tomorrow_plan_form = validate_form_and_perform_save_or_delete(
-            tomorrow_plan, ["focus", "want"]
+            tomorrow_plan, ["focus"]
         )
         reflection_valid, reflection_form = validate_form_and_perform_save_or_delete(
             reflection, ["good", "better", "best"]

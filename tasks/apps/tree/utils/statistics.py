@@ -79,8 +79,6 @@ def calculate_total_word_count(year=None):
     for plan in plans:
         if plan.focus:
             total_words += count_words_in_text(plan.focus)
-        if plan.want:
-            total_words += count_words_in_text(plan.want)
 
     return total_words
 
