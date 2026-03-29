@@ -367,6 +367,27 @@ class ProjectedOutcomeClosedSerializer(serializers.ModelSerializer):
         ]
 
 
+class ProjectedOutcomeMovedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(), slug_field="name"
+    )
+
+    class Meta:
+        model = ProjectedOutcomeMoved
+        fields = [
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "name",
+            "description",
+            "resolved_by",
+            "confidence_level",
+            "old_breakthrough",
+            "new_breakthrough",
+        ]
+
+
 def get_observation_object(obj):
     if obj.observation:
         return obj.observation
@@ -441,6 +462,7 @@ class EventSerializer(PolymorphicSerializer):
         ProjectedOutcomeRedefined: ProjectedOutcomeRedefinedSerializer,
         ProjectedOutcomeRescheduled: ProjectedOutcomeRescheduledSerializer,
         ProjectedOutcomeClosed: ProjectedOutcomeClosedSerializer,
+        ProjectedOutcomeMoved: ProjectedOutcomeMovedSerializer,
     }
 
 
