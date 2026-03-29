@@ -10,7 +10,7 @@ from .models import (
     ObservationMade, ObservationUpdated, ObservationRecontextualized,
     ObservationReinterpreted, ObservationReflectedUpon, ObservationClosed,
     ObservationAttached, ObservationDetached,
-    ProjectedOutcomeMade, ProjectedOutcomeRedefined, ProjectedOutcomeRescheduled, ProjectedOutcomeClosed,
+    ProjectedOutcomeMade, ProjectedOutcomeRedefined, ProjectedOutcomeRescheduled, ProjectedOutcomeMoved, ProjectedOutcomeClosed,
     Plan, Reflection, Event
 )
 
@@ -249,6 +249,15 @@ class ProjectedOutcomeRescheduledPresenter(BaseEventPresenter):
     def new_resolved_by_date(self):
         return self.event.new_resolved_by.strftime('%Y-%m-%d') if self.event.new_resolved_by else None
 
+class ProjectedOutcomeMovedPresenter(BaseEventPresenter):
+    template: str = """
+    **{{ event.name }}** moved{% if event.old_breakthrough and event.new_breakthrough %} from *{{ event.old_breakthrough }}* to *{{ event.new_breakthrough }}*{% elif event.new_breakthrough %} to *{{ event.new_breakthrough }}*{% endif %}
+    {% if event.description %}
+
+    {{ event.description }}
+    {% endif %}
+    """
+
 class ProjectedOutcomeClosedPresenter(BaseEventPresenter):
     template: str = """
     **{{ event.name }}** ✓
@@ -311,6 +320,8 @@ def get_presenter_class(event: Event):
             return ProjectedOutcomeRedefinedPresenter
         case ProjectedOutcomeRescheduled():
             return ProjectedOutcomeRescheduledPresenter
+        case ProjectedOutcomeMoved():
+            return ProjectedOutcomeMovedPresenter
         case ProjectedOutcomeClosed():
             return ProjectedOutcomeClosedPresenter
         case _:

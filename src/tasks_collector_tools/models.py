@@ -138,6 +138,18 @@ class ProjectedOutcomeRescheduled(BaseEvent):
     new_resolved_by: Optional[datetime]
 
 
+class ProjectedOutcomeMoved(BaseEvent):
+    resourcetype: Literal['ProjectedOutcomeMoved']
+    event_stream_id: str
+    thread: str
+    name: str
+    description: Optional[str]
+    resolved_by: Optional[datetime]
+    confidence_level: Optional[str]
+    old_breakthrough: Optional[int]
+    new_breakthrough: Optional[int]
+
+
 class ProjectedOutcomeClosed(BaseEvent):
     resourcetype: Literal['ProjectedOutcomeClosed']
     event_stream_id: str
@@ -194,6 +206,7 @@ Event = Union[
     ProjectedOutcomeMade,
     ProjectedOutcomeRedefined,
     ProjectedOutcomeRescheduled,
+    ProjectedOutcomeMoved,
     ProjectedOutcomeClosed
 ]
 
