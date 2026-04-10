@@ -465,6 +465,37 @@ class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMi
         )
 
 
+class InsightRefined(Event, ObservationEventMixin):
+    type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
+
+    situation = models.TextField(help_text=_("What happened?"), null=True, blank=True)
+    approach = models.TextField(
+        help_text=_("How should you approach it in the future?"), null=True, blank=True
+    )
+
+    template = "tree/events/insight_refined.html"
+
+    @staticmethod
+    def from_observation_closed(
+        observation_closed, situation=None, approach=None, published=None
+    ):
+        return InsightRefined(
+            published=published or timezone.now(),
+            event_stream_id=observation_closed.event_stream_id,
+            thread=observation_closed.thread,
+            type=observation_closed.type,
+            situation=(
+                situation if situation is not None else observation_closed.situation
+            ),
+            approach=approach if approach is not None else observation_closed.approach,
+        )
+
+    def __str__(self):
+        return "{}: {} ({})".format(
+            self.published, Truncator(self.situation).words(6), self.thread
+        )
+
+
 observation_event_types = (
     ObservationMade,
     ObservationClosed,
@@ -472,6 +503,7 @@ observation_event_types = (
     ObservationReflectedUpon,
     ObservationReinterpreted,
     ObservationUpdated,
+    InsightRefined,
 )
 
 

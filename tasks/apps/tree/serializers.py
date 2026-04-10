@@ -272,6 +272,23 @@ class ObservationClosedSerializer(AbsoluteURLSerializerMixin, BaseTypeThreadSeri
         ]
 
 
+class InsightRefinedSerializer(AbsoluteURLSerializerMixin, BaseTypeThreadSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InsightRefined
+        fields = [
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "type",
+            "situation",
+            "approach",
+            "url",
+        ]
+
+
 class ObservationEventSerializer(PolymorphicSerializer):
     model_serializer_mapping = {
         ObservationMade: ObservationMadeSerializer,
@@ -280,6 +297,7 @@ class ObservationEventSerializer(PolymorphicSerializer):
         ObservationReflectedUpon: ObservationReflectedUponSerializer,
         ObservationClosed: ObservationClosedSerializer,
         ObservationUpdated: MultipleObservationUpdatedSerializer,
+        InsightRefined: InsightRefinedSerializer,
     }
 
 
@@ -463,6 +481,7 @@ class EventSerializer(PolymorphicSerializer):
         ProjectedOutcomeRescheduled: ProjectedOutcomeRescheduledSerializer,
         ProjectedOutcomeClosed: ProjectedOutcomeClosedSerializer,
         ProjectedOutcomeMoved: ProjectedOutcomeMovedSerializer,
+        InsightRefined: InsightRefinedSerializer,
     }
 
 

@@ -4,7 +4,11 @@
 {% block body_class %}page-daily{% endblock %}
 
 {% block title %}
-    {{ instance.situation_truncated }}
+    {% if latest_insight %}
+        Edit Insight
+    {% else %}
+        Extract Insight
+    {% endif %}
 {% endblock %}
 
 {% block content %}
@@ -17,43 +21,41 @@
     </div>
 
 <div class="observation-edit page">
+
+<form action="" method="POST">
+    {% csrf_token %}
+
     <div class="form">
 
         <div class="left">
-            <h3>Observation</h3>
-            <p class="meta">Opened for {{ time_to_closed }}</p>
-            <div class="situation">
-                {{ instance.situation|linebreaks }}
-            </div>
-            <div class="interpretation">
-                {{ instance.interpretation|linebreaks }}
-            </div>
-            <div class="approach">
-                {{ instance.approach|linebreaks }}
-            </div>
-
-            <div class="submit" style="margin-top: 1rem;">
-                {% if insight %}
-                    <a href="{% url 'public-insight-edit' instance.event_stream_id %}" class="btn btn-sm btn-outline-secondary">Edit Insight</a>
-                {% else %}
-                    <button class="btn btn-sm btn-outline-primary" hx-post="{% url 'public-observation-extract-insight' instance.event_stream_id %}">Extract Insight</button>
-                {% endif %}
-            </div>
+            <h3>Insight</h3>
+            <p class="meta">{{ instance.event_stream_id }} <br>Refine the situation and approach from your observation.</p>
+            {{ form.as_p }}
         </div>
 
         <div class="right">
-            <h3>Updates</h3>
-            <p class="meta"></p>
-            {% for update in updates %}
-                <div class="update">
-                    {{ update.comment|linebreaks }}
-                </div>
-            {% endfor %}
+            <h3>Original Observation</h3>
+            <p class="meta">Closed on {{ instance.published|date }}</p>
+            <div class="situation">
+                <strong>Situation</strong>
+                {{ instance.situation|linebreaks }}
+            </div>
+            <div class="interpretation">
+                <strong>Interpretation</strong>
+                {{ instance.interpretation|linebreaks }}
+            </div>
+            <div class="approach">
+                <strong>Approach</strong>
+                {{ instance.approach|linebreaks }}
+            </div>
+        </div>
+    </div>
+    <div class="submit">
+        <div class="submit-buttons">
+            <button class="submit">Save</button>
         </div>
     </div>
     <div class="updates">
-        <p class="meta">{{ events|length }} events total</p>
-
         {% for event in events %}
             <div class="event">
                 {% if event.template %}
@@ -64,6 +66,7 @@
             </div>
         {% endfor %}
     </div>
+</form>
 </div>
 
 </div>

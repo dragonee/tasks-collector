@@ -84,6 +84,7 @@ class EventAdmin(PolymorphicParentModelAdmin):
         ProjectedOutcomeRedefined,
         ProjectedOutcomeRescheduled,
         ProjectedOutcomeClosed,
+        InsightRefined,
     ]
 
     ordering = ["-published", "-pk"]
@@ -125,6 +126,10 @@ class ObservationReflectedUponAdmin(PolymorphicChildModelAdmin):
 
 class ObservationClosedAdmin(PolymorphicChildModelAdmin):
     base_model = ObservationClosed
+
+
+class InsightRefinedAdmin(PolymorphicChildModelAdmin):
+    base_model = InsightRefined
 
 
 class JournalAddedAdmin(PolymorphicChildModelAdmin):
@@ -224,3 +229,4 @@ admin.site.register(ProjectedOutcomeMade, ProjectedOutcomeMadeAdmin)
 admin.site.register(ProjectedOutcomeRedefined, ProjectedOutcomeRedefinedAdmin)
 admin.site.register(ProjectedOutcomeRescheduled, ProjectedOutcomeRescheduledAdmin)
 admin.site.register(ProjectedOutcomeClosed, ProjectedOutcomeClosedAdmin)
+admin.site.register(InsightRefined, InsightRefinedAdmin)

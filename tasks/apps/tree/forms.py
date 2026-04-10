@@ -47,6 +47,17 @@ class ObservationForm(forms.ModelForm):
         ]
 
 
+class InsightForm(forms.Form):
+    situation = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        required=False,
+    )
+    approach = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 5}),
+        required=True,
+    )
+
+
 class QuickNoteForm(forms.ModelForm):
     class Meta:
         model = QuickNote
