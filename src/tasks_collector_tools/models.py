@@ -97,6 +97,14 @@ class ObservationClosed(ObservationEvent):
     approach: Optional[str]
 
 
+class InsightRefined(ObservationEvent):
+    url: str
+    resourcetype: Literal['InsightRefined']
+    type: str
+    situation: Optional[str]
+    approach: Optional[str]
+
+
 class ObservationAttached(BaseEvent):
     resourcetype: Literal['ObservationAttached']
     other_event_stream_id: str
@@ -201,6 +209,7 @@ Event = Union[
     ObservationReinterpreted, 
     ObservationReflectedUpon, 
     ObservationClosed,
+    InsightRefined,
     ObservationAttached,
     ObservationDetached,
     ProjectedOutcomeMade,
