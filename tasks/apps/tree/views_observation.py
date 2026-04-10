@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.db import transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Subquery
 from django.forms import inlineformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -18,9 +18,10 @@ from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response as RestResponse
 
-from .forms import ObservationForm
+from .forms import InsightForm, ObservationForm
 from .models import (
     Event,
+    InsightRefined,
     Observation,
     ObservationAttached,
     ObservationClosed,
@@ -44,6 +45,7 @@ from .serializers import (
     ObservationWithUpdatesSerializer,
 )
 from .services.observations.event_creation import create_observation_change_events
+from .services.observations.insights import extract_insight
 
 
 class ObservationPagination(PageNumberPagination):
@@ -212,17 +214,20 @@ class ObservationMineListView(LoginRequiredMixin, ListView):
         return context
 
 
-class LessonsListView(LoginRequiredMixin, ListView):
-    model = ObservationClosed
-    template_name = "tree/lessons_list.html"
+class InsightsListView(LoginRequiredMixin, ListView):
+    model = InsightRefined
+    template_name = "tree/insights_list.html"
     paginate_by = 100
 
     def get_queryset(self):
+        latest_ids = (
+            InsightRefined.objects.filter(event_stream_id=OuterRef("event_stream_id"))
+            .order_by("-published")
+            .values("pk")[:1]
+        )
         return (
-            ObservationClosed.objects.select_related("thread", "type")
-            .exclude(approach__isnull=True)
-            .exclude(approach__exact="")
-            .exclude(approach__exact="?")
+            InsightRefined.objects.filter(pk__in=Subquery(latest_ids))
+            .select_related("thread", "type")
             .order_by("-published")
         )
 
@@ -252,6 +257,14 @@ def observation_closed_detail(request, event_stream_id):
 
     time_to_closed = events[-1].published - events[0].published
 
+    insight = (
+        InsightRefined.objects.filter(
+            event_stream_id=observation_closed.event_stream_id
+        )
+        .order_by("-published")
+        .first()
+    )
+
     return render(
         request,
         "tree/observationclosed_detail.html",
@@ -260,6 +273,7 @@ def observation_closed_detail(request, event_stream_id):
             "events": events,
             "updates": filter(lambda x: isinstance(x, ObservationUpdated), events),
             "time_to_closed": time_to_closed,
+            "insight": insight,
         },
     )
 
@@ -365,6 +379,114 @@ def observation_close(request, observation_id):
     response["HX-Redirect"] = reverse("public-observation-list")
 
     return response
+
+
+@api_view(["POST"])
+def observation_close_and_extract(request, observation_id):
+    observation = get_object_or_404(Observation, pk=observation_id)
+
+    observation_closed = ObservationClosed.from_observation(observation)
+
+    with transaction.atomic():
+        observation_closed.save()
+        observation.delete()
+
+        insight = InsightRefined.from_observation_closed(observation_closed)
+        insight.save()
+
+    response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
+    response["HX-Redirect"] = reverse(
+        "public-insight-edit",
+        kwargs={"event_stream_id": observation_closed.event_stream_id},
+    )
+
+    return response
+
+
+@api_view(["POST"])
+def observation_extract_insight(request, event_stream_id):
+    observation_closed = get_object_or_404(
+        ObservationClosed, event_stream_id=event_stream_id
+    )
+
+    existing = InsightRefined.objects.filter(event_stream_id=event_stream_id).exists()
+
+    if existing:
+        response = RestResponse(
+            {"error": "Insight already exists. Edit it instead."},
+            status=status.HTTP_409_CONFLICT,
+        )
+        response["HX-Redirect"] = reverse(
+            "public-insight-edit",
+            kwargs={"event_stream_id": event_stream_id},
+        )
+        return response
+
+    insight = InsightRefined.from_observation_closed(observation_closed)
+    insight.save()
+
+    response = RestResponse({"ok": True}, status=status.HTTP_201_CREATED)
+    response["HX-Redirect"] = reverse(
+        "public-insight-edit",
+        kwargs={"event_stream_id": event_stream_id},
+    )
+
+    return response
+
+
+@login_required
+def insight_edit(request, event_stream_id):
+    observation_closed = get_object_or_404(
+        ObservationClosed, event_stream_id=event_stream_id
+    )
+
+    latest_insight = (
+        InsightRefined.objects.filter(event_stream_id=event_stream_id)
+        .order_by("-published")
+        .first()
+    )
+
+    base = latest_insight or observation_closed
+
+    if request.method == "POST":
+        form = InsightForm(request.POST)
+
+        if form.is_valid():
+            insight = extract_insight(
+                event_stream_id,
+                situation=form.cleaned_data["situation"],
+                approach=form.cleaned_data["approach"],
+            )
+            insight.save()
+
+            return redirect(
+                reverse(
+                    "public-insight-edit",
+                    kwargs={"event_stream_id": event_stream_id},
+                )
+            )
+    else:
+        form = InsightForm(
+            initial={
+                "situation": base.situation,
+                "approach": base.approach,
+            }
+        )
+
+    events = list(
+        Event.objects.filter(event_stream_id=event_stream_id).order_by("published")
+    )
+
+    return render(
+        request,
+        "tree/insight_edit.html",
+        {
+            "form": form,
+            "instance": observation_closed,
+            "latest_insight": latest_insight,
+            "events": events,
+        },
+    )
 
 
 @api_view(["POST"])

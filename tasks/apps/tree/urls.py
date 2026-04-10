@@ -87,9 +87,14 @@ urlpatterns = [
         name="public-observation-closed-detail",
     ),
     path(
-        "lessons/",
-        views_observation.LessonsListView.as_view(),
-        name="public-lessons-list",
+        "insights/",
+        views_observation.InsightsListView.as_view(),
+        name="public-insights-list",
+    ),
+    re_path(
+        r"^insights/(?P<event_stream_id>[a-f0-9\-]+)/$",
+        views_observation.insight_edit,
+        name="public-insight-edit",
     ),
     # Edit & operations
     path(
@@ -106,6 +111,16 @@ urlpatterns = [
         r"^observations/(?P<observation_id>[a-f0-9\-]+)/close/$",
         views_observation.observation_close,
         name="public-observation-close",
+    ),
+    re_path(
+        r"^observations/(?P<observation_id>[a-f0-9\-]+)/close-and-extract/$",
+        views_observation.observation_close_and_extract,
+        name="public-observation-close-and-extract",
+    ),
+    re_path(
+        r"^observations/closed/(?P<event_stream_id>[a-f0-9\-]+)/extract-insight/$",
+        views_observation.observation_extract_insight,
+        name="public-observation-extract-insight",
     ),
     re_path(
         r"^observations/(?P<observation_id>[a-f0-9\-]+)/attach/$",

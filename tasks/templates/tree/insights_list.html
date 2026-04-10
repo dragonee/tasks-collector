@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}Insights | Tasks Collector{% endblock %}
+{% block content %}
+<!-- Vue entry-point -->
+
+
+<div class="observations">
+    <div class="cont">
+        {% include "menu.html" %}
+
+        <p class="menu observation with-badges">
+            <a href="{% url 'public-observation-list' %}">Mine <span class="badge">{{ mine_count }}</span></a>
+            <a href="{% url 'public-observation-list-all' %}">All <span class="badge">{{ open_count }}</span></a>
+            <a href="{% url 'public-observation-list-closed' %}">Closed <span class="badge">{{ closed_count }}</span></a>
+            <a href="{% url 'public-insights-list' %}">Insights</a>
+        </p>
+    </div>
+        {% for insight in object_list %}
+        <article class="observation" id="insight-{{ insight.pk }}">
+
+            <div class="meta">
+                {{ insight.published|date }}
+                (<span class="type" style="color: {{ insight.type.color }};">{{ insight.type }}</span>;
+                <span class="thread">{{ insight.thread }}</span>
+                <a href="{% url 'public-insight-edit' insight.event_stream_id %}">$</a>)
+            </div>
+            <div class="strong">{{ insight.approach|linebreaks }}</div>
+            <div class="situation-italic">{{ insight.situation|linebreaks }}</div>
+        </article>
+
+        {% empty %}
+        <div class="empty">
+            No insights yet. Close an observation and extract an insight to get started.
+        </div>
+        {% endfor %}
+</div>
+{% endblock %}
