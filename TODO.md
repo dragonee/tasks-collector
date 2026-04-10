@@ -170,3 +170,7 @@
   - add created_by to Event
   - add user to Breakthrough
 - [ ] Add Product Metrics collection
+- Add "Lessons"
+  - [x] Lesson made out of a closed observation
+  - [x] Lesson refined
+  - [x] model: In context ... here's how you should behave?
