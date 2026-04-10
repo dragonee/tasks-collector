@@ -503,7 +503,6 @@ observation_event_types = (
     ObservationReflectedUpon,
     ObservationReinterpreted,
     ObservationUpdated,
-    InsightRefined,
 )
 
 
