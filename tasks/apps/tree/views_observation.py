@@ -403,7 +403,7 @@ def observation_close_and_extract(request, observation_id):
     return response
 
 
-@api_view(["POST"])
+@login_required
 def observation_extract_insight(request, event_stream_id):
     observation_closed = get_object_or_404(
         ObservationClosed, event_stream_id=event_stream_id
@@ -411,27 +411,16 @@ def observation_extract_insight(request, event_stream_id):
 
     existing = InsightRefined.objects.filter(event_stream_id=event_stream_id).exists()
 
-    if existing:
-        response = RestResponse(
-            {"error": "Insight already exists. Edit it instead."},
-            status=status.HTTP_409_CONFLICT,
-        )
-        response["HX-Redirect"] = reverse(
+    if not existing and request.method == "POST":
+        insight = InsightRefined.from_observation_closed(observation_closed)
+        insight.save()
+
+    return redirect(
+        reverse(
             "public-insight-edit",
             kwargs={"event_stream_id": event_stream_id},
         )
-        return response
-
-    insight = InsightRefined.from_observation_closed(observation_closed)
-    insight.save()
-
-    response = RestResponse({"ok": True}, status=status.HTTP_201_CREATED)
-    response["HX-Redirect"] = reverse(
-        "public-insight-edit",
-        kwargs={"event_stream_id": event_stream_id},
     )
-
-    return response
 
 
 @login_required

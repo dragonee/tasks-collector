@@ -36,7 +36,10 @@
                 {% if insight %}
                     <a href="{% url 'public-insight-edit' instance.event_stream_id %}" class="btn btn-sm btn-outline-secondary">Edit Insight</a>
                 {% else %}
-                    <button class="btn btn-sm btn-outline-primary" hx-post="{% url 'public-observation-extract-insight' instance.event_stream_id %}">Extract Insight</button>
+                    <form method="POST" action="{% url 'public-observation-extract-insight' instance.event_stream_id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Extract Insight</button>
+                    </form>
                 {% endif %}
             </div>
         </div>
