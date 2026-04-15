@@ -133,12 +133,15 @@ class ObservationUpdatedViewSet(viewsets.ModelViewSet):
 
 class ObservationEventViewSet(viewsets.ModelViewSet):
     # XXX do we need to filter out events that are not of the observation type?
-    queryset = Event.objects.instance_of(*observation_event_types)
+    queryset = Event.objects.all()
 
     serializer_class = ObservationEventSerializer
 
     filter_backends = [DjangoFilterBackend]
     filter_class = EventFilter
+
+    def get_queryset(self):
+        return Event.objects.instance_of(*observation_event_types)
 
 
 class ObservationListView(LoginRequiredMixin, ListView):
