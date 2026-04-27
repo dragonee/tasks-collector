@@ -1,19 +1,24 @@
+from collections import defaultdict
+
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.forms import inlineformset_factory
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response as RestResponse
 
-from .forms import BreakthroughForm, ProjectedOutcomeForm
+from .forms import BreakthroughForm, ProjectedOutcomeEvolvedForm, ProjectedOutcomeForm
 from .models import (
     Breakthrough,
     HabitTracked,
     ProjectedOutcome,
     ProjectedOutcomeClosed,
+    ProjectedOutcomeEvolved,
     ProjectedOutcomeMoved,
 )
 
@@ -77,6 +82,16 @@ def breakthrough(request, year):
         closed_outcomes = ProjectedOutcomeClosed.objects.none()
         moved_outcomes = ProjectedOutcomeMoved.objects.none()
 
+    evolved_by_stream = defaultdict(list)
+    stream_ids = [po.event_stream_id for po in projected_outcome_queryset]
+    if stream_ids:
+        for evolved in ProjectedOutcomeEvolved.objects.filter(
+            event_stream_id__in=stream_ids
+        ).order_by("published"):
+            evolved_by_stream[evolved.event_stream_id].append(evolved)
+
+    evolved_form = ProjectedOutcomeEvolvedForm()
+
     return render(
         request,
         "tree/breakthrough.html",
@@ -90,6 +105,8 @@ def breakthrough(request, year):
             "projected_outcome_queryset": projected_outcome_queryset,
             "closed_outcomes": closed_outcomes,
             "moved_outcomes": moved_outcomes,
+            "evolved_by_stream": dict(evolved_by_stream),
+            "evolved_form": evolved_form,
         },
     )
 
@@ -118,6 +135,7 @@ def projected_outcome_events_history(request, event_stream_id):
             "rescheduled_events": presentation.rescheduled_events,
             "closed_events": presentation.closed_events,
             "moved_events": presentation.moved_events,
+            "evolved_events": presentation.evolved_events,
         },
     )
 
@@ -141,6 +159,32 @@ def projected_outcome_close(request, projected_outcome_id):
     )
 
     return response
+
+
+@require_POST
+@login_required
+def projected_outcome_evolve(request, projected_outcome_id):
+    projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
+
+    form = ProjectedOutcomeEvolvedForm(request.POST)
+    if not form.is_valid():
+        return HttpResponseBadRequest("Invalid note")
+
+    evolved = ProjectedOutcomeEvolved.from_projected_outcome(
+        projected_outcome, form.cleaned_data["note"]
+    )
+    evolved.save()
+
+    return render(
+        request,
+        "tree/breakthrough/evolved_list.html",
+        {
+            "evolved_events": ProjectedOutcomeEvolved.objects.filter(
+                event_stream_id=projected_outcome.event_stream_id
+            ).order_by("published"),
+            "outcome_pk": projected_outcome.pk,
+        },
+    )
 
 
 @api_view(["POST"])

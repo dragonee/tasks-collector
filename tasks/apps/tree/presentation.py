@@ -7,6 +7,7 @@ from .models import (
     Event,
     ProjectedOutcome,
     ProjectedOutcomeClosed,
+    ProjectedOutcomeEvolved,
     ProjectedOutcomeMade,
     ProjectedOutcomeMoved,
     ProjectedOutcomeRedefined,
@@ -48,6 +49,7 @@ class ProjectedOutcomePresentation:
         self._decorate_with_events("rescheduled_events", ProjectedOutcomeRescheduled)
         self._decorate_with_events("closed_events", ProjectedOutcomeClosed)
         self._decorate_with_events("moved_events", ProjectedOutcomeMoved)
+        self._decorate_with_events("evolved_events", ProjectedOutcomeEvolved)
 
         # Start with initial state from Made event
         if not self.made_events:

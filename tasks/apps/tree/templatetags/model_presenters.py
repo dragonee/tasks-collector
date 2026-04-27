@@ -43,6 +43,13 @@ def habit_without_name(tracked):
 
 
 @register.filter
+def get_item(mapping, key):
+    if mapping is None:
+        return []
+    return mapping.get(key, [])
+
+
+@register.filter
 def missing_months(regrouped_habits):
     year = regrouped_habits[0][1][0].published.year
 

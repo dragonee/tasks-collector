@@ -152,6 +152,13 @@
                                             {% endif %}
                                         </div>
                                     </div>
+                                {% elif event in evolved_events %}
+                                    <div class="event-type event-evolved">
+                                        <h3>🌱 Projected Outcome Evolved</h3>
+                                        <div class="event-details">
+                                            <p>{{ event.note }}</p>
+                                        </div>
+                                    </div>
                                 {% endif %}
                             </div>
                         </div>

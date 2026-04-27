@@ -724,6 +724,23 @@ class ProjectedOutcomeMoved(Event, ProjectedOutcomeEventMixin):
         )
 
 
+class ProjectedOutcomeEvolved(Event, ProjectedOutcomeEventMixin):
+    projected_outcome = models.ForeignKey(
+        ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    note = models.CharField(max_length=512)
+
+    @staticmethod
+    def from_projected_outcome(projected_outcome, note):
+        return ProjectedOutcomeEvolved(
+            projected_outcome=projected_outcome,
+            note=note,
+            event_stream_id=projected_outcome.event_stream_id,
+            thread=_get_thread_from_breakthrough(projected_outcome.breakthrough),
+        )
+
+
 class ObservationAttached(Event, ObservationEventMixin):
     observation = models.ForeignKey(
         Observation, on_delete=models.SET_NULL, null=True, blank=True

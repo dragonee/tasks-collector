@@ -166,6 +166,11 @@ urlpatterns = [
         views_breakthrough.projected_outcome_move,
         name="projected-outcome-move",
     ),
+    path(
+        "projected-outcome/<int:projected_outcome_id>/evolve/",
+        views_breakthrough.projected_outcome_evolve,
+        name="projected-outcome-evolve",
+    ),
     # === Journal / Diary (views) ===
     path("diary/add/", views.journal_add, name="public-journal-add"),
     path(

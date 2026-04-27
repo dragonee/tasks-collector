@@ -1,0 +1,8 @@
+<ul class="evolved-notes" id="evolved-notes-{{ outcome_pk }}">
+    {% for evolved in evolved_events %}
+        <li class="evolved-note">
+            <span class="evolved-date">{{ evolved.published|date:"M d" }}</span>
+            <span class="evolved-text">{{ evolved.note }}</span>
+        </li>
+    {% endfor %}
+</ul>
