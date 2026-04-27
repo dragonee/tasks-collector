@@ -15,6 +15,7 @@ from ..models import (
     ObservationUpdated,
     Plan,
     ProjectedOutcomeClosed,
+    ProjectedOutcomeEvolved,
     ProjectedOutcomeMade,
     ProjectedOutcomeRedefined,
     ProjectedOutcomeRescheduled,
@@ -184,6 +185,7 @@ aggregate_models_dict = {
     "projected_outcome_redefined_count": ProjectedOutcomeRedefined,
     "projected_outcome_rescheduled_count": ProjectedOutcomeRescheduled,
     "projected_outcome_closed_count": ProjectedOutcomeClosed,
+    "projected_outcome_evolved_count": ProjectedOutcomeEvolved,
     "event_count": Event,
 }
 

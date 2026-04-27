@@ -238,6 +238,34 @@
                                         {{ form.confidence_level }}
                                     </div>
                                 </div>
+                                {% if form.instance.pk %}
+                                <div class="field evolved-section">
+                                    <div class="meta">Evolution notes</div>
+                                    {% include "tree/breakthrough/evolved_list.html" with evolved_events=evolved_by_stream|get_item:form.instance.event_stream_id outcome_pk=form.instance.pk %}
+                                    <div class="evolved-add">
+                                        <input
+                                            type="text"
+                                            form="not-a-real-form"
+                                            name="note"
+                                            id="evolved-note-input-{{ form.instance.pk }}"
+                                            maxlength="512"
+                                            placeholder="Add an evolution note..."
+                                            data-evolved-input
+                                            data-outcome-id="{{ form.instance.pk }}"
+                                        >
+                                        <button
+                                            type="button"
+                                            class="evolved-add-btn"
+                                            hx-post="{% url 'projected-outcome-evolve' projected_outcome_id=form.instance.pk %}"
+                                            hx-target="#evolved-notes-{{ form.instance.pk }}"
+                                            hx-swap="outerHTML"
+                                            hx-include="#evolved-note-input-{{ form.instance.pk }}"
+                                            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                                            data-input-id="evolved-note-input-{{ form.instance.pk }}"
+                                        >Add</button>
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     {% endfor %}
@@ -338,6 +366,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
                 alert('Failed to close the outcome. Please try again.');
             });
+        });
+    });
+
+    // Evolved notes: clear the input after htmx swaps in the new list
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        const trigger = evt.detail.elt;
+        if (!trigger || !trigger.classList || !trigger.classList.contains('evolved-add-btn')) return;
+        if (!evt.detail.successful) return;
+        const inputId = trigger.dataset.inputId;
+        const input = document.getElementById(inputId);
+        if (input) input.value = '';
+    });
+
+    // Evolved notes: pressing Enter in the input triggers the Add button
+    document.querySelectorAll('input[data-evolved-input]').forEach(input => {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const button = this.parentElement.querySelector('.evolved-add-btn');
+                if (button) button.click();
+            }
         });
     });
 
