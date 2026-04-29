@@ -406,6 +406,22 @@ class ProjectedOutcomeMovedSerializer(serializers.ModelSerializer):
         ]
 
 
+class ProjectedOutcomeEvolvedSerializer(serializers.ModelSerializer):
+    thread = serializers.SlugRelatedField(
+        queryset=Thread.objects.all(), slug_field="name"
+    )
+
+    class Meta:
+        model = ProjectedOutcomeEvolved
+        fields = [
+            "id",
+            "published",
+            "event_stream_id",
+            "thread",
+            "note",
+        ]
+
+
 def get_observation_object(obj):
     if obj.observation:
         return obj.observation
@@ -481,6 +497,7 @@ class EventSerializer(PolymorphicSerializer):
         ProjectedOutcomeRescheduled: ProjectedOutcomeRescheduledSerializer,
         ProjectedOutcomeClosed: ProjectedOutcomeClosedSerializer,
         ProjectedOutcomeMoved: ProjectedOutcomeMovedSerializer,
+        ProjectedOutcomeEvolved: ProjectedOutcomeEvolvedSerializer,
         InsightRefined: InsightRefinedSerializer,
     }
 
