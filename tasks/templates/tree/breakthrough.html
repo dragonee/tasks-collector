@@ -241,7 +241,7 @@
                                 {% if form.instance.pk %}
                                 <div class="field evolved-section">
                                     <div class="meta">Evolution notes</div>
-                                    {% include "tree/breakthrough/evolved_list.html" with evolved_events=evolved_by_stream|get_item:form.instance.event_stream_id outcome_pk=form.instance.pk %}
+                                    {% include "tree/breakthrough/evolved_list.html" with evolved_events=form.instance.projectedoutcomeevolved_set.all outcome_pk=form.instance.pk %}
                                     <div class="evolved-add">
                                         <input
                                             type="text"

@@ -1,9 +1,7 @@
-from collections import defaultdict
-
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.forms import inlineformset_factory
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -82,16 +80,6 @@ def breakthrough(request, year):
         closed_outcomes = ProjectedOutcomeClosed.objects.none()
         moved_outcomes = ProjectedOutcomeMoved.objects.none()
 
-    evolved_by_stream = defaultdict(list)
-    stream_ids = [po.event_stream_id for po in projected_outcome_queryset]
-    if stream_ids:
-        for evolved in ProjectedOutcomeEvolved.objects.filter(
-            event_stream_id__in=stream_ids
-        ).order_by("published"):
-            evolved_by_stream[evolved.event_stream_id].append(evolved)
-
-    evolved_form = ProjectedOutcomeEvolvedForm()
-
     return render(
         request,
         "tree/breakthrough.html",
@@ -105,8 +93,6 @@ def breakthrough(request, year):
             "projected_outcome_queryset": projected_outcome_queryset,
             "closed_outcomes": closed_outcomes,
             "moved_outcomes": moved_outcomes,
-            "evolved_by_stream": dict(evolved_by_stream),
-            "evolved_form": evolved_form,
         },
     )
 
