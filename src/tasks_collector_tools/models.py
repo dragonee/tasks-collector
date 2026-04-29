@@ -168,6 +168,13 @@ class ProjectedOutcomeClosed(BaseEvent):
     success_criteria: Optional[str]
 
 
+class ProjectedOutcomeEvolved(BaseEvent):
+    resourcetype: Literal['ProjectedOutcomeEvolved']
+    event_stream_id: str
+    thread: str
+    note: str
+
+
 class Plan(BaseModel):
     id: int
     focus: str|None
@@ -216,7 +223,8 @@ Event = Union[
     ProjectedOutcomeRedefined,
     ProjectedOutcomeRescheduled,
     ProjectedOutcomeMoved,
-    ProjectedOutcomeClosed
+    ProjectedOutcomeClosed,
+    ProjectedOutcomeEvolved
 ]
 
 class DefaultBoardThread(BaseModel):

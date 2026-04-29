@@ -10,7 +10,7 @@ from .models import (
     ObservationMade, ObservationUpdated, ObservationRecontextualized,
     ObservationReinterpreted, ObservationReflectedUpon, ObservationClosed,
     InsightRefined, ObservationAttached, ObservationDetached,
-    ProjectedOutcomeMade, ProjectedOutcomeRedefined, ProjectedOutcomeRescheduled, ProjectedOutcomeMoved, ProjectedOutcomeClosed,
+    ProjectedOutcomeMade, ProjectedOutcomeRedefined, ProjectedOutcomeRescheduled, ProjectedOutcomeMoved, ProjectedOutcomeClosed, ProjectedOutcomeEvolved,
     Plan, Reflection, Event
 )
 
@@ -278,10 +278,15 @@ class ProjectedOutcomeClosedPresenter(BaseEventPresenter):
     {{ event.description }}
     {% endif %}
     {% if event.success_criteria %}
-    
+
     ### Success Criteria
     {{ event.success_criteria }}
     {% endif %}
+    """
+
+class ProjectedOutcomeEvolvedPresenter(BaseEventPresenter):
+    template: str = """
+    {{ event.note }}
     """
 
 # Presenter classes for Plan and Reflection
@@ -338,6 +343,8 @@ def get_presenter_class(event: Event):
             return ProjectedOutcomeMovedPresenter
         case ProjectedOutcomeClosed():
             return ProjectedOutcomeClosedPresenter
+        case ProjectedOutcomeEvolved():
+            return ProjectedOutcomeEvolvedPresenter
         case _:
             return BaseEventPresenter
 
