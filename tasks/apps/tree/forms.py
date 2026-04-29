@@ -203,6 +203,17 @@ class DecimalSliderWidget(forms.NumberInput):
         return float(value)
 
 
+class ProjectedOutcomeEvolvedForm(forms.Form):
+    note = forms.CharField(
+        max_length=512,
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Add a note about this outcome...",
+            }
+        ),
+    )
+
+
 class ProjectedOutcomeForm(forms.ModelForm):
     class Meta:
         model = ProjectedOutcome
