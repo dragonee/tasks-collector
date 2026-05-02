@@ -155,13 +155,6 @@ class ObservationListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context["open_count"] = Observation.objects.count()
-        context["closed_count"] = ObservationClosed.objects.count()
-        context["mine_count"] = Observation.objects.filter(
-            user=self.request.user
-        ).count()
-
-        # Add attach mode context
         context["attach_mode"] = self.request.GET.get("attach_mode") == "true"
         context["attach_observation_id"] = self.request.GET.get("observation_id")
 
@@ -175,17 +168,6 @@ class ObservationClosedListView(LoginRequiredMixin, ListView):
     )
 
     paginate_by = 100
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        context["open_count"] = Observation.objects.count()
-        context["closed_count"] = ObservationClosed.objects.count()
-        context["mine_count"] = Observation.objects.filter(
-            user=self.request.user
-        ).count()
-
-        return context
 
 
 class ObservationMineListView(LoginRequiredMixin, ListView):
@@ -204,13 +186,6 @@ class ObservationMineListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context["open_count"] = Observation.objects.count()
-        context["closed_count"] = ObservationClosed.objects.count()
-        context["mine_count"] = Observation.objects.filter(
-            user=self.request.user
-        ).count()
-
-        # Add attach mode context
         context["attach_mode"] = self.request.GET.get("attach_mode") == "true"
         context["attach_observation_id"] = self.request.GET.get("observation_id")
 
@@ -233,17 +208,6 @@ class InsightsListView(LoginRequiredMixin, ListView):
             .select_related("thread", "type")
             .order_by("-published")
         )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        context["open_count"] = Observation.objects.count()
-        context["closed_count"] = ObservationClosed.objects.count()
-        context["mine_count"] = Observation.objects.filter(
-            user=self.request.user
-        ).count()
-
-        return context
 
 
 @login_required
