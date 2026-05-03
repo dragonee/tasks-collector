@@ -219,6 +219,41 @@ def fill_missing_journal_entries(arguments):
         print(f"Error running reflectiondump: {e}")
 
 
+def is_daily_mode(arguments):
+    return not arguments['--week'] and not arguments['--month']
+
+
+def daily_reflection(arguments):
+    """Dump quoted journal entries straight into `journal` — no editor opened here."""
+    day = parse(arguments['--date']).date() if arguments['--date'] else date.today()
+
+    if arguments['--yesterday']:
+        day = day - timedelta(days=1)
+
+    cmd = [
+        'reflectiondump',
+        '--no-summary',
+        '--no-titles',
+        '--no-habits',
+        '--no-observations',
+        '--prefix', '> ',
+        '-d', day.strftime('%Y-%m-%d'),
+        '-D', day.strftime('%Y-%m-%d'),
+    ]
+
+    output = subprocess.check_output(cmd).decode('utf-8').strip().replace('\r', '')
+
+    published = published_from_arguments(arguments)
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.md') as f:
+        f.write(output)
+        f.flush()
+
+        journal_cmd = ['journal', '--date', published.isoformat(), '--file', f.name]
+
+        subprocess.run(journal_cmd, check=True)
+
+
 def get_journal_command_arguments_from_payload(payload):
     """Convert a reflection payload into journal command arguments."""
     cmd = ['journal']
@@ -242,6 +277,10 @@ def main():
     
     if arguments['--missing']:
         fill_missing_journal_entries(arguments)
+
+    if is_daily_mode(arguments):
+        daily_reflection(arguments)
+        return
 
     tmpfile = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.md')
 

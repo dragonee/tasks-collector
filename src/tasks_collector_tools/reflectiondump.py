@@ -6,6 +6,11 @@ Usage:
 Options:
     -T, --thread THREAD  Dump specific thread.
     --skip-journals     Skip journals.
+    --no-summary        Skip Good/Better/Best summary.
+    --no-titles         Skip section headers ("# Reflection", "# Journals", etc).
+    --no-habits         Skip habits section.
+    --no-observations   Skip observations section.
+    --prefix PREFIX     Prefix each line of journal entries with PREFIX.
     -d DATE_FROM, --from FROM  Dump from specific date.
     -D DATE_TO, --to DATE_TO   Dump to specific date.
     --year YEAR      Dump specific year.
@@ -67,40 +72,38 @@ EVENT_TEMPLATE = """
 
 
 TEMPLATE = """
-# {{ title }}
-{% if reflections.good %}
+{{ title }}
+{% if show_summary %}
 {{ reflections.good }}
-{% endif %}
 
-## Better
-{% if reflections.better %}
+{{ better_header }}
+
 {{ reflections.better }}
-{% endif %}
 
-## Best
-{% if reflections.best %}
+{{ best_header }}
+
 {{ reflections.best }}
 {% endif %}
 
 {% if has_plans %}
-# Plans
+{{ plans_header }}
 {% endif %}
 {% if plans.focus %}
 {{ plans.focus }}
 {% endif %}
 
 {% if habits.habit_groups %}
-# Habits
+{{ habits_header }}
 
 {{ habits.habit_groups }}
 {% endif %}
 {% if observation_stats.count %}
-# Work on observations ({{ observation_stats.count }})
+{{ observations_header }}
 
 {{ observation_stats.renders }}
 {% endif %}
 {% if journals %}
-# Journals
+{{ journals_header }}
 
 {{ journals }}
 {% endif %}
@@ -115,6 +118,7 @@ def first_line(text):
     return text
 
 TIME_FORMAT = '(%a) %H:%M'
+DAILY_TIME_FORMAT = '%H:%M'
 
 
 def parse_result(result_data: dict) -> Result:
@@ -269,9 +273,14 @@ class HabitStatistics:
 class ResultAggregator:
     results: List[Result]
 
-    def __init__(self, results: List[Result], skip_journals: bool = False):
+    def __init__(self, results: List[Result], skip_journals: bool = False, skip_summary: bool = False, skip_titles: bool = False, skip_habits: bool = False, skip_observations: bool = False, journal_prefix: str = ''):
         self.results = results
         self.skip_journals = skip_journals
+        self.skip_summary = skip_summary
+        self.skip_titles = skip_titles
+        self.skip_habits = skip_habits
+        self.skip_observations = skip_observations
+        self.journal_prefix = journal_prefix
 
     def _get_events(self, event_type: Type[Event]):
         return [event for result in self.results for event in result.events if isinstance(event, event_type)]
@@ -310,13 +319,17 @@ class ResultAggregator:
         }
 
     def _render_events(self, events: List[Event], separator='\n'):
-        return separator.join(get_presenter(event, time_format=TIME_FORMAT).render() for event in events)
+        time_format = DAILY_TIME_FORMAT if len(self.results) == 1 else TIME_FORMAT
+        return separator.join(get_presenter(event, time_format=time_format).render() for event in events)
 
     def render_habit_events(self):
         return self._render_events(self.get_habit_events())
     
     def render_journal_events(self):
-        return self._render_events(self.get_journal_events())
+        rendered = self._render_events(self.get_journal_events()).strip('\n')
+        if self.journal_prefix and rendered:
+            rendered = '\n'.join(self.journal_prefix + line for line in rendered.split('\n'))
+        return rendered
 
     def get_title(self):
         if len(self.results) == 0:
@@ -335,14 +348,26 @@ class ResultAggregator:
     def get_context(self):
         has_plans = any(result.plan for result in self.results)
 
+        habits = {'habit_groups': ''} if self.skip_habits else HabitStatistics(self.get_habit_events()).get_context()
+        observation_stats = {'count': 0, 'renders': ''} if self.skip_observations else self.get_observation_stats().get_context()
+
+        show_titles = not self.skip_titles
+
         return {
-            'title': self.get_title(),
+            'title': ('# ' + self.get_title()) if show_titles else '',
+            'better_header': '## Better' if show_titles else '',
+            'best_header': '## Best' if show_titles else '',
+            'plans_header': '# Plans' if show_titles else '',
+            'habits_header': '# Habits' if show_titles else '',
+            'observations_header': f'# Work on observations ({observation_stats["count"]})' if show_titles else '',
+            'journals_header': '# Journals' if show_titles else '',
+            'show_summary': not self.skip_summary,
             'reflections': self.get_reflection_context(),
             'has_plans': has_plans,
             'plans': self.get_plan_context(),
-            'habits': HabitStatistics(self.get_habit_events()).get_context(),
+            'habits': habits,
             'journals': self.render_journal_events() if not self.skip_journals else None,
-            'observation_stats': self.get_observation_stats().get_context(),
+            'observation_stats': observation_stats,
         }
 
 
@@ -392,7 +417,15 @@ def main():
     valid_results = [result for _, result in date_results 
                     if result is not None and not result.empty()]
     
-    aggregator = ResultAggregator(valid_results, skip_journals=arguments['--skip-journals'])
+    aggregator = ResultAggregator(
+        valid_results,
+        skip_journals=arguments['--skip-journals'],
+        skip_summary=arguments['--no-summary'],
+        skip_titles=arguments['--no-titles'],
+        skip_habits=arguments['--no-habits'],
+        skip_observations=arguments['--no-observations'],
+        journal_prefix=arguments['--prefix'] or '',
+    )
     print(render_template(TEMPLATE, aggregator.get_context()))
 
 
