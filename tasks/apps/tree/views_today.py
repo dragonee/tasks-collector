@@ -205,7 +205,7 @@ class Monthly(Period):
 
 def _event_calendar(start, end):
     events = (
-        Event.objects.filter(
+        JournalAdded.objects.filter(
             published__range=(start, end),
         )
         .order_by("published")
