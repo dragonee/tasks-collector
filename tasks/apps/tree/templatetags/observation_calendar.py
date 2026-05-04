@@ -4,7 +4,7 @@ from collections import Counter
 from django import template
 from django.utils import timezone
 
-from ..models import ObservationMade
+from ..models import Event, InsightRefined, observation_event_types
 from ..utils.datetime import DayCount, adjust_start_date_to_monday, date_range_generator
 from ..utils.itertools import itemize
 
@@ -13,7 +13,8 @@ register = template.Library()
 
 def _observation_calendar(start, end):
     events = (
-        ObservationMade.objects.filter(
+        Event.objects.instance_of(*observation_event_types, InsightRefined)
+        .filter(
             published__range=(start, end),
         )
         .order_by("published")
