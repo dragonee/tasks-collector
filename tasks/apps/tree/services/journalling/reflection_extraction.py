@@ -60,7 +60,7 @@ def append_lines_to_value(value, lines):
     return (value + "\n" + "\n".join(lines)).strip()
 
 
-def add_reflection_items(journal_added):
+def add_reflection_items(journal_added, comment=None):
     """
     Extract reflection items from a journal entry and add them to the Reflection.
 
@@ -72,9 +72,14 @@ def add_reflection_items(journal_added):
 
     Args:
         journal_added: A JournalAdded instance to extract reflections from.
+        comment: Optional pre-processed comment text. Defaults to
+            ``journal_added.comment``.
     """
     # Import here to avoid circular imports
     from ...models import Reflection
+
+    if comment is None:
+        comment = journal_added.comment
 
     pub_date = journal_added.published.date()
 
@@ -85,7 +90,7 @@ def add_reflection_items(journal_added):
     if journal_added.thread.name == "big-picture":
         pub_date = pub_date.replace(day=monthrange(pub_date.year, pub_date.month)[1])
 
-    reflection_lines = extract_reflection_lines(journal_added.comment)
+    reflection_lines = extract_reflection_lines(comment)
 
     if not reflection_lines:
         return

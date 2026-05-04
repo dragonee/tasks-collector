@@ -130,3 +130,42 @@ class JournalProcessingTestCase(TestCase):
         self.assertEqual(HabitTracked.objects.count(), 0)
         reflection = Reflection.objects.get()
         self.assertEqual(reflection.good, "good thing")
+
+    def test_quoted_lines_are_ignored(self):
+        """Lines starting with `>` are treated as blockquotes and skipped."""
+        journal = self._create_journal(
+            "> - [x] quoted reflection\n"
+            "> #food quoted habit\n"
+            "[x] real reflection\n"
+            "#food real habit"
+        )
+
+        process_journal_entry(journal)
+
+        reflection = Reflection.objects.get()
+        self.assertEqual(reflection.good, "real reflection")
+        self.assertEqual(HabitTracked.objects.count(), 1)
+        self.assertEqual(HabitTracked.objects.get().note, "#food real habit")
+
+    def test_indented_and_nested_quoted_lines_are_ignored(self):
+        """Indented (`  >`) and nested (`>>`) quote lines are also skipped."""
+        journal = self._create_journal(
+            "  > [x] indented quote\n"
+            ">> #food nested quote\n"
+            "[x] kept"
+        )
+
+        process_journal_entry(journal)
+
+        reflection = Reflection.objects.get()
+        self.assertEqual(reflection.good, "kept")
+        self.assertEqual(HabitTracked.objects.count(), 0)
+
+    def test_mid_line_gt_is_not_treated_as_quote(self):
+        """A `>` that is not at the line start does not skip the line."""
+        journal = self._create_journal("#food eaten > a lot")
+
+        process_journal_entry(journal)
+
+        self.assertEqual(HabitTracked.objects.count(), 1)
+        self.assertEqual(HabitTracked.objects.get().note, "#food eaten > a lot")
