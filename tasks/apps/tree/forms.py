@@ -49,11 +49,11 @@ class ObservationForm(forms.ModelForm):
 
 class InsightForm(forms.Form):
     situation = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 3}),
+        widget=forms.Textarea(attrs={"rows": 10}),
         required=False,
     )
     approach = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 5}),
+        widget=forms.Textarea(attrs={"rows": 10}),
         required=True,
     )
 
