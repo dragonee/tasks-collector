@@ -8,6 +8,7 @@
             v-show="!listViewMode"
             :data="currentBoard.state"
             :options="options"
+            :filter="treeFilterQuery"
             ref="tree"
         >
             <template slot-scope="{ node }">
@@ -42,7 +43,17 @@
             <a class="menulink" href="/quests/view/">Journal</a>
             <a class="menulink" href="/accounts/settings/">⚙</a>
 
-            <button @click.prevent="prepareCommit" class="on-right">commit</button>
+            <select
+                v-show="!listViewMode"
+                v-model="filterMode"
+                class="filter-select on-right"
+            >
+                <option value="all">all</option>
+                <option value="important">important</option>
+                <option value="deprecated">deprecated</option>
+            </select>
+
+            <button @click.prevent="prepareCommit" :class="{ 'on-right': listViewMode }">commit</button>
         </div>
 
         <CommitConfirmationModal
@@ -107,6 +118,10 @@ export default {
             return this.findItemsToBeRemoved(this.currentBoard.state)
         },
 
+        treeFilterQuery() {
+            return this.filterMode === 'all' ? '' : this.filterMode
+        },
+
         options() {
             return {
                 checkbox: true,
@@ -114,6 +129,10 @@ export default {
                 dnd: true,
                 deletion: true,
                 keyboardNavigation: true,
+
+                filter: {
+                    matcher: this.matchesFilter,
+                },
 
                 store: {
                     store: this.$store,
@@ -135,6 +154,7 @@ export default {
         unwatch: null,
         showCommitModal: false,
         listViewMode: false,
+        filterMode: 'all',
     }),
 
     mounted() {
@@ -225,48 +245,61 @@ export default {
             )
         },
 
-        findItemsToBeRemoved(items) {
-            let result = []
+        matchesFilter(query, node) {
+            const markers = node.data?.meaningfulMarkers || {}
 
-            const willBeForceRemoved = (node) => {
-                const markers = node.data?.meaningfulMarkers || {}
+            if (query === 'important') {
+                return (markers.important || 0) > 0
+            }
 
-                // Only show items with weeksInList >= 5 that will be force-removed
-                const weeksInList = markers.weeksInList || 0
-                if (weeksInList < 5) {
-                    return false
-                }
-
-                // Keep categories (nodes with children)
-                if (node.children && node.children.length > 0) {
-                    return false
-                }
-
-                // Keep canBePostponed tasks
-                if (markers.canBePostponed) {
-                    return false
-                }
-
-                // Keep postponed tasks
-                if ((markers.postponedFor || 0) > 0) {
-                    return false
-                }
-
-                // Keep tasks that made progress
-                if (markers.madeProgress) {
-                    return false
-                }
-
-                // Do not show checked tasks
-                if (node.state?.checked) {
-                    return false
-                }
-
+            if (query === 'deprecated') {
+                if ((markers.weeksInList || 0) < 5) return false
+                if (node.hasChildren()) return false
+                if (markers.canBePostponed) return false
+                if ((markers.postponedFor || 0) > 0) return false
+                if (markers.madeProgress) return false
+                if (node.states?.checked) return false
                 return true
             }
 
+            return false
+        },
+
+        isItemDeprecated(item) {
+            const markers = item.data?.meaningfulMarkers || {}
+
+            if ((markers.weeksInList || 0) < 5) {
+                return false
+            }
+
+            if (item.children && item.children.length > 0) {
+                return false
+            }
+
+            if (markers.canBePostponed) {
+                return false
+            }
+
+            if ((markers.postponedFor || 0) > 0) {
+                return false
+            }
+
+            if (markers.madeProgress) {
+                return false
+            }
+
+            if (item.state?.checked) {
+                return false
+            }
+
+            return true
+        },
+
+        findItemsToBeRemoved(items) {
+            let result = []
+
             const traverse = (node) => {
-                if (willBeForceRemoved(node)) {
+                if (this.isItemDeprecated(node)) {
                     result.push({
                         text: node.text,
                         weeksInList: node.data?.meaningfulMarkers?.weeksInList || 0
