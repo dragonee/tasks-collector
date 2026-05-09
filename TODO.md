@@ -174,3 +174,6 @@
   - [x] Lesson made out of a closed observation
   - [x] Lesson refined
   - [x] model: In context ... here's how you should behave?
+- [ ] Use reflect to reflect back on daily entries
+  - on daily, it could be a single view, not choice-then-entry
+  - might even show all journals from top to bottom and quote these (quotation prevents readding habits)
