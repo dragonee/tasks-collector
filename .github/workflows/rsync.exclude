@@ -10,6 +10,7 @@
 /TODO.md
 /DECISION.md
 /CLAUDE.md
+/ARTICLES.md
 /.gitlint
 /Makefile
 /.babelrc
@@ -34,3 +35,5 @@
 /config
 *.pyc
 __pycache__
+/.mcp.json
+/.pre-commit-config.yaml
