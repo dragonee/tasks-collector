@@ -5,6 +5,7 @@ import HelloWorldComponent from './hello_world.vue'
 import Board from './Board.vue'
 import Journal from './Journal.vue'
 import Eisenhower from './Eisenhower.vue'
+import Moscow from './Moscow.vue'
 
 import store from '../store'
 
@@ -44,6 +45,8 @@ const routes = [
     { path: '/journal/:date', component: Journal },
     { path: '/eisenhower', component: Eisenhower },
     { path: '/eisenhower/:slug', component: Eisenhower },
+    { path: '/moscow', component: Moscow },
+    { path: '/moscow/:slug', component: Moscow },
 ]
 
 const router = new VueRouter({

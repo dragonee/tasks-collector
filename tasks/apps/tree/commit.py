@@ -66,6 +66,11 @@ def transition_markers_in_tree_item(markers, children=None):
     if eisenhower:
         new_markers["eisenhower"] = eisenhower
 
+    moscow = markers.get("moscow")
+
+    if moscow:
+        new_markers["moscow"] = moscow
+
     return new_markers
 
 

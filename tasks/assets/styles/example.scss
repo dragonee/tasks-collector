@@ -162,6 +162,20 @@ body, html {
 .eisenhower-urgent-not-important { background-color: #f0ad4ebf; }
 .eisenhower-not-urgent-not-important { background-color: #888888bf; }
 
+.has-moscow {
+    position: absolute;
+    bottom: 0;
+    left: 50px;
+    width: 20px;
+    display: block;
+    height: 3px;
+}
+
+.moscow-must { background-color: #b91c1cbf; }
+.moscow-should { background-color: #d97706bf; }
+.moscow-could { background-color: #0d9488bf; }
+.moscow-wont { background-color: #64748bbf; }
+
 .transition {
     color: #999;
     font-size: 0.8em;
@@ -425,6 +439,10 @@ h1 + .cont .menu a:first-child {
 
         .has-eisenhower {
             left: 35px;
+        }
+
+        .has-moscow {
+            left: 60px;
         }
     }
 
