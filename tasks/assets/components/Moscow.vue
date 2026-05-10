@@ -1,10 +1,10 @@
 <template>
-    <div class="board eisenhower">
+    <div class="board moscow">
         <div class="upper-pane">
-            <h1>Eisenhower Matrix</h1>
+            <h1>MoSCoW Classification</h1>
         </div>
 
-        <div class="eisenhower-layout">
+        <div class="moscow-layout">
             <div class="task-tree-pane">
                 <ul class="task-tree">
                     <li
@@ -12,7 +12,7 @@
                         :key="item.pathKey"
                         class="task-item"
                         :class="{
-                            classified: item.eisenhower,
+                            classified: item.moscow,
                             checked: item.checked
                         }"
                         :style="{ paddingLeft: (0.5 + item.depth * 1.2) + 'rem' }"
@@ -20,28 +20,28 @@
                         @dragstart="onDragStart($event, item)"
                     >
                         <span
-                            class="eisenhower-badge"
-                            :class="item.eisenhower ? `badge-${item.eisenhower}` : 'badge-empty'"
-                            :title="item.eisenhower ? quadrantTitleById[item.eisenhower] : ''"
+                            class="moscow-badge"
+                            :class="item.moscow ? `badge-${item.moscow}` : 'badge-empty'"
+                            :title="item.moscow ? bucketTitleById[item.moscow] : ''"
                         ></span>
                         <span class="task-text">{{ item.text }}</span>
                     </li>
                 </ul>
             </div>
 
-            <div class="eisenhower-grid">
+            <div class="moscow-grid">
                 <div
-                    v-for="quadrant in quadrants"
-                    :key="quadrant.id"
-                    class="quadrant"
-                    :class="`q-${quadrant.id}`"
+                    v-for="bucket in buckets"
+                    :key="bucket.id"
+                    class="bucket"
+                    :class="`b-${bucket.id}`"
                     @dragover.prevent="onDragOver"
-                    @drop="onDrop($event, quadrant.id)"
+                    @drop="onDrop($event, bucket.id)"
                 >
-                    <h3>{{ quadrant.title }}</h3>
+                    <h3>{{ bucket.title }}</h3>
                     <ul>
                         <li
-                            v-for="item in itemsByQuadrant[quadrant.id]"
+                            v-for="item in itemsByBucket[bucket.id]"
                             :key="item.pathKey"
                             class="grid-item"
                             :class="{ checked: item.checked }"
@@ -77,11 +77,11 @@
 <script>
 import { mapGetters } from 'vuex'
 
-const QUADRANTS = [
-    { id: 'urgent-important', title: 'Urgent & Important' },
-    { id: 'not-urgent-important', title: 'Not Urgent & Important' },
-    { id: 'urgent-not-important', title: 'Urgent & Not Important' },
-    { id: 'not-urgent-not-important', title: 'Not Urgent & Not Important' },
+const BUCKETS = [
+    { id: 'must', title: 'Must have' },
+    { id: 'should', title: 'Should have' },
+    { id: 'could', title: 'Could have' },
+    { id: 'wont', title: "Won't have" },
 ]
 
 function deepClone(value) {
@@ -105,8 +105,8 @@ export default {
     computed: {
         ...mapGetters(['currentBoard']),
 
-        quadrants() {
-            return QUADRANTS
+        buckets() {
+            return BUCKETS
         },
 
         flatItems() {
@@ -119,8 +119,8 @@ export default {
                         path,
                         pathKey: path.join('/'),
                         depth,
-                        eisenhower: node.data && node.data.meaningfulMarkers && node.data.meaningfulMarkers.eisenhower
-                            ? node.data.meaningfulMarkers.eisenhower
+                        moscow: node.data && node.data.meaningfulMarkers && node.data.meaningfulMarkers.moscow
+                            ? node.data.meaningfulMarkers.moscow
                             : null,
                         checked: node.state && node.state.checked,
                     })
@@ -133,15 +133,15 @@ export default {
             return items
         },
 
-        quadrantTitleById() {
-            return Object.fromEntries(QUADRANTS.map(q => [q.id, q.title]))
+        bucketTitleById() {
+            return Object.fromEntries(BUCKETS.map(b => [b.id, b.title]))
         },
 
-        itemsByQuadrant() {
-            const groups = Object.fromEntries(QUADRANTS.map(q => [q.id, []]))
+        itemsByBucket() {
+            const groups = Object.fromEntries(BUCKETS.map(b => [b.id, []]))
             for (const item of this.flatItems) {
-                if (item.eisenhower && groups[item.eisenhower]) {
-                    groups[item.eisenhower].push(item)
+                if (item.moscow && groups[item.moscow]) {
+                    groups[item.moscow].push(item)
                 }
             }
             return groups
@@ -177,21 +177,21 @@ export default {
             ev.dataTransfer.dropEffect = 'move'
         },
 
-        onDrop(ev, quadrantId) {
+        onDrop(ev, bucketId) {
             if (!this.draggedItem) return
-            this.setEisenhower(this.draggedItem.path, quadrantId)
+            this.setMoscow(this.draggedItem.path, bucketId)
             this.draggedItem = null
         },
 
-        setEisenhower(path, value) {
+        setMoscow(path, value) {
             const newState = deepClone(this.currentBoard.state)
             const node = getNodeByPath(newState, path)
             if (!node.data) node.data = {}
             if (!node.data.meaningfulMarkers) node.data.meaningfulMarkers = {}
             if (value === null) {
-                delete node.data.meaningfulMarkers.eisenhower
+                delete node.data.meaningfulMarkers.moscow
             } else {
-                node.data.meaningfulMarkers.eisenhower = value
+                node.data.meaningfulMarkers.moscow = value
             }
             this.$store.dispatch('save', {
                 state: newState,
@@ -214,7 +214,7 @@ export default {
 
         removeStatus() {
             if (this.contextMenu.item) {
-                this.setEisenhower(this.contextMenu.item.path, null)
+                this.setMoscow(this.contextMenu.item.path, null)
             }
             this.hideContextMenu()
         },
@@ -223,7 +223,7 @@ export default {
 </script>
 
 <style scoped>
-.eisenhower-layout {
+.moscow-layout {
     display: flex;
     flex: 1;
     min-height: 0;
@@ -279,7 +279,7 @@ export default {
     white-space: nowrap;
 }
 
-.eisenhower-badge {
+.moscow-badge {
     display: inline-block;
     width: 10px;
     height: 10px;
@@ -293,12 +293,12 @@ export default {
     border-color: #ddd;
 }
 
-.badge-urgent-important { background: #d9534f; border-color: #d9534f; }
-.badge-not-urgent-important { background: #5cb85c; border-color: #5cb85c; }
-.badge-urgent-not-important { background: #f0ad4e; border-color: #f0ad4e; }
-.badge-not-urgent-not-important { background: #888; border-color: #888; }
+.badge-must { background: #b91c1c; border-color: #b91c1c; }
+.badge-should { background: #d97706; border-color: #d97706; }
+.badge-could { background: #0d9488; border-color: #0d9488; }
+.badge-wont { background: #64748b; border-color: #64748b; }
 
-.eisenhower-grid {
+.moscow-grid {
     flex: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -308,7 +308,7 @@ export default {
     min-height: 0;
 }
 
-.quadrant {
+.bucket {
     border: 2px dashed #ccc;
     border-radius: 4px;
     padding: 0.5rem;
@@ -319,17 +319,17 @@ export default {
     min-height: 0;
 }
 
-.quadrant h3 {
+.bucket h3 {
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
 }
 
-.q-urgent-important { border-color: #d9534f; }
-.q-not-urgent-important { border-color: #5cb85c; }
-.q-urgent-not-important { border-color: #f0ad4e; }
-.q-not-urgent-not-important { border-color: #888; }
+.b-must { border-color: #b91c1c; }
+.b-should { border-color: #d97706; }
+.b-could { border-color: #0d9488; }
+.b-wont { border-color: #64748b; }
 
-.quadrant ul {
+.bucket ul {
     list-style: none;
     padding: 0;
     margin: 0;

@@ -65,6 +65,14 @@
         >
         </span>
 
+        <span
+            v-if="markers.moscow"
+            class="has-moscow"
+            :class="`moscow-${markers.moscow}`"
+            :title="moscowTitle"
+        >
+        </span>
+
     </div>
 </template>
 <script>
@@ -104,6 +112,16 @@ export default {
                 'not-urgent-not-important': 'Not Urgent & Not Important',
             }
             return titles[this.markers.eisenhower] || ''
+        },
+
+        moscowTitle() {
+            const titles = {
+                'must': 'Must have',
+                'should': 'Should have',
+                'could': 'Could have',
+                'wont': "Won't have",
+            }
+            return titles[this.markers.moscow] || ''
         }
     },
 }

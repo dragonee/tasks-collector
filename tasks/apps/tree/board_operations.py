@@ -15,6 +15,7 @@ def create_task_item(text):
                 "important": False,
                 "finalizing": False,
                 "eisenhower": None,
+                "moscow": None,
                 "canBeDoneOutsideOfWork": False,
                 "canBePostponed": False,
                 "postponedFor": 0,

@@ -17,6 +17,7 @@ export function createTreeItem(text="") {
                 important: 0,
                 finalizing: false,
                 eisenhower: null,
+                moscow: null,
                 canBeDoneOutsideOfWork: false,
                 canBePostponed: false,
                 // 0+
