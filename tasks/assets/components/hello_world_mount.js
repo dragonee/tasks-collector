@@ -4,6 +4,7 @@ import VueRouter from 'vue-router'
 import HelloWorldComponent from './hello_world.vue'
 import Board from './Board.vue'
 import Journal from './Journal.vue'
+import Eisenhower from './Eisenhower.vue'
 
 import store from '../store'
 
@@ -39,8 +40,10 @@ const apiRequest = async (url, options = {}) => {
 
 const routes = [
     { path: '/', component: Board },
-    { path: '/board/:slug', component: Board }, 
+    { path: '/board/:slug', component: Board },
     { path: '/journal/:date', component: Journal },
+    { path: '/eisenhower', component: Eisenhower },
+    { path: '/eisenhower/:slug', component: Eisenhower },
 ]
 
 const router = new VueRouter({

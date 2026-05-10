@@ -31,6 +31,7 @@
 
             <router-link class="menulink" to="/">Board</router-link>
             <router-link class="menulink" to="/journal">Journal</router-link>
+            <router-link class="menulink" to="/eisenhower">Eisenhower</router-link>
 
             <span class="menulink">/</span>
 
