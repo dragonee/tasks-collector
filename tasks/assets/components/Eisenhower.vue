@@ -22,7 +22,7 @@
                         <span
                             class="eisenhower-badge"
                             :class="item.eisenhower ? `badge-${item.eisenhower}` : 'badge-empty'"
-                            :title="item.eisenhower ? quadrantTitle(item.eisenhower) : ''"
+                            :title="item.eisenhower ? quadrantTitleById[item.eisenhower] : ''"
                         ></span>
                         <span class="task-text">{{ item.text }}</span>
                     </li>
@@ -41,7 +41,7 @@
                     <h3>{{ quadrant.title }}</h3>
                     <ul>
                         <li
-                            v-for="item in itemsByQuadrant(quadrant.id)"
+                            v-for="item in itemsByQuadrant[quadrant.id]"
                             :key="item.pathKey"
                             class="grid-item"
                             :class="{ checked: item.checked }"
@@ -131,6 +131,20 @@ export default {
             traverse(this.currentBoard.state || [], [], 0)
             return items
         },
+
+        quadrantTitleById() {
+            return Object.fromEntries(QUADRANTS.map(q => [q.id, q.title]))
+        },
+
+        itemsByQuadrant() {
+            const groups = Object.fromEntries(QUADRANTS.map(q => [q.id, []]))
+            for (const item of this.flatItems) {
+                if (item.eisenhower && groups[item.eisenhower]) {
+                    groups[item.eisenhower].push(item)
+                }
+            }
+            return groups
+        },
     },
 
     mounted() {
@@ -152,15 +166,6 @@ export default {
     },
 
     methods: {
-        quadrantTitle(id) {
-            const q = QUADRANTS.find(q => q.id === id)
-            return q ? q.title : ''
-        },
-
-        itemsByQuadrant(id) {
-            return this.flatItems.filter(item => item.eisenhower === id)
-        },
-
         onDragStart(ev, item) {
             this.draggedItem = item
             ev.dataTransfer.effectAllowed = 'move'
