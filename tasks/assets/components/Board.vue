@@ -53,6 +53,19 @@
                 <option value="all">all</option>
                 <option value="important">important</option>
                 <option value="deprecated">deprecated</option>
+                <option value="finalizing">finalizing</option>
+                <optgroup label="MoSCoW">
+                    <option value="moscow-must">Must have</option>
+                    <option value="moscow-should">Should have</option>
+                    <option value="moscow-could">Could have</option>
+                    <option value="moscow-wont">Won't have</option>
+                </optgroup>
+                <optgroup label="Eisenhower">
+                    <option value="eisenhower-urgent-important">Urgent &amp; Important</option>
+                    <option value="eisenhower-not-urgent-important">Not Urgent &amp; Important</option>
+                    <option value="eisenhower-urgent-not-important">Urgent &amp; Not Important</option>
+                    <option value="eisenhower-not-urgent-not-important">Not Urgent &amp; Not Important</option>
+                </optgroup>
             </select>
 
             <button @click.prevent="prepareCommit" :class="{ 'on-right': listViewMode }">commit</button>
@@ -262,6 +275,18 @@ export default {
                 if (markers.madeProgress) return false
                 if (node.states?.checked) return false
                 return true
+            }
+
+            if (query === 'finalizing') {
+                return !!markers.finalizing
+            }
+
+            if (query.startsWith('moscow-')) {
+                return markers.moscow === query.slice('moscow-'.length)
+            }
+
+            if (query.startsWith('eisenhower-')) {
+                return markers.eisenhower === query.slice('eisenhower-'.length)
             }
 
             return false
