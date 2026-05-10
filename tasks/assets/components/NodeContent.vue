@@ -57,6 +57,13 @@
             ⇒ {{ markers.transition }}
         </span>
 
+        <span
+            v-if="markers.eisenhower"
+            class="has-eisenhower"
+            :class="`eisenhower-${markers.eisenhower}`"
+            :title="eisenhowerTitle"
+        >
+        </span>
 
     </div>
 </template>
@@ -87,7 +94,18 @@ export default {
 
         cappedImportant() {
             return Math.min(this.markers.important, 3)
+        },
+
+        eisenhowerTitle() {
+            const titles = {
+                'urgent-important': 'Urgent & Important',
+                'not-urgent-important': 'Not Urgent & Important',
+                'urgent-not-important': 'Urgent & Not Important',
+                'not-urgent-not-important': 'Not Urgent & Not Important',
+            }
+            return titles[this.markers.eisenhower] || ''
         }
     },
 }
 </script>
+

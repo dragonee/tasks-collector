@@ -16,6 +16,7 @@ export function createTreeItem(text="") {
                 // 0...3
                 important: 0,
                 finalizing: false,
+                eisenhower: null,
                 canBeDoneOutsideOfWork: false,
                 canBePostponed: false,
                 // 0+

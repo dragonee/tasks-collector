@@ -148,6 +148,20 @@ body, html {
     background-color: #9d06a7bf;
 }
 
+.has-eisenhower {
+    position: absolute;
+    bottom: 0;
+    left: 25px;
+    width: 20px;
+    display: block;
+    height: 3px;
+}
+
+.eisenhower-urgent-important { background-color: #d9534fbf; }
+.eisenhower-not-urgent-important { background-color: #5cb85cbf; }
+.eisenhower-urgent-not-important { background-color: #f0ad4ebf; }
+.eisenhower-not-urgent-not-important { background-color: #888888bf; }
+
 .transition {
     color: #999;
     font-size: 0.8em;
@@ -407,6 +421,10 @@ h1 + .cont .menu a:first-child {
 
         .has-finalizing {
             left: 10px;
+        }
+
+        .has-eisenhower {
+            left: 35px;
         }
     }
 

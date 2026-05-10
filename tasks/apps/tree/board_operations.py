@@ -14,6 +14,7 @@ def create_task_item(text):
                 "weeksInList": 0,
                 "important": False,
                 "finalizing": False,
+                "eisenhower": None,
                 "canBeDoneOutsideOfWork": False,
                 "canBePostponed": False,
                 "postponedFor": 0,
