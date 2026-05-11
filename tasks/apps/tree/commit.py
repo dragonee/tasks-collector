@@ -1,3 +1,4 @@
+import uuid
 from collections import OrderedDict
 from copy import deepcopy
 from functools import reduce
@@ -88,6 +89,7 @@ def transition_data_in_tree_item(item):
               - Visibility logic: hidden if postponedFor == 1, otherwise visible
     """
     return {
+        "id": item.get("id") or str(uuid.uuid4()),
         "text": item["text"],
         "children": transition_data_between_boards(item["children"]),
         "data": {
