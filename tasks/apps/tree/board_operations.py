@@ -1,3 +1,5 @@
+import uuid
+
 from django.shortcuts import get_object_or_404
 
 from .models import Board, Thread
@@ -6,6 +8,7 @@ from .models import Board, Thread
 def create_task_item(text):
     """Creates the data structure for a new task."""
     return {
+        "id": str(uuid.uuid4()),
         "children": [],
         "data": {
             "state": "open",
