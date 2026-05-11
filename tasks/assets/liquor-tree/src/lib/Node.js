@@ -686,6 +686,7 @@ export default class Node {
 
   toJSON () {
     return {
+      id: this.id,
       text: this.text,
       data: this.data,
       state: this.states,

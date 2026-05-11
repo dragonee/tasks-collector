@@ -140,41 +140,13 @@ body, html {
 
 .has-finalizing {
     position: absolute;
-    bottom: 0;
+    bottom: -2px;
     left: 0;
     width: 20px;
     display: block;
     height: 3px;
     background-color: #9d06a7bf;
 }
-
-.has-eisenhower {
-    position: absolute;
-    bottom: 0;
-    left: 25px;
-    width: 20px;
-    display: block;
-    height: 3px;
-}
-
-.eisenhower-urgent-important { background-color: #d9534fbf; }
-.eisenhower-not-urgent-important { background-color: #5cb85cbf; }
-.eisenhower-urgent-not-important { background-color: #f0ad4ebf; }
-.eisenhower-not-urgent-not-important { background-color: #888888bf; }
-
-.has-moscow {
-    position: absolute;
-    bottom: 0;
-    left: 50px;
-    width: 20px;
-    display: block;
-    height: 3px;
-}
-
-.moscow-must { background-color: #b91c1cbf; }
-.moscow-should { background-color: #d97706bf; }
-.moscow-could { background-color: #0d9488bf; }
-.moscow-wont { background-color: #64748bbf; }
 
 .transition {
     color: #999;

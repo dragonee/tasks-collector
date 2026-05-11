@@ -18,6 +18,42 @@
   height: calc(100vh - #{$lower-pane} - #{$upper-pane});
 }
 
+.tree-node.filter-hidden {
+  display: none;
+}
+
+.node-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  margin-right: 4px;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.node-badge.eisenhower {
+  border: 1px solid #999;
+  color: #333;
+  box-sizing: border-box;
+  
+  &.eisenhower-urgent-important { border-color: #d9534f; color: #d9534f; }
+  &.eisenhower-not-urgent-important { border-color: #5cb85c; color: #5cb85c; }
+  &.eisenhower-urgent-not-important { border-color: #f0ad4e; color: #f0ad4e; }
+  &.eisenhower-not-urgent-not-important { border-color: #888888; color: #888888; }
+}
+
+.node-badge.moscow {
+  &.moscow-must { background-color: #b91c1cbf; }
+  &.moscow-should { background-color: #d97706bf; }
+  &.moscow-could { background-color: #0d9488bf; }
+  &.moscow-wont { background-color: #64748bbf; }
+}
+
 .tree-node.has-child > .tree-content .tree-checkbox {
   display: none;
 }
