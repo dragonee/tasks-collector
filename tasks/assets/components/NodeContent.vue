@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div :class="{ 'filter-hidden': !matchesFilter }">
         {{ node.text }}
 
         <span v-if="markers.madeProgress">
@@ -83,9 +83,48 @@ export default {
         node: Object,
     },
 
+    inject: {
+        boardFilter: { default: null },
+    },
+
     computed: {
         markers() {
             return this.node.data.meaningfulMarkers
+        },
+
+        matchesFilter() {
+            const mode = this.boardFilter ? this.boardFilter.mode : 'all'
+            if (mode === 'all') return true
+
+            const markers = this.markers || {}
+
+            if (mode === 'important') {
+                return (markers.important || 0) > 0
+            }
+
+            if (mode === 'deprecated') {
+                if ((markers.weeksInList || 0) < 5) return false
+                if (this.node.hasChildren && this.node.hasChildren()) return false
+                if (markers.canBePostponed) return false
+                if ((markers.postponedFor || 0) > 0) return false
+                if (markers.madeProgress) return false
+                if (this.node.states?.checked) return false
+                return true
+            }
+
+            if (mode === 'finalizing') {
+                return !!markers.finalizing
+            }
+
+            if (mode.startsWith('moscow-')) {
+                return markers.moscow === mode.slice('moscow-'.length)
+            }
+
+            if (mode.startsWith('eisenhower-')) {
+                return markers.eisenhower === mode.slice('eisenhower-'.length)
+            }
+
+            return false
         },
 
         cappedWeeksInList() {

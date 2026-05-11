@@ -18,6 +18,10 @@
   height: calc(100vh - #{$lower-pane} - #{$upper-pane});
 }
 
+.tree-node:has(> .tree-content > .tree-anchor > .tree-text.filter-hidden):not(:has(.tree-children :is(.tree-text:not(.filter-hidden), .tree-input))) {
+  display: none;
+}
+
 .tree-node.has-child > .tree-content .tree-checkbox {
   display: none;
 }

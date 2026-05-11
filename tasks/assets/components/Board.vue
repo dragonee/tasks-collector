@@ -8,7 +8,6 @@
             v-show="!listViewMode"
             :data="currentBoard.state"
             :options="options"
-            :filter="treeFilterQuery"
             ref="tree"
         >
             <template slot-scope="{ node }">
@@ -133,10 +132,6 @@ export default {
             return this.findItemsToBeRemoved(this.currentBoard.state)
         },
 
-        treeFilterQuery() {
-            return this.filterMode === 'all' ? '' : this.filterMode
-        },
-
         options() {
             return {
                 checkbox: true,
@@ -144,10 +139,6 @@ export default {
                 dnd: true,
                 deletion: true,
                 keyboardNavigation: true,
-
-                filter: {
-                    matcher: this.matchesFilter,
-                },
 
                 store: {
                     store: this.$store,
@@ -171,6 +162,23 @@ export default {
         listViewMode: false,
         filterMode: 'all',
     }),
+
+    provide() {
+        const vm = this
+        return {
+            boardFilter: {
+                get mode() { return vm.filterMode }
+            }
+        }
+    },
+
+    watch: {
+        filterMode(newMode) {
+            if (newMode !== 'all' && this.$refs.tree) {
+                this.$refs.tree.expandAll()
+            }
+        }
+    },
 
     mounted() {
         this.$refs.tree.$on('node:text:changed', (node, text, old) => {
@@ -258,38 +266,6 @@ export default {
                 'changeThread',
                 ev.target.value
             )
-        },
-
-        matchesFilter(query, node) {
-            const markers = node.data?.meaningfulMarkers || {}
-
-            if (query === 'important') {
-                return (markers.important || 0) > 0
-            }
-
-            if (query === 'deprecated') {
-                if ((markers.weeksInList || 0) < 5) return false
-                if (node.hasChildren()) return false
-                if (markers.canBePostponed) return false
-                if ((markers.postponedFor || 0) > 0) return false
-                if (markers.madeProgress) return false
-                if (node.states?.checked) return false
-                return true
-            }
-
-            if (query === 'finalizing') {
-                return !!markers.finalizing
-            }
-
-            if (query.startsWith('moscow-')) {
-                return markers.moscow === query.slice('moscow-'.length)
-            }
-
-            if (query.startsWith('eisenhower-')) {
-                return markers.eisenhower === query.slice('eisenhower-'.length)
-            }
-
-            return false
         },
 
         isItemDeprecated(item) {
