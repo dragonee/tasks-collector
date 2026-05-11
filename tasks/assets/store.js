@@ -52,6 +52,7 @@ export default {
         listResponse: null,
         threads: null,
         currentThreadPtr: name_ptr(DEFAULT_NAME),
+        filterMode: 'all',
     },
 
     getters: {
@@ -108,6 +109,10 @@ export default {
 
         setCurrentThreadName(state, threadName) {
             state.currentThreadPtr = name_ptr(threadName);
+        },
+
+        setFilterMode(state, mode) {
+            state.filterMode = mode;
         }
     },
 

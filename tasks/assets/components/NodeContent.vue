@@ -83,17 +83,13 @@ export default {
         node: Object,
     },
 
-    inject: {
-        boardFilter: { default: null },
-    },
-
     computed: {
         markers() {
             return this.node.data.meaningfulMarkers
         },
 
         matchesFilter() {
-            const mode = this.boardFilter ? this.boardFilter.mode : 'all'
+            const mode = this.$store.state.filterMode
             if (mode === 'all') return true
 
             const markers = this.markers || {}

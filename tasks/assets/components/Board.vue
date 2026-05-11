@@ -120,6 +120,11 @@ export default {
             'currentThreadId',
         ]),
 
+        filterMode: {
+            get() { return this.$store.state.filterMode },
+            set(value) { this.$store.commit('setFilterMode', value) }
+        },
+
         normalContext() {
             return !this.editingContext
         },
@@ -160,17 +165,7 @@ export default {
         unwatch: null,
         showCommitModal: false,
         listViewMode: false,
-        filterMode: 'all',
     }),
-
-    provide() {
-        const vm = this
-        return {
-            boardFilter: {
-                get mode() { return vm.filterMode }
-            }
-        }
-    },
 
     watch: {
         filterMode(newMode) {
