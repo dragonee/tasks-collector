@@ -167,14 +167,6 @@ export default {
         listViewMode: false,
     }),
 
-    watch: {
-        filterMode(newMode) {
-            if (newMode !== 'all' && this.$refs.tree) {
-                this.$refs.tree.expandAll()
-            }
-        }
-    },
-
     mounted() {
         this.$refs.tree.$on('node:text:changed', (node, text, old) => {
             // console.log('changed text', node, text, old)
