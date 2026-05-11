@@ -19,7 +19,7 @@ const apiRequest = async (url, options = {}) => {
     return response.json();
 };
 
-import { createTreeItem, createBoard, FILTER_MODES, nodeMatchesMode } from './utils'
+import { createTreeItem, createBoard, FILTER_MODES, nodeMatchesMode, ensureItemIds } from './utils'
 
 import equal from 'deep-equal'
 
@@ -108,10 +108,15 @@ export default {
 
     mutations: {
         setListResponse(state, payload) {
+            for (const board of payload?.results || []) {
+                ensureItemIds(board.state)
+            }
             state.listResponse = payload
         },
 
         updateBoardInListResponse(state, payload) {
+            ensureItemIds(payload.state)
+
             const index = state.listResponse.results.findIndex((item) => {
                 item.id === payload.id
             })

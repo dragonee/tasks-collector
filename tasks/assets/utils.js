@@ -8,8 +8,25 @@ export function treeItemForRootAndPath(root, path) {
     }, root)
 }
 
+function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1)
+}
+
+export function makeId() {
+    return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4()
+}
+
+export function ensureItemIds(items) {
+    if (!Array.isArray(items)) return
+    for (const item of items) {
+        if (!item.id) item.id = makeId()
+        if (item.children) ensureItemIds(item.children)
+    }
+}
+
 export function createTreeItem(text="") {
     return {
+        id: makeId(),
         data: {
             meaningfulMarkers: {
                 weeksInList: 0,
