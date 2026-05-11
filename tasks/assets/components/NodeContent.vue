@@ -77,36 +77,7 @@
 </template>
 <script>
 
-const FILTER_MODES = [
-    'important',
-    'deprecated',
-    'finalizing',
-    'moscow-must', 'moscow-should', 'moscow-could', 'moscow-wont',
-    'eisenhower-urgent-important', 'eisenhower-not-urgent-important',
-    'eisenhower-urgent-not-important', 'eisenhower-not-urgent-not-important',
-]
-
-function nodeMatchesMode(node, mode) {
-    const markers = node.data?.meaningfulMarkers || {}
-
-    if (mode === 'important') return (markers.important || 0) > 0
-
-    if (mode === 'deprecated') {
-        if ((markers.weeksInList || 0) < 5) return false
-        if (node.hasChildren && node.hasChildren()) return false
-        if (markers.canBePostponed) return false
-        if ((markers.postponedFor || 0) > 0) return false
-        if (markers.madeProgress) return false
-        if (node.states?.checked) return false
-        return true
-    }
-
-    if (mode === 'finalizing') return !!markers.finalizing
-    if (mode.startsWith('moscow-')) return markers.moscow === mode.slice('moscow-'.length)
-    if (mode.startsWith('eisenhower-')) return markers.eisenhower === mode.slice('eisenhower-'.length)
-
-    return false
-}
+const EMPTY_MATCHES = { self: new Set(), descendants: new Set() }
 
 export default {
 
@@ -119,32 +90,21 @@ export default {
             return this.node.data.meaningfulMarkers
         },
 
-        descendantMatchModes() {
-            const modes = new Set()
-            const walk = (n) => {
-                const children = n.children || []
-                for (const child of children) {
-                    for (const m of FILTER_MODES) {
-                        if (nodeMatchesMode(child, m)) modes.add(m)
-                    }
-                    walk(child)
-                }
-            }
-            walk(this.node)
-            return modes
+        filterMatches() {
+            return this.$store.getters.nodeFilterMatches.get(this.node.id) || EMPTY_MATCHES
         },
 
         rowClasses() {
             const classes = {}
 
-            for (const mode of this.descendantMatchModes) {
+            for (const mode of this.filterMatches.descendants) {
                 classes[`has-children-${mode}`] = true
             }
 
             const active = this.$store.state.filterMode
             if (active !== 'all') {
-                const selfMatches = nodeMatchesMode(this.node, active)
-                classes['filter-hidden'] = !selfMatches && !this.descendantMatchModes.has(active)
+                classes['filter-hidden'] = !this.filterMatches.self.has(active)
+                    && !this.filterMatches.descendants.has(active)
             }
 
             return classes

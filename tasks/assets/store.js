@@ -19,7 +19,7 @@ const apiRequest = async (url, options = {}) => {
     return response.json();
 };
 
-import { createTreeItem, createBoard } from './utils'
+import { createTreeItem, createBoard, FILTER_MODES, nodeMatchesMode } from './utils'
 
 import equal from 'deep-equal'
 
@@ -77,6 +77,32 @@ export default {
             return  state.threads && state.threads.count
                 ? state.threads.results
                 : [];
+        },
+
+        nodeFilterMatches(state, getters) {
+            const result = new Map()
+            const walk = (node) => {
+                const self = new Set()
+                for (const mode of FILTER_MODES) {
+                    if (nodeMatchesMode(node, mode)) self.add(mode)
+                }
+
+                const descendants = new Set()
+                for (const child of (node.children || [])) {
+                    walk(child)
+                    const entry = result.get(child.id)
+                    if (entry) {
+                        for (const m of entry.self) descendants.add(m)
+                        for (const m of entry.descendants) descendants.add(m)
+                    }
+                }
+
+                result.set(node.id, { self, descendants })
+            }
+            for (const root of (getters.currentBoard.state || [])) {
+                walk(root)
+            }
+            return result
         }
     },
 
