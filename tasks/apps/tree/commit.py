@@ -104,7 +104,8 @@ def transition_data_in_tree_item(item):
                 True
                 if item["data"]["meaningfulMarkers"]["postponedFor"] == 1
                 else item.get("state", {}).get("visible", True)
-            )
+            ),
+            "expanded": item.get("state", {}).get("expanded", False),
         },
     }
 
