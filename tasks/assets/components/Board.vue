@@ -52,7 +52,7 @@
                 <option value="all">all</option>
                 <option value="important">important</option>
                 <option value="deprecated">deprecated</option>
-                <option value="finalizing">finalizing</option>
+                <option value="finalizing">clearable</option>
                 <optgroup label="MoSCoW">
                     <option value="moscow-must">Must have</option>
                     <option value="moscow-should">Should have</option>

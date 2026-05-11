@@ -78,10 +78,10 @@
 import { mapGetters } from 'vuex'
 
 const QUADRANTS = [
-    { id: 'urgent-important', title: 'Urgent & Important' },
-    { id: 'not-urgent-important', title: 'Not Urgent & Important' },
-    { id: 'urgent-not-important', title: 'Urgent & Not Important' },
-    { id: 'not-urgent-not-important', title: 'Not Urgent & Not Important' },
+    { id: 'urgent-important', title: 'Urgent & Important – DO' },
+    { id: 'not-urgent-important', title: 'Not Urgent & Important – SCHEDULE' },
+    { id: 'urgent-not-important', title: 'Urgent & Not Important – DELEGATE' },
+    { id: 'not-urgent-not-important', title: 'Not Urgent & Not Important – ELIMINATE' },
 ]
 
 function deepClone(value) {

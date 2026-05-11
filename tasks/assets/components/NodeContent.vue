@@ -2,14 +2,14 @@
     <div>
         <span
             v-if="markers.moscow"
-            class="node-badge"
+            class="node-badge moscow"
             :class="`moscow-${markers.moscow}`"
             :title="moscowTitle"
         >{{ moscowLabel }}</span>
 
         <span
             v-if="markers.eisenhower"
-            class="node-badge"
+            class="node-badge eisenhower"
             :class="`eisenhower-${markers.eisenhower}`"
             :title="eisenhowerTitle"
         >{{ eisenhowerLabel }}</span>
@@ -115,9 +115,9 @@ export default {
         eisenhowerLabel() {
             const labels = {
                 'urgent-important': 'UI',
-                'not-urgent-important': 'i',
-                'urgent-not-important': 'u',
-                'not-urgent-not-important': '~',
+                'not-urgent-important': '.I',
+                'urgent-not-important': 'U.',
+                'not-urgent-not-important': '..',
             }
             return labels[this.markers.eisenhower] || ''
         },
@@ -134,10 +134,10 @@ export default {
 
         moscowLabel() {
             const labels = {
-                'must': 'Mo',
-                'should': 'S',
+                'must': 'Mu',
+                'should': 'Sh',
                 'could': 'Co',
-                'wont': 'W',
+                'wont': 'Wh',
             }
             return labels[this.markers.moscow] || ''
         }
