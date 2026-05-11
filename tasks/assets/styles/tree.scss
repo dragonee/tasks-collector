@@ -18,7 +18,7 @@
   height: calc(100vh - #{$lower-pane} - #{$upper-pane});
 }
 
-.tree-node:has(> .tree-content > .tree-anchor > .tree-text.filter-hidden) {
+.tree-node.filter-hidden {
   display: none;
 }
 

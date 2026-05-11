@@ -1,5 +1,5 @@
 <template>
-    <div :class="rowClasses">
+    <div>
         {{ node.text }}
 
         <span v-if="markers.madeProgress">
@@ -77,8 +77,6 @@
 </template>
 <script>
 
-const EMPTY_MATCHES = { self: new Set(), descendants: new Set() }
-
 export default {
 
     props: {
@@ -88,26 +86,6 @@ export default {
     computed: {
         markers() {
             return this.node.data.meaningfulMarkers
-        },
-
-        filterMatches() {
-            return this.$store.getters.nodeFilterMatches.get(this.node.id) || EMPTY_MATCHES
-        },
-
-        rowClasses() {
-            const classes = {}
-
-            for (const mode of this.filterMatches.descendants) {
-                classes[`has-children-${mode}`] = true
-            }
-
-            const active = this.$store.state.filterMode
-            if (active !== 'all') {
-                classes['filter-hidden'] = !this.filterMatches.self.has(active)
-                    && !this.filterMatches.descendants.has(active)
-            }
-
-            return classes
         },
 
         cappedWeeksInList() {

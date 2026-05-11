@@ -106,6 +106,20 @@
             classes[name] = !!this.node.data.meaningfulMarkers[name]
         })
 
+        const store = this.tree?.vm?.$store
+        if (store) {
+          const matches = store.getters.nodeFilterMatches.get(this.node.id)
+          if (matches) {
+            for (const mode of matches.descendants) {
+              classes[`has-children-${mode}`] = true
+            }
+            const active = store.state.filterMode
+            if (active !== 'all') {
+              classes['filter-hidden'] = !matches.self.has(active) && !matches.descendants.has(active)
+            }
+          }
+        }
+
         return classes
       }
     },
