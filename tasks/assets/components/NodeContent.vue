@@ -1,5 +1,19 @@
 <template>
     <div>
+        <span
+            v-if="markers.moscow"
+            class="node-badge"
+            :class="`moscow-${markers.moscow}`"
+            :title="moscowTitle"
+        >{{ moscowLabel }}</span>
+
+        <span
+            v-if="markers.eisenhower"
+            class="node-badge"
+            :class="`eisenhower-${markers.eisenhower}`"
+            :title="eisenhowerTitle"
+        >{{ eisenhowerLabel }}</span>
+
         {{ node.text }}
 
         <span v-if="markers.madeProgress">
@@ -57,22 +71,6 @@
             ⇒ {{ markers.transition }}
         </span>
 
-        <span
-            v-if="markers.eisenhower"
-            class="has-eisenhower"
-            :class="`eisenhower-${markers.eisenhower}`"
-            :title="eisenhowerTitle"
-        >
-        </span>
-
-        <span
-            v-if="markers.moscow"
-            class="has-moscow"
-            :class="`moscow-${markers.moscow}`"
-            :title="moscowTitle"
-        >
-        </span>
-
     </div>
 </template>
 <script>
@@ -114,6 +112,16 @@ export default {
             return titles[this.markers.eisenhower] || ''
         },
 
+        eisenhowerLabel() {
+            const labels = {
+                'urgent-important': 'UI',
+                'not-urgent-important': 'i',
+                'urgent-not-important': 'u',
+                'not-urgent-not-important': '~',
+            }
+            return labels[this.markers.eisenhower] || ''
+        },
+
         moscowTitle() {
             const titles = {
                 'must': 'Must have',
@@ -122,6 +130,16 @@ export default {
                 'wont': "Won't have",
             }
             return titles[this.markers.moscow] || ''
+        },
+
+        moscowLabel() {
+            const labels = {
+                'must': 'Mo',
+                'should': 'S',
+                'could': 'Co',
+                'wont': 'W',
+            }
+            return labels[this.markers.moscow] || ''
         }
     },
 }

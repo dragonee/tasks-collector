@@ -22,6 +22,20 @@
   display: none;
 }
 
+.node-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  margin-right: 4px;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .tree-node.has-child > .tree-content .tree-checkbox {
   display: none;
 }
