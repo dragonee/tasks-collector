@@ -67,7 +67,6 @@
 
         <div class="lower-pane">
             <router-link class="menulink" to="/">Board</router-link>
-            <router-link class="menulink" to="/journal">Journal</router-link>
             <router-link class="menulink" to="/eisenhower">Eisenhower</router-link>
             <router-link class="menulink" to="/moscow">MoSCoW</router-link>
         </div>
