@@ -1,0 +1,14 @@
+*.iml
+.gradle
+/local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild
+.cxx
+local.properties
+
+# Wrapper JAR is intentionally NOT committed here; run `gradle wrapper` once
+# (see README) or open the project in Android Studio to generate it.
+gradle/wrapper/gradle-wrapper.jar
