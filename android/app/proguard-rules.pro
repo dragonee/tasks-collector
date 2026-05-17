@@ -2,10 +2,10 @@
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
 
--keep,includedescriptorclasses class com.dragonee.tasks.health.**$$serializer { *; }
--keepclassmembers class com.dragonee.tasks.health.** {
+-keep,includedescriptorclasses class org.polybrain.tasks.health.**$$serializer { *; }
+-keepclassmembers class org.polybrain.tasks.health.** {
     *** Companion;
 }
--keepclasseswithmembers class com.dragonee.tasks.health.** {
+-keepclasseswithmembers class org.polybrain.tasks.health.** {
     kotlinx.serialization.KSerializer serializer(...);
 }

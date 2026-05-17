@@ -1,12 +1,12 @@
-package com.dragonee.tasks.health.sync
+package org.polybrain.tasks.health.sync
 
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.dragonee.tasks.health.data.HealthRepository
-import com.dragonee.tasks.health.data.Settings
-import com.dragonee.tasks.health.data.TasksClient
-import com.dragonee.tasks.health.data.TrackHabitRequest
+import org.polybrain.tasks.health.data.HealthRepository
+import org.polybrain.tasks.health.data.Settings
+import org.polybrain.tasks.health.data.TasksClient
+import org.polybrain.tasks.health.data.TrackHabitRequest
 import java.time.LocalDate
 import java.time.ZoneId
 
