@@ -7,6 +7,7 @@ from . import (
     views_board_tasks,
     views_breakthrough,
     views_habit,
+    views_habit_api,
     views_observation,
     views_today,
 )
@@ -61,6 +62,11 @@ urlpatterns = [
         name="public-habit-detail",
     ),
     path("habit/track/", views_habit.track_habit, name="public-habit-track"),
+    path(
+        "api/v1/habit/track/",
+        views_habit_api.TrackHabitAPIView.as_view(),
+        name="track-habit-api",
+    ),
     path(
         "habit/keywords/mine/", views_habit.my_habit_keywords, name="my-habit-keywords"
     ),

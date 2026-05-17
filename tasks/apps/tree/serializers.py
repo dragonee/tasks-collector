@@ -309,6 +309,12 @@ class HabitTrackedSerializer(serializers.ModelSerializer):
         fields = ["id", "published", "habit", "occured", "note"]
 
 
+class TrackHabitAPISerializer(serializers.Serializer):
+    keyword = serializers.SlugField(max_length=255, allow_unicode=True)
+    date = serializers.DateField()
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+
+
 class ProjectedOutcomeMadeSerializer(serializers.ModelSerializer):
     thread = serializers.SlugRelatedField(
         queryset=Thread.objects.all(), slug_field="name"
