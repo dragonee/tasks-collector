@@ -22,16 +22,16 @@ object SyncScheduler {
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
 
-    /** Enqueues both the every-6-hours best-effort job and the daily backstop. */
+    /** Enqueues both the hourly best-effort job and the daily backstop. */
     fun schedule(context: Context) {
         schedulePeriodic(context)
         scheduleDaily(context)
     }
 
     fun schedulePeriodic(context: Context) {
-        val request = PeriodicWorkRequestBuilder<HealthSyncWorker>(Duration.ofHours(6))
+        val request = PeriodicWorkRequestBuilder<HealthSyncWorker>(Duration.ofHours(1))
             .setConstraints(networkConstraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -43,9 +43,10 @@ object SyncScheduler {
 
     /**
      * Daily backstop. WorkManager picks a time within each 24-hour window to
-     * run the job, respecting Doze and battery state. The 6-hour periodic job
+     * run the job, respecting Doze and battery state. The hourly periodic job
      * still runs alongside this; the daily job exists so that a day never
-     * passes without at least one successful sync attempt.
+     * passes without at least one successful sync attempt even if Doze or
+     * throttling defers the hourly worker.
      */
     fun scheduleDaily(context: Context) {
         val request = PeriodicWorkRequestBuilder<HealthSyncWorker>(Duration.ofDays(1))

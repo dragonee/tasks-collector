@@ -33,9 +33,12 @@ class HealthSyncWorker(
 
             val api = TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
             val today = LocalDate.now(ZoneId.systemDefault())
-            val yesterday = today.minusDays(1)
 
-            for (day in listOf(yesterday, today)) {
+            // Re-sync the trailing window from oldest to newest. Wearables
+            // sometimes back-fill earlier days after re-connecting, so a
+            // single sync per day isn't enough — older days can still change.
+            for (offset in (SYNC_WINDOW_DAYS - 1) downTo 0) {
+                val day = today.minusDays(offset.toLong())
                 val metrics = health.aggregateDay(day)
                 val note = NoteFormatter.format(metrics)
                 api.trackHabit(
@@ -57,5 +60,8 @@ class HealthSyncWorker(
 
     companion object {
         const val HABIT_KEYWORD = "health-metrics"
+
+        /** Days re-synced per run, counting today. Covers late wearable back-fills. */
+        const val SYNC_WINDOW_DAYS = 7
     }
 }

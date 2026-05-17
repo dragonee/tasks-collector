@@ -86,15 +86,15 @@ not committed. Choose one of:
 
 Two background `WorkManager` jobs handle automatic syncing:
 
-- A **six-hour** periodic worker for best-effort frequent updates.
+- An **hourly** periodic worker for best-effort frequent updates.
 - A **daily** periodic worker that acts as a backstop, so a day never passes
-  without at least one push even if the six-hour worker is deferred by Doze or
+  without at least one push even if the hourly worker is deferred by Doze or
   battery throttling.
 
 Both require network and reuse the same idempotent worker code, so the overlap
 is harmless — the backend collapses retries on `(habit, day)`. Every run
-syncs both today and yesterday so late-evening activity is not lost when the
-day rolls over.
+re-syncs the trailing seven days (today and the six preceding days) so that
+late wearable back-fills overwrite the older rows with the corrected aggregates.
 
 ## Tests
 
