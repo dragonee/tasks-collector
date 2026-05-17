@@ -18,5 +18,6 @@
     <string name="metric_steps_format">Steps: %1$d</string>
     <string name="metric_distance_format">Distance: %1$.1f km</string>
     <string name="metric_active_format">Active: %1$d min</string>
+    <string name="metric_kcal_format">Calories: %1$.0f kcal</string>
     <string name="metric_loading">Reading from Health Connect…</string>
 </resources>

@@ -1,4 +1,4 @@
-package com.dragonee.tasks.health.ui
+package org.polybrain.tasks.health.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.dragonee.tasks.health.R
+import org.polybrain.tasks.health.R
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -135,6 +135,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                         .format(metrics.distanceMeters / 1000.0)
                 )
                 Text(stringRes(R.string.metric_active_format).format(metrics.activeMinutes))
+                Text(stringRes(R.string.metric_kcal_format).format(metrics.kcal))
             }
         }
     }

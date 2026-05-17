@@ -1,4 +1,4 @@
-package com.dragonee.tasks.health.data
+package org.polybrain.tasks.health.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
