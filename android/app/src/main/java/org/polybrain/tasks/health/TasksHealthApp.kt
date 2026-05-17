@@ -1,7 +1,7 @@
-package com.dragonee.tasks.health
+package org.polybrain.tasks.health
 
 import android.app.Application
-import com.dragonee.tasks.health.data.Settings
+import org.polybrain.tasks.health.data.Settings
 
 class TasksHealthApp : Application() {
 

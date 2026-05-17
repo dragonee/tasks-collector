@@ -19,7 +19,8 @@ Ship a Kotlin Android companion app (under `android/` in this repo) that:
 1. Reads daily aggregates from Health Connect on-device:
    - `StepsRecord` total → steps
    - `DistanceRecord` total → metres
-   - Sum of `ExerciseSessionRecord` durations → active minutes
+   - `aggregateGroupByDuration` over `StepsRecord` in 1-minute buckets, counting minutes whose step count meets a low-intensity threshold (currently 30 spm — below brisk walking, above ambient noise), unioned with explicit `ExerciseSessionRecord` minutes → active minutes. Earlier approaches over- or under-counted: summing exercise-session durations missed movement without a logged workout, while marking every minute touched by a non-empty step record over-counted hours-long step records that span mostly-sedentary time.
+   - `TotalCaloriesBurnedRecord` energy total, falling back to `ActiveCaloriesBurnedRecord` when total isn't populated → kcal
 2. POSTs them to a new backend endpoint, `POST /api/v1/habit/track/`, as a JSON body `{ keyword, date, note }`.
 3. Runs on `WorkManager` so the sync happens in the background without a user-visible Service:
    - An hourly `PeriodicWorkRequest` for best-effort frequent updates.

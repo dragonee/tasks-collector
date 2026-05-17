@@ -1,14 +1,14 @@
-package com.dragonee.tasks.health.ui
+package org.polybrain.tasks.health.ui
 
 import android.app.Application
 import androidx.health.connect.client.HealthConnectClient
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.dragonee.tasks.health.data.DailyMetrics
-import com.dragonee.tasks.health.data.HealthRepository
-import com.dragonee.tasks.health.data.Settings
-import com.dragonee.tasks.health.data.SettingsSnapshot
-import com.dragonee.tasks.health.sync.SyncScheduler
+import org.polybrain.tasks.health.data.DailyMetrics
+import org.polybrain.tasks.health.data.HealthRepository
+import org.polybrain.tasks.health.data.Settings
+import org.polybrain.tasks.health.data.SettingsSnapshot
+import org.polybrain.tasks.health.sync.SyncScheduler
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow

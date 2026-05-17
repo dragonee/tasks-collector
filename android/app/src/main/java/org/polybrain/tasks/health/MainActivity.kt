@@ -1,11 +1,11 @@
-package com.dragonee.tasks.health
+package org.polybrain.tasks.health
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import com.dragonee.tasks.health.ui.SettingsScreen
+import org.polybrain.tasks.health.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
 
