@@ -1,3 +1,5 @@
+from datetime import date as date_cls
+
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
@@ -23,6 +25,20 @@ def _text_from(request):
     return str(text)
 
 
+def _parse_date(value):
+    """Parse a YYYY-MM-DD string. Returns the date or None on any failure."""
+    if not value:
+        return None
+    try:
+        return date_cls.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _bad_request(message):
+    return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+
+
 def _no_board_response():
     return Response(
         {"error": "no board configured for user"},
@@ -34,14 +50,22 @@ def _no_board_response():
 class AndroidTaskListView(APIView):
     """Return today's tasks: every line in today's Plan.focus, with a
     ``done`` flag for those that also appear in today's Reflection.good.
-    Unchecked items first."""
+    Unchecked items first.
+
+    ``date`` query parameter is required (YYYY-MM-DD) — the client sends
+    the device's local date so the call follows the user's day regardless
+    of the server's timezone.
+    """
 
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        today = _parse_date(request.query_params.get("date"))
+        if today is None:
+            return _bad_request("date is required (YYYY-MM-DD)")
         try:
-            items = list_today_tasks(request.user)
+            items = list_today_tasks(request.user, today=today)
         except NoBoardError:
             return _no_board_response()
         return Response(
@@ -58,11 +82,12 @@ class AndroidTaskAddView(APIView):
     def post(self, request):
         text = _text_from(request)
         if text is None:
-            return Response(
-                {"error": "text is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return _bad_request("text is required")
+        today = _parse_date(request.data.get("date"))
+        if today is None:
+            return _bad_request("date is required (YYYY-MM-DD)")
         try:
-            add_task(request.user, text)
+            add_task(request.user, text, today=today)
         except NoBoardError:
             return _no_board_response()
         return Response({"ok": True}, status=status.HTTP_200_OK)
@@ -79,16 +104,15 @@ class AndroidTaskCompleteView(APIView):
     def post(self, request):
         text = _text_from(request)
         if text is None:
-            return Response(
-                {"error": "text is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return _bad_request("text is required")
         if "done" not in request.data:
-            return Response(
-                {"error": "done is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return _bad_request("done is required")
+        today = _parse_date(request.data.get("date"))
+        if today is None:
+            return _bad_request("date is required (YYYY-MM-DD)")
         done = bool(request.data.get("done"))
         try:
-            set_task_done(request.user, text, done)
+            set_task_done(request.user, text, done, today=today)
         except NoBoardError:
             return _no_board_response()
         return Response({"ok": True}, status=status.HTTP_200_OK)
@@ -102,11 +126,12 @@ class AndroidTaskDeleteView(APIView):
     def post(self, request):
         text = _text_from(request)
         if text is None:
-            return Response(
-                {"error": "text is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return _bad_request("text is required")
+        today = _parse_date(request.data.get("date"))
+        if today is None:
+            return _bad_request("date is required (YYYY-MM-DD)")
         try:
-            delete_task(request.user, text)
+            delete_task(request.user, text, today=today)
         except NoBoardError:
             return _no_board_response()
         return Response({"ok": True}, status=status.HTTP_200_OK)

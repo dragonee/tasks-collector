@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 @Serializable
 data class TrackHabitRequest(
@@ -26,12 +27,14 @@ data class OkResponse(
 @Serializable
 data class TaskTextRequest(
     @SerialName("text") val text: String,
+    @SerialName("date") val date: String,
 )
 
 @Serializable
 data class TaskCompleteRequest(
     @SerialName("text") val text: String,
     @SerialName("done") val done: Boolean,
+    @SerialName("date") val date: String,
 )
 
 @Serializable
@@ -50,7 +53,7 @@ interface TasksApi {
     suspend fun trackHabit(@Body body: TrackHabitRequest): TrackHabitResponse
 
     @GET("api/v1/android/task/today/")
-    suspend fun listTodayTasks(): TodayTasksResponse
+    suspend fun listTodayTasks(@Query("date") date: String): TodayTasksResponse
 
     @POST("api/v1/android/task/add/")
     suspend fun addTodayTask(@Body body: TaskTextRequest): OkResponse
