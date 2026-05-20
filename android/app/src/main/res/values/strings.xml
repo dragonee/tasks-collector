@@ -2,6 +2,13 @@
 <resources>
     <string name="app_name">Tasks Health</string>
 
+    <string name="nav_today">Today</string>
+    <string name="nav_health">Health</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_open_menu">Open menu</string>
+
+    <string name="today_placeholder">Nothing here yet.</string>
+
     <string name="server_url_label">Server URL</string>
     <string name="server_url_placeholder">https://tasks.example.com</string>
     <string name="api_token_label">API token</string>

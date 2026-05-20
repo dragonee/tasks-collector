@@ -18,13 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class UiState(
-    val settings: SettingsSnapshot = SettingsSnapshot("", "", 0L, ""),
-    val healthConnectStatus: Int = HealthConnectClient.SDK_UNAVAILABLE,
-    val permissionsGranted: Boolean = false,
-)
-
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = Settings(application)
     private val health = HealthRepository(application)
