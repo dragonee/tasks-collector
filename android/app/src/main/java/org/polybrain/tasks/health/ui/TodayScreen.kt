@@ -10,17 +10,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -37,6 +40,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.polybrain.tasks.health.R
 import org.polybrain.tasks.health.data.TodayTask
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodayScreen(vm: TodayViewModel = viewModel()) {
     val tasks by vm.tasks.collectAsState()
@@ -51,25 +55,25 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
 
         error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
 
-        if (!configured) {
-            EmptyState(text = stringResource(R.string.today_not_configured))
-        } else if (loading && tasks.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else if (tasks.isEmpty()) {
-            EmptyState(text = stringResource(R.string.today_empty))
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(items = tasks, key = TodayTask::text) { task ->
-                    TaskRow(
-                        task = task,
-                        onToggle = { done -> vm.setDone(task.text, done) },
-                        onDelete = { vm.delete(task.text) },
-                    )
+        PullToRefreshBox(
+            isRefreshing = loading,
+            onRefresh = vm::refresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            when {
+                !configured -> EmptyState(stringResource(R.string.today_not_configured))
+                tasks.isEmpty() -> EmptyState(stringResource(R.string.today_empty))
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(items = tasks, key = TodayTask::text) { task ->
+                        TaskRow(
+                            task = task,
+                            onToggle = { done -> vm.setDone(task.text, done) },
+                            onDelete = { vm.delete(task.text) },
+                        )
+                    }
                 }
             }
         }
@@ -138,8 +142,14 @@ private fun TaskRow(
 
 @Composable
 private fun EmptyState(text: String) {
+    // verticalScroll keeps the empty state pull-to-refresh-friendly:
+    // PullToRefreshBox detects the gesture via nestedScroll, so the content
+    // must be a vertically scrollable layout even when there's nothing to scroll.
     Box(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text)
