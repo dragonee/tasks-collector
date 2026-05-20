@@ -4,6 +4,7 @@ from rest_framework import routers
 
 from . import (
     views,
+    views_android_api,
     views_board_tasks,
     views_breakthrough,
     views_habit,
@@ -66,6 +67,26 @@ urlpatterns = [
         "api/v1/habit/track/",
         views_habit_api.TrackHabitAPIView.as_view(),
         name="track-habit-api",
+    ),
+    path(
+        "api/v1/android/task/today/",
+        views_android_api.AndroidTaskListView.as_view(),
+        name="android-task-today",
+    ),
+    path(
+        "api/v1/android/task/add/",
+        views_android_api.AndroidTaskAddView.as_view(),
+        name="android-task-add",
+    ),
+    path(
+        "api/v1/android/task/complete/",
+        views_android_api.AndroidTaskCompleteView.as_view(),
+        name="android-task-complete",
+    ),
+    path(
+        "api/v1/android/task/delete/",
+        views_android_api.AndroidTaskDeleteView.as_view(),
+        name="android-task-delete",
     ),
     path(
         "habit/keywords/mine/", views_habit.my_habit_keywords, name="my-habit-keywords"
