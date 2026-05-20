@@ -15,6 +15,11 @@
     <string name="today_error_format">Error: %1$s</string>
     <string name="today_dismiss_error">Dismiss</string>
 
+    <string name="today_note_dialog_title">Add a note</string>
+    <string name="today_note_hint">Optional</string>
+    <string name="today_note_ok">OK</string>
+    <string name="today_note_cancel">Cancel</string>
+
     <string name="server_url_label">Server URL</string>
     <string name="server_url_placeholder">https://tasks.example.com</string>
     <string name="api_token_label">API token</string>

@@ -34,7 +34,15 @@ data class TaskTextRequest(
 data class TaskCompleteRequest(
     @SerialName("text") val text: String,
     @SerialName("done") val done: Boolean,
+    // Full ISO 8601 timestamp (OffsetDateTime.now().toString()) — the
+    // device's wall-clock moment of the tap. The server uses it both to
+    // derive the day for Plan/Reflection writes and as the published
+    // time of any JournalAdded recorded for this completion.
     @SerialName("date") val date: String,
+    // Free-form journal note typed in the modal. null = no journal entry
+    // (uncheck path or pre-modal builds); empty string = create entry
+    // with just the [x] marker line.
+    @SerialName("note") val note: String? = null,
 )
 
 @Serializable
