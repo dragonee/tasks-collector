@@ -1,4 +1,6 @@
 from datetime import date as date_cls
+from datetime import datetime as datetime_cls
+from datetime import timezone as dt_timezone
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -6,7 +8,7 @@ from django.db import DatabaseError
 from django.test import TestCase
 
 from ..board_operations import create_task_item
-from ..models import Board, Plan, Profile, Reflection, Thread
+from ..models import Board, JournalAdded, Plan, Profile, Reflection, Thread
 from ..services.today import (
     NoBoardError,
     add_task,
@@ -18,6 +20,7 @@ from ..services.today import (
 )
 
 TODAY = date_cls(2026, 5, 21)
+PUBLISHED_AT = datetime_cls(2026, 5, 21, 15, 42, 33, tzinfo=dt_timezone.utc)
 
 
 class TodayServiceTestCase(TestCase):
@@ -218,3 +221,130 @@ class TodayServiceTestCase(TestCase):
         Board.objects.all().delete()
         with self.assertRaises(NoBoardError):
             add_task(self.user, "x", today=TODAY)
+
+    # --- journal-note modal -------------------------------------------------
+
+    def test_check_with_note_creates_journal_entry(self):
+        add_task(self.user, "buy bread", today=TODAY)
+
+        set_task_done(
+            self.user,
+            "buy bread",
+            True,
+            published=PUBLISHED_AT,
+            note="bought rye instead",
+        )
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "[x] buy bread\nbought rye instead")
+        self.assertEqual(entry.published, PUBLISHED_AT)
+        # Reflection.good still holds exactly one line — no duplication.
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "buy bread")
+
+    def test_check_with_empty_note_creates_marker_only_entry(self):
+        add_task(self.user, "buy bread", today=TODAY)
+
+        set_task_done(self.user, "buy bread", True, published=PUBLISHED_AT, note="")
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "[x] buy bread")
+
+    def test_check_without_note_creates_no_journal_entry(self):
+        add_task(self.user, "buy bread", today=TODAY)
+
+        set_task_done(self.user, "buy bread", True, published=PUBLISHED_AT)
+
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_uncheck_does_not_create_journal_entry(self):
+        add_task(self.user, "buy bread", today=TODAY)
+        set_task_done(self.user, "buy bread", True, today=TODAY)
+        # The first tick was without a note, so no entry exists yet.
+        self.assertFalse(JournalAdded.objects.exists())
+
+        set_task_done(
+            self.user,
+            "buy bread",
+            False,
+            published=PUBLISHED_AT,
+            note="should be ignored on uncheck",
+        )
+
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_progress_partial_journal_uses_post_tick_text(self):
+        add_task(self.user, "Do tasks (3)", today=TODAY)
+
+        set_task_done(
+            self.user,
+            "Do tasks (3)",
+            True,
+            published=PUBLISHED_AT,
+            note="step one done",
+        )
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "[x] Do tasks (1/3)\nstep one done")
+
+    def test_progress_completion_journal_matches_reflection_line(self):
+        add_task(self.user, "Do tasks (3)", today=TODAY)
+        # Advance to (2/3) without notes.
+        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        set_task_done(self.user, "Do tasks (1/3)", True, today=TODAY)
+        self.assertFalse(JournalAdded.objects.exists())
+
+        # Final tick with a note.
+        set_task_done(
+            self.user,
+            "Do tasks (2/3)",
+            True,
+            published=PUBLISHED_AT,
+            note="finished",
+        )
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "[x] Do tasks (3/3)\nfinished")
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Do tasks (3/3)")
+
+    def test_idempotent_tick_on_complete_makes_no_journal_entry(self):
+        add_task(self.user, "Do tasks (3)", today=TODAY)
+        for old in ("Do tasks (3)", "Do tasks (1/3)", "Do tasks (2/3)"):
+            set_task_done(self.user, old, True, today=TODAY)
+        # Already fully complete.
+        self.assertFalse(JournalAdded.objects.exists())
+
+        set_task_done(
+            self.user,
+            "Do tasks (3/3)",
+            True,
+            published=PUBLISHED_AT,
+            note="ignored — already done",
+        )
+
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_journal_failure_rolls_back_reflection_and_board(self):
+        add_task(self.user, "buy bread", today=TODAY)
+
+        with mock.patch(
+            "tasks.apps.tree.services.today.operations.JournalAdded.objects.create",
+            side_effect=DatabaseError("boom"),
+        ):
+            with self.assertRaises(DatabaseError):
+                set_task_done(
+                    self.user,
+                    "buy bread",
+                    True,
+                    published=PUBLISHED_AT,
+                    note="boom",
+                )
+
+        # Reflection.good must NOT contain the line; board node must still
+        # be open.
+        self.assertFalse(JournalAdded.objects.exists())
+        reflection = Reflection.objects.filter(thread=self.daily).first()
+        self.assertTrue(reflection is None or reflection.good == "")
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["state"], "open")

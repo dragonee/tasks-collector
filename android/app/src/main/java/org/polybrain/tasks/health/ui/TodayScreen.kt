@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +48,7 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
     val loading by vm.loading.collectAsState()
     val error by vm.error.collectAsState()
     val configured by vm.configured.collectAsState()
+    val pendingComplete by vm.pendingComplete.collectAsState()
 
     LaunchedEffect(Unit) { vm.refresh() }
 
@@ -70,7 +72,7 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
                     items(items = tasks, key = TodayTask::text) { task ->
                         TaskRow(
                             task = task,
-                            onToggle = { done -> vm.setDone(task.text, done) },
+                            onToggle = { done -> vm.requestSetDone(task.text, done) },
                             onDelete = { vm.delete(task.text) },
                         )
                     }
@@ -78,6 +80,48 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
             }
         }
     }
+
+    pendingComplete?.let { pending ->
+        JournalNoteDialog(
+            onConfirm = vm::confirmCompletion,
+            onCancel = vm::cancelCompletion,
+            // Reset the draft each time a new pending request arrives.
+            resetKey = pending.text,
+        )
+    }
+}
+
+@Composable
+private fun JournalNoteDialog(
+    onConfirm: (String) -> Unit,
+    onCancel: () -> Unit,
+    resetKey: Any,
+) {
+    var draft by remember(resetKey) { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.today_note_dialog_title)) },
+        text = {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                placeholder = { Text(stringResource(R.string.today_note_hint)) },
+                singleLine = false,
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(draft) }) {
+                Text(stringResource(R.string.today_note_ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.today_note_cancel))
+            }
+        },
+    )
 }
 
 @Composable

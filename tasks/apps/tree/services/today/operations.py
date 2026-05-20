@@ -9,8 +9,9 @@ from dataclasses import dataclass
 from datetime import date as date_cls
 
 from django.db import transaction
+from django.utils import timezone
 
-from ...models import Board, Plan, Profile, Reflection, Thread
+from ...models import Board, JournalAdded, Plan, Profile, Reflection, Thread
 from . import board_tree, text_lines
 from .progress import parse_progress, render_progress
 
@@ -25,8 +26,36 @@ class TodayTask:
     done: bool
 
 
-def _today(today):
-    return today if today is not None else date_cls.today()
+def _today(today, published=None):
+    if today is not None:
+        return today
+    if published is not None:
+        return published.date()
+    return date_cls.today()
+
+
+def _maybe_add_journal(text_for_marker, note, published, daily, done):
+    """Record a JournalAdded with ``[x] <text_for_marker>`` (optionally
+    followed by the user's free-form note).
+
+    Only fires on ``done=True`` and when ``note is not None`` — uncheck or
+    a missing ``note`` field skips the journal entry entirely.
+
+    Deliberately bypasses ``services.journalling.process_journal_entry``:
+    the ``[x]`` prefix would otherwise re-trigger reflection extraction
+    and duplicate the line that ``_set_task_done_*`` already wrote to
+    ``Reflection.good``.
+    """
+    if not done or note is None:
+        return
+    comment = f"- [x] {text_for_marker}"
+    if note:
+        comment = f"{comment}\n{note}"
+    JournalAdded.objects.create(
+        thread=daily,
+        comment=comment,
+        published=published or timezone.now(),
+    )
 
 
 def _daily_thread():
@@ -101,23 +130,27 @@ def add_task(user, text, today=None):
 
 
 @transaction.atomic
-def set_task_done(user, text, done, today=None):
+def set_task_done(user, text, done, today=None, note=None, published=None):
     """Mark the task as done / not-done.
 
     For plain tasks this flips the board node's ``data.state`` and adds /
     removes the line in ``Reflection.good``. For tasks whose text contains
     a progress marker (e.g. ``Do tasks (3)``, ``(2/4) Walk 1km``), this
     advances or rewinds the marker — see ``_set_task_done_progress``.
+
+    When ``note is not None`` and ``done is True`` (and the operation
+    isn't a no-op), a ``JournalAdded`` is recorded too — see
+    ``_maybe_add_journal``.
     """
     progress = parse_progress(text)
     if progress is None:
-        _set_task_done_boolean(user, text, done, today)
+        _set_task_done_boolean(user, text, done, today, note, published)
     else:
-        _set_task_done_progress(user, text, done, progress, today)
+        _set_task_done_progress(user, text, done, progress, today, note, published)
 
 
-def _set_task_done_boolean(user, text, done, today):
-    pub_date = _today(today)
+def _set_task_done_boolean(user, text, done, today, note, published):
+    pub_date = _today(today, published)
     board = _current_board(user)
 
     new_node_state = "done" if done else "open"
@@ -144,6 +177,8 @@ def _set_task_done_boolean(user, text, done, today):
         reflection.good = new_good
         reflection.save()
 
+    _maybe_add_journal(text, note, published, daily, done)
+
 
 def _next_progress_step(progress, done):
     """Compute the next ``current`` value, or None if the request is a no-op.
@@ -164,12 +199,12 @@ def _next_progress_step(progress, done):
     return 0
 
 
-def _set_task_done_progress(user, text, done, progress, today):
+def _set_task_done_progress(user, text, done, progress, today, note, published):
     next_current = _next_progress_step(progress, done)
     if next_current is None:
         return
 
-    pub_date = _today(today)
+    pub_date = _today(today, published)
     new_text = render_progress(text, progress, next_current)
     became_complete = (
         progress.current < progress.total and next_current == progress.total
@@ -213,6 +248,8 @@ def _set_task_done_progress(user, text, done, progress, today):
     if new_good != (reflection.good or ""):
         reflection.good = new_good
         reflection.save()
+
+    _maybe_add_journal(new_text, note, published, daily, done)
 
 
 @transaction.atomic

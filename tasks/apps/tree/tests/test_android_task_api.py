@@ -1,5 +1,7 @@
 from datetime import date as date_cls
+from datetime import datetime as datetime_cls
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -8,10 +10,13 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..models import Board, Plan, Profile, Reflection, Thread
+from ..models import Board, JournalAdded, Plan, Profile, Reflection, Thread
 
 TODAY = date_cls(2026, 5, 21)
 TODAY_ISO = TODAY.isoformat()
+# Full ISO 8601 timestamp the Android client would send on /complete.
+COMPLETE_AT = datetime_cls(2026, 5, 21, 15, 42, 33, tzinfo=dt_timezone.utc)
+COMPLETE_AT_ISO = COMPLETE_AT.isoformat()
 
 
 class AndroidTaskAPITestCase(APITestCase):
@@ -41,10 +46,12 @@ class AndroidTaskAPITestCase(APITestCase):
             format="json",
         )
 
-    def _complete(self, text, done, date=TODAY_ISO):
+    def _complete(self, text, done, date=COMPLETE_AT_ISO, **extra):
+        payload = {"text": text, "done": done, "date": date}
+        payload.update(extra)
         return self.client.post(
             reverse("android-task-complete"),
-            {"text": text, "done": done, "date": date},
+            payload,
             format="json",
         )
 
@@ -222,3 +229,70 @@ class AndroidTaskAPITestCase(APITestCase):
         self.assertEqual(reflection.good, "")
         self.board.refresh_from_db()
         self.assertEqual(self.board.state[0]["data"]["state"], "open")
+
+    # --- journal-note modal contract -------------------------------------
+
+    def test_complete_with_note_creates_journal_entry(self):
+        self._auth()
+        self._add("buy bread")
+
+        response = self._complete("buy bread", True, note="bought rye instead")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "[x] buy bread\nbought rye instead")
+        # Timestamp is taken verbatim from the request, not synthesized.
+        self.assertEqual(entry.published, COMPLETE_AT)
+
+    def test_complete_with_empty_note_creates_marker_only_entry(self):
+        self._auth()
+        self._add("buy bread")
+
+        self._complete("buy bread", True, note="")
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "[x] buy bread")
+
+    def test_complete_without_note_creates_no_journal_entry(self):
+        self._auth()
+        self._add("buy bread")
+
+        self._complete("buy bread", True)  # no note field
+
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_uncheck_ignores_note(self):
+        self._auth()
+        self._add("buy bread")
+        self._complete("buy bread", True, note="first")
+
+        # Reset state and clear journal so we can spot a forbidden write.
+        JournalAdded.objects.all().delete()
+
+        self._complete("buy bread", False, note="ignored on uncheck")
+
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_complete_with_non_string_note_returns_400(self):
+        self._auth()
+        self._add("buy bread")
+        response = self._complete("buy bread", True, note=123)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_complete_with_date_only_returns_400(self):
+        """/complete now requires a full ISO 8601 timestamp; date-only is
+        rejected so the journal entry can carry a real wall-clock time."""
+        self._auth()
+        self._add("buy bread")
+        response = self._complete("buy bread", True, date=TODAY_ISO)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_complete_with_progress_task_journals_post_tick_text(self):
+        self._auth()
+        self._add("Do tasks (3)")
+
+        self._complete("Do tasks (3)", True, note="step one done")
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        # Post-tick text in the [x] line, then the user's note.
+        self.assertEqual(entry.comment, "[x] Do tasks (1/3)\nstep one done")
