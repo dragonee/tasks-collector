@@ -24,3 +24,13 @@ def remove_line(value, line):
     if not value:
         return ""
     return "\n".join(l for l in value.split("\n") if l != line)
+
+
+def replace_line(value, old_line, new_line):
+    """Replace exact-match occurrences of old_line with new_line, preserving
+    the position of other lines. Returns the original value unchanged if
+    old_line is not present.
+    """
+    if not value or old_line not in value.split("\n"):
+        return value or ""
+    return "\n".join(new_line if l == old_line else l for l in value.split("\n"))

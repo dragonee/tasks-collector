@@ -55,3 +55,11 @@ def append_task_at_root(state, text):
     node = create_task_item(text)
     state.append(node)
     return node
+
+
+def rename(node, new_text):
+    """Set both the top-level ``text`` mirror and the canonical
+    ``data.text`` to ``new_text`` in place."""
+    node["text"] = new_text
+    data = node.setdefault("data", {})
+    data["text"] = new_text
