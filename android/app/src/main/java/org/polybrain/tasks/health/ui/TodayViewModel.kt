@@ -3,6 +3,7 @@ package org.polybrain.tasks.health.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,7 +40,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            mutate { api -> api.addTodayTask(TaskTextRequest(trimmed)) }
+            mutate { api -> api.addTodayTask(TaskTextRequest(trimmed, today())) }
         }
     }
 
@@ -49,14 +50,14 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
             _tasks.value = _tasks.value.map { t ->
                 if (t.text == text) t.copy(done = done) else t
             }
-            mutate { api -> api.completeTodayTask(TaskCompleteRequest(text, done)) }
+            mutate { api -> api.completeTodayTask(TaskCompleteRequest(text, done, today())) }
         }
     }
 
     fun delete(text: String) {
         viewModelScope.launch {
             _tasks.value = _tasks.value.filterNot { it.text == text }
-            mutate { api -> api.deleteTodayTask(TaskTextRequest(text)) }
+            mutate { api -> api.deleteTodayTask(TaskTextRequest(text, today())) }
         }
     }
 
@@ -74,7 +75,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         _loading.value = true
         try {
             val api = buildApi(snapshot)
-            _tasks.value = api.listTodayTasks().items
+            _tasks.value = api.listTodayTasks(today()).items
             _error.value = null
         } catch (t: Throwable) {
             _error.value = t.message ?: t.javaClass.simpleName
@@ -101,4 +102,9 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun buildApi(snapshot: SettingsSnapshot): TasksApi =
         TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
+
+    // Local date in the device's current timezone, ISO 8601 (YYYY-MM-DD).
+    // Resolved per call so a request made just after midnight follows the
+    // user's wall-clock day, not the moment the ViewModel was created.
+    private fun today(): String = LocalDate.now().toString()
 }
