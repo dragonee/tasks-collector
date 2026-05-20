@@ -180,3 +180,45 @@ class AndroidTaskAPITestCase(APITestCase):
         self._auth()
         response = self._add("x")
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_progress_task_advances_via_repeated_complete(self):
+        """Three POSTs to /complete on a (3) task should advance it to (3/3)
+        and flip the list's done flag."""
+        self._auth()
+        self._add("Do tasks (3)")
+
+        self._complete("Do tasks (3)", True)
+        self.assertEqual(
+            self._list().json(),
+            {"items": [{"text": "Do tasks (1/3)", "done": False}]},
+        )
+
+        self._complete("Do tasks (1/3)", True)
+        self.assertEqual(
+            self._list().json(),
+            {"items": [{"text": "Do tasks (2/3)", "done": False}]},
+        )
+
+        self._complete("Do tasks (2/3)", True)
+        self.assertEqual(
+            self._list().json(),
+            {"items": [{"text": "Do tasks (3/3)", "done": True}]},
+        )
+
+        # Reflection.good and board state should both reflect completion.
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Do tasks (3/3)")
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["text"], "Do tasks (3/3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "done")
+
+        # Untick resets to pristine.
+        self._complete("Do tasks (3/3)", False)
+        self.assertEqual(
+            self._list().json(),
+            {"items": [{"text": "Do tasks (3)", "done": False}]},
+        )
+        reflection.refresh_from_db()
+        self.assertEqual(reflection.good, "")
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["state"], "open")
