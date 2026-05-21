@@ -1,25 +1,26 @@
 package org.polybrain.tasks.health.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -211,34 +212,55 @@ private fun AddTaskRow(onAdd: (String) -> Unit, enabled: Boolean) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TaskRow(
     task: TodayTask,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = task.done, onCheckedChange = onToggle)
-        Text(
-            text = task.text,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge.copy(
-                textDecoration = if (task.done) TextDecoration.LineThrough else null,
-            ),
-            color = if (task.done) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-        )
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Filled.Delete,
-                contentDescription = stringResource(R.string.today_delete_description),
+        // Anchoring the DropdownMenu inside this Box positions it near
+        // the task text. combinedClickable on the Box makes the whole
+        // text area a long-press target — a short tap is a no-op so it
+        // doesn't compete with the Checkbox.
+        Box(modifier = Modifier.weight(1f)) {
+            Text(
+                text = task.text,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 40.dp)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { menuExpanded = true },
+                    )
+                    .padding(vertical = 8.dp),
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    textDecoration = if (task.done) TextDecoration.LineThrough else null,
+                ),
+                color = if (task.done) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
             )
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.today_remove_menu)) },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete()
+                    },
+                )
+            }
         }
     }
 }

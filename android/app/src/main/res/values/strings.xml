@@ -10,7 +10,7 @@
     <string name="today_empty">Nothing on today\'s plan yet.</string>
     <string name="today_add_hint">Add a task</string>
     <string name="today_add_button">Add</string>
-    <string name="today_delete_description">Delete task</string>
+    <string name="today_remove_menu">Remove</string>
     <string name="today_not_configured">Configure server URL and API token in Settings first.</string>
     <string name="today_error_format">Error: %1$s</string>
     <string name="today_dismiss_error">Dismiss</string>
