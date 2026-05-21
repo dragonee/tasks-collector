@@ -133,6 +133,43 @@ State transitions (see `_next_progress_step`):
 | `(N/N)`        | → `(N+1/N)`, stays done             | → `(N)`, clear Reflection        |
 | `(K/N)`, K>N   | → `(K+1/N)`, stays done             | → `(N)`, clear Reflection        |
 
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> Pristine: add task with "(N)" marker
+
+    state "Pristine\n(N)" as Pristine
+    state "Partial\n(K/N), 0<K<N" as Partial
+    state "Complete\n(N/N)" as Complete
+    state "Over-quota\n(K/N), K>N" as Overquota
+
+    Pristine --> Partial: tick (N≥2)
+    Pristine --> Complete: tick (N=1)
+
+    Partial --> Partial: tick (K+1<N)
+    Partial --> Complete: tick (K+1==N)\nadd line to Reflection.good
+
+    Complete --> Overquota: tick / "Add another"\nrename Reflection line
+    Complete --> Pristine: untick / "Reset"\nremove Reflection line
+
+    Overquota --> Overquota: tick / "Add another"\nrename Reflection line
+    Overquota --> Pristine: untick / "Reset"\nremove Reflection line
+
+    Pristine --> Pristine: untick (no-op)
+    Partial --> Partial: untick (no-op)
+
+    note right of Complete
+        Board: data.state=done, state.checked=true
+        Reflection.good contains the post-tick text
+    end note
+
+    note left of Partial
+        Board: data.state=open, state.checked=false
+        Reflection.good does NOT contain this line
+    end note
+```
+
 A task is "done" whenever `current >= total`, so over-quota states like
 `(4/3)` are still checked. The Reflection.good line is renamed in place
 on stayed-done transitions; added on the not-done → done transition;
