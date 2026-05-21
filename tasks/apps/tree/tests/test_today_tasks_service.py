@@ -113,9 +113,20 @@ class TodayServiceTestCase(TestCase):
 
         self.board.refresh_from_db()
         self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        # The Vue Board view renders a node as checked from this flag.
+        self.assertTrue(self.board.state[0]["state"]["checked"])
 
         reflection = Reflection.objects.get(pub_date=TODAY, thread=self.daily)
         self.assertEqual(reflection.good, "buy bread")
+
+    def test_set_task_done_false_clears_board_checked_flag(self):
+        add_task(self.user, "buy bread", today=TODAY)
+        set_task_done(self.user, "buy bread", True, today=TODAY)
+        set_task_done(self.user, "buy bread", False, today=TODAY)
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["state"], "open")
+        self.assertFalse(self.board.state[0]["state"]["checked"])
 
     def test_set_task_done_false_removes_only_that_reflection_line(self):
         add_task(self.user, "buy bread", today=TODAY)
@@ -236,19 +247,20 @@ class TodayServiceTestCase(TestCase):
         )
 
         entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "[x] buy bread\nbought rye instead")
+        self.assertEqual(entry.comment, "- [x] buy bread\nbought rye instead")
         self.assertEqual(entry.published, PUBLISHED_AT)
         # Reflection.good still holds exactly one line — no duplication.
         reflection = Reflection.objects.get(thread=self.daily)
         self.assertEqual(reflection.good, "buy bread")
 
-    def test_check_with_empty_note_creates_marker_only_entry(self):
+    def test_check_with_empty_note_creates_no_journal_entry(self):
         add_task(self.user, "buy bread", today=TODAY)
 
         set_task_done(self.user, "buy bread", True, published=PUBLISHED_AT, note="")
 
-        entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "[x] buy bread")
+        # Confirming a check with no text isn't journal-worthy — only
+        # actual content gets a JournalAdded.
+        self.assertFalse(JournalAdded.objects.exists())
 
     def test_check_without_note_creates_no_journal_entry(self):
         add_task(self.user, "buy bread", today=TODAY)
@@ -285,7 +297,7 @@ class TodayServiceTestCase(TestCase):
         )
 
         entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "[x] Do tasks (1/3)\nstep one done")
+        self.assertEqual(entry.comment, "- [x] Do tasks (1/3)\nstep one done")
 
     def test_progress_completion_journal_matches_reflection_line(self):
         add_task(self.user, "Do tasks (3)", today=TODAY)
@@ -304,7 +316,7 @@ class TodayServiceTestCase(TestCase):
         )
 
         entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "[x] Do tasks (3/3)\nfinished")
+        self.assertEqual(entry.comment, "- [x] Do tasks (3/3)\nfinished")
         reflection = Reflection.objects.get(thread=self.daily)
         self.assertEqual(reflection.good, "Do tasks (3/3)")
 

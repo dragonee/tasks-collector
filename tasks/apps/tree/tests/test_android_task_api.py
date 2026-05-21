@@ -240,18 +240,19 @@ class AndroidTaskAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "[x] buy bread\nbought rye instead")
+        self.assertEqual(entry.comment, "- [x] buy bread\nbought rye instead")
         # Timestamp is taken verbatim from the request, not synthesized.
         self.assertEqual(entry.published, COMPLETE_AT)
 
-    def test_complete_with_empty_note_creates_marker_only_entry(self):
+    def test_complete_with_empty_note_creates_no_journal_entry(self):
         self._auth()
         self._add("buy bread")
 
         self._complete("buy bread", True, note="")
 
-        entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "[x] buy bread")
+        # Empty note from the modal means "just confirm the tick" — no
+        # journal entry is recorded.
+        self.assertFalse(JournalAdded.objects.exists())
 
     def test_complete_without_note_creates_no_journal_entry(self):
         self._auth()
@@ -295,4 +296,4 @@ class AndroidTaskAPITestCase(APITestCase):
 
         entry = JournalAdded.objects.get(thread=self.daily)
         # Post-tick text in the [x] line, then the user's note.
-        self.assertEqual(entry.comment, "[x] Do tasks (1/3)\nstep one done")
+        self.assertEqual(entry.comment, "- [x] Do tasks (1/3)\nstep one done")
