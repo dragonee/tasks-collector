@@ -114,47 +114,79 @@ across all three records.
 Grammar: regex `\((\d+)(?:/(\d+))?\)`, first occurrence in the line wins.
 
 - `(N)` (no slash) → `current=0, total=N` (pristine)
-- `(K/N)` (slash) → `current=K, total=N`
+- `(K/N)` (slash) → `current=K, total=N`; `K` may exceed `N` (over-quota)
 - `total < 1` is rejected (not a progress marker)
 
 Render rules:
 
 - `current == 0` → emit `(total)` form
-- `0 < current ≤ total` → emit `(current/total)`
+- `current > 0` → emit `(current/total)` (over-quota is just printed
+  verbatim, e.g. `(4/3)`)
 
 State transitions (see `_next_progress_step`):
 
-| State          | done=True               | done=False                |
-|----------------|-------------------------|---------------------------|
-| `(N)`          | → `(1/N)` if N>1 else `(N/N)` | no-op                |
-| `(K/N)`, K<N-1 | → `(K+1/N)`             | no-op                     |
-| `(K/N)`, K==N-1| → `(N/N)`, mark done    | no-op                     |
-| `(N/N)`        | no-op (already done)    | → `(N)`, clear Reflection |
+| State          | done=True (tick / Add another)      | done=False (Reset)               |
+|----------------|-------------------------------------|----------------------------------|
+| `(N)`          | → `(1/N)` if N>1 else `(N/N)`       | no-op                            |
+| `(K/N)`, K<N-1 | → `(K+1/N)`                         | no-op                            |
+| `(K/N)`, K==N-1| → `(N/N)`, mark done                | no-op                            |
+| `(N/N)`        | → `(N+1/N)`, stays done             | → `(N)`, clear Reflection        |
+| `(K/N)`, K>N   | → `(K+1/N)`, stays done             | → `(N)`, clear Reflection        |
 
-The fully-complete form (`K==N`) is the only state that lands in
-`Reflection.good`. Untick is only meaningful from `(N/N)`; untick on
-pristine or partial states is a no-op so progress can only flow forward
-except for one explicit reversal.
+A task is "done" whenever `current >= total`, so over-quota states like
+`(4/3)` are still checked. The Reflection.good line is renamed in place
+on stayed-done transitions; added on the not-done → done transition;
+removed on the done → not-done transition.
+
+Untick on pristine or partial states (`current < total`) is a no-op —
+progress only flows forward, except for the explicit Reset.
 
 `_set_task_done_progress` renames the board node (`board_tree.rename`),
 replaces the Plan line (`text_lines.replace_line`), and updates
-`Reflection.good` only on the complete ↔ uncomplete transitions.
+`Reflection.good` based on the done-before/done-after pair.
 
-## Journal-note modal
+## Dialog flows
 
-On a check, the Android client shows a small modal with a multiline
-`OutlinedTextField` and OK / Cancel buttons. The `/complete` request
-fires only when the user taps OK; the `note` field carries whatever they
-typed (empty string allowed). On the server, `_maybe_add_journal`
-creates a `JournalAdded` like:
+Tapping a row's checkbox opens one of two dialogs (or fires `/complete`
+directly) depending on the task's current state.
+
+### Add-note dialog — on tick
+
+Triggered when the user ticks an *unchecked* row (`done = true` in the
+ViewModel's `requestSetDone`). The dialog shows a multiline
+`OutlinedTextField` with OK and Cancel buttons. `/complete` doesn't fire
+until OK; on confirm, the optional `note` flows through to the server.
+
+### Completed-task dialog — on tap of a fully-complete progress task
+
+Triggered when the user taps a checked progress task — `(K/N)` with
+`K >= N`. The dialog shows the task text, the note field, and three
+actions: **Add another**, **Reset**, **Cancel**.
+
+- **Add another** sends `done = true` with the note. The server advances
+  `(K/N) → (K+1/N)` (the row stays checked) and records a journal entry
+  for the over-quota advance.
+- **Reset** sends `done = false` with no note. The server returns the
+  task to pristine `(N)` and clears the `Reflection.good` line.
+- **Cancel** (button or backdrop dismiss) does nothing — no API call,
+  no row change.
+
+The ViewModel detects "checked progress task" via a small Kotlin mirror
+of the backend's progress regex (see
+`TodayViewModel.isCompleteProgressTask`). Plain boolean done tasks skip
+this path entirely and untick immediately on tap.
+
+### JournalAdded creation rules
+
+When the backend records a `JournalAdded`, the comment is:
 
 ```
 - [x] <post-tick text>
 <user-typed note (multi-line)>
 ```
 
-The marker uses markdown task-list syntax (`- [x] `) so the journal renders
-cleanly in the web view. **Crucially, this entry deliberately bypasses
+The marker uses markdown task-list syntax (`- [x] `) so the journal
+renders cleanly in the web view. **The entry deliberately bypasses
 `services.journalling.process_journal_entry`** — the `[x]` prefix would
 otherwise re-trigger `reflection_extraction.add_reflection_items`, which
 would duplicate the line in `Reflection.good` that `_set_task_done_*`
@@ -162,20 +194,16 @@ already wrote there.
 
 Rules:
 
-- Modal opens **only on check** (`done=True`). Untick fires `/complete`
-  directly with no modal and no journal entry — the `[x]` semantics
-  don't fit reversal.
-- Cancel: no API call, no checkbox flip, no journal entry.
-- Empty note (`""` from the modal): the `/complete` still fires and the
-  task is ticked, but **no `JournalAdded` is created** — confirming a
-  check without any text counts as "just tick the task".
-- Missing `note` field (e.g., pre-modal client builds): same as
-  empty note — no journal entry.
-- For progress tasks the marker carries the **post-tick text**: ticking
-  `Do tasks (2/3)` produces `- [x] Do tasks (3/3)`, matching the line in
-  `Reflection.good` for the same operation.
-- Idempotent operations (tick on already-complete, untick on pristine)
-  return early without creating a journal entry.
+- Created only on `done=True` (tick from the add-note dialog or Add
+  another from the completed-task dialog).
+- Reset (`done=False`) creates no journal entry.
+- Plain-task untick (no dialog) creates no journal entry.
+- Empty note (`""`) or missing `note` field: no `JournalAdded` —
+  confirming an action without typed text counts as "just do the
+  state change".
+- For progress tasks the `[x]` line carries the **post-tick text**:
+  ticking `Do tasks (2/3)` writes `- [x] Do tasks (3/3)`; "Add another"
+  on `(3/3)` writes `- [x] Do tasks (4/3)`.
 
 `JournalAdded.published` is the device's wall-clock timestamp from the
 request (`timezone.now()` is the safe fallback for callers that don't

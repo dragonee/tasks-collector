@@ -82,12 +82,21 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
     }
 
     pendingComplete?.let { pending ->
-        JournalNoteDialog(
-            onConfirm = vm::confirmCompletion,
-            onCancel = vm::cancelCompletion,
-            // Reset the draft each time a new pending request arrives.
-            resetKey = pending.text,
-        )
+        when (pending) {
+            is TodayViewModel.PendingComplete.AddNote -> JournalNoteDialog(
+                onConfirm = vm::confirmCompletion,
+                onCancel = vm::cancelCompletion,
+                // Reset the draft each time a new pending request arrives.
+                resetKey = pending.text,
+            )
+            is TodayViewModel.PendingComplete.CompletedAction -> CompletedTaskDialog(
+                taskText = pending.text,
+                onAddAnother = vm::confirmAddAnother,
+                onReset = vm::confirmReset,
+                onCancel = vm::cancelCompletion,
+                resetKey = pending.text,
+            )
+        }
     }
 }
 
@@ -119,6 +128,56 @@ private fun JournalNoteDialog(
         dismissButton = {
             TextButton(onClick = onCancel) {
                 Text(stringResource(R.string.today_note_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun CompletedTaskDialog(
+    taskText: String,
+    onAddAnother: (String) -> Unit,
+    onReset: () -> Unit,
+    onCancel: () -> Unit,
+    resetKey: Any,
+) {
+    var draft by remember(resetKey) { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.today_done_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = taskText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    placeholder = { Text(stringResource(R.string.today_note_hint)) },
+                    singleLine = false,
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onAddAnother(draft) }) {
+                Text(stringResource(R.string.today_done_add_another))
+            }
+        },
+        dismissButton = {
+            // Material3's dismissButton slot accepts arbitrary content;
+            // we stack two TextButtons here so all three actions (Add
+            // another / Reset / Cancel) are visible on a single row.
+            Row {
+                TextButton(onClick = onReset) {
+                    Text(stringResource(R.string.today_done_reset))
+                }
+                TextButton(onClick = onCancel) {
+                    Text(stringResource(R.string.today_note_cancel))
+                }
             }
         },
     )

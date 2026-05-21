@@ -184,16 +184,15 @@ def _next_progress_step(progress, done):
     """Compute the next ``current`` value, or None if the request is a no-op.
 
     Per the agreed semantics:
-    - ``done=True`` on a non-complete task advances by 1.
-    - ``done=False`` on a fully-complete task resets to 0 (pristine).
-    - Any other combination (uncheck on partial, tick on complete) is a
-      no-op so the caller can return early.
+    - ``done=True`` always advances by 1 — including past full completion
+      (e.g. ``(3/3) → (4/3)`` via the "Add another" action on the
+      completed-task dialog).
+    - ``done=False`` resets to pristine ``(N)`` if the task was at or
+      past full completion, otherwise it's a no-op (unticking a
+      partially-progressed task is not meaningful).
     """
     if done:
-        if progress.current >= progress.total:
-            return None
         return progress.current + 1
-    # done=False: only meaningful when fully complete.
     if progress.current < progress.total:
         return None
     return 0
@@ -206,10 +205,10 @@ def _set_task_done_progress(user, text, done, progress, today, note, published):
 
     pub_date = _today(today, published)
     new_text = render_progress(text, progress, next_current)
-    became_complete = (
-        progress.current < progress.total and next_current == progress.total
-    )
-    left_complete = progress.current == progress.total and next_current < progress.total
+    # A task is "done" whenever its current step is at or past its total —
+    # this includes over-quota states like (4/3) reached via "Add another".
+    done_before = progress.current >= progress.total
+    done_after = next_current >= progress.total
 
     board = _current_board(user)
     hit = board_tree.find_task_by_text(board.state, text)
@@ -218,7 +217,7 @@ def _set_task_done_progress(user, text, done, progress, today, note, published):
     else:
         _, _, node = hit
         board_tree.rename(node, new_text)
-    board_tree.set_state(node, "done" if next_current == progress.total else "open")
+    board_tree.set_state(node, "done" if done_after else "open")
     board.save()
 
     daily = _daily_thread()
@@ -236,13 +235,18 @@ def _set_task_done_progress(user, text, done, progress, today, note, published):
     reflection, _created = Reflection.objects.get_or_create(
         pub_date=pub_date, thread=daily
     )
-    if became_complete:
-        # Drop any stale marker for this task (defensive) and add the new
-        # fully-complete text.
+    if not done_before and done_after:
+        # Transition into completion: drop any stale marker (defensive)
+        # and add the new fully-complete text.
         cleaned = text_lines.remove_line(reflection.good, text)
         new_good = text_lines.add_unique_line(cleaned, new_text)
-    elif left_complete:
+    elif done_before and not done_after:
+        # Transition out of completion (Reset): remove the old line.
         new_good = text_lines.remove_line(reflection.good, text)
+    elif done_before and done_after:
+        # Rename in place — (3/3) → (4/3) via "Add another", or any
+        # other over-quota advance.
+        new_good = text_lines.replace_line(reflection.good, text, new_text)
     else:
         new_good = reflection.good or ""
     if new_good != (reflection.good or ""):

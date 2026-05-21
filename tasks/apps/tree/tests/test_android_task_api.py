@@ -297,3 +297,39 @@ class AndroidTaskAPITestCase(APITestCase):
         entry = JournalAdded.objects.get(thread=self.daily)
         # Post-tick text in the [x] line, then the user's note.
         self.assertEqual(entry.comment, "- [x] Do tasks (1/3)\nstep one done")
+
+    def test_add_another_advances_past_full(self):
+        """End-to-end Add another flow: a /complete on a fully-completed
+        progress task bumps it to (N+1/N), keeps the row checked, and
+        records a journal entry with the new over-quota text."""
+        self._auth()
+        self._add("Do tasks (1)")
+        # First tick: (1) → (1/1), done.
+        self._complete("Do tasks (1)", True, note="first")
+        self.assertEqual(
+            self._list().json(),
+            {"items": [{"text": "Do tasks (1/1)", "done": True}]},
+        )
+        # "Add another" tick on the already-done task → (2/1), still done.
+        self._complete("Do tasks (1/1)", True, note="another one")
+
+        self.assertEqual(
+            self._list().json(),
+            {"items": [{"text": "Do tasks (2/1)", "done": True}]},
+        )
+        # Reflection.good renamed in place — single line, new text.
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Do tasks (2/1)")
+        # Board row stays checked.
+        self.board.refresh_from_db()
+        self.assertTrue(self.board.state[0]["state"]["checked"])
+        # Two journal entries, one per tick.
+        self.assertEqual(
+            sorted(JournalAdded.objects.values_list("comment", flat=True)),
+            sorted(
+                [
+                    "- [x] Do tasks (1/1)\nfirst",
+                    "- [x] Do tasks (2/1)\nanother one",
+                ]
+            ),
+        )

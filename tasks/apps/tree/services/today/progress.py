@@ -32,8 +32,10 @@ def parse_progress(text):
     """Return a Progress for the first marker in ``text``, or None if no
     valid marker is present.
 
-    ``current`` is normalized to ``min(current, total)``; ``total < 1``
-    yields None.
+    ``current`` is **not** clamped — over-quota markers like ``(4/3)`` are
+    legitimate states reachable via the "Add another" action on a
+    fully-completed task. ``total < 1`` is still rejected (a zero-step
+    task has no meaningful progression).
     """
     if not text:
         return None
@@ -50,8 +52,6 @@ def parse_progress(text):
         total = int(second)
     if total < 1:
         return None
-    if current > total:
-        current = total
     return Progress(current=current, total=total, span=match.span())
 
 
@@ -59,8 +59,9 @@ def render_progress(text, progress, new_current):
     """Replace the marker in ``text`` (at ``progress.span``) with the
     rendered form for ``new_current/progress.total``.
 
-    - ``new_current == 0`` → ``(total)`` (pristine)
-    - ``0 < new_current ≤ total`` → ``(new_current/total)``
+    - ``new_current <= 0`` → ``(total)`` (pristine)
+    - ``new_current > 0`` → ``(new_current/total)``; ``new_current`` may
+      exceed ``total`` (over-quota completion via "Add another").
     """
     start, end = progress.span
     if new_current <= 0:

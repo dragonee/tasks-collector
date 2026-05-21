@@ -320,11 +320,14 @@ class TodayServiceTestCase(TestCase):
         reflection = Reflection.objects.get(thread=self.daily)
         self.assertEqual(reflection.good, "Do tasks (3/3)")
 
-    def test_idempotent_tick_on_complete_makes_no_journal_entry(self):
+    def test_add_another_from_complete_journals_with_overquota_text(self):
+        """Tick on a fully-completed progress task is the Add another
+        action — it advances to (N+1/N) and records a new journal entry
+        with the over-quota text."""
         add_task(self.user, "Do tasks (3)", today=TODAY)
         for old in ("Do tasks (3)", "Do tasks (1/3)", "Do tasks (2/3)"):
             set_task_done(self.user, old, True, today=TODAY)
-        # Already fully complete.
+        # Now at (3/3). The above ticks carried no note → no journal yet.
         self.assertFalse(JournalAdded.objects.exists())
 
         set_task_done(
@@ -332,10 +335,14 @@ class TodayServiceTestCase(TestCase):
             "Do tasks (3/3)",
             True,
             published=PUBLISHED_AT,
-            note="ignored — already done",
+            note="one more",
         )
 
-        self.assertFalse(JournalAdded.objects.exists())
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "- [x] Do tasks (4/3)\none more")
+        # Reflection line is renamed in place — not duplicated.
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Do tasks (4/3)")
 
     def test_journal_failure_rolls_back_reflection_and_board(self):
         add_task(self.user, "buy bread", today=TODAY)

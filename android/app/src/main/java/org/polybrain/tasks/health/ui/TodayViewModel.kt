@@ -33,7 +33,23 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     private val _configured = MutableStateFlow(false)
     val configured: StateFlow<Boolean> = _configured.asStateFlow()
 
-    data class PendingComplete(val text: String)
+    /**
+     * What the user just initiated by tapping a row's checkbox. Drives
+     * which dialog (if any) is shown. ``null`` = no pending interaction.
+     */
+    sealed class PendingComplete {
+        abstract val text: String
+
+        /** Tick on an unchecked task → opens the "Add a note" dialog. */
+        data class AddNote(override val text: String) : PendingComplete()
+
+        /**
+         * Tap on a checked progress task (`(K/N)` with `K >= N`) → opens
+         * the completed-task dialog with Add another / Reset / Cancel.
+         * Plain boolean done tasks skip this path and untick immediately.
+         */
+        data class CompletedAction(override val text: String) : PendingComplete()
+    }
 
     private val _pendingComplete = MutableStateFlow<PendingComplete?>(null)
     val pendingComplete: StateFlow<PendingComplete?> = _pendingComplete.asStateFlow()
@@ -53,18 +69,25 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Entry point for the checkbox tap.
      *
-     * - On uncheck (done=false) the API call fires immediately with no
-     *   journal entry — the [x] marker doesn't make sense for backing
-     *   out of a completion.
-     * - On check (done=true) we stash the request as [pendingComplete]
-     *   so the UI can show the journal-note modal; the API call doesn't
-     *   fire until [confirmCompletion] or is dropped by
-     *   [cancelCompletion]. No optimistic flip — the checkbox stays
-     *   visually un-ticked until the user confirms.
+     * Branching:
+     * - `done = true` (ticking an unchecked row) → stash an [AddNote]
+     *   pending state; the UI opens the add-note dialog and the API
+     *   call doesn't fire until [confirmCompletion]. No optimistic flip.
+     * - `done = false` on a fully-complete *progress* task (`(K/N)`
+     *   with `K >= N`) → stash a [CompletedAction] pending state; the
+     *   UI opens the completed-task dialog with Add another / Reset /
+     *   Cancel. No optimistic flip — the row keeps its checked look
+     *   until the user picks Reset.
+     * - `done = false` on a plain task → fire `/complete` immediately,
+     *   no modal, no journal entry.
      */
     fun requestSetDone(text: String, done: Boolean) {
         if (done) {
-            _pendingComplete.value = PendingComplete(text)
+            _pendingComplete.value = PendingComplete.AddNote(text)
+            return
+        }
+        if (isCompleteProgressTask(text)) {
+            _pendingComplete.value = PendingComplete.CompletedAction(text)
             return
         }
         viewModelScope.launch {
@@ -77,8 +100,9 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** OK button on the add-note dialog. */
     fun confirmCompletion(note: String) {
-        val pending = _pendingComplete.value ?: return
+        val pending = _pendingComplete.value as? PendingComplete.AddNote ?: return
         _pendingComplete.value = null
         viewModelScope.launch {
             _tasks.value = _tasks.value.map { t ->
@@ -92,6 +116,46 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Add another button on the completed-task dialog. Sends `done=true`
+     * — on the backend that advances `(K/N)` to `(K+1/N)` and keeps the
+     * row checked. The optional note flows through as a journal entry
+     * just like a normal tick.
+     */
+    fun confirmAddAnother(note: String) {
+        val pending = _pendingComplete.value as? PendingComplete.CompletedAction ?: return
+        _pendingComplete.value = null
+        viewModelScope.launch {
+            // Row stays visually checked; no optimistic change needed.
+            mutate { api ->
+                api.completeTodayTask(
+                    TaskCompleteRequest(pending.text, true, nowIso(), note)
+                )
+            }
+        }
+    }
+
+    /**
+     * Reset button on the completed-task dialog. Sends `done=false` —
+     * on the backend that returns `(K/N)` to pristine `(N)` and clears
+     * `Reflection.good`. No note, no journal entry.
+     */
+    fun confirmReset() {
+        val pending = _pendingComplete.value as? PendingComplete.CompletedAction ?: return
+        _pendingComplete.value = null
+        viewModelScope.launch {
+            _tasks.value = _tasks.value.map { t ->
+                if (t.text == pending.text) t.copy(done = false) else t
+            }
+            mutate { api ->
+                api.completeTodayTask(
+                    TaskCompleteRequest(pending.text, false, nowIso())
+                )
+            }
+        }
+    }
+
+    /** Cancel / backdrop dismiss on either dialog. */
     fun cancelCompletion() {
         _pendingComplete.value = null
     }
@@ -155,4 +219,27 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     // the server can record the exact moment as the JournalAdded
     // published time, not a synthesized noon.
     private fun nowIso(): String = OffsetDateTime.now().toString()
+
+    companion object {
+        // Mirrors services/today/progress.py:PROGRESS_RE. Used only to
+        // decide which dialog to open on an "untick" tap — the server
+        // is still the source of truth for actual progression.
+        private val PROGRESS_RE = Regex("""\((\d+)(?:/(\d+))?\)""")
+
+        /**
+         * True when [text] carries a progress marker `(K/N)` whose
+         * current step is at or past its total — i.e. a state where the
+         * row is rendered as checked. `(N)` pristine markers and
+         * partial `(K/N)` (K<N) return false.
+         */
+        internal fun isCompleteProgressTask(text: String): Boolean {
+            val match = PROGRESS_RE.find(text) ?: return false
+            val current = match.groupValues[1].toIntOrNull() ?: return false
+            val totalRaw = match.groupValues[2]
+            if (totalRaw.isEmpty()) return false  // (N) form — never complete
+            val total = totalRaw.toIntOrNull() ?: return false
+            if (total < 1) return false
+            return current >= total
+        }
+    }
 }
