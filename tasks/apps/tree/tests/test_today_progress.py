@@ -161,6 +161,10 @@ class ProgressLifecycleTestCase(TestCase):
         plan, reflection = self._reload()
         self.assertEqual(plan.focus, "Do tasks (3/3)")
         self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        # The Vue Board view shows the strikethrough only when this flag
+        # is set — regression for the bug where progressed tasks fully
+        # completed via Android stayed visually unchecked on the web board.
+        self.assertTrue(self.board.state[0]["state"]["checked"])
         self.assertEqual(reflection.good, "Do tasks (3/3)")
 
     def test_full_cycle_3_to_complete(self):

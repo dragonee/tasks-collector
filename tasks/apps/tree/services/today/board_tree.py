@@ -43,8 +43,15 @@ def has_children(node):
 
 
 def set_state(node, new_state):
+    """Set the work state ("open" / "done") *and* the top-level
+    ``state.checked`` flag the Vue Board view uses to render the checkbox.
+    The two fields are kept in lockstep: a "done" node is also checked, an
+    "open" node is also unchecked.
+    """
     data = node.setdefault("data", {})
     data["state"] = new_state
+    ui_state = node.setdefault("state", {})
+    ui_state["checked"] = new_state == "done"
 
 
 def get_state(node):

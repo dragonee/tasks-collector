@@ -35,22 +35,22 @@ def _today(today, published=None):
 
 
 def _maybe_add_journal(text_for_marker, note, published, daily, done):
-    """Record a JournalAdded with ``[x] <text_for_marker>`` (optionally
-    followed by the user's free-form note).
+    """Record a JournalAdded with ``- [x] <text_for_marker>`` followed by
+    the user's free-form note.
 
-    Only fires on ``done=True`` and when ``note is not None`` — uncheck or
-    a missing ``note`` field skips the journal entry entirely.
+    Skipped when:
+    - ``done`` is False (the [x] semantics don't fit reversal); or
+    - ``note`` is falsy (None or empty string) — confirming a check
+      without any text counts as "just tick the task", not journal-worthy.
 
     Deliberately bypasses ``services.journalling.process_journal_entry``:
     the ``[x]`` prefix would otherwise re-trigger reflection extraction
     and duplicate the line that ``_set_task_done_*`` already wrote to
     ``Reflection.good``.
     """
-    if not done or note is None:
+    if not done or not note:
         return
-    comment = f"- [x] {text_for_marker}"
-    if note:
-        comment = f"{comment}\n{note}"
+    comment = f"- [x] {text_for_marker}\n{note}"
     JournalAdded.objects.create(
         thread=daily,
         comment=comment,
