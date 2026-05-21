@@ -44,9 +44,11 @@ class ProgressParseTestCase(TestCase):
         self.assertIsNone(parse_progress("(foo) (bar)"))
         self.assertIsNone(parse_progress("Hello (world)"))
 
-    def test_clamps_current_above_total(self):
+    def test_preserves_overshoot(self):
+        # Over-quota states like (7/4) are now legitimate — they're how
+        # "Add another" tracks repeated completions past the plan.
         p = parse_progress("(7/4) overshoot")
-        self.assertEqual((p.current, p.total), (4, 4))
+        self.assertEqual((p.current, p.total), (7, 4))
 
 
 class ProgressRenderTestCase(TestCase):
@@ -194,20 +196,61 @@ class ProgressLifecycleTestCase(TestCase):
         self.assertEqual(self.board.state[0]["data"]["state"], "done")
         self.assertEqual(reflection.good, "Quick (1/1)")
 
-    # --- no-ops ------------------------------------------------------------
+    # --- "Add another" past full completion -------------------------------
 
-    def test_tick_on_complete_is_noop(self):
+    def test_add_another_from_full_advances_overquota(self):
+        """Tick on a fully-completed (N/N) task is no longer a no-op —
+        it advances to (N+1/N) and keeps the task marked done. This is the
+        backend half of the Add another button on the completed-task
+        dialog."""
         self._seed("Done (3/3)")
         Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="Done (3/3)")
         self.board.state[0]["data"]["state"] = "done"
+        self.board.state[0]["state"] = {"checked": True}
         self.board.save()
 
         set_task_done(self.user, "Done (3/3)", True, today=TODAY)
 
         plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Done (3/3)")
-        self.assertEqual(reflection.good, "Done (3/3)")
+        self.assertEqual(plan.focus, "Done (4/3)")
+        # Still marked done — Add another bumps the count, doesn't reset.
         self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        self.assertTrue(self.board.state[0]["state"]["checked"])
+        # Reflection line renamed in place — no duplicate, no removal.
+        self.assertEqual(reflection.good, "Done (4/3)")
+
+    def test_add_another_from_overquota_keeps_advancing(self):
+        self._seed("Done (4/3)")
+        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="Done (4/3)")
+        self.board.state[0]["data"]["state"] = "done"
+        self.board.state[0]["state"] = {"checked": True}
+        self.board.save()
+
+        set_task_done(self.user, "Done (4/3)", True, today=TODAY)
+
+        plan, reflection = self._reload()
+        self.assertEqual(plan.focus, "Done (5/3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        self.assertEqual(reflection.good, "Done (5/3)")
+
+    def test_reset_from_overquota_returns_to_pristine(self):
+        """Reset on (4/3) — or any over-quota state — goes straight back
+        to the pristine (N) form and clears Reflection.good."""
+        self._seed("Done (4/3)")
+        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="Done (4/3)")
+        self.board.state[0]["data"]["state"] = "done"
+        self.board.state[0]["state"] = {"checked": True}
+        self.board.save()
+
+        set_task_done(self.user, "Done (4/3)", False, today=TODAY)
+
+        plan, reflection = self._reload()
+        self.assertEqual(plan.focus, "Done (3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "open")
+        self.assertFalse(self.board.state[0]["state"]["checked"])
+        self.assertEqual(reflection.good, "")
+
+    # --- no-ops ------------------------------------------------------------
 
     def test_untick_on_pristine_is_noop(self):
         self._seed("Fresh (3)")
