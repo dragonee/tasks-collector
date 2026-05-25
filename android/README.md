@@ -68,6 +68,38 @@ not committed. Choose one of:
   adb install -r app/build/outputs/apk/debug/app-debug.apk
   ```
 
+## Pre-filling Server URL / API token (debug builds)
+
+If you're running the app in an Android emulator (or any debug install)
+and don't want to re-enter the server URL and token after every install,
+add the values to `android/local.properties` (gitignored):
+
+```properties
+tasks.devServerUrl=http://10.0.2.2:8000
+tasks.devApiToken=<token-from-issue_mobile_token>
+```
+
+`10.0.2.2` is the host-machine alias inside the Android emulator. For a
+physical device on the same LAN use the host's LAN IP instead.
+
+Alternatively, export the same values as environment variables before
+running Gradle:
+
+```bash
+export TASKS_DEV_SERVER_URL=http://10.0.2.2:8000
+export TASKS_DEV_API_TOKEN=<token>
+```
+
+`local.properties` wins over env vars. Both are read at build time and
+exposed through `BuildConfig.DEV_SERVER_URL` / `BuildConfig.DEV_API_TOKEN`
+**only in debug builds** — release builds always inject empty strings,
+so this can't leak credentials into a published APK.
+
+At runtime the `Settings` DataStore falls back to these defaults when no
+value has been saved. As soon as you tap **Save** in the Settings
+screen, the DataStore value takes precedence; clearing the DataStore
+(uninstall + reinstall, or app data wipe) brings the defaults back.
+
 ## On-device setup
 
 1. Make sure Health Connect is installed (built into Android 14+, available

@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.polybrain.tasks.health.BuildConfig
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -25,9 +26,15 @@ data class SettingsSnapshot(
 class Settings(private val context: Context) {
 
     val flow: Flow<SettingsSnapshot> = context.dataStore.data.map { prefs ->
+        // Fall back to build-time defaults (injected from android/local.properties
+        // or env vars on debug builds; empty on release) when DataStore is blank.
+        // This lets a fresh debug install of the app come up already pointed at
+        // the dev server without needing to type into Settings every time.
         SettingsSnapshot(
-            serverUrl = prefs[SERVER_URL].orEmpty(),
-            apiToken = prefs[API_TOKEN].orEmpty(),
+            serverUrl = prefs[SERVER_URL].orEmpty()
+                .ifBlank { BuildConfig.DEV_SERVER_URL },
+            apiToken = prefs[API_TOKEN].orEmpty()
+                .ifBlank { BuildConfig.DEV_API_TOKEN },
             lastSyncEpochMs = prefs[LAST_SYNC_MS] ?: 0L,
             lastSyncError = prefs[LAST_SYNC_ERROR].orEmpty(),
         )
