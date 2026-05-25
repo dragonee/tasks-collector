@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -62,10 +63,28 @@ class Settings(private val context: Context) {
         }
     }
 
+    /**
+     * IDs of bike-ride sessions already posted to the server. Used by
+     * [HealthSyncWorker] to avoid re-posting the same ride on each 7-day
+     * window re-sync. Kept as an opaque set — we don't need ordering or
+     * timestamps because sessions don't mutate after they finish.
+     */
+    suspend fun syncedBikeSessionIds(): Set<String> =
+        context.dataStore.data.first()[SYNCED_BIKE_SESSION_IDS].orEmpty()
+
+    suspend fun addSyncedBikeSessionIds(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val existing = prefs[SYNCED_BIKE_SESSION_IDS].orEmpty()
+            prefs[SYNCED_BIKE_SESSION_IDS] = existing + ids
+        }
+    }
+
     private companion object {
         val SERVER_URL = stringPreferencesKey("server_url")
         val API_TOKEN = stringPreferencesKey("api_token")
         val LAST_SYNC_MS = longPreferencesKey("last_sync_ms")
         val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
+        val SYNCED_BIKE_SESSION_IDS = stringSetPreferencesKey("synced_bike_session_ids")
     }
 }
