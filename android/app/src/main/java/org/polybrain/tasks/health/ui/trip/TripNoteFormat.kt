@@ -76,6 +76,33 @@ fun pickEventFormatter(
 fun formatInstant(iso: String, formatter: DateTimeFormatter): String =
     OffsetDateTime.parse(iso).toInstant().let(formatter::format)
 
+/**
+ * Formats a trip's started → stopped range for display in the Trips
+ * list. The start always carries a full date so rows are
+ * self-describing in a scrolling list; the end side drops the date if
+ * the trip ended on the same calendar day. Active trips (no stop)
+ * render as just the start datetime.
+ */
+fun formatTripRange(
+    startedIso: String,
+    stoppedIso: String?,
+    zone: ZoneId = ZoneId.systemDefault(),
+): String {
+    val dateTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.US).withZone(zone)
+    val time = DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(zone)
+
+    val started = OffsetDateTime.parse(startedIso)
+    val startStr = dateTime.format(started.toInstant())
+    if (stoppedIso == null) return startStr
+
+    val stopped = OffsetDateTime.parse(stoppedIso)
+    val sameDay = started.atZoneSameInstant(zone).toLocalDate() ==
+            stopped.atZoneSameInstant(zone).toLocalDate()
+    val endStr = if (sameDay) time.format(stopped.toInstant())
+                 else dateTime.format(stopped.toInstant())
+    return "$startStr → $endStr"
+}
+
 private fun parseAsLocalDate(iso: String, zone: ZoneId): LocalDate =
     OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDate()
 

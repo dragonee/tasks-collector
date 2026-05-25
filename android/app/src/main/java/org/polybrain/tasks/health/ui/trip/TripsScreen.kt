@@ -138,7 +138,7 @@ private fun TripRow(trip: TripSummary, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
             )
             Text(
-                text = trip.started + (trip.stopped?.let { " → $it" } ?: ""),
+                text = formatTripRange(trip.started, trip.stopped),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
