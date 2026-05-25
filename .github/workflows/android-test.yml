@@ -1,0 +1,59 @@
+name: Android Test
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Ensures compileSdk / build-tools match the version in
+      # android/gradle/libs.versions.toml (compileSdk = 35). Without this,
+      # AGP 9 fails on a fresh runner.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+
+      # Caches Gradle home + dependencies between runs.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # Wrapper jar isn't committed (per android/.gitignore); generate it
+      # before invoking ./gradlew. The toolchain Gradle from setup-gradle
+      # picks up android/gradle/wrapper/gradle-wrapper.properties.
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.10.2
+
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-${{ github.event.pull_request.number }}
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
