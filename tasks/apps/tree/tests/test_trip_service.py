@@ -130,7 +130,7 @@ class TripServiceTestCase(TestCase):
         latest_two = sorted(stops[-2:])
         self.assertEqual(sorted(s.pk for s in page1), latest_two)
 
-    def test_get_detail_returns_journal_events_chronologically(self):
+    def test_get_detail_returns_journal_events_newest_first(self):
         story = start_trip(self.alice)
         t1 = datetime_cls(2026, 5, 25, 10, 0, tzinfo=dt_timezone.utc)
         t2 = datetime_cls(2026, 5, 25, 11, 0, tzinfo=dt_timezone.utc)
@@ -146,7 +146,7 @@ class TripServiceTestCase(TestCase):
         detail_story, events = get_detail(self.alice, story.pk)
         self.assertEqual(detail_story.pk, story.pk)
         timestamps = [e["published"] for e in events]
-        self.assertEqual(timestamps, sorted(timestamps))
+        self.assertEqual(timestamps, sorted(timestamps, reverse=True))
         # Three notes were posted; the #poi hashtag also created a
         # HabitTracked linked to the story, but the detail view
         # intentionally omits non-journal events.

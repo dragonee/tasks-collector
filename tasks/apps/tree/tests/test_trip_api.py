@@ -183,7 +183,7 @@ class TripAPITestCase(APITestCase):
         r = self._list(page=2, page_size=2).json()
         self.assertEqual(len(r["history"]), 1)
 
-    def test_detail_returns_events_chronologically(self):
+    def test_detail_returns_events_newest_first(self):
         self._auth()
         sid = self._start().json()["story"]["id"]
         self._note(sid, "first", published=PUB_AT)
@@ -194,7 +194,7 @@ class TripAPITestCase(APITestCase):
         body = r.json()
         self.assertEqual(body["story"]["id"], sid)
         pubs = [e["published"] for e in body["events"]]
-        self.assertEqual(pubs, sorted(pubs))
+        self.assertEqual(pubs, sorted(pubs, reverse=True))
 
     def test_detail_other_user_returns_404(self):
         self._auth()
