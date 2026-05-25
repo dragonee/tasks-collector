@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Issue a DRF auth token via the issue_mobile_token Django command and
+# write it (along with a dev server URL) into android/local.properties
+# so the Android debug build picks both up at build time via
+# BuildConfig.DEV_API_TOKEN / BuildConfig.DEV_SERVER_URL.
+#
+# Usage:
+#   android/scripts/get-android-token <username> [--server URL] [--rotate] [-f|--force]
+#
+# Examples:
+#   android/scripts/get-android-token alice
+#   android/scripts/get-android-token alice --server http://10.0.2.2:8000
+#   android/scripts/get-android-token alice --rotate -f
+
+set -euo pipefail
+
+DEFAULT_SERVER_URL="http://localhost:8000"
+
+usage() {
+  cat >&2 <<EOF
+Usage: $(basename "$0") <username> [--server URL] [--rotate] [-f|--force]
+
+  --server URL    URL written to tasks.devServerUrl (default: $DEFAULT_SERVER_URL)
+  --rotate        Pass --rotate to issue_mobile_token (deletes and recreates)
+  -f, --force     Overwrite tasks.devApiToken if already set in local.properties
+EOF
+  exit 2
+}
+
+USERNAME=""
+SERVER_URL=""
+ROTATE=false
+FORCE=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --server)
+      [[ $# -lt 2 ]] && { echo "--server requires a value" >&2; usage; }
+      SERVER_URL="$2"; shift 2
+      ;;
+    --rotate)
+      ROTATE=true; shift
+      ;;
+    -f|--force)
+      FORCE=true; shift
+      ;;
+    -h|--help)
+      usage
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage
+      ;;
+    *)
+      if [[ -n "$USERNAME" ]]; then
+        echo "Unexpected extra argument: $1" >&2
+        usage
+      fi
+      USERNAME="$1"; shift
+      ;;
+  esac
+done
+
+[[ -z "$USERNAME" ]] && usage
+[[ -z "$SERVER_URL" ]] && SERVER_URL="$DEFAULT_SERVER_URL"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LOCAL_PROPS="$REPO_ROOT/android/local.properties"
+COMPOSE_FILE="$REPO_ROOT/docker/development/docker-compose.yml"
+
+if [[ ! -f "$COMPOSE_FILE" ]]; then
+  echo "Compose file not found: $COMPOSE_FILE" >&2
+  exit 1
+fi
+
+# Bail out before touching the backend if a token is already present and
+# --force wasn't passed. The user can either pass -f to overwrite, or
+# add --rotate to also invalidate the existing server-side token.
+if [[ -f "$LOCAL_PROPS" ]] && \
+   grep -Eq '^[[:space:]]*tasks\.devApiToken=' "$LOCAL_PROPS"; then
+  if ! $FORCE; then
+    echo "Error: tasks.devApiToken already set in $LOCAL_PROPS." >&2
+    echo "Re-run with -f / --force to overwrite" \
+         "(add --rotate to also rotate the server-side token)." >&2
+    exit 1
+  fi
+fi
+
+DJANGO_CMD=(python manage.py issue_mobile_token "$USERNAME")
+$ROTATE && DJANGO_CMD+=(--rotate)
+
+echo "Issuing token for user '$USERNAME' via $(basename "$COMPOSE_FILE")..." >&2
+TOKEN_RAW="$(docker compose -f "$COMPOSE_FILE" exec -T tasks-backend "${DJANGO_CMD[@]}")"
+TOKEN="$(printf '%s' "$TOKEN_RAW" | tr -d '\r\n')"
+
+if [[ -z "$TOKEN" ]]; then
+  echo "Error: empty token from issue_mobile_token (is the backend container running?)" >&2
+  exit 1
+fi
+
+touch "$LOCAL_PROPS"
+
+# Write key=value into LOCAL_PROPS, replacing in place if the key
+# already exists, appending otherwise. awk for portability across
+# BSD (macOS) and GNU sed.
+write_kv() {
+  local key="$1" value="$2"
+  if grep -Eq "^[[:space:]]*${key}=" "$LOCAL_PROPS"; then
+    local tmp
+    tmp="$(mktemp "${LOCAL_PROPS}.XXXXXX")"
+    awk -v k="$key" -v v="$value" '
+      { if ($0 ~ "^[[:space:]]*"k"=") print k"="v; else print }
+    ' "$LOCAL_PROPS" > "$tmp"
+    mv "$tmp" "$LOCAL_PROPS"
+  else
+    # Append. If the file doesn't already end in a newline, add one first
+    # so the new key doesn't merge into the previous line. Command
+    # substitution strips trailing newlines, so we tack on a sentinel 'x'
+    # to preserve a real \n in the captured value.
+    if [[ -s "$LOCAL_PROPS" ]]; then
+      local last
+      last="$(tail -c1 "$LOCAL_PROPS"; printf x)"
+      [[ "${last%x}" != $'\n' ]] && printf '\n' >> "$LOCAL_PROPS"
+    fi
+    printf '%s=%s\n' "$key" "$value" >> "$LOCAL_PROPS"
+  fi
+}
+
+write_kv tasks.devServerUrl "$SERVER_URL"
+write_kv tasks.devApiToken  "$TOKEN"
+
+echo "Wrote dev config to $LOCAL_PROPS:" >&2
+echo "  tasks.devServerUrl=$SERVER_URL" >&2
+echo "  tasks.devApiToken=<hidden, ${#TOKEN} chars>" >&2
+echo "Rebuild the Android debug app to pick the new values up." >&2

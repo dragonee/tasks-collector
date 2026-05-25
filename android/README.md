@@ -82,6 +82,22 @@ tasks.devApiToken=<token-from-issue_mobile_token>
 `10.0.2.2` is the host-machine alias inside the Android emulator. For a
 physical device on the same LAN use the host's LAN IP instead.
 
+The `android/scripts/get-android-token` helper does both steps in one
+shot — it runs `issue_mobile_token` inside the dev container and writes
+the result into `local.properties`:
+
+```bash
+# First time: mint a token for <username> and write it + localhost URL
+android/scripts/get-android-token <username>
+
+# Emulator-friendly URL
+android/scripts/get-android-token <username> --server http://10.0.2.2:8000
+
+# Already configured? Pass -f to overwrite, optionally with --rotate to
+# also invalidate the existing server-side token before writing a new one.
+android/scripts/get-android-token <username> --rotate -f
+```
+
 Alternatively, export the same values as environment variables before
 running Gradle:
 
