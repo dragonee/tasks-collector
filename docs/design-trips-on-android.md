@@ -77,7 +77,12 @@ Public operations (each wrapped in `@transaction.atomic`):
   story=story)` so embedded hashtags create `HabitTracked` events
   that are also linked to the story.
 - `list_active(user)` / `list_history(user, page, page_size)` /
-  `get_detail(user, story_id)`.
+  `get_detail(user, story_id)`. `get_detail` returns only
+  `JournalAdded` events even though `HabitTracked` entries are also
+  linked via `StoryEvent` — the Android client surfaces POI pins by
+  parsing the leading `#poi lat=… lng=…` line out of the journal
+  comment instead, so duplicating the same information as a separate
+  habit event would just clutter the timeline.
 
 Error classes: `StoryNotFoundError`, `StoryStoppedError`.
 

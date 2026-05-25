@@ -23,6 +23,7 @@
     <string name="trip_detail_empty">No notes yet — tap Add note to record one.</string>
     <string name="trip_detail_rename">Rename</string>
     <string name="trip_detail_rename_title">Rename trip</string>
+    <string name="trip_detail_open_in_maps">Open location in Maps</string>
 
     <string name="trip_note_dialog_title">Add a note</string>
     <string name="trip_note_hint">What\'s going on?</string>
