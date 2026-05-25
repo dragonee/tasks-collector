@@ -18,8 +18,6 @@
     <string name="trip_detail_back">Back</string>
     <string name="trip_detail_add_note">Add note</string>
     <string name="trip_detail_stop">Stop trip</string>
-    <string name="trip_detail_stopped">Trip ended %1$s</string>
-    <string name="trip_detail_started">Started %1$s</string>
     <string name="trip_detail_empty">No notes yet — tap Add note to record one.</string>
     <string name="trip_detail_rename">Rename</string>
     <string name="trip_detail_rename_title">Rename trip</string>

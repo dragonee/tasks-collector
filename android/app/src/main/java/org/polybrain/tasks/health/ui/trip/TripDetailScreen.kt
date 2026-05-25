@@ -76,12 +76,11 @@ fun TripDetailScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        if (s != null && formatter != null) {
+        if (s != null) {
             TripHeader(
                 title = s.title,
                 startedIso = s.started,
                 stoppedIso = s.stopped,
-                formatter = formatter,
                 onRename = vm::openRename,
             )
         }
@@ -143,7 +142,6 @@ private fun TripHeader(
     title: String,
     startedIso: String,
     stoppedIso: String?,
-    formatter: DateTimeFormatter,
     onRename: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -161,19 +159,10 @@ private fun TripHeader(
             }
         }
         Text(
-            text = stringResource(R.string.trip_detail_started)
-                .format(formatInstant(startedIso, formatter)),
+            text = formatTripRange(startedIso, stoppedIso),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (stoppedIso != null) {
-            Text(
-                text = stringResource(R.string.trip_detail_stopped)
-                    .format(formatInstant(stoppedIso, formatter)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
