@@ -21,6 +21,8 @@ from .base import *
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
+ALLOWED_HOSTS = [".localhost", "127.0.0.1", "[::1]", "10.0.2.2"]
+
 DEBUG = True
 
 is_running_tests = "test" in sys.argv or os.environ.get("PYTEST_VERSION") is not None
