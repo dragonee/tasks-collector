@@ -2,6 +2,7 @@ package org.polybrain.tasks.health
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,9 +38,12 @@ import org.polybrain.tasks.health.ui.HealthScreen
 import org.polybrain.tasks.health.ui.MainViewModel
 import org.polybrain.tasks.health.ui.SettingsScreen
 import org.polybrain.tasks.health.ui.TodayScreen
+import org.polybrain.tasks.health.ui.trip.TripDetailScreen
+import org.polybrain.tasks.health.ui.trip.TripsScreen
 
 private enum class Destination(val titleRes: Int) {
     Today(R.string.nav_today),
+    Trips(R.string.nav_trips),
     Health(R.string.nav_health),
     Settings(R.string.nav_settings),
 }
@@ -62,8 +66,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MainScaffold(vm: MainViewModel = viewModel()) {
     var current by remember { mutableStateOf(Destination.Today) }
+    var tripDetailId by remember { mutableStateOf<Long?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    BackHandler(enabled = tripDetailId != null) {
+        tripDetailId = null
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -81,6 +90,7 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
                         selected = dest == current,
                         onClick = {
                             current = dest
+                            tripDetailId = null
                             scope.launch { drawerState.close() }
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
@@ -112,6 +122,14 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
             ) {
                 when (current) {
                     Destination.Today -> TodayScreen()
+                    Destination.Trips -> {
+                        val detailId = tripDetailId
+                        if (detailId != null) {
+                            TripDetailScreen(storyId = detailId)
+                        } else {
+                            TripsScreen(onOpenTrip = { tripDetailId = it })
+                        }
+                    }
                     Destination.Health -> HealthScreen(vm)
                     Destination.Settings -> SettingsScreen(vm)
                 }

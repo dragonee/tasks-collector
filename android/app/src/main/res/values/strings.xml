@@ -3,9 +3,36 @@
     <string name="app_name">Tasks Health</string>
 
     <string name="nav_today">Today</string>
+    <string name="nav_trips">Trips</string>
     <string name="nav_health">Health</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_open_menu">Open menu</string>
+
+    <string name="trips_not_configured">Configure server URL and API token in Settings first.</string>
+    <string name="trips_start_button">Start a trip</string>
+    <string name="trips_active_heading">Active</string>
+    <string name="trips_history_heading">Past trips</string>
+    <string name="trips_history_empty">No past trips yet.</string>
+    <string name="trips_history_load_more">Load more</string>
+
+    <string name="trip_detail_back">Back</string>
+    <string name="trip_detail_add_note">Add note</string>
+    <string name="trip_detail_stop">Stop trip</string>
+    <string name="trip_detail_stopped">Trip ended %1$s</string>
+    <string name="trip_detail_started">Started %1$s</string>
+    <string name="trip_detail_empty">No notes yet — tap Add note to record one.</string>
+    <string name="trip_detail_rename">Rename</string>
+    <string name="trip_detail_rename_title">Rename trip</string>
+
+    <string name="trip_note_dialog_title">Add a note</string>
+    <string name="trip_note_hint">What\'s going on?</string>
+    <string name="trip_note_send">Send</string>
+    <string name="trip_note_cancel">Cancel</string>
+    <string name="trip_note_gps_waiting">Waiting for GPS…</string>
+    <string name="trip_note_gps_ready">Location ready (%1$.5f, %2$.5f)</string>
+    <string name="trip_note_gps_missing">No location available.</string>
+    <string name="trip_note_send_without_location">Send without location</string>
+    <string name="trip_note_grant_location">Grant location permission</string>
 
     <string name="today_empty">Nothing on today\'s plan yet.</string>
     <string name="today_add_hint">Add a task</string>

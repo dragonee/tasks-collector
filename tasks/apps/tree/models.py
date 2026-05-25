@@ -802,3 +802,41 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"Profile for {self.user.username}"
+
+
+class Story(models.Model):
+    class Type(models.TextChoices):
+        TRIP = "trip", _("Trip")
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="stories",
+    )
+    type = models.CharField(max_length=16, choices=Type.choices, default=Type.TRIP)
+    title = models.CharField(max_length=255, blank=True)
+    started = models.DateTimeField(default=timezone.now)
+    stopped = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-started",)
+        indexes = [
+            models.Index(fields=["user", "stopped", "-started"]),
+        ]
+
+    def __str__(self):
+        return self.title or f"{self.get_type_display()} #{self.pk}"
+
+
+class StoryEvent(models.Model):
+    story = models.ForeignKey(Story, on_delete=models.CASCADE, related_name="entries")
+    event = models.OneToOneField(
+        Event, on_delete=models.CASCADE, related_name="story_entry"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at",)
+
+    def __str__(self):
+        return f"{self.story} <- event #{self.event_id}"
