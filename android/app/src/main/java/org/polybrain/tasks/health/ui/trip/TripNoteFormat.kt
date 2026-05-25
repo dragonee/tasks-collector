@@ -29,8 +29,14 @@ data class ParsedTripNote(
  * embedded mid-comment are intentionally left in the displayed text
  * (they're user-typed in that case and probably meant to be read).
  */
+// Anchored to the start of the comment. Only horizontal whitespace
+// ([ \t]) is allowed inside the marker line — '\s' would include the
+// trailing newline and the regex engine would then happily swallow the
+// rest of the body as part of the optional "extra on the same line"
+// segment. The trailing [^\n]* tolerates anything else after the lng=
+// value (accuracy, a label, …) up to but not including the newline.
 private val POI_LINE_RE = Regex(
-    """^\s*#poi\s+lat=(-?\d+(?:\.\d+)?)\s+lng=(-?\d+(?:\.\d+)?)(?:\s+[^\n]*)?(?:\n|$)"""
+    """^[ \t]*#poi[ \t]+lat=(-?\d+(?:\.\d+)?)[ \t]+lng=(-?\d+(?:\.\d+)?)[^\n]*(?:\n|$)"""
 )
 
 fun parseTripNote(comment: String): ParsedTripNote {
@@ -38,8 +44,11 @@ fun parseTripNote(comment: String): ParsedTripNote {
     val lat = match.groupValues[1].toDoubleOrNull()
     val lng = match.groupValues[2].toDoubleOrNull()
     if (lat == null || lng == null) return ParsedTripNote(comment, null)
-    val stripped = comment.substring(match.range.last + 1)
-    return ParsedTripNote(stripped.trimStart('\n').trimEnd(), PoiCoords(lat, lng))
+    // The match already includes the trailing newline (or hits end of
+    // string), so the body starts right after it. Preserve the body
+    // verbatim — don't strip whitespace inside it, that's the user's.
+    val body = comment.substring(match.range.last + 1)
+    return ParsedTripNote(body, PoiCoords(lat, lng))
 }
 
 /**

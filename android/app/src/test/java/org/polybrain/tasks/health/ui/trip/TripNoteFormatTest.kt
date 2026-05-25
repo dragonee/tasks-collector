@@ -50,6 +50,26 @@ class TripNoteFormatTest {
         assertEquals(151.2093, parsed.poi!!.lng, 0.0)
     }
 
+    @Test
+    fun `preserves multi-line body verbatim`() {
+        val parsed = parseTripNote(
+            "#poi lat=1 lng=2\nFirst line\n\nThird line  with trailing  "
+        )
+        assertEquals("First line\n\nThird line  with trailing  ", parsed.text)
+    }
+
+    @Test
+    fun `tolerates extra text on the poi line itself`() {
+        // A future client may append accuracy/altitude/labels on the same
+        // line; the body still starts on the next line.
+        val parsed = parseTripNote(
+            "#poi lat=10 lng=20 acc=5\nThe note body stays whole"
+        )
+        assertEquals("The note body stays whole", parsed.text)
+        assertEquals(10.0, parsed.poi!!.lat, 0.0)
+        assertEquals(20.0, parsed.poi!!.lng, 0.0)
+    }
+
     // --- pickEventFormatter -------------------------------------------------
 
     @Test
