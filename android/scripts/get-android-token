@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-DEFAULT_SERVER_URL="http://localhost:8000"
+DEFAULT_SERVER_URL="http://10.0.2.2:8000"
 
 usage() {
   cat >&2 <<EOF
