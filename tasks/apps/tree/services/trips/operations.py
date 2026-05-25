@@ -129,20 +129,19 @@ def list_history(user, page=1, page_size=20):
 
 
 def get_detail(user, story_id):
-    """Story + ordered list of JournalAdded events linked to it.
+    """Story + list of JournalAdded events linked to it, newest first.
 
-    Events are returned chronologically by ``published``. HabitTracked
-    rows that were attached as a side-effect of journal processing
-    (e.g. POI extraction from ``#poi`` hashtags) are intentionally
-    *not* included here — the JournalAdded already carries the same
-    information in its comment, and the Android client prefers to
-    derive map pins from there.
+    HabitTracked rows that were attached as a side-effect of journal
+    processing (e.g. POI extraction from ``#poi`` hashtags) are
+    intentionally *not* included here — the JournalAdded already carries
+    the same information in its comment, and the Android client prefers
+    to derive map pins from there.
     """
     story = _get_owned_story(user, story_id)
     entries = (
         StoryEvent.objects.filter(story=story, event__journaladded__isnull=False)
         .select_related("event")
-        .order_by("event__published")
+        .order_by("-event__published")
     )
     events = []
     for entry in entries:
