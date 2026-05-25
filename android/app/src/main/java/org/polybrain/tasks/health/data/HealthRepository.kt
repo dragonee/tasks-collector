@@ -25,6 +25,15 @@ data class DailyMetrics(
     val kcal: Double,
 )
 
+data class BikeSession(
+    // Health Connect's stable per-record ID (Metadata.id). Used as a
+    // dedup key so the 7-day re-sync window doesn't post the same ride
+    // twice.
+    val id: String,
+    val start: java.time.Instant,
+    val durationMinutes: Long,
+)
+
 /**
  * The string constant for Health Connect's background-read permission. Spelled
  * out here (rather than imported from [HealthPermission]) because the SDK
@@ -90,6 +99,43 @@ class HealthRepository(private val context: Context) {
             activeMinutes = activeMinutes,
             kcal = kcal,
         )
+    }
+
+    /**
+     * Reads completed bike rides for the day. Filters [ExerciseSessionRecord]
+     * by [ExerciseSessionRecord.EXERCISE_TYPE_BIKING] and returns each
+     * session with its Health Connect record ID (for client-side dedup
+     * across the rolling re-sync window) and rounded-minute duration.
+     */
+    suspend fun bikeSessions(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): List<BikeSession> {
+        val client = client()
+        val startInstant = date.atStartOfDay(zone).toInstant()
+        val endInstant = date.plusDays(1).atStartOfDay(zone).toInstant()
+        val range = TimeRangeFilter.between(startInstant, endInstant)
+
+        val sessions = client.readRecords(
+            ReadRecordsRequest(
+                recordType = ExerciseSessionRecord::class,
+                timeRangeFilter = range,
+            )
+        ).records
+
+        val results = ArrayList<BikeSession>()
+        for (session in sessions) {
+            if (session.exerciseType != ExerciseSessionRecord.EXERCISE_TYPE_BIKING) continue
+            val duration = Duration.between(session.startTime, session.endTime)
+            if (duration.isZero || duration.isNegative) continue
+            val minutes = (duration.seconds + 30) / 60
+            if (minutes <= 0) continue
+            results.add(
+                BikeSession(
+                    id = session.metadata.id,
+                    start = session.startTime,
+                    durationMinutes = minutes,
+                )
+            )
+        }
+        return results
     }
 
     /**

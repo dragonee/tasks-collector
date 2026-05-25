@@ -3,11 +3,17 @@ package org.polybrain.tasks.health.sync
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import org.polybrain.tasks.health.data.BikeSession
 import org.polybrain.tasks.health.data.HealthRepository
 import org.polybrain.tasks.health.data.Settings
+import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TrackHabitRequest
+import org.polybrain.tasks.health.data.TrackHabitTextRequest
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneId
 
 class HealthSyncWorker(
@@ -32,22 +38,44 @@ class HealthSyncWorker(
             }
 
             val api = TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
-            val today = LocalDate.now(ZoneId.systemDefault())
+            val zone = ZoneId.systemDefault()
+            val today = LocalDate.now(zone)
 
-            // Re-sync the trailing window from oldest to newest. Wearables
-            // sometimes back-fill earlier days after re-connecting, so a
-            // single sync per day isn't enough — older days can still change.
-            for (offset in (SYNC_WINDOW_DAYS - 1) downTo 0) {
-                val day = today.minusDays(offset.toLong())
-                val metrics = health.aggregateDay(day)
-                val note = NoteFormatter.format(metrics)
-                api.trackHabit(
-                    TrackHabitRequest(
-                        keyword = HABIT_KEYWORD,
-                        date = day.toString(),
-                        note = note,
+            // The hourly and daily WorkManager jobs use distinct unique-work
+            // names, so they can run concurrently in the same process. The
+            // health-metrics POST is idempotent on (habit, date) and doesn't
+            // care, but per-ride bike entries would duplicate if two workers
+            // both saw the same ride before either persisted the dedup key.
+            // A single process-wide mutex serializes the bike-ride section
+            // so the read/post/persist sequence is atomic across workers.
+            bikeSyncMutex.withLock {
+                val alreadySyncedBikeIds = settings.syncedBikeSessionIds().toHashSet()
+
+                // Re-sync the trailing window from oldest to newest. Wearables
+                // sometimes back-fill earlier days after re-connecting, so a
+                // single sync per day isn't enough — older days can still change.
+                for (offset in (SYNC_WINDOW_DAYS - 1) downTo 0) {
+                    val day = today.minusDays(offset.toLong())
+                    val metrics = health.aggregateDay(day)
+                    val note = NoteFormatter.format(metrics)
+                    api.trackHabit(
+                        TrackHabitRequest(
+                            keyword = HABIT_KEYWORD,
+                            date = day.toString(),
+                            note = note,
+                        )
                     )
-                )
+
+                    val rides = health.bikeSessions(day, zone)
+                    for (ride in rides) {
+                        if (ride.id in alreadySyncedBikeIds) continue
+                        postBikeRide(api, ride, zone)
+                        // Persist the dedup key immediately so a worker crash
+                        // mid-window doesn't re-post the same ride next run.
+                        alreadySyncedBikeIds.add(ride.id)
+                        settings.addSyncedBikeSessionIds(listOf(ride.id))
+                    }
+                }
             }
 
             settings.recordSyncSuccess(System.currentTimeMillis())
@@ -58,10 +86,26 @@ class HealthSyncWorker(
         }
     }
 
+    private suspend fun postBikeRide(api: TasksApi, ride: BikeSession, zone: ZoneId) {
+        val text = NoteFormatter.formatBikeRide(WORKOUT_KEYWORD, ride.durationMinutes)
+        // Use the ride's actual start time so the entry lands on the day
+        // the ride happened, not the day the sync ran.
+        val published = OffsetDateTime.ofInstant(ride.start, zone).toString()
+        api.trackHabitText(
+            TrackHabitTextRequest(
+                text = text,
+                published = published,
+            )
+        )
+    }
+
     companion object {
         const val HABIT_KEYWORD = "health-metrics"
+        const val WORKOUT_KEYWORD = "workout"
 
         /** Days re-synced per run, counting today. Covers late wearable back-fills. */
         const val SYNC_WINDOW_DAYS = 7
+
+        private val bikeSyncMutex = Mutex()
     }
 }

@@ -21,6 +21,18 @@ data class TrackHabitResponse(
 )
 
 @Serializable
+data class TrackHabitTextRequest(
+    // Single line starting with '#' or '!'. The server parses out the
+    // hashtag and creates one HabitTracked per tag found, so multiple
+    // entries per day for the same habit are supported (unlike the
+    // idempotent /api/v1/habit/track/).
+    @SerialName("text") val text: String,
+    // ISO 8601 timestamp; the server uses this as the event's published
+    // time so the entry lands on the day the activity actually happened.
+    @SerialName("published") val published: String,
+)
+
+@Serializable
 data class OkResponse(
     @SerialName("ok") val ok: Boolean = false,
 )
@@ -132,6 +144,14 @@ data class TripDetailResponse(
 interface TasksApi {
     @POST("api/v1/habit/track/")
     suspend fun trackHabit(@Body body: TrackHabitRequest): TrackHabitResponse
+
+    // Non-API web endpoint (no /api/v1/ prefix) that accepts a free-form
+    // habit line and creates one HabitTracked per parsed hashtag. Used for
+    // per-event activities like individual bike rides, where the
+    // upsert-by-(habit, date) behavior of /api/v1/habit/track/ would
+    // collapse multiple events into one.
+    @POST("habit/track/")
+    suspend fun trackHabitText(@Body body: TrackHabitTextRequest): OkResponse
 
     @GET("api/v1/android/task/today/")
     suspend fun listTodayTasks(@Query("date") date: String): TodayTasksResponse
