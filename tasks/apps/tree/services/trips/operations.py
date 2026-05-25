@@ -8,7 +8,7 @@ either all commit or none do.
 from django.db import transaction
 from django.utils import timezone
 
-from ...models import HabitTracked, JournalAdded, Profile, Story, StoryEvent, Thread
+from ...models import JournalAdded, Profile, Story, StoryEvent, Thread
 from ..journalling import process_journal_entry
 from .titles import default_title
 
@@ -129,46 +129,32 @@ def list_history(user, page=1, page_size=20):
 
 
 def get_detail(user, story_id):
-    """Story + ordered event list (JournalAdded + HabitTracked).
+    """Story + ordered list of JournalAdded events linked to it.
 
-    Events are returned chronologically by ``published``.
+    Events are returned chronologically by ``published``. HabitTracked
+    rows that were attached as a side-effect of journal processing
+    (e.g. POI extraction from ``#poi`` hashtags) are intentionally
+    *not* included here — the JournalAdded already carries the same
+    information in its comment, and the Android client prefers to
+    derive map pins from there.
     """
     story = _get_owned_story(user, story_id)
     entries = (
-        StoryEvent.objects.filter(story=story)
+        StoryEvent.objects.filter(story=story, event__journaladded__isnull=False)
         .select_related("event")
         .order_by("event__published")
     )
     events = []
     for entry in entries:
         event = entry.event.get_real_instance()
-        if isinstance(event, JournalAdded):
-            events.append(
-                {
-                    "id": event.pk,
-                    "type": "journal",
-                    "published": event.published,
-                    "comment": event.comment,
-                }
-            )
-        elif isinstance(event, HabitTracked):
-            events.append(
-                {
-                    "id": event.pk,
-                    "type": "habit",
-                    "published": event.published,
-                    "habit_slug": event.habit.slug,
-                    "habit_name": event.habit.name,
-                    "occured": event.occured,
-                    "note": event.note or "",
-                }
-            )
-        else:
-            events.append(
-                {
-                    "id": event.pk,
-                    "type": "other",
-                    "published": event.published,
-                }
-            )
+        if not isinstance(event, JournalAdded):
+            continue
+        events.append(
+            {
+                "id": event.pk,
+                "type": "journal",
+                "published": event.published,
+                "comment": event.comment,
+            }
+        )
     return story, events

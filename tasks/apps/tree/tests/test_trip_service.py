@@ -130,7 +130,7 @@ class TripServiceTestCase(TestCase):
         latest_two = sorted(stops[-2:])
         self.assertEqual(sorted(s.pk for s in page1), latest_two)
 
-    def test_get_detail_returns_events_chronologically(self):
+    def test_get_detail_returns_journal_events_chronologically(self):
         story = start_trip(self.alice)
         t1 = datetime_cls(2026, 5, 25, 10, 0, tzinfo=dt_timezone.utc)
         t2 = datetime_cls(2026, 5, 25, 11, 0, tzinfo=dt_timezone.utc)
@@ -147,12 +147,11 @@ class TripServiceTestCase(TestCase):
         self.assertEqual(detail_story.pk, story.pk)
         timestamps = [e["published"] for e in events]
         self.assertEqual(timestamps, sorted(timestamps))
-        # The #poi tag also produces a habit event at t1; that means 4 events total
-        # (journal-t1, habit-t1, journal-t2, journal-t3).
-        self.assertEqual(len(events), 4)
-        types = [e["type"] for e in events]
-        self.assertEqual(types.count("journal"), 3)
-        self.assertEqual(types.count("habit"), 1)
+        # Three notes were posted; the #poi hashtag also created a
+        # HabitTracked linked to the story, but the detail view
+        # intentionally omits non-journal events.
+        self.assertEqual(len(events), 3)
+        self.assertTrue(all(e["type"] == "journal" for e in events))
 
     def test_get_detail_other_user_raises(self):
         story = start_trip(self.alice)
