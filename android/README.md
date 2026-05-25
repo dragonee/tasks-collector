@@ -54,11 +54,12 @@ not committed. Choose one of:
 
 - **Open `android/` in Android Studio** — it will populate the wrapper for
   you and let you run on a connected device with the green "Run" button.
-- Or, with a system Gradle (≥ 8.10) installed, generate the wrapper once:
+- Or, with a system Gradle (≥ 9.4.1, matching AGP 9.2.x) installed,
+  generate the wrapper once:
 
   ```bash
   cd android
-  gradle wrapper --gradle-version 8.10.2
+  gradle wrapper --gradle-version 9.4.1
   ```
 
   Then build and install a debug APK on a connected device:

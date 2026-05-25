@@ -32,17 +32,19 @@ jobs:
         with:
           packages: 'platforms;android-35 build-tools;35.0.0'
 
-      # Caches Gradle home + dependencies between runs.
+      # Caches Gradle home + dependencies between runs. Gradle 9.4.1 is
+      # the minimum compatible with AGP 9.2.x (see
+      # android/gradle/libs.versions.toml — agp version).
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
+          gradle-version: 9.4.1
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       # Wrapper jar isn't committed (per android/.gitignore); generate it
-      # before invoking ./gradlew. The toolchain Gradle from setup-gradle
-      # picks up android/gradle/wrapper/gradle-wrapper.properties.
+      # before invoking ./gradlew.
       - name: Generate Gradle wrapper
-        run: gradle wrapper --gradle-version 8.10.2
+        run: gradle wrapper --gradle-version 9.4.1
 
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
