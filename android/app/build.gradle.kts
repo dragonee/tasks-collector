@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.androidx.health.connect)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.play.services.location)
 
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.kotlinx.serialization)
