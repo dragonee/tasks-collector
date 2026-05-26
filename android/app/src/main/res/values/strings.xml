@@ -50,6 +50,9 @@
     <string name="today_done_add_another">Add another</string>
     <string name="today_done_reset">Reset</string>
 
+    <string name="today_week_plan_heading">Plan for this week</string>
+    <string name="today_week_plan_add">Add to today</string>
+
     <string name="server_url_label">Server URL</string>
     <string name="server_url_placeholder">https://tasks.example.com</string>
     <string name="api_token_label">API token</string>

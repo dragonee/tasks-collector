@@ -21,6 +21,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -46,6 +47,7 @@ import org.polybrain.tasks.health.data.TodayTask
 @Composable
 fun TodayScreen(vm: TodayViewModel = viewModel()) {
     val tasks by vm.tasks.collectAsState()
+    val weekPlan by vm.weekPlan.collectAsState()
     val loading by vm.loading.collectAsState()
     val error by vm.error.collectAsState()
     val configured by vm.configured.collectAsState()
@@ -63,13 +65,38 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
             onRefresh = vm::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
+            // This week's plan items that aren't already on today's list.
+            // Adding one copies it onto today, after which it drops out here.
+            val todayTexts = tasks.map { it.text }.toSet()
+            val pendingWeekPlan = weekPlan.filterNot { it in todayTexts }
             when {
                 !configured -> EmptyState(stringResource(R.string.today_not_configured))
-                tasks.isEmpty() -> EmptyState(stringResource(R.string.today_empty))
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
+                tasks.isEmpty() && pendingWeekPlan.isEmpty() ->
+                    EmptyState(stringResource(R.string.today_empty))
+                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (pendingWeekPlan.isNotEmpty()) {
+                        item(key = "week-plan-header") {
+                            Text(
+                                text = stringResource(R.string.today_week_plan_heading),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
+                        }
+                        items(items = pendingWeekPlan, key = { "week:$it" }) { line ->
+                            WeekPlanRow(
+                                text = line,
+                                onAddToToday = { vm.addPlanItemToToday(line) },
+                            )
+                        }
+                    }
+                    // Divider only when both sections are present, so it
+                    // genuinely separates weekly from daily.
+                    if (pendingWeekPlan.isNotEmpty() && tasks.isNotEmpty()) {
+                        item(key = "week-plan-divider") {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                    }
                     items(items = tasks, key = TodayTask::text) { task ->
                         TaskRow(
                             task = task,
@@ -234,20 +261,16 @@ private fun TaskRow(
                 text = task.text,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 40.dp)
+                    .heightIn(min = 36.dp)
                     .combinedClickable(
                         onClick = {},
                         onLongClick = { menuExpanded = true },
                     )
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 4.dp),
                 style = MaterialTheme.typography.bodyLarge.copy(
                     textDecoration = if (task.done) TextDecoration.LineThrough else null,
                 ),
-                color = if (task.done) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             DropdownMenu(
                 expanded = menuExpanded,
@@ -258,6 +281,49 @@ private fun TaskRow(
                     onClick = {
                         menuExpanded = false
                         onDelete()
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun WeekPlanRow(
+    text: String,
+    onAddToToday: () -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Mirrors TaskRow: long-pressing the text opens a contextual menu,
+        // here with the single "Add to today" action.
+        Box(modifier = Modifier.weight(1f)) {
+            Text(
+                text = text,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 36.dp)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { menuExpanded = true },
+                    )
+                    .padding(vertical = 4.dp),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.today_week_plan_add)) },
+                    onClick = {
+                        menuExpanded = false
+                        onAddToToday()
                     },
                 )
             }
