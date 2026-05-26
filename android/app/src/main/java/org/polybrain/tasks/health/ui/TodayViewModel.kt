@@ -3,8 +3,10 @@ package org.polybrain.tasks.health.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +25,10 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _tasks = MutableStateFlow<List<TodayTask>>(emptyList())
     val tasks: StateFlow<List<TodayTask>> = _tasks.asStateFlow()
+
+    /** This week's plan focus lines (Weekly thread, current week). */
+    private val _weekPlan = MutableStateFlow<List<String>>(emptyList())
+    val weekPlan: StateFlow<List<String>> = _weekPlan.asStateFlow()
 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -59,6 +65,22 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun add(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            mutate { api -> api.addTodayTask(TaskTextRequest(trimmed, today())) }
+        }
+    }
+
+    /**
+     * Pull a line from this week's plan into today's tasks. Reuses the
+     * same /add path as a manually typed task — the weekly plan line stays
+     * put (it's the source for the week), the text is copied onto today's
+     * Daily plan. `mutate`'s reload then refreshes both lists, so the item
+     * appears under today's tasks and drops out of the week-plan section
+     * (which filters out lines already on today).
+     */
+    fun addPlanItemToToday(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
@@ -176,12 +198,21 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         _configured.value = snapshot.isConfigured
         if (!snapshot.isConfigured) {
             _tasks.value = emptyList()
+            _weekPlan.value = emptyList()
             return
         }
         _loading.value = true
         try {
             val api = buildApi(snapshot)
             _tasks.value = api.listTodayTasks(today()).items
+            _weekPlan.value = api.listPlans("Weekly", endOfWeek()).results
+                .firstOrNull()
+                ?.focus
+                ?.lineSequence()
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toList()
+                ?: emptyList()
             _error.value = null
         } catch (t: Throwable) {
             _error.value = t.message ?: t.javaClass.simpleName
@@ -213,6 +244,14 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     // Used by /add, /delete, /list — they only need to know which day
     // the user means.
     private fun today(): String = LocalDate.now().toString()
+
+    // Canonical pub_date of the current Weekly plan: the Sunday ending this
+    // week. Mirrors the server's make_last_day_of_the_week (utils/datetime.py),
+    // which is also what /plans/add-task/ uses for the "this_week" timeframe.
+    private fun endOfWeek(): String =
+        LocalDate.now()
+            .with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+            .toString()
 
     // Full wall-clock timestamp with the device's current offset, ISO
     // 8601 (e.g. 2026-05-21T15:42:33.123+02:00). Used by /complete so

@@ -70,6 +70,23 @@ data class TodayTasksResponse(
 )
 
 @Serializable
+data class PlanItem(
+    @SerialName("id") val id: Long,
+    @SerialName("pub_date") val pubDate: String,
+    // Newline-joined task lines. May be null/blank when the plan exists
+    // but has no focus set yet.
+    @SerialName("focus") val focus: String? = null,
+)
+
+// DRF PageNumberPagination envelope for GET /plans/. We only ever read
+// the first page for a single (thread, pub_date) pair, so `results` holds
+// at most one plan, but the envelope shape is fixed by the framework.
+@Serializable
+data class PlanListResponse(
+    @SerialName("results") val results: List<PlanItem> = emptyList(),
+)
+
+@Serializable
 data class TripSummary(
     @SerialName("id") val id: Long,
     @SerialName("type") val type: String,
@@ -164,6 +181,16 @@ interface TasksApi {
 
     @POST("api/v1/android/task/delete/")
     suspend fun deleteTodayTask(@Body body: TaskTextRequest): OkResponse
+
+    // Generic DRF Plan endpoint shared with the web frontend. Filtered by
+    // thread name (e.g. "Weekly") and the plan's canonical pub_date (for
+    // Weekly that's the Sunday ending the week). Token-authenticated like
+    // the rest of the client.
+    @GET("plans/")
+    suspend fun listPlans(
+        @Query("thread") thread: String,
+        @Query("pub_date") pubDate: String,
+    ): PlanListResponse
 
     @POST("api/v1/android/trip/start/")
     suspend fun startTrip(@Body body: TripStartRequest): TripResponse
