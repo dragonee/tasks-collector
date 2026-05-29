@@ -6,10 +6,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,14 +23,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import org.polybrain.tasks.health.R
 
 @Composable
-fun AddNoteDialog(vm: TripDetailViewModel) {
+fun AddPhotoDialog(vm: TripDetailViewModel) {
     val gps by vm.gps.collectAsState()
     val allowNoLocation by vm.allowNoLocation.collectAsState()
+    val selectedPhoto by vm.selectedPhoto.collectAsState()
+    val uploading by vm.uploading.collectAsState()
 
     var draft by remember { mutableStateOf("") }
 
@@ -36,14 +42,26 @@ fun AddNoteDialog(vm: TripDetailViewModel) {
         ActivityResultContracts.RequestPermission(),
     ) { granted -> vm.onLocationPermissionResult(granted) }
 
-    val canSend = gps is TripDetailViewModel.GpsState.Ready ||
+    val canSend = !uploading && (
+        gps is TripDetailViewModel.GpsState.Ready ||
             (allowNoLocation && gps !is TripDetailViewModel.GpsState.Waiting)
+        )
 
     AlertDialog(
-        onDismissRequest = { vm.closeAddNote() },
-        title = { Text(stringResource(R.string.trip_note_dialog_title)) },
+        onDismissRequest = { vm.closeAddPhoto() },
+        title = { Text(stringResource(R.string.trip_photo_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                selectedPhoto?.let { uri ->
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(4f / 3f),
+                    )
+                }
                 GpsStatusBlock(
                     state = gps,
                     onRequestPermission = {
@@ -64,62 +82,33 @@ fun AddNoteDialog(vm: TripDetailViewModel) {
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
-                    placeholder = { Text(stringResource(R.string.trip_note_hint)) },
+                    placeholder = { Text(stringResource(R.string.trip_photo_hint)) },
                     singleLine = false,
-                    minLines = 3,
+                    minLines = 2,
+                    enabled = !uploading,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = { vm.sendNote(draft) },
-                enabled = canSend,
-            ) {
-                Text(stringResource(R.string.trip_note_send))
+            if (uploading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                TextButton(
+                    onClick = { vm.sendPhoto(draft) },
+                    enabled = canSend,
+                ) {
+                    Text(stringResource(R.string.trip_photo_send))
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = { vm.closeAddNote() }) {
+            TextButton(
+                onClick = { vm.closeAddPhoto() },
+                enabled = !uploading,
+            ) {
                 Text(stringResource(R.string.trip_note_cancel))
             }
         },
     )
-}
-
-@Composable
-internal fun GpsStatusBlock(
-    state: TripDetailViewModel.GpsState,
-    onRequestPermission: () -> Unit,
-) {
-    when (state) {
-        TripDetailViewModel.GpsState.Idle,
-        TripDetailViewModel.GpsState.Waiting -> Text(
-            text = stringResource(R.string.trip_note_gps_waiting),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        is TripDetailViewModel.GpsState.Ready -> Text(
-            text = stringResource(R.string.trip_note_gps_ready).format(
-                state.fix.lat, state.fix.lng,
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TripDetailViewModel.GpsState.Denied -> Column {
-            Text(
-                text = stringResource(R.string.trip_note_gps_missing),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-            TextButton(onClick = onRequestPermission) {
-                Text(stringResource(R.string.trip_note_grant_location))
-            }
-        }
-        TripDetailViewModel.GpsState.Unavailable -> Text(
-            text = stringResource(R.string.trip_note_gps_missing),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
-    }
 }

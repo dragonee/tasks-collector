@@ -115,6 +115,21 @@ urlpatterns = [
         name="android-trip-list",
     ),
     path(
+        "api/v1/android/trip/photo/presign/",
+        views_android_trip.AndroidTripPhotoPresignView.as_view(),
+        name="android-trip-photo-presign",
+    ),
+    path(
+        "api/v1/android/trip/photo/",
+        views_android_trip.AndroidTripPhotoConfirmView.as_view(),
+        name="android-trip-photo-confirm",
+    ),
+    path(
+        "api/v1/android/trip/photo/<int:event_id>/original/",
+        views_android_trip.AndroidTripPhotoOriginalView.as_view(),
+        name="android-trip-photo-original",
+    ),
+    path(
         "api/v1/android/trip/<int:story_id>/",
         views_android_trip.AndroidTripDetailView.as_view(),
         name="android-trip-detail",

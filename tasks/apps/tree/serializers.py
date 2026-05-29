@@ -174,6 +174,16 @@ class JournalAddedSerializer(serializers.ModelSerializer):
         fields = ["id", "comment", "published", "thread", "tags"]
 
 
+class PhotoAddedSerializer(JournalAddedSerializer):
+    """PhotoAdded is a JournalAdded subclass; the web feed renders it as a
+    journal entry for now (photo display on the website is a later task).
+    Registered in EventSerializer so polymorphic feeds don't break on it.
+    """
+
+    class Meta(JournalAddedSerializer.Meta):
+        model = PhotoAdded
+
+
 class QuickNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuickNote
@@ -497,6 +507,7 @@ class EventSerializer(PolymorphicSerializer):
         ObservationAttached: ObservationAttachedSerializer,
         ObservationDetached: ObservationDetachedSerializer,
         JournalAdded: JournalAddedSerializer,
+        PhotoAdded: PhotoAddedSerializer,
         HabitTracked: HabitTrackedSerializer,
         ProjectedOutcomeMade: ProjectedOutcomeMadeSerializer,
         ProjectedOutcomeRedefined: ProjectedOutcomeRedefinedSerializer,

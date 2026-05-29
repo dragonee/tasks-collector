@@ -90,3 +90,9 @@ CACHES = {
         "LOCATION": "/var/tmp/django_cache",
     }
 }
+
+# Production uses real AWS S3: no custom endpoint, virtual-hosted addressing.
+# Credentials and bucket come from the environment (no MinIO defaults here).
+AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "") or None
+AWS_S3_PUBLIC_ENDPOINT_URL = os.environ.get("AWS_S3_PUBLIC_ENDPOINT_URL", "") or None
+AWS_S3_ADDRESSING_STYLE = os.environ.get("AWS_S3_ADDRESSING_STYLE", "virtual")

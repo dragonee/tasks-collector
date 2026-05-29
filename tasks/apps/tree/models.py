@@ -515,6 +515,25 @@ class JournalAdded(Event):
         return self.comment
 
 
+class PhotoAdded(JournalAdded):
+    """A journal entry that carries a photo stored in S3.
+
+    Subclasses JournalAdded so the comment flows through
+    ``process_journal_entry`` unchanged (habit/POI extraction) and the
+    event is picked up by the existing trip ``get_detail`` query. The
+    original is uploaded directly to S3 by the client; ``thumbnail_key``
+    stays null until the Celery thumbnail task fills it.
+    """
+
+    original_key = models.CharField(max_length=512)
+    thumbnail_key = models.CharField(max_length=512, null=True, blank=True)
+    content_type = models.CharField(max_length=100)
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+
+    template = "tree/events/journal_added.html"
+
+
 class QuickNote(models.Model):
     published = models.DateTimeField(default=timezone.now)
 

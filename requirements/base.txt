@@ -13,3 +13,5 @@ django-polymorphic==3.1.0
 celery[redis]==5.4.0
 django-htmx==1.19.0
 django-rest-polymorphic==0.1.9
+boto3>=1.34
+Pillow>=10
