@@ -1,0 +1,28 @@
+# Trip photo storage (S3-compatible object storage).
+#
+# Copy this file to `aws.py` and fill in the values. When `aws.py` exists it
+# is the single source of truth for these settings (base.py stops reading the
+# environment and dist.py stops applying its overrides). So define ALL of the
+# names below.
+#
+# For production AWS S3, leave both endpoint URLs as None and use
+# "virtual" addressing. For a self-hosted / MinIO deployment, set
+# AWS_S3_ENDPOINT_URL to the in-network host, AWS_S3_PUBLIC_ENDPOINT_URL to a
+# host the client/device can reach, and use "path" addressing.
+
+AWS_ACCESS_KEY_ID = ""
+AWS_SECRET_ACCESS_KEY = ""
+AWS_S3_REGION_NAME = "eu-central-1"
+AWS_S3_BUCKET = "tasks-trip-photos"
+
+# Endpoint the backend/worker use to read/write objects. None = real AWS S3.
+AWS_S3_ENDPOINT_URL = None
+# Endpoint baked into presigned URLs handed to clients. None = real AWS S3.
+AWS_S3_PUBLIC_ENDPOINT_URL = None
+# "virtual" for AWS S3; "path" for MinIO / most S3-compatible servers.
+AWS_S3_ADDRESSING_STYLE = "virtual"
+
+# Presigned URL lifetimes (seconds) and thumbnail longest edge (pixels).
+PHOTO_PRESIGN_PUT_TTL = 300
+PHOTO_PRESIGN_GET_TTL = 3600
+PHOTO_THUMBNAIL_MAX_EDGE = 480

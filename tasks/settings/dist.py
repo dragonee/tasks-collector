@@ -93,6 +93,10 @@ CACHES = {
 
 # Production uses real AWS S3: no custom endpoint, virtual-hosted addressing.
 # Credentials and bucket come from the environment (no MinIO defaults here).
-AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "") or None
-AWS_S3_PUBLIC_ENDPOINT_URL = os.environ.get("AWS_S3_PUBLIC_ENDPOINT_URL", "") or None
-AWS_S3_ADDRESSING_STYLE = os.environ.get("AWS_S3_ADDRESSING_STYLE", "virtual")
+# Skipped when an aws.py settings module already supplied the configuration.
+if not AWS_CONFIG_FROM_FILE:
+    AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "") or None
+    AWS_S3_PUBLIC_ENDPOINT_URL = (
+        os.environ.get("AWS_S3_PUBLIC_ENDPOINT_URL", "") or None
+    )
+    AWS_S3_ADDRESSING_STYLE = os.environ.get("AWS_S3_ADDRESSING_STYLE", "virtual")
