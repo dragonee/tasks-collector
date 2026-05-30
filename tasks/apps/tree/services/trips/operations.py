@@ -5,11 +5,16 @@ writes (Story + JournalAdded + StoryEvent + possibly HabitTracked)
 either all commit or none do.
 """
 
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from ...models import JournalAdded, Profile, Story, StoryEvent, Thread
+from ...models import JournalAdded, PhotoAdded, Profile, Story, StoryEvent, Thread
 from ..journalling import process_journal_entry
+from ..photos import key_belongs_to, original_key
+from ..photos import storage as photo_storage
 from .titles import default_title
 
 
@@ -19,6 +24,10 @@ class StoryNotFoundError(Exception):
 
 class StoryStoppedError(Exception):
     """The Story is already stopped; no further events can be attached."""
+
+
+class PhotoObjectMissingError(Exception):
+    """The presigned upload was never completed (no object in the bucket)."""
 
 
 def _daily_thread():
@@ -107,6 +116,73 @@ def add_trip_note(user, story_id, comment, published=None):
     return journal_added
 
 
+@transaction.atomic
+def presign_photo_upload(user, story_id, content_type):
+    """Allocate an S3 key and return a presigned PUT URL for a photo upload.
+
+    Raises ``StoryNotFoundError`` (not owned), ``StoryStoppedError`` (stopped),
+    or ``ValueError`` (unsupported content type).
+    """
+    story = _get_owned_story(user, story_id)
+    if story.stopped is not None:
+        raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add photos.")
+    key = original_key(user.pk, story_id, content_type)
+    url = photo_storage.presign_put(key, content_type)
+    expires_at = timezone.now() + timedelta(seconds=settings.PHOTO_PRESIGN_PUT_TTL)
+    return {"key": key, "upload_url": url, "expires_at": expires_at.isoformat()}
+
+
+@transaction.atomic
+def add_trip_photo(user, story_id, key, comment, content_type, published=None):
+    """Confirm an uploaded photo: create a PhotoAdded linked to ``story`` and
+    run it through the journalling pipeline (so a ``#poi`` line in ``comment``
+    still creates a HabitTracked). Enqueues the thumbnail task on commit.
+
+    Raises ``StoryStoppedError`` if stopped, ``PhotoObjectMissingError`` if the
+    object isn't in the bucket (or the key doesn't belong to this user/story).
+    """
+    story = _get_owned_story(user, story_id)
+    if story.stopped is not None:
+        raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add photos.")
+    if not key_belongs_to(key, user.pk, story_id):
+        raise PhotoObjectMissingError(f"key {key!r} not under this story's prefix")
+    if not photo_storage.object_exists(key):
+        raise PhotoObjectMissingError(f"no uploaded object at {key!r}")
+
+    photo = PhotoAdded.objects.create(
+        thread=_journal_thread_for(user),
+        comment=comment,
+        original_key=key,
+        content_type=content_type,
+        published=published or timezone.now(),
+    )
+    process_journal_entry(photo, story=story)
+
+    # Import here to avoid importing celery tasks at module load.
+    from ...tasks import generate_photo_thumbnail
+
+    transaction.on_commit(lambda: generate_photo_thumbnail.delay(photo.pk))
+    return photo
+
+
+def presign_photo_original(user, event_id):
+    """Fresh presigned GET URL for the full-resolution original of a photo the
+    user owns (ownership resolved via StoryEvent -> Story.user).
+
+    Raises ``StoryNotFoundError`` if no such owned photo exists (404-safe).
+    """
+    try:
+        entry = StoryEvent.objects.select_related("story").get(
+            event_id=event_id, story__user=user
+        )
+    except StoryEvent.DoesNotExist as e:
+        raise StoryNotFoundError(f"Photo #{event_id} not found for user") from e
+    photo = entry.event.get_real_instance()
+    if not isinstance(photo, PhotoAdded):
+        raise StoryNotFoundError(f"Event #{event_id} is not a photo")
+    return {"url": photo_storage.presign_get(photo.original_key)}
+
+
 def list_active(user):
     """All currently-active Stories for the user, newest first."""
     return list(
@@ -146,14 +222,29 @@ def get_detail(user, story_id):
     events = []
     for entry in entries:
         event = entry.event.get_real_instance()
-        if not isinstance(event, JournalAdded):
-            continue
-        events.append(
-            {
-                "id": event.pk,
-                "type": "journal",
-                "published": event.published,
-                "comment": event.comment,
-            }
-        )
+        # PhotoAdded is-a JournalAdded, so it must be checked first.
+        if isinstance(event, PhotoAdded):
+            events.append(
+                {
+                    "id": event.pk,
+                    "type": "photo",
+                    "published": event.published,
+                    "comment": event.comment,
+                    "thumbnail_url": (
+                        photo_storage.presign_get(event.thumbnail_key)
+                        if event.thumbnail_key
+                        else None
+                    ),
+                    "ready": event.thumbnail_key is not None,
+                }
+            )
+        elif isinstance(event, JournalAdded):
+            events.append(
+                {
+                    "id": event.pk,
+                    "type": "journal",
+                    "published": event.published,
+                    "comment": event.comment,
+                }
+            )
     return story, events

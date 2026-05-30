@@ -80,6 +80,7 @@ class EventAdmin(PolymorphicParentModelAdmin):
         ObservationReflectedUpon,
         ObservationReinterpreted,
         JournalAdded,
+        PhotoAdded,
         ProjectedOutcomeMade,
         ProjectedOutcomeRedefined,
         ProjectedOutcomeRescheduled,
@@ -136,6 +137,12 @@ class JournalAddedAdmin(PolymorphicChildModelAdmin):
     base_model = JournalAdded
 
     list_display = ("__str__", "thread", "published")
+
+
+class PhotoAddedAdmin(PolymorphicChildModelAdmin):
+    base_model = PhotoAdded
+
+    list_display = ("__str__", "thread", "published", "thumbnail_key")
 
 
 class ProjectedOutcomeMadeAdmin(PolymorphicChildModelAdmin):
@@ -220,6 +227,7 @@ admin.site.register(Habit, HabitAdmin)
 admin.site.register(HabitTracked, HabitTrackedAdmin)
 admin.site.register(ObservationUpdated, ObservationUpdatedAdmin)
 admin.site.register(JournalAdded, JournalAddedAdmin)
+admin.site.register(PhotoAdded, PhotoAddedAdmin)
 admin.site.register(Event, EventAdmin)
 admin.site.register(QuickNote)
 admin.site.register(JournalTag, JournalTagAdmin)

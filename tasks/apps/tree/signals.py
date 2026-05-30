@@ -16,6 +16,7 @@ from .models import (
     HabitTracked,
     JournalAdded,
     Observation,
+    PhotoAdded,
     Profile,
     ProjectedOutcome,
     ProjectedOutcomeClosed,
@@ -111,8 +112,14 @@ def on_observation_thread_change_update_events(sender, instance, *args, **kwargs
 
 
 @receiver(pre_save, sender=JournalAdded)
+@receiver(pre_save, sender=PhotoAdded)
 def update_journal_added_event_stream_id(sender, instance, *args, **kwargs):
-    """Set the event_stream_id for JournalAdded based on thread and date."""
+    """Set the event_stream_id for JournalAdded based on thread and date.
+
+    Registered for PhotoAdded too: ``sender=`` signals fire only for the
+    exact class, not subclasses, so the PhotoAdded child would otherwise
+    save with a null event_stream_id.
+    """
     instance.event_stream_id = journal_added_event_stream_id(instance)
 
 

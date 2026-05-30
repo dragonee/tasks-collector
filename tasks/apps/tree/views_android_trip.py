@@ -11,12 +11,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .services.trips import (
+    PhotoObjectMissingError,
     StoryNotFoundError,
     StoryStoppedError,
     add_trip_note,
+    add_trip_photo,
     get_detail,
     list_active,
     list_history,
+    presign_photo_original,
+    presign_photo_upload,
     start_trip,
     stop_trip,
     update_trip,
@@ -71,6 +75,10 @@ def _serialize_event(event):
     }
     if event["type"] == "journal":
         out["comment"] = event["comment"]
+    elif event["type"] == "photo":
+        out["comment"] = event["comment"]
+        out["thumbnail_url"] = event["thumbnail_url"]
+        out["ready"] = event["ready"]
     elif event["type"] == "habit":
         out["habit_slug"] = event["habit_slug"]
         out["habit_name"] = event["habit_name"]
@@ -219,3 +227,94 @@ class AndroidTripDetailView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidTripPhotoPresignView(APIView):
+    """Allocate an S3 key and return a presigned PUT URL for a photo upload.
+
+    The device uploads the original bytes directly to S3 with the returned
+    ``upload_url`` (an unauthenticated PUT), then calls the confirm endpoint.
+    """
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        story_id = _story_id_from(request)
+        if story_id is None:
+            return _bad_request("story_id is required")
+        content_type = request.data.get("content_type")
+        if not isinstance(content_type, str) or not content_type.strip():
+            return _bad_request("content_type is required")
+        try:
+            result = presign_photo_upload(
+                request.user, story_id, content_type=content_type
+            )
+        except StoryNotFoundError:
+            return _not_found()
+        except StoryStoppedError:
+            return _conflict("trip is stopped; cannot add photos")
+        except ValueError as e:
+            return _bad_request(str(e))
+        return Response(result, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidTripPhotoConfirmView(APIView):
+    """Confirm an uploaded photo and create the PhotoAdded event.
+
+    Like ``AndroidTripNoteView``, the ``comment`` runs through
+    ``process_journal_entry`` so a ``#poi`` line still creates a HabitTracked.
+    """
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        story_id = _story_id_from(request)
+        if story_id is None:
+            return _bad_request("story_id is required")
+        key = request.data.get("key")
+        if not isinstance(key, str) or not key.strip():
+            return _bad_request("key is required")
+        content_type = request.data.get("content_type")
+        if not isinstance(content_type, str) or not content_type.strip():
+            return _bad_request("content_type is required")
+        comment = request.data.get("comment")
+        if not isinstance(comment, str):
+            return _bad_request("comment is required")
+        published = _parse_datetime(request.data.get("published"))
+        if published is None:
+            return _bad_request("published is required (full ISO 8601 timestamp)")
+        try:
+            photo = add_trip_photo(
+                request.user,
+                story_id,
+                key=key,
+                comment=comment,
+                content_type=content_type,
+                published=published,
+            )
+        except StoryNotFoundError:
+            return _not_found()
+        except StoryStoppedError:
+            return _conflict("trip is stopped; cannot add photos")
+        except PhotoObjectMissingError:
+            return _conflict("uploaded photo not found; re-upload and retry")
+        return Response({"ok": True, "photo_id": photo.pk}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidTripPhotoOriginalView(APIView):
+    """Return a fresh short-lived presigned GET URL for a photo's original."""
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, event_id):
+        try:
+            result = presign_photo_original(request.user, event_id)
+        except StoryNotFoundError:
+            return _not_found()
+        return Response(result, status=status.HTTP_200_OK)

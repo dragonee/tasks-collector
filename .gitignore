@@ -2,6 +2,7 @@
 
 /tasks/settings/db.py
 /tasks/settings/email.py
+/tasks/settings/aws.py
 /tasks/uploads/*
 /node_modules/
 /tasks/logs/*

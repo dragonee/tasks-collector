@@ -166,6 +166,41 @@ REST_FRAMEWORK = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
+# Trip photos: S3-compatible object storage (MinIO in dev, AWS S3 in prod).
+# Originals are uploaded directly by the client via presigned PUT URLs; a
+# Celery task generates a WebP thumbnail. Both are served via presigned GETs.
+#
+# Provide an `aws.py` settings module (gitignored, like db.py/email.py — copy
+# `aws.py.base` and fill it in) to hold these values directly; otherwise they
+# are read from the environment with MinIO-friendly defaults for local dev.
+# ``AWS_CONFIG_FROM_FILE`` lets dist.py know not to re-apply its env overrides
+# when aws.py is the source of truth.
+try:
+    from .aws import *
+
+    AWS_CONFIG_FROM_FILE = True
+except ImportError:
+    AWS_CONFIG_FROM_FILE = False
+
+    AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin")
+    AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
+    AWS_S3_BUCKET = os.environ.get("AWS_S3_BUCKET", "trip-photos")
+    # Endpoint the worker/backend use to reach the bucket (in-network in dev).
+    AWS_S3_ENDPOINT_URL = os.environ.get(
+        "AWS_S3_ENDPOINT_URL", "http://tasks-minio:9000"
+    )
+    # Endpoint baked into presigned URLs handed to clients. In dev this must be
+    # reachable from the device/emulator (e.g. http://10.0.2.2:9000), which the
+    # in-network name is not. Falls back to AWS_S3_ENDPOINT_URL when unset.
+    AWS_S3_PUBLIC_ENDPOINT_URL = os.environ.get(
+        "AWS_S3_PUBLIC_ENDPOINT_URL", AWS_S3_ENDPOINT_URL
+    )
+    AWS_S3_ADDRESSING_STYLE = os.environ.get("AWS_S3_ADDRESSING_STYLE", "path")
+    PHOTO_PRESIGN_PUT_TTL = int(os.environ.get("PHOTO_PRESIGN_PUT_TTL", "300"))
+    PHOTO_PRESIGN_GET_TTL = int(os.environ.get("PHOTO_PRESIGN_GET_TTL", "3600"))
+    PHOTO_THUMBNAIL_MAX_EDGE = int(os.environ.get("PHOTO_THUMBNAIL_MAX_EDGE", "480"))
+
 CELERY_BEAT_SCHEDULE = {
     "remove-stale-quick-notes": {
         "task": "tasks.apps.tree.tasks.remove_quick_notes_after",

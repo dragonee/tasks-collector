@@ -1,14 +1,20 @@
 package org.polybrain.tasks.health.ui.trip
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.io.IOException
 import java.time.OffsetDateTime
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.polybrain.tasks.health.data.PhotoConfirmRequest
+import org.polybrain.tasks.health.data.PhotoPresignRequest
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.TasksApi
@@ -42,6 +48,21 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     /** Open/closed state for the add-note dialog. */
     private val _noteDialogOpen = MutableStateFlow(false)
     val noteDialogOpen: StateFlow<Boolean> = _noteDialogOpen.asStateFlow()
+
+    /** Open/closed state for the add-photo dialog and the picked image. */
+    private val _photoDialogOpen = MutableStateFlow(false)
+    val photoDialogOpen: StateFlow<Boolean> = _photoDialogOpen.asStateFlow()
+
+    private val _selectedPhoto = MutableStateFlow<Uri?>(null)
+    val selectedPhoto: StateFlow<Uri?> = _selectedPhoto.asStateFlow()
+
+    /** True while a photo is being uploaded + confirmed. */
+    private val _uploading = MutableStateFlow(false)
+    val uploading: StateFlow<Boolean> = _uploading.asStateFlow()
+
+    /** Presigned URL for the full-size original being viewed (null = closed). */
+    private val _viewerUrl = MutableStateFlow<String?>(null)
+    val viewerUrl: StateFlow<String?> = _viewerUrl.asStateFlow()
 
     /**
      * GPS resolution state. The dialog reads this to decide whether to
@@ -78,9 +99,35 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun openAddNote() {
+        _noteDialogOpen.value = true
+        startGpsResolution()
+    }
+
+    fun closeAddNote() {
+        _noteDialogOpen.value = false
+        _gps.value = GpsState.Idle
+        _allowNoLocation.value = false
+    }
+
+    /** Open the add-photo dialog for a picked image and resolve GPS. */
+    fun openAddPhoto(uri: Uri) {
+        _selectedPhoto.value = uri
+        _photoDialogOpen.value = true
+        startGpsResolution()
+    }
+
+    fun closeAddPhoto() {
+        if (_uploading.value) return
+        _photoDialogOpen.value = false
+        _selectedPhoto.value = null
+        _gps.value = GpsState.Idle
+        _allowNoLocation.value = false
+    }
+
+    /** Shared GPS bootstrap used by both the note and photo dialogs. */
+    private fun startGpsResolution() {
         _allowNoLocation.value = false
         _gps.value = GpsState.Waiting
-        _noteDialogOpen.value = true
         viewModelScope.launch {
             if (!locationProvider.hasFineLocationPermission()) {
                 _gps.value = GpsState.Denied
@@ -91,19 +138,13 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun closeAddNote() {
-        _noteDialogOpen.value = false
-        _gps.value = GpsState.Idle
-        _allowNoLocation.value = false
-    }
-
     fun setAllowNoLocation(value: Boolean) {
         _allowNoLocation.value = value
     }
 
     /** Called by the screen after the runtime permission request finishes. */
     fun onLocationPermissionResult(granted: Boolean) {
-        if (!_noteDialogOpen.value) return
+        if (!_noteDialogOpen.value && !_photoDialogOpen.value) return
         if (!granted) {
             _gps.value = GpsState.Denied
             return
@@ -144,6 +185,77 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                 _error.value = t.message ?: t.javaClass.simpleName
             }
         }
+    }
+
+    fun sendPhoto(text: String) {
+        val story = _story.value ?: return
+        if (story.stopped != null) return
+        val uri = _selectedPhoto.value ?: return
+        val gpsState = _gps.value
+        val fix = (gpsState as? GpsState.Ready)?.fix
+        if (fix == null && !_allowNoLocation.value) return
+
+        val comment = composeComment(fix, text)
+        val published = OffsetDateTime.now().toString()
+        _uploading.value = true
+
+        viewModelScope.launch {
+            val snapshot = ensureConfigured()
+            if (snapshot == null) {
+                _uploading.value = false
+                return@launch
+            }
+            try {
+                val resolver = getApplication<Application>().contentResolver
+                val contentType = resolver.getType(uri) ?: "image/jpeg"
+                val bytes = withContext(Dispatchers.IO) {
+                    resolver.openInputStream(uri)?.use { it.readBytes() }
+                } ?: throw IOException("could not read the selected photo")
+
+                val api = buildApi(snapshot)
+                val presign = api.presignPhoto(
+                    PhotoPresignRequest(storyId = story.id, contentType = contentType)
+                )
+                withContext(Dispatchers.IO) {
+                    TasksClient.putToPresignedUrl(presign.uploadUrl, bytes, contentType)
+                }
+                api.addTripPhoto(
+                    PhotoConfirmRequest(
+                        storyId = story.id,
+                        key = presign.key,
+                        comment = comment,
+                        contentType = contentType,
+                        published = published,
+                    )
+                )
+                _photoDialogOpen.value = false
+                _selectedPhoto.value = null
+                _gps.value = GpsState.Idle
+                _allowNoLocation.value = false
+                reload()
+            } catch (t: Throwable) {
+                _error.value = t.message ?: t.javaClass.simpleName
+            } finally {
+                _uploading.value = false
+            }
+        }
+    }
+
+    /** Fetch a fresh presigned URL for a photo's original and open the viewer. */
+    fun openPhoto(eventId: Long) {
+        viewModelScope.launch {
+            val snapshot = ensureConfigured() ?: return@launch
+            try {
+                val api = buildApi(snapshot)
+                _viewerUrl.value = api.photoOriginal(eventId).url
+            } catch (t: Throwable) {
+                _error.value = t.message ?: t.javaClass.simpleName
+            }
+        }
+    }
+
+    fun closeViewer() {
+        _viewerUrl.value = null
     }
 
     fun stop() {

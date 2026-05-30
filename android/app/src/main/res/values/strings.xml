@@ -17,6 +17,7 @@
 
     <string name="trip_detail_back">Back</string>
     <string name="trip_detail_add_note">Add note</string>
+    <string name="trip_detail_add_photo">Add photo</string>
     <string name="trip_detail_stop">Stop trip</string>
     <string name="trip_detail_empty">No notes yet — tap Add note to record one.</string>
     <string name="trip_detail_rename">Rename</string>
@@ -32,6 +33,11 @@
     <string name="trip_note_gps_missing">No location available.</string>
     <string name="trip_note_send_without_location">Send without location</string>
     <string name="trip_note_grant_location">Grant location permission</string>
+
+    <string name="trip_photo_dialog_title">Add a photo</string>
+    <string name="trip_photo_hint">Add a caption (optional)</string>
+    <string name="trip_photo_send">Upload</string>
+    <string name="trip_photo_processing">Processing photo…</string>
 
     <string name="today_empty">Nothing on today\'s plan yet.</string>
     <string name="today_add_hint">Add a task</string>

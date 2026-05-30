@@ -17,12 +17,14 @@
 /.babelrc
 /tasks/settings/db.py
 /tasks/settings/email.py
+/tasks/settings/aws.py
 /tasks/uploads/
 /tasks/fixtures/dev
 /tasks/fixtures/tests
 /tasks/settings/local.py
 /tasks/settings/db.py.base
 /tasks/settings/email.py.base
+/tasks/settings/aws.py.base
 /tasks/assets
 /requirements/local.txt
 /requirements/test.txt

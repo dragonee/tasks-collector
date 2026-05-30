@@ -143,13 +143,51 @@ data class TripListResponse(
 @Serializable
 data class TripEvent(
     @SerialName("id") val id: Long,
-    @SerialName("type") val type: String, // "journal" | "habit" | "other"
+    @SerialName("type") val type: String, // "journal" | "photo" | "habit" | "other"
     @SerialName("published") val published: String,
     @SerialName("comment") val comment: String? = null,
     @SerialName("habit_slug") val habitSlug: String? = null,
     @SerialName("habit_name") val habitName: String? = null,
     @SerialName("occured") val occured: Boolean? = null,
     @SerialName("note") val note: String? = null,
+    // Photo events: short-lived presigned thumbnail URL (null until the
+    // server-side thumbnail task finishes), and whether it is ready.
+    @SerialName("thumbnail_url") val thumbnailUrl: String? = null,
+    @SerialName("ready") val ready: Boolean? = null,
+)
+
+@Serializable
+data class PhotoPresignRequest(
+    @SerialName("story_id") val storyId: Long,
+    @SerialName("content_type") val contentType: String,
+)
+
+@Serializable
+data class PhotoPresignResponse(
+    @SerialName("key") val key: String,
+    @SerialName("upload_url") val uploadUrl: String,
+    @SerialName("expires_at") val expiresAt: String? = null,
+)
+
+@Serializable
+data class PhotoConfirmRequest(
+    @SerialName("story_id") val storyId: Long,
+    @SerialName("key") val key: String,
+    @SerialName("comment") val comment: String,
+    @SerialName("content_type") val contentType: String,
+    // Full ISO 8601 timestamp (OffsetDateTime.now().toString()).
+    @SerialName("published") val published: String,
+)
+
+@Serializable
+data class PhotoConfirmResponse(
+    @SerialName("ok") val ok: Boolean = false,
+    @SerialName("photo_id") val photoId: Long = 0,
+)
+
+@Serializable
+data class PhotoOriginalResponse(
+    @SerialName("url") val url: String,
 )
 
 @Serializable
@@ -212,4 +250,13 @@ interface TasksApi {
 
     @GET("api/v1/android/trip/{id}/")
     suspend fun tripDetail(@Path("id") storyId: Long): TripDetailResponse
+
+    @POST("api/v1/android/trip/photo/presign/")
+    suspend fun presignPhoto(@Body body: PhotoPresignRequest): PhotoPresignResponse
+
+    @POST("api/v1/android/trip/photo/")
+    suspend fun addTripPhoto(@Body body: PhotoConfirmRequest): PhotoConfirmResponse
+
+    @GET("api/v1/android/trip/photo/{id}/original/")
+    suspend fun photoOriginal(@Path("id") eventId: Long): PhotoOriginalResponse
 }

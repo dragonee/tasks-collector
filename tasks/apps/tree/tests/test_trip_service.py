@@ -1,22 +1,37 @@
 from datetime import datetime as datetime_cls
 from datetime import timezone as dt_timezone
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from ..models import HabitTracked, JournalAdded, Profile, Story, StoryEvent, Thread
+from ..models import (
+    HabitTracked,
+    JournalAdded,
+    PhotoAdded,
+    Profile,
+    Story,
+    StoryEvent,
+    Thread,
+)
 from ..services.trips import (
+    PhotoObjectMissingError,
     StoryNotFoundError,
     StoryStoppedError,
     add_trip_note,
+    add_trip_photo,
     get_detail,
     list_active,
     list_history,
+    presign_photo_original,
+    presign_photo_upload,
     start_trip,
     stop_trip,
     update_trip,
 )
+
+STORAGE = "tasks.apps.tree.services.photos.storage"
 
 
 class TripServiceTestCase(TestCase):
@@ -157,3 +172,162 @@ class TripServiceTestCase(TestCase):
         story = start_trip(self.alice)
         with self.assertRaises(StoryNotFoundError):
             get_detail(self.bob, story.pk)
+
+
+class TripPhotoServiceTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.alice = User.objects.create_user(username="alice", password="x")
+        cls.bob = User.objects.create_user(username="bob", password="x")
+        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
+        Profile.objects.create(user=cls.alice, default_board_thread=cls.daily)
+        Profile.objects.create(user=cls.bob, default_board_thread=cls.daily)
+
+    @mock.patch(f"{STORAGE}.presign_put", return_value="https://put.example/x")
+    def test_presign_allocates_key_under_user_story_prefix(self, _put):
+        story = start_trip(self.alice)
+        result = presign_photo_upload(self.alice, story.pk, content_type="image/jpeg")
+        self.assertTrue(result["key"].startswith(f"trips/{self.alice.pk}/{story.pk}/"))
+        self.assertTrue(result["key"].endswith(".jpg"))
+        self.assertEqual(result["upload_url"], "https://put.example/x")
+        self.assertIn("expires_at", result)
+
+    def test_presign_rejects_unsupported_content_type(self):
+        story = start_trip(self.alice)
+        with self.assertRaises(ValueError):
+            presign_photo_upload(self.alice, story.pk, content_type="image/gif")
+
+    @mock.patch(f"{STORAGE}.presign_put", return_value="https://put.example/x")
+    def test_presign_on_stopped_story_raises(self, _put):
+        story = start_trip(self.alice)
+        stop_trip(self.alice, story.pk)
+        with self.assertRaises(StoryStoppedError):
+            presign_photo_upload(self.alice, story.pk, content_type="image/jpeg")
+
+    def test_presign_other_user_raises(self):
+        story = start_trip(self.alice)
+        with self.assertRaises(StoryNotFoundError):
+            presign_photo_upload(self.bob, story.pk, content_type="image/jpeg")
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_creates_event_and_links(self, _exists):
+        story = start_trip(self.alice)
+        key = f"trips/{self.alice.pk}/{story.pk}/abc.jpg"
+        photo = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=key,
+            comment="sunset",
+            content_type="image/jpeg",
+            published=timezone.now(),
+        )
+        self.assertIsInstance(photo, PhotoAdded)
+        self.assertEqual(photo.original_key, key)
+        self.assertIsNone(photo.thumbnail_key)
+        self.assertTrue(StoryEvent.objects.filter(story=story, event=photo).exists())
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_with_poi_creates_habittracked(self, _exists):
+        story = start_trip(self.alice)
+        key = f"trips/{self.alice.pk}/{story.pk}/abc.jpg"
+        comment = "#poi lat=40.7128 lng=-74.0060\nat the pier"
+        photo = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=key,
+            comment=comment,
+            content_type="image/jpeg",
+            published=timezone.now(),
+        )
+        habit = HabitTracked.objects.filter(habit__slug="poi").first()
+        self.assertIsNotNone(habit)
+        self.assertTrue(StoryEvent.objects.filter(story=story, event=habit).exists())
+        self.assertTrue(StoryEvent.objects.filter(story=story, event=photo).exists())
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=False)
+    def test_add_trip_photo_missing_object_raises(self, _exists):
+        story = start_trip(self.alice)
+        key = f"trips/{self.alice.pk}/{story.pk}/abc.jpg"
+        with self.assertRaises(PhotoObjectMissingError):
+            add_trip_photo(
+                self.alice,
+                story.pk,
+                key=key,
+                comment="x",
+                content_type="image/jpeg",
+                published=timezone.now(),
+            )
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_foreign_key_prefix_raises(self, _exists):
+        story = start_trip(self.alice)
+        # Key belonging to another user's prefix must be rejected before
+        # the object-existence check matters.
+        foreign_key = f"trips/{self.bob.pk}/{story.pk}/abc.jpg"
+        with self.assertRaises(PhotoObjectMissingError):
+            add_trip_photo(
+                self.alice,
+                story.pk,
+                key=foreign_key,
+                comment="x",
+                content_type="image/jpeg",
+                published=timezone.now(),
+            )
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_on_stopped_story_raises(self, _exists):
+        story = start_trip(self.alice)
+        stop_trip(self.alice, story.pk)
+        with self.assertRaises(StoryStoppedError):
+            add_trip_photo(
+                self.alice,
+                story.pk,
+                key=f"trips/{self.alice.pk}/{story.pk}/abc.jpg",
+                comment="x",
+                content_type="image/jpeg",
+                published=timezone.now(),
+            )
+
+    @mock.patch(f"{STORAGE}.presign_get", return_value="https://get.example/thumb")
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_get_detail_includes_photo_event(self, _exists, _get):
+        story = start_trip(self.alice)
+        photo = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=f"trips/{self.alice.pk}/{story.pk}/abc.jpg",
+            comment="hello",
+            content_type="image/jpeg",
+            published=timezone.now(),
+        )
+        # Not ready yet (no thumbnail).
+        _, events = get_detail(self.alice, story.pk)
+        photo_events = [e for e in events if e["type"] == "photo"]
+        self.assertEqual(len(photo_events), 1)
+        self.assertFalse(photo_events[0]["ready"])
+        self.assertIsNone(photo_events[0]["thumbnail_url"])
+
+        # Once the thumbnail lands, the URL is presigned and ready is True.
+        PhotoAdded.objects.filter(pk=photo.pk).update(thumbnail_key="t.webp")
+        _, events = get_detail(self.alice, story.pk)
+        photo_events = [e for e in events if e["type"] == "photo"]
+        self.assertTrue(photo_events[0]["ready"])
+        self.assertEqual(photo_events[0]["thumbnail_url"], "https://get.example/thumb")
+
+    @mock.patch(f"{STORAGE}.presign_get", return_value="https://get.example/orig")
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_presign_photo_original_owner_only(self, _exists, _get):
+        story = start_trip(self.alice)
+        photo = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=f"trips/{self.alice.pk}/{story.pk}/abc.jpg",
+            comment="hi",
+            content_type="image/jpeg",
+            published=timezone.now(),
+        )
+        result = presign_photo_original(self.alice, photo.pk)
+        self.assertEqual(result["url"], "https://get.example/orig")
+        with self.assertRaises(StoryNotFoundError):
+            presign_photo_original(self.bob, photo.pk)
