@@ -40,6 +40,16 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     val configured: StateFlow<Boolean> = _configured.asStateFlow()
 
     /**
+     * Which day the Today view is showing. Defaults to the device's current
+     * day; the prev/next chevrons move it backward/forward. Every endpoint
+     * the screen talks to (list / add / complete / delete and the weekly
+     * plan lookup) is keyed off this date, so past days are browsable and
+     * future days are pre-fillable — no day is special-cased.
+     */
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
+    val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
+
+    /**
      * What the user just initiated by tapping a row's checkbox. Drives
      * which dialog (if any) is shown. ``null`` = no pending interaction.
      */
@@ -61,6 +71,23 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     val pendingComplete: StateFlow<PendingComplete?> = _pendingComplete.asStateFlow()
 
     fun refresh() {
+        viewModelScope.launch { reload() }
+    }
+
+    /** Chevron-left: step the view back one day and reload. */
+    fun previousDay() = goToDate(_selectedDate.value.minusDays(1))
+
+    /** Chevron-right: step the view forward one day and reload. */
+    fun nextDay() = goToDate(_selectedDate.value.plusDays(1))
+
+    /** Tap on the date label: jump straight back to the current day. */
+    fun goToToday() = goToDate(LocalDate.now())
+
+    private fun goToDate(date: LocalDate) {
+        if (date == _selectedDate.value) return
+        _selectedDate.value = date
+        // Any pending dialog refers to a task on the previous day's list.
+        _pendingComplete.value = null
         viewModelScope.launch { reload() }
     }
 
@@ -240,24 +267,37 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     private fun buildApi(snapshot: SettingsSnapshot): TasksApi =
         TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
 
-    // Local date in the device's current timezone, ISO 8601 (YYYY-MM-DD).
-    // Used by /add, /delete, /list — they only need to know which day
-    // the user means.
-    private fun today(): String = LocalDate.now().toString()
+    // The selected day in ISO 8601 (YYYY-MM-DD). Used by /add, /delete,
+    // /list — they only need to know which day the user means.
+    private fun today(): String = _selectedDate.value.toString()
 
-    // Canonical pub_date of the current Weekly plan: the Sunday ending this
-    // week. Mirrors the server's make_last_day_of_the_week (utils/datetime.py),
-    // which is also what /plans/add-task/ uses for the "this_week" timeframe.
+    // Canonical pub_date of the Weekly plan covering the selected day: the
+    // Sunday ending that week. Mirrors the server's make_last_day_of_the_week
+    // (utils/datetime.py), which is also what /plans/add-task/ uses for the
+    // "this_week" timeframe. Keyed off the selected day so the week-plan
+    // section follows the date you're browsing.
     private fun endOfWeek(): String =
-        LocalDate.now()
+        _selectedDate.value
             .with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
             .toString()
 
     // Full wall-clock timestamp with the device's current offset, ISO
-    // 8601 (e.g. 2026-05-21T15:42:33.123+02:00). Used by /complete so
-    // the server can record the exact moment as the JournalAdded
-    // published time, not a synthesized noon.
-    private fun nowIso(): String = OffsetDateTime.now().toString()
+    // 8601 (e.g. 2026-05-21T15:42:33.123+02:00). Used by /complete so the
+    // server records the exact moment as the JournalAdded published time.
+    // When browsing a different day, we keep the current time-of-day but
+    // swap the date to the selected one, so the server's
+    // pub_date = published.date() lands the Plan/Reflection write on the
+    // day being viewed rather than on the real today.
+    private fun nowIso(): String {
+        val now = OffsetDateTime.now()
+        val selected = _selectedDate.value
+        if (selected == now.toLocalDate()) return now.toString()
+        return now
+            .withYear(selected.year)
+            .withMonth(selected.monthValue)
+            .withDayOfMonth(selected.dayOfMonth)
+            .toString()
+    }
 
     companion object {
         // Mirrors services/today/progress.py:PROGRESS_RE. Used only to

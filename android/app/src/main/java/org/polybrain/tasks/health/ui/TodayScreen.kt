@@ -2,6 +2,7 @@ package org.polybrain.tasks.health.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -37,9 +39,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import org.polybrain.tasks.health.R
 import org.polybrain.tasks.health.data.TodayTask
 
@@ -52,10 +57,18 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
     val error by vm.error.collectAsState()
     val configured by vm.configured.collectAsState()
     val pendingComplete by vm.pendingComplete.collectAsState()
+    val selectedDate by vm.selectedDate.collectAsState()
 
     LaunchedEffect(Unit) { vm.refresh() }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        DateNavBar(
+            selectedDate = selectedDate,
+            onPrevious = vm::previousDay,
+            onNext = vm::nextDay,
+            onToday = vm::goToToday,
+        )
+
         AddTaskRow(onAdd = vm::add, enabled = configured)
 
         error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
@@ -209,6 +222,51 @@ private fun CompletedTaskDialog(
             }
         },
     )
+}
+
+// Date label like "Wed, May 28"; the year is omitted to keep the bar
+// compact since most navigation stays within the current year.
+private val DATE_NAV_FORMAT = DateTimeFormatter.ofPattern("EEE, MMM d")
+
+@Composable
+private fun DateNavBar(
+    selectedDate: LocalDate,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit,
+) {
+    val label = if (selectedDate == LocalDate.now()) {
+        stringResource(R.string.today_date_today)
+    } else {
+        selectedDate.format(DATE_NAV_FORMAT)
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onPrevious) {
+            Text(
+                text = "‹", // ‹
+                style = MaterialTheme.typography.headlineMedium,
+            )
+        }
+        // Tapping the label jumps back to the current day.
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onToday)
+                .padding(vertical = 4.dp),
+        )
+        IconButton(onClick = onNext) {
+            Text(
+                text = "›", // ›
+                style = MaterialTheme.typography.headlineMedium,
+            )
+        }
+    }
 }
 
 @Composable
