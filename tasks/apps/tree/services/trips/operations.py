@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from ...models import JournalAdded, PhotoAdded, Profile, Story, StoryEvent, Thread
 from ..journalling import process_journal_entry
-from ..photos import key_belongs_to, original_key
+from ..photos import key_belongs_to, original_key, read_capture_datetime
 from ..photos import storage as photo_storage
 from .titles import default_title
 
@@ -132,6 +132,20 @@ def presign_photo_upload(user, story_id, content_type):
     return {"key": key, "upload_url": url, "expires_at": expires_at.isoformat()}
 
 
+def _capture_datetime_from_storage(key):
+    """Best-effort EXIF capture time of the just-uploaded original.
+
+    Returns None on any failure (download error, non-image, no EXIF date) so a
+    missing or unreadable timestamp never blocks the confirm — the caller then
+    falls back to the client-supplied ``published``.
+    """
+    try:
+        raw = photo_storage.download_bytes(key)
+    except Exception:  # noqa: BLE001 - storage hiccups must not fail confirm
+        return None
+    return read_capture_datetime(raw)
+
+
 @transaction.atomic
 def add_trip_photo(user, story_id, key, comment, content_type, published=None):
     """Confirm an uploaded photo: create a PhotoAdded linked to ``story`` and
@@ -149,12 +163,18 @@ def add_trip_photo(user, story_id, key, comment, content_type, published=None):
     if not photo_storage.object_exists(key):
         raise PhotoObjectMissingError(f"no uploaded object at {key!r}")
 
+    # Prefer the time the photo was taken (EXIF) over upload time. Falls back
+    # to the client-supplied ``published`` (the gallery's DATE_TAKEN) and then
+    # to now. Done here so the pre_save signal computes event_stream_id from
+    # the correct date.
+    captured = _capture_datetime_from_storage(key)
+
     photo = PhotoAdded.objects.create(
         thread=_journal_thread_for(user),
         comment=comment,
         original_key=key,
         content_type=content_type,
-        published=published or timezone.now(),
+        published=captured or published or timezone.now(),
     )
     process_journal_entry(photo, story=story)
 
