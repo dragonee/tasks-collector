@@ -102,7 +102,17 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(current.titleRes)) },
+                    // The Today screen's top bar carries the product name
+                    // ("Tasks Collector"); the drawer item stays "Today".
+                    // Other destinations show their own nav title.
+                    title = {
+                        val titleRes = if (current == Destination.Today) {
+                            R.string.today_top_bar_title
+                        } else {
+                            current.titleRes
+                        }
+                        Text(stringResource(titleRes))
+                    },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(
