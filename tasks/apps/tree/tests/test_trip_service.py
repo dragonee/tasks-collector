@@ -92,6 +92,17 @@ class TripServiceTestCase(TestCase):
         link = StoryEvent.objects.get(story=story, event=journal)
         self.assertIsNotNone(link)
 
+    def test_add_trip_note_uses_daily_thread_not_board_default(self):
+        # Diary-style trip notes always land on the Daily thread, even when the
+        # user's default *board* thread is something else (e.g. the Inbox).
+        inbox, _ = Thread.objects.get_or_create(name="Inbox")
+        Profile.objects.filter(user=self.alice).update(default_board_thread=inbox)
+        story = start_trip(self.alice)
+        journal = add_trip_note(
+            self.alice, story.pk, comment="walking", published=timezone.now()
+        )
+        self.assertEqual(journal.thread, self.daily)
+
     def test_add_trip_note_with_poi_creates_habittracked_linked_to_story(self):
         story = start_trip(self.alice)
         comment = "#poi lat=40.7128 lng=-74.0060\nCoffee at the corner"
