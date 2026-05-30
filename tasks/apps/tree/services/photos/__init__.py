@@ -6,6 +6,7 @@ from .keys import (
     original_key,
     thumbnail_key_for,
 )
+from .metadata import read_capture_datetime
 
 __all__ = [
     "storage",
@@ -14,4 +15,5 @@ __all__ = [
     "key_belongs_to",
     "original_key",
     "thumbnail_key_for",
+    "read_capture_datetime",
 ]

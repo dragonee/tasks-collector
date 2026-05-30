@@ -2,10 +2,13 @@ package org.polybrain.tasks.health.ui.trip
 
 import android.app.Application
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.io.IOException
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -196,7 +199,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         if (fix == null && !_allowNoLocation.value) return
 
         val comment = composeComment(fix, text)
-        val published = OffsetDateTime.now().toString()
         _uploading.value = true
 
         viewModelScope.launch {
@@ -211,6 +213,10 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                 val bytes = withContext(Dispatchers.IO) {
                     resolver.openInputStream(uri)?.use { it.readBytes() }
                 } ?: throw IOException("could not read the selected photo")
+                // Timestamp the photo with when it was taken, not now. The
+                // backend further overrides this with the original's EXIF
+                // DateTimeOriginal when present.
+                val published = withContext(Dispatchers.IO) { captureTimeFor(uri) }
 
                 val api = buildApi(snapshot)
                 val presign = api.presignPhoto(
@@ -238,6 +244,39 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
             } finally {
                 _uploading.value = false
             }
+        }
+    }
+
+    /**
+     * Best-effort capture time of a picked image: the gallery's DATE_TAKEN
+     * (epoch millis, UTC) when present, else now. The backend overrides this
+     * with the original's EXIF DateTimeOriginal when the file carries one.
+     */
+    private fun captureTimeFor(uri: Uri): String {
+        val resolver = getApplication<Application>().contentResolver
+        val millis = runCatching {
+            resolver.query(
+                uri,
+                arrayOf(MediaStore.Images.Media.DATE_TAKEN),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                val index = cursor.getColumnIndex(MediaStore.Images.Media.DATE_TAKEN)
+                if (index >= 0 && cursor.moveToFirst() && !cursor.isNull(index)) {
+                    cursor.getLong(index)
+                } else {
+                    null
+                }
+            }
+        }.getOrNull()
+        return if (millis != null && millis > 0) {
+            OffsetDateTime.ofInstant(
+                Instant.ofEpochMilli(millis),
+                ZoneId.systemDefault(),
+            ).toString()
+        } else {
+            OffsetDateTime.now().toString()
         }
     }
 

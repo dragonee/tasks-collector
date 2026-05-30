@@ -1,3 +1,4 @@
+import io
 from datetime import datetime as datetime_cls
 from datetime import timezone as dt_timezone
 from unittest import mock
@@ -5,6 +6,8 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
+
+from PIL import Image
 
 from ..models import (
     HabitTracked,
@@ -184,6 +187,15 @@ class TripPhotoServiceTestCase(TestCase):
         Profile.objects.create(user=cls.alice, default_board_thread=cls.daily)
         Profile.objects.create(user=cls.bob, default_board_thread=cls.daily)
 
+    def setUp(self):
+        # Confirm reads the uploaded original's EXIF for the capture time; keep
+        # that download hermetic by default (no real S3, empty bytes -> no EXIF
+        # -> the provided ``published`` is used unchanged). Individual tests
+        # override ``download_bytes`` to supply EXIF-bearing image bytes.
+        patcher = mock.patch(f"{STORAGE}.download_bytes", return_value=b"")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     @mock.patch(f"{STORAGE}.presign_put", return_value="https://put.example/x")
     def test_presign_allocates_key_under_user_story_prefix(self, _put):
         story = start_trip(self.alice)
@@ -331,3 +343,46 @@ class TripPhotoServiceTestCase(TestCase):
         self.assertEqual(result["url"], "https://get.example/orig")
         with self.assertRaises(StoryNotFoundError):
             presign_photo_original(self.bob, photo.pk)
+
+    @staticmethod
+    def _jpeg_with_exif_datetime(dt_str):
+        """A tiny JPEG carrying ``dt_str`` as its EXIF DateTime."""
+        img = Image.new("RGB", (4, 4), "red")
+        exif = img.getexif()
+        exif[0x0132] = dt_str  # DateTime
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", exif=exif)
+        return buf.getvalue()
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_uses_exif_capture_time(self, _exists):
+        story = start_trip(self.alice)
+        upload_time = timezone.now()
+        jpeg = self._jpeg_with_exif_datetime("2021:07:15 09:30:00")
+        with mock.patch(f"{STORAGE}.download_bytes", return_value=jpeg):
+            photo = add_trip_photo(
+                self.alice,
+                story.pk,
+                key=f"trips/{self.alice.pk}/{story.pk}/abc.jpg",
+                comment="sunset",
+                content_type="image/jpeg",
+                published=upload_time,
+            )
+        # The EXIF capture time wins over the upload time.
+        expected = datetime_cls(2021, 7, 15, 9, 30, 0, tzinfo=dt_timezone.utc)
+        self.assertEqual(photo.published, expected)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_falls_back_to_published_without_exif(self, _exists):
+        story = start_trip(self.alice)
+        upload_time = timezone.now()
+        # Default setUp patch returns b"" -> no EXIF -> provided time is kept.
+        photo = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=f"trips/{self.alice.pk}/{story.pk}/abc.jpg",
+            comment="no exif here",
+            content_type="image/jpeg",
+            published=upload_time,
+        )
+        self.assertEqual(photo.published, upload_time)
