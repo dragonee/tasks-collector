@@ -11,7 +11,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from ...models import JournalAdded, PhotoAdded, Profile, Story, StoryEvent, Thread
+from ...models import JournalAdded, PhotoAdded, Story, StoryEvent, Thread
 from ..journalling import process_journal_entry
 from ..photos import key_belongs_to, original_key, read_capture_datetime
 from ..photos import storage as photo_storage
@@ -35,18 +35,12 @@ def _daily_thread():
 
 
 def _journal_thread_for(user):
-    """Resolve the Thread used for a trip note's JournalAdded.
+    """Resolve the Thread used for a trip note's/photo's JournalAdded.
 
-    Mirrors the Today flow: prefer ``Profile.default_board_thread``,
-    fall back to the Daily thread so the operation never silently
-    no-ops on users without a configured default.
+    Trip notes are diary-style entries, so they always go to the Daily
+    thread — deliberately *not* the user's ``Profile.default_board_thread``
+    (which targets boards/tasks and may be the Inbox).
     """
-    try:
-        profile = Profile.objects.select_related("default_board_thread").get(user=user)
-    except Profile.DoesNotExist:
-        return _daily_thread()
-    if profile.default_board_thread is not None:
-        return profile.default_board_thread
     return _daily_thread()
 
 
