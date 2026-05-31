@@ -12,6 +12,7 @@ Options:
     -t THREAD, --thread THREAD  Use this thread [default: Daily]
     -S ID, --story ID  Attach this journal entry to story ID.
     --active-story   Attach to the currently active story (overridden by --story).
+    --current-trip   Attach to the saved current trip (see the `trip` command).
     -f FILE, --file FILE  Use this file instead of the generated template.
     -F, --force      Send even if content is unchanged from template.
     -L, --today      List journals from today.
@@ -61,7 +62,7 @@ from .config.tasks import TasksConfigFile
 from .quick_notes import get_quick_notes_as_string
 
 from .plans import get_plans_for_today_sync
-from .story import get_active_story
+from .story import get_active_story, get_current_trip, get_story
 from .utils import sanitize_fields, get_cursor_position, sanitize_list_of_strings, queue_failed_request, retry_failed_requests
 
 def yesterdays_date():
@@ -178,16 +179,25 @@ def list_todays_journals(arguments):
 def resolve_story_from_arguments(arguments, config):
     """Resolve the story to pre-fill into the template, or None.
 
-    `--story ID` is explicit and wins (title unknown, so the line shows just
-    the id). `--active-story` fetches the currently active story from the
-    backend; if none is active it prints a notice and returns None.
+    Priority: `--story ID` (explicit) > `--current-trip` (saved by the `trip`
+    command) > `--active-story` (newest active story from the backend). The
+    id is looked up so the meta line can show the title; if the lookup fails
+    we fall back to an id-only dict so the link still works offline.
     """
     if arguments['--story']:
         try:
-            return {'id': int(arguments['--story'])}
+            story_id = int(arguments['--story'])
         except ValueError:
             print(f"Ignoring invalid --story value: {arguments['--story']}")
             return None
+        return get_story(config, story_id) or {'id': story_id}
+
+    if arguments['--current-trip']:
+        story_id = get_current_trip()
+        if story_id is None:
+            print("No current trip set. Use the `trip` command to choose one.")
+            return None
+        return get_story(config, story_id) or {'id': story_id}
 
     if arguments['--active-story']:
         story = get_active_story(config)
@@ -198,8 +208,8 @@ def resolve_story_from_arguments(arguments, config):
     return None
 
 
-def main():
-    arguments = docopt(__doc__, version='1.1')
+def main(argv=None):
+    arguments = docopt(__doc__, version='1.1', argv=argv)
 
     config = TasksConfigFile()
 
@@ -345,6 +355,11 @@ def main():
         print("The temporary file was saved at {}".format(
             tmpfile.name
         ))
+
+
+def trip_main():
+    """Entry point for `tjournal`/`tripjournal`: journal into the current trip."""
+    main(argv=['--current-trip'] + sys.argv[1:])
 
 
 

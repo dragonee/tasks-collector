@@ -48,6 +48,7 @@ except ImportError:
 from .quick_notes import get_quick_notes_as_string
 from .habits import add_habit
 from .plans import get_plan_for_today
+from .story import get_active_stories, set_current_trip
 
 import re
 
@@ -197,6 +198,46 @@ def show_stats(args, config):
         print(f"Error fetching stats: {e}", file=sys.stderr)
 
 
+def select_trip(args, config):
+    """Set the current trip, saved to ~/.tasks/current_trip.
+
+    With an id argument, save it directly. Without one, list the active
+    trips: auto-select when there's exactly one, otherwise prompt for a
+    1-N choice. `tjournal`/`tripjournal` then journal into this trip.
+    """
+    if args:
+        try:
+            story_id = int(args[0])
+        except ValueError:
+            print(f"Invalid trip id: {args[0]}")
+            return
+
+        set_current_trip(story_id)
+        print(f"Current trip set to #{story_id}.")
+        return
+
+    stories = get_active_stories(config)
+
+    if not stories:
+        print("No active trips found. Use `trip <id>` to set one explicitly.")
+        return
+
+    for i, s in enumerate(stories, 1):
+        print(f"  {i}. #{s['id']} {s.get('title') or ''}".rstrip())
+
+    if len(stories) == 1:
+        story = stories[0]
+    else:
+        choice = get_input_until(
+            lambda t: t.isdigit() and 1 <= int(t) <= len(stories),
+            prompt=f"Pick a trip (1-{len(stories)}): ",
+        )
+        story = stories[int(choice) - 1]
+
+    set_current_trip(story['id'])
+    print(f"Current trip set to #{story['id']} {story.get('title') or ''}".rstrip())
+
+
 commands = {
     'observation': 'observation',
     'olist': ['observation', '-l'],
@@ -207,6 +248,9 @@ commands = {
     'quest': 'quest',
     'journal': 'journal',
     'sjournal': 'sjournal',
+    'trip': select_trip,
+    'tjournal': ['journal', '--current-trip'],
+    'tripjournal': ['journal', '--current-trip'],
     'thought': ['journal', '-T', 'thoughts'],
     'update': 'update',
     'help': print_help,

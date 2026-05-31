@@ -24,6 +24,8 @@ setup(
             'tasks = tasks_collector_tools.tasks:main',
             'update = tasks_collector_tools.update:main',
             'journal = tasks_collector_tools.journal:main',
+            'tjournal = tasks_collector_tools.journal:trip_main',
+            'tripjournal = tasks_collector_tools.journal:trip_main',
             'habits = tasks_collector_tools.habits:main',
             'eventdump = tasks_collector_tools.eventdump:main',
             'reflectiondump = tasks_collector_tools.reflectiondump:main',
