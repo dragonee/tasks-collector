@@ -57,7 +57,8 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         journal_added = serializer.save()
         skip_habits = "reflection" in self.request.data
-        process_journal_entry(journal_added, skip_habits=skip_habits)
+        story = serializer.validated_data.get("story")
+        process_journal_entry(journal_added, skip_habits=skip_habits, story=story)
 
 
 class QuickNoteViewSet(viewsets.ModelViewSet):
@@ -83,6 +84,17 @@ class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         # Only return the current user's profile
         return Profile.objects.filter(user=self.request.user)
+
+
+class StoryViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = StorySerializer
+
+    def get_queryset(self):
+        # Only the current user's stories; `?active=true` limits to unstopped.
+        qs = Story.objects.filter(user=self.request.user)
+        if self.request.query_params.get("active") in ("1", "true", "True", "yes"):
+            qs = qs.filter(stopped__isnull=True)
+        return qs
 
 
 def _get_current_plans():

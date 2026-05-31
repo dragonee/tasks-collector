@@ -169,9 +169,35 @@ class JournalAddedSerializer(serializers.ModelSerializer):
         slug_field="slug",
     )
 
+    # JournalAdded has no `story` attribute; the link is created via a
+    # StoryEvent in the viewset. Write-only so output never tries to read
+    # a non-existent attribute and the POST response stays unchanged.
+    story = serializers.PrimaryKeyRelatedField(
+        queryset=Story.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+
     class Meta:
         model = JournalAdded
-        fields = ["id", "comment", "published", "thread", "tags"]
+        fields = ["id", "comment", "published", "thread", "tags", "story"]
+
+    def validate_story(self, story):
+        request = self.context.get("request")
+        if (
+            story is not None
+            and request is not None
+            and story.user_id != request.user.id
+        ):
+            raise serializers.ValidationError("Story not found for this user.")
+        return story
+
+    def create(self, validated_data):
+        # `story` is not a model field; it is linked via StoryEvent in
+        # JournalAddedViewSet.perform_create using serializer.validated_data.
+        validated_data.pop("story", None)
+        return super().create(validated_data)
 
 
 class PhotoAddedSerializer(JournalAddedSerializer):
@@ -188,6 +214,12 @@ class QuickNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuickNote
         fields = ["id", "published", "note"]
+
+
+class StorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Story
+        fields = ["id", "type", "title", "started", "stopped"]
 
 
 class ObservationMadeSerializer(AbsoluteURLSerializerMixin, BaseTypeThreadSerializer):
