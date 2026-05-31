@@ -39,6 +39,7 @@ router.register(r"habit-api", views_habit.HabitViewSet)
 # Core
 router.register(r"threads", views.ThreadViewSet)
 router.register(r"profile", views.ProfileViewSet, basename="profile")
+router.register(r"stories", views.StoryViewSet, basename="stories")
 
 
 urlpatterns = [
