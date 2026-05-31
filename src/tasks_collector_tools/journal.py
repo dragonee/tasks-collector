@@ -10,6 +10,8 @@ Options:
     -o               Alias for -s.
     -Y, --yesterday  Use yesterday's date for the journal entry.
     -t THREAD, --thread THREAD  Use this thread [default: Daily]
+    -S ID, --story ID  Attach this journal entry to story ID.
+    --active-story   Attach to the currently active story (overridden by --story).
     -f FILE, --file FILE  Use this file instead of the generated template.
     -F, --force      Send even if content is unchanged from template.
     -L, --today      List journals from today.
@@ -21,7 +23,7 @@ TEMPLATE = """
 > Thread: {thread}
 > Published: {published}
 > Tags: {tags}
-{notes}
+{story}{notes}
 
 {plans}
 
@@ -59,6 +61,7 @@ from .config.tasks import TasksConfigFile
 from .quick_notes import get_quick_notes_as_string
 
 from .plans import get_plans_for_today_sync
+from .story import get_active_story
 from .utils import sanitize_fields, get_cursor_position, sanitize_list_of_strings, queue_failed_request, retry_failed_requests
 
 def yesterdays_date():
@@ -83,7 +86,20 @@ def format_plan(plan, title):
         return ""
     return f"# {title}\n{plan_str}\n"
 
-def template_from_arguments(arguments, quick_notes, plans, comment=''):
+
+def story_meta_line(story):
+    """Render the editable `> Story:` meta line, or '' when there's no story.
+
+    `story` is a dict like {'id': 42, 'title': 'My Trip'} or None.
+    """
+    if not story:
+        return ""
+    title = story.get('title')
+    if title:
+        return f"> Story: {story['id']} ({title})\n"
+    return f"> Story: {story['id']}\n"
+
+def template_from_arguments(arguments, quick_notes, plans, comment='', story=None):
     # Format each plan section
     plan_sections = []
     
@@ -109,6 +125,7 @@ def template_from_arguments(arguments, quick_notes, plans, comment=''):
         thread=arguments['--thread'],
         notes=quick_notes,
         plans=plans_text,
+        story=story_meta_line(story),
     ).lstrip()
 
 
@@ -117,17 +134,25 @@ def template_from_payload(payload):
 
     payload['tags'] = ', '.join(payload['tags'])
 
-    return TEMPLATE.format(notes='', plans='', **payload).lstrip()
+    # `story` is write-only on the API, so the response never carries it.
+    return TEMPLATE.format(notes='', plans='', story='', **payload).lstrip()
 
 title_re = re.compile(r'^# (Comment)')
-meta_re = re.compile(r'^> (Thread|Published|Tags): (.*)$')
+meta_re = re.compile(r'^> (Thread|Published|Tags|Story): (.*)$')
 
 
 def add_meta_to_payload(payload, name, item):
-    if name.lower() == 'tags':
-        item = item.split(',')
+    name = name.lower()
 
-    payload[name.lower()] = item
+    if name == 'tags':
+        item = item.split(',')
+    elif name == 'story':
+        # Keep only the leading integer id; the optional "(title)" suffix is
+        # for the human writer. A blank/non-numeric value means "no story".
+        m = re.match(r'^\s*(\d+)', item)
+        item = int(m.group(1)) if m else None
+
+    payload[name] = item
 
 def add_stack_to_payload(payload, name, lines):
     payload[name.lower()] = ''.join(lines).strip()
@@ -150,6 +175,29 @@ def list_todays_journals(arguments):
         print(f"Error running reflectiondump: {e}")
         sys.exit(1)
 
+def resolve_story_from_arguments(arguments, config):
+    """Resolve the story to pre-fill into the template, or None.
+
+    `--story ID` is explicit and wins (title unknown, so the line shows just
+    the id). `--active-story` fetches the currently active story from the
+    backend; if none is active it prints a notice and returns None.
+    """
+    if arguments['--story']:
+        try:
+            return {'id': int(arguments['--story'])}
+        except ValueError:
+            print(f"Ignoring invalid --story value: {arguments['--story']}")
+            return None
+
+    if arguments['--active-story']:
+        story = get_active_story(config)
+        if story is None:
+            print("No active story found.")
+        return story
+
+    return None
+
+
 def main():
     arguments = docopt(__doc__, version='1.1')
 
@@ -160,8 +208,10 @@ def main():
         return
 
     quick_notes = get_quick_notes_as_string(config)
-    
+
     plans = get_plans_for_today_sync(config)
+
+    story = resolve_story_from_arguments(arguments, config)
 
     tmpfile = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.md')
 
@@ -170,8 +220,8 @@ def main():
     if arguments['--file']:
         with open(arguments['--file'], 'r') as f:
            comment = f.read()
-    
-    template = template_from_arguments(arguments, quick_notes, plans, comment)
+
+    template = template_from_arguments(arguments, quick_notes, plans, comment, story=story)
 
     cursor_position = get_cursor_position(template, "# Comment")
 
@@ -223,6 +273,7 @@ def main():
 
     payload = sanitize_fields(payload, {
         'tags': sanitize_list_of_strings,
+        'story': lambda v: v,  # already an int (or None); not a string to strip
     })
 
     if not payload['comment']:
