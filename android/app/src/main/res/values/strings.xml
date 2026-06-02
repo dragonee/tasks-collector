@@ -74,6 +74,12 @@
     <string name="hc_unavailable">Health Connect is not available on this device.</string>
     <string name="hc_needs_update">Health Connect needs to be updated from the Play Store.</string>
 
+    <string name="activity_fab_label">Register activity</string>
+    <string name="activity_dialog_title">Register activity</string>
+    <string name="activity_note_hint">Add a note (optional)</string>
+    <string name="activity_send">Track</string>
+    <string name="activity_cancel">Cancel</string>
+
     <string name="today_metrics_heading">Today</string>
     <string name="metric_steps_format">Steps: %1$d</string>
     <string name="metric_distance_format">Distance: %1$.1f km</string>
