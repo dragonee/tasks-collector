@@ -8,6 +8,7 @@ on:
       - 'docker/**'
       - '**.md'
       - 'android/**'
+      - 'cli/**'
 
 jobs:
   test:
