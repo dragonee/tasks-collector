@@ -26,6 +26,14 @@ class TodayTask:
     done: bool
 
 
+@dataclass(frozen=True)
+class BoardItem:
+    text: str
+    moscow: str | None
+    depth: int
+    done: bool
+
+
 def _today(today, published=None):
     if today is not None:
         return today
@@ -107,6 +115,32 @@ def list_today_tasks(user, today=None):
     items = [TodayTask(text=line, done=line in good) for line in plan_lines]
     items.sort(key=lambda it: it.done)  # False (not done) sorts before True
     return items
+
+
+def _flatten_board(nodes, depth, out):
+    """Pre-order DFS over the Board.state tree, appending one BoardItem per
+    node so parents precede their children and ``depth`` reflects nesting.
+    """
+    for node in nodes or []:
+        markers = (node.get("data") or {}).get("meaningfulMarkers") or {}
+        out.append(
+            BoardItem(
+                text=board_tree._node_text(node),
+                moscow=markers.get("moscow"),
+                depth=depth,
+                done=board_tree.get_state(node) == "done",
+            )
+        )
+        _flatten_board(node.get("children") or [], depth + 1, out)
+    return out
+
+
+def list_board_items(user):
+    """Flatten the user's current board into depth-annotated rows for the
+    Android 'add from board' picker. Read-only — no transaction needed.
+    """
+    board = _current_board(user)
+    return _flatten_board(board.state, 0, [])
 
 
 @transaction.atomic

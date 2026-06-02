@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -16,13 +17,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -50,7 +55,10 @@ import org.polybrain.tasks.health.data.TodayTask
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TodayScreen(vm: TodayViewModel = viewModel()) {
+fun TodayScreen(
+    vm: TodayViewModel = viewModel(),
+    onAddFromBoard: (LocalDate) -> Unit = {},
+) {
     val tasks by vm.tasks.collectAsState()
     val weekPlan by vm.weekPlan.collectAsState()
     val loading by vm.loading.collectAsState()
@@ -61,63 +69,85 @@ fun TodayScreen(vm: TodayViewModel = viewModel()) {
 
     LaunchedEffect(Unit) { vm.refresh() }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        DateNavBar(
-            selectedDate = selectedDate,
-            onPrevious = vm::previousDay,
-            onNext = vm::nextDay,
-            onToday = vm::goToToday,
-        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            DateNavBar(
+                selectedDate = selectedDate,
+                onPrevious = vm::previousDay,
+                onNext = vm::nextDay,
+                onToday = vm::goToToday,
+            )
 
-        AddTaskRow(onAdd = vm::add, enabled = configured)
+            AddTaskRow(onAdd = vm::add, enabled = configured)
 
-        error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
+            error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
 
-        PullToRefreshBox(
-            isRefreshing = loading,
-            onRefresh = vm::refresh,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            // This week's plan items that aren't already on today's list.
-            // Adding one copies it onto today, after which it drops out here.
-            val todayTexts = tasks.map { it.text }.toSet()
-            val pendingWeekPlan = weekPlan.filterNot { it in todayTexts }
-            when {
-                !configured -> EmptyState(stringResource(R.string.today_not_configured))
-                tasks.isEmpty() && pendingWeekPlan.isEmpty() ->
-                    EmptyState(stringResource(R.string.today_empty))
-                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    if (pendingWeekPlan.isNotEmpty()) {
-                        item(key = "week-plan-header") {
-                            Text(
-                                text = stringResource(R.string.today_week_plan_heading),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp),
+            PullToRefreshBox(
+                isRefreshing = loading,
+                onRefresh = vm::refresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                // This week's plan items that aren't already on today's list.
+                // Adding one copies it onto today, after which it drops out here.
+                val todayTexts = tasks.map { it.text }.toSet()
+                val pendingWeekPlan = weekPlan.filterNot { it in todayTexts }
+                when {
+                    !configured -> EmptyState(stringResource(R.string.today_not_configured))
+                    tasks.isEmpty() && pendingWeekPlan.isEmpty() ->
+                        EmptyState(stringResource(R.string.today_empty))
+                    // Bottom padding clears the FAB so the last row stays tappable.
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 88.dp),
+                    ) {
+                        if (pendingWeekPlan.isNotEmpty()) {
+                            item(key = "week-plan-header") {
+                                Text(
+                                    text = stringResource(R.string.today_week_plan_heading),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 4.dp),
+                                )
+                            }
+                            items(items = pendingWeekPlan, key = { "week:$it" }) { line ->
+                                WeekPlanRow(
+                                    text = line,
+                                    onAddToToday = { vm.addPlanItemToToday(line) },
+                                )
+                            }
+                        }
+                        // Divider only when both sections are present, so it
+                        // genuinely separates weekly from daily.
+                        if (pendingWeekPlan.isNotEmpty() && tasks.isNotEmpty()) {
+                            item(key = "week-plan-divider") {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            }
+                        }
+                        items(items = tasks, key = TodayTask::text) { task ->
+                            TaskRow(
+                                task = task,
+                                onToggle = { done -> vm.requestSetDone(task.text, done) },
+                                onDelete = { vm.delete(task.text) },
                             )
                         }
-                        items(items = pendingWeekPlan, key = { "week:$it" }) { line ->
-                            WeekPlanRow(
-                                text = line,
-                                onAddToToday = { vm.addPlanItemToToday(line) },
-                            )
-                        }
-                    }
-                    // Divider only when both sections are present, so it
-                    // genuinely separates weekly from daily.
-                    if (pendingWeekPlan.isNotEmpty() && tasks.isNotEmpty()) {
-                        item(key = "week-plan-divider") {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        }
-                    }
-                    items(items = tasks, key = TodayTask::text) { task ->
-                        TaskRow(
-                            task = task,
-                            onToggle = { done -> vm.requestSetDone(task.text, done) },
-                            onDelete = { vm.delete(task.text) },
-                        )
                     }
                 }
+            }
+        }
+
+        // FAB opens the board picker for the currently-viewed day. Hidden
+        // until configured, matching the disabled add-task row above.
+        if (configured) {
+            FloatingActionButton(
+                onClick = { onAddFromBoard(selectedDate) },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.today_board_fab_label),
+                )
             }
         }
     }

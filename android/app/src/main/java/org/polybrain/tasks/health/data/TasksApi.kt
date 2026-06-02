@@ -70,6 +70,22 @@ data class TodayTasksResponse(
 )
 
 @Serializable
+data class BoardItem(
+    @SerialName("text") val text: String,
+    // MoSCoW bucket id: "must" | "should" | "could" | "wont", or null when
+    // the item is unclassified.
+    @SerialName("moscow") val moscow: String? = null,
+    // Nesting level in the board tree (0 = root), used to indent the row.
+    @SerialName("depth") val depth: Int = 0,
+    @SerialName("done") val done: Boolean = false,
+)
+
+@Serializable
+data class BoardItemsResponse(
+    @SerialName("items") val items: List<BoardItem> = emptyList(),
+)
+
+@Serializable
 data class PlanItem(
     @SerialName("id") val id: Long,
     @SerialName("pub_date") val pubDate: String,
@@ -210,6 +226,11 @@ interface TasksApi {
 
     @GET("api/v1/android/task/today/")
     suspend fun listTodayTasks(@Query("date") date: String): TodayTasksResponse
+
+    // Flattened current board (pre-order, depth-annotated) for the
+    // "add from board" picker. Date-independent.
+    @GET("api/v1/android/board/items/")
+    suspend fun listBoardItems(): BoardItemsResponse
 
     @POST("api/v1/android/task/add/")
     suspend fun addTodayTask(@Body body: TaskTextRequest): OkResponse
