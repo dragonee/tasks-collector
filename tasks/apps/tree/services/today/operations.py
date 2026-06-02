@@ -7,6 +7,7 @@ commits or none of it does.
 
 from dataclasses import dataclass
 from datetime import date as date_cls
+from typing import Optional
 
 from django.db import transaction
 from django.utils import timezone
@@ -29,7 +30,7 @@ class TodayTask:
 @dataclass(frozen=True)
 class BoardItem:
     text: str
-    moscow: str | None
+    moscow: Optional[str]
     depth: int
     done: bool
 
