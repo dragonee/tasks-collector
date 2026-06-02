@@ -2,19 +2,34 @@ package org.polybrain.tasks.health.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -31,6 +46,7 @@ fun HealthScreen(vm: MainViewModel) {
     val state by vm.settingsState.collectAsState()
     val permissionsGranted by vm.permissionsGranted.collectAsState()
     val todayMetrics by vm.todayMetrics.collectAsState()
+    val activityDialogOpen by vm.activityDialogOpen.collectAsState()
     val scope = rememberCoroutineScope()
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -39,67 +55,144 @@ fun HealthScreen(vm: MainViewModel) {
         scope.launch { vm.refreshPermissionState() }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        when (vm.healthConnectStatus) {
-            HealthConnectClient.SDK_UNAVAILABLE -> {
-                Text(stringResource(R.string.hc_unavailable))
-            }
-            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
-                Text(stringResource(R.string.hc_needs_update))
-            }
-            else -> {
-                if (!permissionsGranted) {
-                    Button(onClick = { permissionLauncher.launch(vm.requiredPermissions) }) {
-                        Text(stringResource(R.string.grant_permissions))
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                // Bottom padding clears the FAB so the last row stays tappable.
+                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            when (vm.healthConnectStatus) {
+                HealthConnectClient.SDK_UNAVAILABLE -> {
+                    Text(stringResource(R.string.hc_unavailable))
+                }
+                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
+                    Text(stringResource(R.string.hc_needs_update))
+                }
+                else -> {
+                    if (!permissionsGranted) {
+                        Button(onClick = { permissionLauncher.launch(vm.requiredPermissions) }) {
+                            Text(stringResource(R.string.grant_permissions))
+                        }
                     }
+                }
+            }
+
+            Button(
+                onClick = { vm.syncNow() },
+                enabled = state.isConfigured && permissionsGranted,
+            ) {
+                Text(stringResource(R.string.sync_now))
+            }
+
+            Text(
+                text = when {
+                    state.lastSyncError.isNotEmpty() ->
+                        stringResource(R.string.sync_failed_format).format(state.lastSyncError)
+                    state.lastSyncEpochMs == 0L ->
+                        stringResource(R.string.last_sync_never)
+                    else ->
+                        stringResource(R.string.last_sync_format).format(formatInstant(state.lastSyncEpochMs))
+                },
+            )
+
+            if (permissionsGranted) {
+                HorizontalDivider()
+                Text(
+                    text = stringResource(R.string.today_metrics_heading),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                val metrics = todayMetrics
+                if (metrics == null) {
+                    Text(stringResource(R.string.metric_loading))
+                } else {
+                    Text(stringResource(R.string.metric_steps_format).format(metrics.steps))
+                    Text(
+                        stringResource(R.string.metric_distance_format)
+                            .format(metrics.distanceMeters / 1000.0)
+                    )
+                    Text(stringResource(R.string.metric_active_format).format(metrics.activeMinutes))
+                    Text(stringResource(R.string.metric_kcal_format).format(metrics.kcal))
                 }
             }
         }
 
-        Button(
-            onClick = { vm.syncNow() },
-            enabled = state.isConfigured && permissionsGranted,
+        FloatingActionButton(
+            onClick = { vm.openActivityDialog() },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp),
         ) {
-            Text(stringResource(R.string.sync_now))
-        }
-
-        Text(
-            text = when {
-                state.lastSyncError.isNotEmpty() ->
-                    stringResource(R.string.sync_failed_format).format(state.lastSyncError)
-                state.lastSyncEpochMs == 0L ->
-                    stringResource(R.string.last_sync_never)
-                else ->
-                    stringResource(R.string.last_sync_format).format(formatInstant(state.lastSyncEpochMs))
-            },
-        )
-
-        if (permissionsGranted) {
-            HorizontalDivider()
-            Text(
-                text = stringResource(R.string.today_metrics_heading),
-                style = MaterialTheme.typography.titleMedium,
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = stringResource(R.string.activity_fab_label),
             )
-            val metrics = todayMetrics
-            if (metrics == null) {
-                Text(stringResource(R.string.metric_loading))
-            } else {
-                Text(stringResource(R.string.metric_steps_format).format(metrics.steps))
-                Text(
-                    stringResource(R.string.metric_distance_format)
-                        .format(metrics.distanceMeters / 1000.0)
-                )
-                Text(stringResource(R.string.metric_active_format).format(metrics.activeMinutes))
-                Text(stringResource(R.string.metric_kcal_format).format(metrics.kcal))
-            }
         }
     }
+
+    if (activityDialogOpen) {
+        TrackActivityDialog(vm)
+    }
+}
+
+@Composable
+private fun TrackActivityDialog(vm: MainViewModel) {
+    val saving by vm.activitySaving.collectAsState()
+    val error by vm.activityError.collectAsState()
+
+    var selectedType by remember { mutableStateOf(ActivityType.Gym) }
+    var note by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = { vm.closeActivityDialog() },
+        title = { Text(stringResource(R.string.activity_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActivityType.entries.forEach { type ->
+                        FilterChip(
+                            selected = type == selectedType,
+                            onClick = { selectedType = type },
+                            label = { Text("#${type.keyword}") },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    placeholder = { Text(stringResource(R.string.activity_note_hint)) },
+                    singleLine = false,
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                error?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { vm.trackActivity(selectedType, note) },
+                enabled = !saving,
+            ) {
+                Text(stringResource(R.string.activity_send))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = { vm.closeActivityDialog() },
+                enabled = !saving,
+            ) {
+                Text(stringResource(R.string.activity_cancel))
+            }
+        },
+    )
 }
 
 private val displayFormatter: DateTimeFormatter =
