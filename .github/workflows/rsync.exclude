@@ -2,7 +2,7 @@
 /android
 /docker
 /docs
-/tools
+/cli
 /manage.py
 /package.json
 /package-lock.json

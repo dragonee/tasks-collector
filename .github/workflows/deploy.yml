@@ -8,6 +8,7 @@ on:
       - 'docker/**'
       - '**.md'
       - 'android/**'
+      - 'cli/**'
       - 'tasks/apps/tree/tests/**'
       - 'tasks/settings/local.py'
       - 'requirements/local.txt'
