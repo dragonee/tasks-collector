@@ -62,6 +62,16 @@
     <string name="today_date_today">Today</string>
     <string name="today_top_bar_title">Tasks Collector</string>
 
+    <string name="today_board_fab_label">Add from board</string>
+    <string name="board_picker_add_button">Add %1$d</string>
+    <string name="board_picker_cancel">Cancel</string>
+    <string name="board_picker_empty">This board has no items.</string>
+    <string name="board_picker_filter_must">Must</string>
+    <string name="board_picker_filter_should">Should</string>
+    <string name="board_picker_filter_could">Could</string>
+    <string name="board_picker_filter_wont">Won\'t</string>
+    <string name="board_picker_filter_none">Unclassified</string>
+
     <string name="server_url_label">Server URL</string>
     <string name="server_url_placeholder">https://tasks.example.com</string>
     <string name="api_token_label">API token</string>

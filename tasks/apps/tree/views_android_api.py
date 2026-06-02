@@ -15,6 +15,7 @@ from .services.today import (
     NoBoardError,
     add_task,
     delete_task,
+    list_board_items,
     list_today_tasks,
     set_task_done,
 )
@@ -95,6 +96,38 @@ class AndroidTaskListView(APIView):
             return _no_board_response()
         return Response(
             {"items": [{"text": it.text, "done": it.done} for it in items]},
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidBoardListView(APIView):
+    """Return the user's current board flattened to a depth-annotated list:
+    every node in pre-order, with its MoSCoW marker and done flag. Source for
+    the Android 'add from board' picker. The board is date-independent, so no
+    ``date`` parameter is required.
+    """
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            items = list_board_items(request.user)
+        except NoBoardError:
+            return _no_board_response()
+        return Response(
+            {
+                "items": [
+                    {
+                        "text": it.text,
+                        "moscow": it.moscow,
+                        "depth": it.depth,
+                        "done": it.done,
+                    }
+                    for it in items
+                ]
+            },
             status=status.HTTP_200_OK,
         )
 

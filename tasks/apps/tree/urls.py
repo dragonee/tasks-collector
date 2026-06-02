@@ -91,6 +91,11 @@ urlpatterns = [
         name="android-task-delete",
     ),
     path(
+        "api/v1/android/board/items/",
+        views_android_api.AndroidBoardListView.as_view(),
+        name="android-board-items",
+    ),
+    path(
         "api/v1/android/trip/start/",
         views_android_trip.AndroidTripStartView.as_view(),
         name="android-trip-start",

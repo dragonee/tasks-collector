@@ -33,7 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.LocalDate
 import kotlinx.coroutines.launch
+import org.polybrain.tasks.health.ui.BoardPickerScreen
 import org.polybrain.tasks.health.ui.HealthScreen
 import org.polybrain.tasks.health.ui.MainViewModel
 import org.polybrain.tasks.health.ui.SettingsScreen
@@ -67,11 +69,18 @@ class MainActivity : ComponentActivity() {
 private fun MainScaffold(vm: MainViewModel = viewModel()) {
     var current by remember { mutableStateOf(Destination.Today) }
     var tripDetailId by remember { mutableStateOf<Long?>(null) }
+    // Non-null while the board picker is open; holds the Today day the picked
+    // items will be added to.
+    var boardPickerDate by remember { mutableStateOf<LocalDate?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     BackHandler(enabled = tripDetailId != null) {
         tripDetailId = null
+    }
+
+    BackHandler(enabled = boardPickerDate != null) {
+        boardPickerDate = null
     }
 
     ModalNavigationDrawer(
@@ -91,6 +100,7 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
                         onClick = {
                             current = dest
                             tripDetailId = null
+                            boardPickerDate = null
                             scope.launch { drawerState.close() }
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
@@ -131,7 +141,18 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
                 color = MaterialTheme.colorScheme.background,
             ) {
                 when (current) {
-                    Destination.Today -> TodayScreen()
+                    Destination.Today -> {
+                        val pickerDate = boardPickerDate
+                        if (pickerDate != null) {
+                            BoardPickerScreen(
+                                selectedDate = pickerDate,
+                                onDone = { boardPickerDate = null },
+                                onCancel = { boardPickerDate = null },
+                            )
+                        } else {
+                            TodayScreen(onAddFromBoard = { boardPickerDate = it })
+                        }
+                    }
                     Destination.Trips -> {
                         val detailId = tripDetailId
                         if (detailId != null) {
