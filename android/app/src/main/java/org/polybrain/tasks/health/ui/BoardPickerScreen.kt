@@ -77,7 +77,13 @@ fun BoardPickerScreen(
     val selected by vm.selected.collectAsState()
     val filter by vm.moscowFilter.collectAsState()
 
-    LaunchedEffect(Unit) { vm.refresh() }
+    // Clear any selection carried over from a prior session (the VM is
+    // Activity-scoped and reused) so a fresh open always starts unchecked —
+    // this also covers dismissal via the system back button.
+    LaunchedEffect(Unit) {
+        vm.clearSelection()
+        vm.refresh()
+    }
 
     val visibleItems = BoardPickerViewModel.applyFilter(items, filter)
 
@@ -126,7 +132,12 @@ fun BoardPickerScreen(
             ) {
                 Text(stringResource(R.string.board_picker_add_button, selected.size))
             }
-            TextButton(onClick = onCancel) {
+            TextButton(
+                onClick = {
+                    vm.clearSelection()
+                    onCancel()
+                },
+            ) {
                 Text(stringResource(R.string.board_picker_cancel))
             }
         }
