@@ -75,6 +75,12 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    /** Drop the whole multi-selection — used on cancel and on each fresh open
+     * so a new picker session never inherits the previous one's checks. */
+    fun clearSelection() {
+        _selected.value = emptySet()
+    }
+
     fun toggleFilter(id: String) {
         _moscowFilter.value = _moscowFilter.value.toMutableSet().apply {
             if (!add(id)) remove(id)
@@ -115,6 +121,7 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
             if (failures.isEmpty()) {
+                _selected.value = emptySet()
                 onDone()
             } else {
                 _error.value = "Failed to add ${failures.size} of ${texts.size} item(s)."
