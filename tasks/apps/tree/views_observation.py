@@ -146,8 +146,10 @@ class ObservationEventViewSet(viewsets.ModelViewSet):
 
 class ObservationListView(LoginRequiredMixin, ListView):
     model = Observation
-    queryset = Observation.objects.select_related("thread", "type").prefetch_related(
-        "observationupdated_set"
+    queryset = (
+        Observation.objects.with_attached_count()
+        .select_related("thread", "type")
+        .prefetch_related("observationupdated_set")
     )
 
     paginate_by = 200
@@ -177,7 +179,8 @@ class ObservationMineListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return (
-            Observation.objects.filter(user=self.request.user)
+            Observation.objects.with_attached_count()
+            .filter(user=self.request.user)
             .select_related("thread", "type")
             .prefetch_related("observationupdated_set")
             .order_by("-pub_date", "-pk")

@@ -556,6 +556,26 @@ article.quest {
             }
         }
 
+        &.is-complex {
+            border-left: 3px solid #4a7dfb;
+        }
+
+    }
+
+    .complex-badge {
+        display: inline-block;
+
+        margin-left: 0.25rem;
+        padding: 0 0.45rem;
+
+        border-radius: 10px;
+
+        background: #4a7dfb;
+        color: #fff;
+
+        font-size: 0.8rem;
+        font-style: normal;
+        white-space: nowrap;
     }
 
     .strong {
