@@ -219,6 +219,48 @@ class ObservationQuerySet(models.QuerySet):
 
         return self.annotate(last_event_published=Subquery(last_event_subquery))
 
+    def with_attached_count(self):
+        """
+        Annotate each observation with ``attached_count``: the number of
+        observations currently attached to it (i.e. how "complex" it is).
+
+        Mirrors ComplexPresenter's latest-event-wins replay in SQL: an
+        ObservationAttached row represents a currently-attached pair only when
+        no later attach and no later-or-equal detach exist for the same
+        (event_stream_id, other_event_stream_id) pair. Counting the distinct
+        surviving pairs in one correlated subquery avoids a per-row presenter.
+        """
+        from django.db.models import Count, Exists, OuterRef, Subquery
+        from django.db.models.functions import Coalesce
+
+        later_attach = ObservationAttached.objects.filter(
+            event_stream_id=OuterRef("event_stream_id"),
+            other_event_stream_id=OuterRef("other_event_stream_id"),
+            published__gt=OuterRef("published"),
+        )
+        later_or_equal_detach = ObservationDetached.objects.filter(
+            event_stream_id=OuterRef("event_stream_id"),
+            other_event_stream_id=OuterRef("other_event_stream_id"),
+            published__gte=OuterRef("published"),
+        )
+
+        currently_attached = (
+            ObservationAttached.objects.filter(
+                event_stream_id=OuterRef("event_stream_id")
+            )
+            .annotate(
+                superseded_by_attach=Exists(later_attach),
+                superseded_by_detach=Exists(later_or_equal_detach),
+            )
+            .filter(superseded_by_attach=False, superseded_by_detach=False)
+            .order_by()
+            .values("event_stream_id")
+            .annotate(count=Count("other_event_stream_id", distinct=True))
+            .values("count")
+        )
+
+        return self.annotate(attached_count=Coalesce(Subquery(currently_attached), 0))
+
 
 class ObservationManager(models.Manager):
     def get_queryset(self):
@@ -226,6 +268,9 @@ class ObservationManager(models.Manager):
 
     def with_last_event_published(self):
         return self.get_queryset().with_last_event_published()
+
+    def with_attached_count(self):
+        return self.get_queryset().with_attached_count()
 
 
 class Observation(models.Model):

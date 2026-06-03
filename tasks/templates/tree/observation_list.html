@@ -20,7 +20,7 @@
         {% observation_menu attach_mode=attach_mode %}
     </div>
         {% for observation in object_list %}
-        <article class="observation" id="observation-{{ observation.pk }}">
+        <article class="observation{% if observation.attached_count %} is-complex{% endif %}" id="observation-{{ observation.pk }}">
             {% if attach_mode and not attach_observation_id|stringformat:"s" == observation.pk|stringformat:"s" %}
                 <div class="attach-checkbox">
                     <input type="checkbox" 
@@ -32,7 +32,7 @@
                 </div>
             {% endif %}
 
-            <div class="meta">{{ observation.pub_date }} (<span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span> <a href="{% url 'public-observation-edit' observation.pk %}">#{{ observation.pk }}</a>)</div>
+            <div class="meta">{{ observation.pub_date }} (<span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span> <a href="{% url 'public-observation-edit' observation.pk %}">#{{ observation.pk }}</a>){% if observation.attached_count %} <span class="complex-badge" title="{{ observation.attached_count }} attached observation{{ observation.attached_count|pluralize }}">&#128206; {{ observation.attached_count }}</span>{% endif %}</div>
             <div class="strong">{{ observation.situation|linebreaks }}</div>
 
             <div class="expand">
