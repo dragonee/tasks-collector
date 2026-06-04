@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load render_assets %}
+
+{% block title %}Functions | Tasks Collector{% endblock %}
+
+{% block content %}
+<div id="enfp-app"></div>
+{% endblock %}
+
+{% block jsmount %}
+{% render_js 'enfp_mount' %}
+{% endblock %}
+
+{% block cssmount %}
+{% render_css 'enfp_mount' %}
+{% endblock %}
+
+{% block extrahead %}
+{% csrf_token %}
+{% endblock %}

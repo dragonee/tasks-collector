@@ -10,6 +10,7 @@ export default defineConfig({
     entry: {
       app: './tasks/assets/app.js',
       hello_world_mount: './tasks/assets/components/hello_world_mount.js',
+      enfp_mount: './tasks/assets/components/enfp_mount.js',
     },
   },
 
@@ -39,7 +40,7 @@ export default defineConfig({
       );
 
       // Generate separate JS and CSS tag files for each entry point
-      const entryPoints = ['app', 'hello_world_mount'];
+      const entryPoints = ['app', 'hello_world_mount', 'enfp_mount'];
 
       entryPoints.forEach(entryName => {
         config.plugins.push(
