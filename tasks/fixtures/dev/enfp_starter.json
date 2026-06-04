@@ -1,0 +1,89 @@
+[
+  {
+    "model": "rewards.reward",
+    "pk": 8001,
+    "fields": {
+      "name": "A small treat",
+      "slug": "enfp-small-treat",
+      "emoji": "🍵",
+      "description": "Take a small treat — a tea, a snack, a short walk.",
+      "choose_one": true
+    }
+  },
+  {
+    "model": "rewards.reward",
+    "pk": 8002,
+    "fields": {
+      "name": "An hour for yourself",
+      "slug": "enfp-an-hour",
+      "emoji": "☕",
+      "description": "Claim an uninterrupted hour for something you enjoy.",
+      "choose_one": true
+    }
+  },
+  {
+    "model": "rewards.reward",
+    "pk": 8003,
+    "fields": {
+      "name": "A proper reward",
+      "slug": "enfp-proper-reward",
+      "emoji": "🎁",
+      "description": "You brought all four functions into balance — give yourself a real reward.",
+      "choose_one": true
+    }
+  },
+  {
+    "model": "enfp.challenge",
+    "pk": 1,
+    "fields": {
+      "name": "Warm-up: find your balance",
+      "slug": "warm-up-balance",
+      "description": "A gentle first ladder: touch your inferior Si, then bring all four functions level, then stretch toward a fuller balance.",
+      "started_at": "2026-06-01T00:00:00Z",
+      "completed_at": null,
+      "active": true
+    }
+  },
+  {
+    "model": "enfp.challengestage",
+    "pk": 1,
+    "fields": {
+      "challenge": 1,
+      "order": 1,
+      "ne": 0,
+      "fi": 0,
+      "te": 0,
+      "si": 1,
+      "reward": 8001,
+      "is_completion": false
+    }
+  },
+  {
+    "model": "enfp.challengestage",
+    "pk": 2,
+    "fields": {
+      "challenge": 1,
+      "order": 2,
+      "ne": 1,
+      "fi": 1,
+      "te": 1,
+      "si": 1,
+      "reward": 8002,
+      "is_completion": false
+    }
+  },
+  {
+    "model": "enfp.challengestage",
+    "pk": 3,
+    "fields": {
+      "challenge": 1,
+      "order": 3,
+      "ne": 1,
+      "fi": 2,
+      "te": 3,
+      "si": 4,
+      "reward": 8003,
+      "is_completion": true
+    }
+  }
+]

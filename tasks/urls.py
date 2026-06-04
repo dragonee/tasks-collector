@@ -19,6 +19,7 @@ urlpatterns = [
     ),
     re_path(r"^rewards/", include("tasks.apps.rewards.urls")),
     re_path(r"^quests/", include("tasks.apps.quests.urls")),
+    re_path(r"^enfp/", include("tasks.apps.enfp.urls")),
     re_path(r"^", include("tasks.apps.tree.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
