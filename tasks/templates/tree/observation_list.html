@@ -13,6 +13,16 @@
 {% csrf_token %}
 <div class="observations">
     <div class="cont">
+        <div class="observation-filter-bar">
+            <input type="search"
+                   id="observation-filter"
+                   class="observation-filter-input"
+                   placeholder="Filter observations (Polish/English)…"
+                   autocomplete="off"
+                   aria-label="Filter observations">
+            <span id="observation-filter-count" class="observation-filter-count" aria-live="polite"></span>
+        </div>
+
         {% include "menu.html" %}
 
         {% observation_calendar %}
@@ -20,7 +30,9 @@
         {% observation_menu attach_mode=attach_mode %}
     </div>
         {% for observation in object_list %}
-        <article class="observation{% if observation.attached_count %} is-complex{% endif %}" id="observation-{{ observation.pk }}">
+        <article class="observation{% if observation.attached_count %} is-complex{% endif %}"
+                 id="observation-{{ observation.pk }}"
+                 data-search="{{ observation.situation|default:'' }} {{ observation.interpretation|default:'' }} {{ observation.approach|default:'' }}{% for update in observation.observationupdated_set.all %} {{ update.comment|default:'' }}{% endfor %}">
             {% if attach_mode and not attach_observation_id|stringformat:"s" == observation.pk|stringformat:"s" %}
                 <div class="attach-checkbox">
                     <input type="checkbox" 

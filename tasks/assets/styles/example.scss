@@ -489,6 +489,46 @@ article.quest {
 
     margin: auto;
 
+    .observation-filter-bar {
+        margin-bottom: 1.5rem;
+
+        .observation-filter-input {
+            display: block;
+            width: 100%;
+
+            padding: 0.65rem 0.95rem;
+
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #343434;
+
+            background: #fff;
+            border: 1px solid #d3d8de;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+            &::placeholder {
+                color: #aab1ba;
+            }
+
+            &:focus {
+                outline: 0;
+                border-color: #4a7dfb;
+                box-shadow: 0 0 0 0.18rem rgba(74, 125, 251, 0.2);
+            }
+        }
+
+        .observation-filter-count {
+            display: block;
+            margin-top: 0.35rem;
+
+            font-size: 0.8rem;
+            color: #999;
+            text-align: right;
+        }
+    }
 
     .empty {
         margin-top: 2rem;
