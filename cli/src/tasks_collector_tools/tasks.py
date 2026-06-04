@@ -18,46 +18,42 @@ See more:
 """
 
 import json
-
-from docopt import docopt
+import shlex
+import subprocess
+import sys
+from collections.abc import Iterable
+from difflib import SequenceMatcher
 
 import requests
+from docopt import docopt
+from more_itertools import consume, repeatfunc
 from requests.auth import HTTPBasicAuth
-
-from more_itertools import repeatfunc, consume
 
 from .config.tasks import TasksConfigFile
 from .models import ProfileResponse, StatsResponse
 
-from collections.abc import Iterable
-
-import subprocess
-from difflib import SequenceMatcher
-
-import shlex
-import sys
-
 try:
-    import readline
-    import os
     import atexit
+    import os
+    import readline
+
     readline_available = True
 except ImportError:
     readline_available = False
 
-from .quick_notes import get_quick_notes_as_string
+import re
+
 from .habits import add_habit
 from .plans import get_plan_for_today
 from .story import get_active_stories, set_current_trip
 
-import re
 
 def get_input_until(predicate, prompt=None):
     text = None
-    
+
     while text is None or not predicate(text):
         text = input(prompt)
-    
+
     return text
 
 
@@ -68,13 +64,13 @@ Available commands:
 Quit by pressing Ctrl+D or Ctrl+C.
 """
 
-DEFAULT_THREAD = 'Daily'
+DEFAULT_THREAD = "Daily"
 
 
 def load_default_thread_from_profile(config):
     """Load default board thread from user profile API."""
     try:
-        url = f'{config.url}/profile/'
+        url = f"{config.url}/profile/"
         r = requests.get(url, auth=HTTPBasicAuth(config.user, config.password))
 
         if r.ok:
@@ -91,10 +87,10 @@ def setup_readline_history(config):
     """Set up readline history functionality."""
     if not readline_available:
         return
-    
+
     # Set history file path
-    history_file = os.path.expanduser('~/.tasks_history')
-    
+    history_file = os.path.expanduser("~/.tasks_history")
+
     # Load existing history
     try:
         readline.read_history_file(history_file)
@@ -102,17 +98,17 @@ def setup_readline_history(config):
         pass  # No history file exists yet
     except PermissionError:
         pass  # Can't read history file
-    
+
     # Set maximum history size
     readline.set_history_length(1000)
-    
+
     # Save history on exit
     def save_history():
         try:
             readline.write_history_file(history_file)
         except PermissionError:
             pass  # Can't write history file
-    
+
     atexit.register(save_history)
 
 
@@ -121,9 +117,7 @@ def list_to_points(list):
 
 
 def help():
-    return HELP.format(
-        commands=list_to_points(commands.keys())
-    )
+    return HELP.format(commands=list_to_points(commands.keys()))
 
 
 def print_help(*args):
@@ -142,20 +136,22 @@ def change_thread(args, config):
 
 def open_observation(args, config):
     if args:
-        subprocess.call(['open', f"{config.url}/observations/{args[0]}"])
+        subprocess.call(["open", f"{config.url}/observations/{args[0]}"])
     else:
-        subprocess.call(['open', f"{config.url}/observations/"])
+        subprocess.call(["open", f"{config.url}/observations/"])
 
 
 def show_stats(args, config):
     """Fetch and display statistics from the Tasks Collector."""
     year = args[0] if args else None
 
-    url = f'{config.url}/stats/json/'
-    params = {'year': year} if year else {}
+    url = f"{config.url}/stats/json/"
+    params = {"year": year} if year else {}
 
     try:
-        r = requests.get(url, params=params, auth=HTTPBasicAuth(config.user, config.password))
+        r = requests.get(
+            url, params=params, auth=HTTPBasicAuth(config.user, config.password)
+        )
 
         if r.ok:
             stats = StatsResponse.parse_obj(r.json())
@@ -172,19 +168,39 @@ def show_stats(args, config):
 
             print(f"\nObservations:")
             print(f"  Made:                            {stats.observation_count:>6}")
-            print(f"  Updated:                         {stats.observation_updated_count:>6}")
-            print(f"  Closed:                          {stats.observation_closed_count:>6}")
-            print(f"  Recontextualized:                {stats.observation_recontextualized_count:>6}")
-            print(f"  Reflected Upon:                  {stats.observation_reflected_upon_count:>6}")
-            print(f"  Reinterpreted:                   {stats.observation_reinterpreted_count:>6}")
+            print(
+                f"  Updated:                         {stats.observation_updated_count:>6}"
+            )
+            print(
+                f"  Closed:                          {stats.observation_closed_count:>6}"
+            )
+            print(
+                f"  Recontextualized:                {stats.observation_recontextualized_count:>6}"
+            )
+            print(
+                f"  Reflected Upon:                  {stats.observation_reflected_upon_count:>6}"
+            )
+            print(
+                f"  Reinterpreted:                   {stats.observation_reinterpreted_count:>6}"
+            )
 
             print(f"\nProjected Outcomes:")
-            print(f"  Made:                            {stats.projected_outcome_made_count:>6}")
-            print(f"  Redefined:                       {stats.projected_outcome_redefined_count:>6}")
-            print(f"  Rescheduled:                     {stats.projected_outcome_rescheduled_count:>6}")
-            print(f"  Closed:                          {stats.projected_outcome_closed_count:>6}")
+            print(
+                f"  Made:                            {stats.projected_outcome_made_count:>6}"
+            )
+            print(
+                f"  Redefined:                       {stats.projected_outcome_redefined_count:>6}"
+            )
+            print(
+                f"  Rescheduled:                     {stats.projected_outcome_rescheduled_count:>6}"
+            )
+            print(
+                f"  Closed:                          {stats.projected_outcome_closed_count:>6}"
+            )
 
-            print(f"\nWord Count:                        {stats.word_count:>6} (last updated: {stats.word_count_updated.strftime('%Y-%m-%d %H:%M:%S')})")
+            print(
+                f"\nWord Count:                        {stats.word_count:>6} (last updated: {stats.word_count_updated.strftime('%Y-%m-%d %H:%M:%S')})"
+            )
 
             if stats.years:
                 print(f"\nAvailable years: {', '.join(map(str, stats.years))}")
@@ -234,32 +250,32 @@ def select_trip(args, config):
         )
         story = stories[int(choice) - 1]
 
-    set_current_trip(story['id'])
+    set_current_trip(story["id"])
     print(f"Current trip set to #{story['id']} {story.get('title') or ''}".rstrip())
 
 
 commands = {
-    'observation': 'observation',
-    'olist': ['observation', '-l'],
-    'habits': 'habits',
-    'hlist': ['habits', '-l'],
-    'oedit': open_observation,
-    'edit': open_observation,
-    'quest': 'quest',
-    'journal': 'journal',
-    'sjournal': 'sjournal',
-    'trip': select_trip,
-    'tjournal': ['journal', '--current-trip'],
-    'tripjournal': ['journal', '--current-trip'],
-    'thought': ['journal', '-T', 'thoughts'],
-    'update': 'update',
-    'help': print_help,
-    'clear': 'clear',
-    'wtf': ['journal', '-T', 'wtf'],
-    'nove': ['journal', '-T', 'nove'],
-    'reflect': 'reflect',
-    'thread': change_thread,
-    'stats': show_stats,
+    "observation": "observation",
+    "olist": ["observation", "-l"],
+    "habits": "habits",
+    "hlist": ["habits", "-l"],
+    "oedit": open_observation,
+    "edit": open_observation,
+    "quest": "quest",
+    "journal": "journal",
+    "sjournal": "sjournal",
+    "trip": select_trip,
+    "tjournal": ["journal", "--current-trip"],
+    "tripjournal": ["journal", "--current-trip"],
+    "thought": ["journal", "-T", "thoughts"],
+    "update": "update",
+    "help": print_help,
+    "clear": "clear",
+    "wtf": ["journal", "-T", "wtf"],
+    "nove": ["journal", "-T", "nove"],
+    "reflect": "reflect",
+    "thread": change_thread,
+    "stats": show_stats,
 }
 
 
@@ -267,7 +283,7 @@ def match_text_against_commands(text):
     for command in commands.keys():
         if command.startswith(text):
             return commands[command]
-    
+
     return None
 
 
@@ -296,7 +312,7 @@ def run_command(command, args, config):
 
 
 def is_habit_command(text):
-    return text.startswith('!') or text.startswith('#')
+    return text.startswith("!") or text.startswith("#")
 
 
 def run_single_task(config):
@@ -321,7 +337,8 @@ def run_single_task(config):
     add_task(config, config.current_thread, original_text)
 
 
-RE_THREAD = re.compile(r'^(.*?)\s*>\s*([A-Za-z0-9_-]+)\s*$')
+RE_THREAD = re.compile(r"^(.*?)\s*>\s*([A-Za-z0-9_-]+)\s*$")
+
 
 def add_task(config, default_thread, text):
     match = RE_THREAD.match(text)
@@ -333,13 +350,15 @@ def add_task(config, default_thread, text):
         thread = default_thread
 
     payload = {
-        'thread-name': thread,
-        'text': text,
+        "thread-name": thread,
+        "text": text,
     }
 
-    url = '{}/boards/append/'.format(config.url)
+    url = "{}/boards/append/".format(config.url)
 
-    r = requests.post(url, json=payload, auth=HTTPBasicAuth(config.user, config.password))
+    r = requests.post(
+        url, json=payload, auth=HTTPBasicAuth(config.user, config.password)
+    )
 
     if r.ok:
         print(GOTOURL.format(url=config.url, name=thread).strip())
@@ -351,7 +370,7 @@ def add_task(config, default_thread, text):
 
 
 def main():
-    arguments = docopt(__doc__ + help(), version='1.0.2')
+    arguments = docopt(__doc__ + help(), version="1.0.2")
 
     config = TasksConfigFile()
 
@@ -360,26 +379,24 @@ def main():
 
     print("Connected to Tasks Collector at {}".format(config.url))
 
-    quick_notes = get_quick_notes_as_string(config).strip()
-
-    print(quick_notes)
-
     plan = get_plan_for_today(config)
 
     print(plan)
 
     # Load default thread from profile if not specified via command line
-    thread_from_args = arguments['--thread']
+    thread_from_args = arguments["--thread"]
     if thread_from_args:
         config.current_thread = thread_from_args
     else:
         config.current_thread = load_default_thread_from_profile(config)
 
     try:
-        consume(repeatfunc(
-            run_single_task,
-            None,
-            config,
-        ))
+        consume(
+            repeatfunc(
+                run_single_task,
+                None,
+                config,
+            )
+        )
     except (KeyboardInterrupt, EOFError):
         print("Exiting...")

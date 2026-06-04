@@ -2,26 +2,22 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 from django.views.generic.dates import MonthArchiveView
 
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
-from django_htmx.http import HttpResponseClientRefresh, retarget
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response as RestResponse
 
-from .board_operations import add_task_to_board
 from .forms import *
 from .models import *
 from .serializers import *
 from .services.journalling import process_journal_entry
-from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
+from .utils.datetime import make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
 
 
@@ -61,11 +57,6 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
         process_journal_entry(journal_added, skip_habits=skip_habits, story=story)
 
 
-class QuickNoteViewSet(viewsets.ModelViewSet):
-    queryset = QuickNote.objects.order_by("published")
-    serializer_class = QuickNoteSerializer
-
-
 class ThreadPagination(PageNumberPagination):
     page_size = 100
     page_size_query_param = "page_size"
@@ -95,38 +86,6 @@ class StoryViewSet(viewsets.ReadOnlyModelViewSet):
         if self.request.query_params.get("active") in ("1", "true", "True", "yes"):
             qs = qs.filter(stopped__isnull=True)
         return qs
-
-
-def _get_current_plans():
-    """Helper function to get current Daily, Weekly, and big-picture plans"""
-    from datetime import date
-
-    today = date.today()
-
-    try:
-        daily_plan = Plan.objects.get(pub_date=today, thread__name="Daily")
-    except Plan.DoesNotExist:
-        daily_plan = None
-
-    try:
-        weekly_plan = Plan.objects.get(
-            pub_date=make_last_day_of_the_week(today), thread__name="Weekly"
-        )
-    except Plan.DoesNotExist:
-        weekly_plan = None
-
-    try:
-        big_picture_plan = Plan.objects.get(
-            pub_date=make_last_day_of_the_month(today), thread__name="big-picture"
-        )
-    except Plan.DoesNotExist:
-        big_picture_plan = None
-
-    return {
-        "daily_plan": daily_plan,
-        "weekly_plan": weekly_plan,
-        "big_picture_plan": big_picture_plan,
-    }
 
 
 def _add_task_to_plan(text, timeframe):
@@ -199,53 +158,6 @@ def add_task_to_plan(request):
         )
     except ValueError as e:
         return RestResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-@require_POST
-@login_required
-def add_quick_note_hx(request):
-    if not request.htmx:
-        return HttpResponse("Only HTMX allowed", status=status.HTTP_400_BAD_REQUEST)
-
-    form = QuickContentForm(request.POST)
-
-    if not form.is_valid():
-        response = render(
-            request,
-            "tree/quick_note/form.html",
-            {
-                "form": form,
-            },
-        )
-
-        retarget(response, "#form")
-
-        return response
-
-    content_type = form.cleaned_data["content_type"]
-    content = form.cleaned_data["content"]
-
-    if content_type == "quick_note":
-        QuickNote.objects.create(note=content)
-    elif content_type == "task":
-        # Add task to current inbox board
-        add_task_to_board(content, "Inbox")
-    elif content_type == "plan_focus":
-        timeframe = form.cleaned_data["focus_timeframe"]
-        _add_task_to_plan(content, timeframe)
-
-    return HttpResponseClientRefresh()
-
-
-@login_required
-def quick_notes(request):
-    context = {
-        "notes": QuickNote.objects.order_by("published"),
-        "form": QuickContentForm(),
-    }
-    context.update(_get_current_plans())
-
-    return render(request, "tree/quick_note.html", context)
 
 
 ### XXX TODO

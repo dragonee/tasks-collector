@@ -26,7 +26,6 @@ router.register(r"reflections", views.ReflectionViewSet)
 
 # Journal & Notes
 router.register(r"journal", views.JournalAddedViewSet)
-router.register(r"quick-notes", views.QuickNoteViewSet)
 
 # Observations
 router.register(r"observation-api", views_observation.ObservationViewSet)
@@ -284,9 +283,6 @@ urlpatterns = [
         name="public-event-archive-month",
     ),
     path("api/events/daily/", views.daily_events, name="daily-events"),
-    # === Quick Notes (views) ===
-    path("q/", views.quick_notes, name="quick-notes"),
-    path("q/post/", views.add_quick_note_hx, name="quick-note-add"),
     # === Statistics (views) ===
     path("stats/", views.stats, name="stats"),
     path("stats/json/", views.stats_json, name="stats-json"),

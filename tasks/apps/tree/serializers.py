@@ -210,12 +210,6 @@ class PhotoAddedSerializer(JournalAddedSerializer):
         model = PhotoAdded
 
 
-class QuickNoteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = QuickNote
-        fields = ["id", "published", "note"]
-
-
 class StorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Story
