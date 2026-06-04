@@ -201,10 +201,4 @@ except ImportError:
     PHOTO_PRESIGN_GET_TTL = int(os.environ.get("PHOTO_PRESIGN_GET_TTL", "3600"))
     PHOTO_THUMBNAIL_MAX_EDGE = int(os.environ.get("PHOTO_THUMBNAIL_MAX_EDGE", "480"))
 
-CELERY_BEAT_SCHEDULE = {
-    "remove-stale-quick-notes": {
-        "task": "tasks.apps.tree.tasks.remove_quick_notes_after",
-        "schedule": 600.0,
-        "kwargs": {"hours": 24},
-    }
-}
+CELERY_BEAT_SCHEDULE = {}

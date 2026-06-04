@@ -579,12 +579,6 @@ class PhotoAdded(JournalAdded):
     template = "tree/events/journal_added.html"
 
 
-class QuickNote(models.Model):
-    published = models.DateTimeField(default=timezone.now)
-
-    note = models.TextField()
-
-
 class JournalTag(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True)
