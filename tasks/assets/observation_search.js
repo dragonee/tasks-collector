@@ -26,6 +26,10 @@ const enStemmer = lunr.stemmer;
 // stems matching almost everything.
 const MIN_PREFIX = 3;
 
+// A [bracketed] span in the observation text becomes a shortcut that fills the
+// filter input with the bracketed term — e.g. clicking [2025] filters to 2025.
+const TAG_RE = /\[([^\[\]\n]+)\]/g;
+
 const stemWord = (word) => ({
     pl: plStemmer(new lunr.Token(word)).toString(),
     en: enStemmer(new lunr.Token(word)).toString(),
@@ -41,6 +45,65 @@ const tokenize = (text) =>
 const sharedPrefix = (a, b) => {
     const min = Math.min(a.length, b.length);
     return min >= MIN_PREFIX && (a.startsWith(b) || b.startsWith(a));
+};
+
+// Replace every [bracketed] span in `root`'s text with a clickable link that
+// calls `onTagClick(term)` with the text between the brackets.
+const decorateTags = (root, onTagClick) => {
+    // Collect matching text nodes first — mutating during the walk is unsafe.
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            // Leave the meta line and any existing links untouched.
+            if (node.parentElement.closest("a, .meta")) {
+                return NodeFilter.FILTER_REJECT;
+            }
+            TAG_RE.lastIndex = 0;
+            return TAG_RE.test(node.nodeValue)
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT;
+        },
+    });
+
+    const textNodes = [];
+    while (walker.nextNode()) {
+        textNodes.push(walker.currentNode);
+    }
+
+    textNodes.forEach((textNode) => {
+        const text = textNode.nodeValue;
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match;
+
+        TAG_RE.lastIndex = 0;
+        while ((match = TAG_RE.exec(text)) !== null) {
+            const [full, term] = match;
+
+            if (match.index > lastIndex) {
+                fragment.appendChild(
+                    document.createTextNode(text.slice(lastIndex, match.index))
+                );
+            }
+
+            const link = document.createElement("a");
+            link.href = "#";
+            link.className = "observation-tag";
+            link.textContent = full; // keep the [brackets] visible
+            link.addEventListener("click", (event) => {
+                event.preventDefault();
+                onTagClick(term.trim());
+            });
+            fragment.appendChild(link);
+
+            lastIndex = match.index + full.length;
+        }
+
+        if (lastIndex < text.length) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+
+        textNode.parentNode.replaceChild(fragment, textNode);
+    });
 };
 
 const initObservationSearch = () => {
@@ -111,6 +174,17 @@ const initObservationSearch = () => {
     };
 
     input.addEventListener("input", filter);
+
+    // Wire up the [bracketed] tag shortcuts: clicking one fills the filter with
+    // the bracketed term and re-runs the filter.
+    const applyTag = (term) => {
+        input.value = term;
+        filter();
+        input.focus({ preventScroll: true });
+        input.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    articles.forEach((article) => decorateTags(article, applyTag));
 };
 
 initObservationSearch();
