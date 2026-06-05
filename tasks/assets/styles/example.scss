@@ -618,6 +618,19 @@ article.quest {
         white-space: nowrap;
     }
 
+    .observation-tag {
+        color: #4a7dfb;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        border-bottom: 1px dashed rgba(74, 125, 251, 0.5);
+
+        &:hover {
+            color: color.adjust(#4a7dfb, $lightness: -20%);
+            border-bottom-color: color.adjust(#4a7dfb, $lightness: -20%);
+        }
+    }
+
     .strong {
         color: #444;
         font-weight: bold;
