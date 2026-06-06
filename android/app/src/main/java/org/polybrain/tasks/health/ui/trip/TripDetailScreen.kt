@@ -46,13 +46,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import java.io.File
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import org.polybrain.tasks.health.R
+import org.polybrain.tasks.health.data.OutboxItem
 import org.polybrain.tasks.health.data.TripEvent
+import org.polybrain.tasks.health.ui.trip.TripDetailViewModel.TimelineRow
 
-// Fallback only used during the brief window where events have loaded
+// Fallback only used during the brief window where rows have loaded
 // but the story object hasn't yet — pickEventFormatter needs both.
 private val FALLBACK_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(ZoneId.systemDefault())
@@ -64,7 +67,9 @@ fun TripDetailScreen(
     vm: TripDetailViewModel = viewModel(),
 ) {
     val story by vm.story.collectAsState()
-    val events by vm.events.collectAsState()
+    val timeline by vm.timeline.collectAsState()
+    val pending by vm.pending.collectAsState()
+    val syncing by vm.syncing.collectAsState()
     val loading by vm.loading.collectAsState()
     val error by vm.error.collectAsState()
     val noteOpen by vm.noteDialogOpen.collectAsState()
@@ -85,7 +90,7 @@ fun TripDetailScreen(
         pickEventFormatter(
             startedIso = it.started,
             stoppedIso = it.stopped,
-            eventIsos = events.map { e -> e.published },
+            eventIsos = timeline.map { row -> row.publishedIso },
         )
     }
 
@@ -131,24 +136,40 @@ fun TripDetailScreen(
             }
         }
 
+        SyncBadge(
+            pending = pending,
+            syncing = syncing,
+            onRetryAll = { pending.filter { it.failedPermanently }.forEach(vm::retry) },
+        )
+
         PullToRefreshBox(
             isRefreshing = loading,
             onRefresh = vm::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (events.isEmpty()) {
+            if (timeline.isEmpty()) {
                 EmptyState(stringResource(R.string.trip_detail_empty))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(items = events, key = { "${it.type}-${it.id}" }) { event ->
-                        EventRow(
-                            event = event,
-                            formatter = formatter ?: FALLBACK_FORMATTER,
-                            onOpenPhoto = vm::openPhoto,
-                        )
+                    items(items = timeline, key = ::rowKey) { row ->
+                        when (row) {
+                            is TimelineRow.Synced -> EventRow(
+                                event = row.event,
+                                formatter = formatter ?: FALLBACK_FORMATTER,
+                                onOpenPhoto = vm::openPhoto,
+                            )
+                            is TimelineRow.Pending -> PendingRow(
+                                item = row.item,
+                                formatter = formatter ?: FALLBACK_FORMATTER,
+                                syncing = syncing,
+                                photoFile = vm.pendingPhotoFile(row.item),
+                                onRetry = { vm.retry(row.item) },
+                                onDiscard = { vm.discard(row.item) },
+                            )
+                        }
                     }
                 }
             }
@@ -170,6 +191,55 @@ fun TripDetailScreen(
     }
     viewerUrl?.let { url ->
         PhotoViewerDialog(url = url, onDismiss = vm::closeViewer)
+    }
+}
+
+private fun rowKey(row: TimelineRow): String = when (row) {
+    is TimelineRow.Synced -> "s-${row.event.type}-${row.event.id}"
+    is TimelineRow.Pending -> "p-${row.item.id}"
+}
+
+@Composable
+private fun SyncBadge(
+    pending: List<OutboxItem>,
+    syncing: Boolean,
+    onRetryAll: () -> Unit,
+) {
+    val waiting = pending.count { !it.failedPermanently }
+    val failed = pending.count { it.failedPermanently }
+    if (waiting == 0 && failed == 0) return
+
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (waiting > 0) {
+            Text(
+                text = stringResource(
+                    if (syncing) R.string.trip_sync_badge_syncing
+                    else R.string.trip_sync_badge_waiting,
+                    waiting,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (failed > 0) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.trip_sync_badge_failed, failed),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onRetryAll) {
+                    Text(stringResource(R.string.trip_sync_retry_all))
+                }
+            }
+        }
     }
 }
 
@@ -340,6 +410,101 @@ private fun PhotoEventBody(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * A queued (not-yet-synced) note or photo. Mirrors [EventRow]'s layout so the
+ * timeline reads consistently, but loads the photo from the local outbox file
+ * and shows a sync-status line (with retry/discard once it has failed).
+ */
+@Composable
+private fun PendingRow(
+    item: OutboxItem,
+    formatter: DateTimeFormatter,
+    syncing: Boolean,
+    photoFile: File?,
+    onRetry: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    val context = LocalContext.current
+    val parsed = remember(item.id, item.comment) { parseTripNote(item.comment) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = formatInstant(item.published, formatter),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (item.isPhoto && photoFile != null) {
+            AsyncImage(
+                model = photoFile,
+                contentDescription = parsed.text,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.CenterEnd,
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .fillMaxWidth(0.6f)
+                    .heightIn(max = 240.dp),
+            )
+        }
+
+        val body = parsed.text
+        val poi = parsed.poi
+        if (body.isNotBlank() || poi != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                if (poi != null) {
+                    IconButton(onClick = { openPoiInMaps(context, poi) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Place,
+                            contentDescription = stringResource(
+                                R.string.trip_detail_open_in_maps
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+
+        if (item.failedPermanently) {
+            Text(
+                text = stringResource(R.string.trip_sync_failed, item.lastError.orEmpty()),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onRetry) {
+                    Text(stringResource(R.string.trip_sync_retry))
+                }
+                TextButton(onClick = onDiscard) {
+                    Text(stringResource(R.string.trip_sync_discard))
+                }
+            }
+        } else {
+            Text(
+                text = stringResource(
+                    if (syncing) R.string.trip_sync_uploading
+                    else R.string.trip_sync_waiting
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

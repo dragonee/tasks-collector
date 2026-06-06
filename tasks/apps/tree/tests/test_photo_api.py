@@ -42,18 +42,25 @@ class PhotoAPITestCase(APITestCase):
         )
 
     def _confirm(
-        self, story_id, key, comment="", content_type="image/jpeg", published=PUB_AT
+        self,
+        story_id,
+        key,
+        comment="",
+        content_type="image/jpeg",
+        published=PUB_AT,
+        idempotency_key=None,
     ):
+        payload = {
+            "story_id": story_id,
+            "key": key,
+            "comment": comment,
+            "content_type": content_type,
+            "published": published,
+        }
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
         return self.client.post(
-            reverse("android-trip-photo-confirm"),
-            {
-                "story_id": story_id,
-                "key": key,
-                "comment": comment,
-                "content_type": content_type,
-                "published": published,
-            },
-            format="json",
+            reverse("android-trip-photo-confirm"), payload, format="json"
         )
 
     # --- presign ---
@@ -109,6 +116,19 @@ class PhotoAPITestCase(APITestCase):
         self.assertTrue(
             StoryEvent.objects.filter(story=self.story, event=photo).exists()
         )
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_confirm_idempotency_key_dedupes(self, _exists):
+        # A retried confirm with the same idempotency_key returns the same
+        # photo_id and creates exactly one PhotoAdded + one StoryEvent link.
+        key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
+        first = self._confirm(self.story.pk, key, idempotency_key="ph-123")
+        second = self._confirm(self.story.pk, key, idempotency_key="ph-123")
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["photo_id"], second.data["photo_id"])
+        self.assertEqual(PhotoAdded.objects.filter(idempotency_key="ph-123").count(), 1)
+        self.assertEqual(StoryEvent.objects.filter(story=self.story).count(), 1)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=False)
     def test_confirm_missing_object_409(self, _exists):

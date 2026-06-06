@@ -133,6 +133,63 @@ class TripServiceTestCase(TestCase):
         with self.assertRaises(StoryNotFoundError):
             add_trip_note(self.bob, story.pk, comment="ha", published=timezone.now())
 
+    def test_add_trip_note_idempotency_returns_same_note(self):
+        # A retried note carrying the same key creates exactly one event.
+        story = start_trip(self.alice)
+        published = timezone.now()
+        first = add_trip_note(
+            self.alice,
+            story.pk,
+            comment="walk",
+            published=published,
+            idempotency_key="note-key-1",
+        )
+        second = add_trip_note(
+            self.alice,
+            story.pk,
+            comment="walk",
+            published=published,
+            idempotency_key="note-key-1",
+        )
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(
+            JournalAdded.objects.filter(idempotency_key="note-key-1").count(), 1
+        )
+        self.assertEqual(StoryEvent.objects.filter(story=story, event=first).count(), 1)
+
+    def test_add_trip_note_idempotent_retry_succeeds_after_stop(self):
+        # The first call's response was lost, the trip was then stopped, and the
+        # outbox retries: the dedup lookup precedes the stopped check, so the
+        # retry returns the original note instead of raising StoryStoppedError.
+        story = start_trip(self.alice)
+        first = add_trip_note(
+            self.alice,
+            story.pk,
+            comment="walk",
+            published=timezone.now(),
+            idempotency_key="note-key-2",
+        )
+        stop_trip(self.alice, story.pk)
+        second = add_trip_note(
+            self.alice,
+            story.pk,
+            comment="walk",
+            published=timezone.now(),
+            idempotency_key="note-key-2",
+        )
+        self.assertEqual(first.pk, second.pk)
+
+    def test_add_trip_note_without_key_allows_duplicates(self):
+        # No key => current at-least-once behavior is preserved.
+        story = start_trip(self.alice)
+        a = add_trip_note(
+            self.alice, story.pk, comment="same", published=timezone.now()
+        )
+        b = add_trip_note(
+            self.alice, story.pk, comment="same", published=timezone.now()
+        )
+        self.assertNotEqual(a.pk, b.pk)
+
     def test_list_active_returns_only_users_active_trips(self):
         a1 = start_trip(self.alice)
         a2 = start_trip(self.alice)
@@ -249,6 +306,35 @@ class TripPhotoServiceTestCase(TestCase):
         self.assertEqual(photo.original_key, key)
         self.assertIsNone(photo.thumbnail_key)
         self.assertTrue(StoryEvent.objects.filter(story=story, event=photo).exists())
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_idempotency_returns_same_photo(self, _exists):
+        # A retried confirm carrying the same key creates exactly one photo.
+        story = start_trip(self.alice)
+        key = f"trips/{self.alice.pk}/{story.pk}/abc.jpg"
+        first = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=key,
+            comment="sunset",
+            content_type="image/jpeg",
+            published=timezone.now(),
+            idempotency_key="photo-key-1",
+        )
+        second = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=key,
+            comment="sunset",
+            content_type="image/jpeg",
+            published=timezone.now(),
+            idempotency_key="photo-key-1",
+        )
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(
+            PhotoAdded.objects.filter(idempotency_key="photo-key-1").count(), 1
+        )
+        self.assertEqual(StoryEvent.objects.filter(story=story, event=first).count(), 1)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_add_trip_photo_with_poi_creates_habittracked(self, _exists):

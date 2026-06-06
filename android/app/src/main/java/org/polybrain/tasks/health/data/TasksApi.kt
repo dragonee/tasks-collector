@@ -134,6 +134,10 @@ data class TripNoteRequest(
     @SerialName("comment") val comment: String,
     // Full ISO 8601 timestamp (OffsetDateTime.now().toString()).
     @SerialName("published") val published: String,
+    // Client-generated UUID for exactly-once delivery. The outbox retries on
+    // failure, so a request whose response was lost must not create a second
+    // note — the server dedupes on this key.
+    @SerialName("idempotency_key") val idempotencyKey: String,
 )
 
 @Serializable
@@ -193,6 +197,8 @@ data class PhotoConfirmRequest(
     @SerialName("content_type") val contentType: String,
     // Full ISO 8601 timestamp (OffsetDateTime.now().toString()).
     @SerialName("published") val published: String,
+    // Client-generated UUID for exactly-once delivery (see TripNoteRequest).
+    @SerialName("idempotency_key") val idempotencyKey: String,
 )
 
 @Serializable

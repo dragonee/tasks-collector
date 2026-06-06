@@ -8,10 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,7 +32,6 @@ fun AddPhotoDialog(vm: TripDetailViewModel) {
     val gps by vm.gps.collectAsState()
     val allowNoLocation by vm.allowNoLocation.collectAsState()
     val selectedPhoto by vm.selectedPhoto.collectAsState()
-    val uploading by vm.uploading.collectAsState()
 
     var draft by remember { mutableStateOf("") }
 
@@ -42,10 +39,10 @@ fun AddPhotoDialog(vm: TripDetailViewModel) {
         ActivityResultContracts.RequestPermission(),
     ) { granted -> vm.onLocationPermissionResult(granted) }
 
-    val canSend = !uploading && (
-        gps is TripDetailViewModel.GpsState.Ready ||
-            (allowNoLocation && gps !is TripDetailViewModel.GpsState.Waiting)
-        )
+    // Sending now just queues the photo to the outbox and closes the dialog —
+    // the upload happens in the background, so there's no in-dialog spinner.
+    val canSend = gps is TripDetailViewModel.GpsState.Ready ||
+        (allowNoLocation && gps !is TripDetailViewModel.GpsState.Waiting)
 
     AlertDialog(
         onDismissRequest = { vm.closeAddPhoto() },
@@ -85,28 +82,20 @@ fun AddPhotoDialog(vm: TripDetailViewModel) {
                     placeholder = { Text(stringResource(R.string.trip_photo_hint)) },
                     singleLine = false,
                     minLines = 2,
-                    enabled = !uploading,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
         confirmButton = {
-            if (uploading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            } else {
-                TextButton(
-                    onClick = { vm.sendPhoto(draft) },
-                    enabled = canSend,
-                ) {
-                    Text(stringResource(R.string.trip_photo_send))
-                }
+            TextButton(
+                onClick = { vm.sendPhoto(draft) },
+                enabled = canSend,
+            ) {
+                Text(stringResource(R.string.trip_photo_send))
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = { vm.closeAddPhoto() },
-                enabled = !uploading,
-            ) {
+            TextButton(onClick = { vm.closeAddPhoto() }) {
                 Text(stringResource(R.string.trip_note_cancel))
             }
         },

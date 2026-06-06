@@ -39,6 +39,16 @@
     <string name="trip_photo_send">Upload</string>
     <string name="trip_photo_processing">Processing photo…</string>
 
+    <string name="trip_sync_waiting">Waiting to sync</string>
+    <string name="trip_sync_uploading">Syncing…</string>
+    <string name="trip_sync_failed">Couldn\'t sync: %1$s</string>
+    <string name="trip_sync_retry">Retry</string>
+    <string name="trip_sync_discard">Discard</string>
+    <string name="trip_sync_badge_waiting">%1$d waiting to sync</string>
+    <string name="trip_sync_badge_syncing">Syncing %1$d…</string>
+    <string name="trip_sync_badge_failed">%1$d failed to sync</string>
+    <string name="trip_sync_retry_all">Retry all</string>
+
     <string name="today_empty">Nothing on today\'s plan yet.</string>
     <string name="today_add_hint">Add a task</string>
     <string name="today_add_button">Add</string>

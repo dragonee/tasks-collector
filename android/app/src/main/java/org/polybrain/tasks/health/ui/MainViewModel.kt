@@ -64,6 +64,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val requiredPermissions: Set<String> = health.permissions
 
     init {
+        // Resume any trip notes/photos queued offline in a previous session.
+        // The worker no-ops when unconfigured, so this is safe to call always.
+        SyncScheduler.drainOutbox(application)
         viewModelScope.launch {
             refreshPermissionState()
             if (_permissionsGranted.value) refreshMetrics()

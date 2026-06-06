@@ -18,6 +18,9 @@ object SyncScheduler {
     private const val DAILY = "health-sync-daily"
     private const val ONE_OFF = "health-sync-once"
 
+    /** Unique-work name for the trip-outbox drain (see [OutboxWorker]). */
+    const val OUTBOX = "outbox-drain"
+
     private val networkConstraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
@@ -72,10 +75,32 @@ object SyncScheduler {
         )
     }
 
+    /**
+     * Kick the trip-outbox drain. Network-constrained so it waits for
+     * connectivity, with exponential backoff between retries. Enqueued as
+     * APPEND_OR_REPLACE so an item added while a drain is mid-flight still gets
+     * a fresh pass afterwards; the worker is idempotent (re-reads the queue,
+     * server dedupes on the idempotency key), so an extra pass is harmless.
+     *
+     * Safe to call on app start to resume after a reboot/kill.
+     */
+    fun drainOutbox(context: Context) {
+        val request = OneTimeWorkRequestBuilder<OutboxWorker>()
+            .setConstraints(networkConstraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            OUTBOX,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            request,
+        )
+    }
+
     fun cancelAll(context: Context) {
         val wm = WorkManager.getInstance(context)
         wm.cancelUniqueWork(PERIODIC)
         wm.cancelUniqueWork(DAILY)
         wm.cancelUniqueWork(ONE_OFF)
+        wm.cancelUniqueWork(OUTBOX)
     }
 }

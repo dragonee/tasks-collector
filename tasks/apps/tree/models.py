@@ -42,6 +42,13 @@ class Event(PolymorphicModel):
 
     event_stream_id = models.UUIDField(editable=False)
 
+    # Optional client-supplied key for exactly-once creation. When a device
+    # retries a write whose response was lost (e.g. an offline outbox), the
+    # service re-uses the existing event instead of creating a duplicate. A
+    # transport concern, deliberately on the generic Event base so any
+    # event-creating endpoint can opt in — not just trip notes/photos.
+    idempotency_key = models.CharField(max_length=64, null=True, blank=True)
+
     class Meta:
         indexes = [
             models.Index(fields=["published"]),
@@ -49,6 +56,18 @@ class Event(PolymorphicModel):
         ]
 
         ordering = ("published",)
+
+        constraints = [
+            # Partial unique constraint: only opted-in rows are indexed, so the
+            # hot tree_event table pays nothing for the rows that don't set a
+            # key. Client keys are globally unique UUIDs, so no user/story
+            # scoping is needed.
+            models.UniqueConstraint(
+                fields=["idempotency_key"],
+                condition=models.Q(idempotency_key__isnull=False),
+                name="event_idempotency_key_unique",
+            ),
+        ]
 
     def __str__(self):
         return "[{cls}] #{pk}".format(

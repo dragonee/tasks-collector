@@ -5,6 +5,9 @@ import android.net.Uri
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import java.io.File
 import java.io.IOException
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -12,35 +15,59 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.polybrain.tasks.health.data.PhotoConfirmRequest
-import org.polybrain.tasks.health.data.PhotoPresignRequest
+import org.polybrain.tasks.health.data.Outbox
+import org.polybrain.tasks.health.data.OutboxItem
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TripDetailResponse
 import org.polybrain.tasks.health.data.TripEvent
-import org.polybrain.tasks.health.data.TripNoteRequest
 import org.polybrain.tasks.health.data.TripStoryIdRequest
 import org.polybrain.tasks.health.data.TripSummary
 import org.polybrain.tasks.health.data.TripUpdateRequest
 import org.polybrain.tasks.health.location.LocationFix
 import org.polybrain.tasks.health.location.LocationProvider
+import org.polybrain.tasks.health.sync.SyncScheduler
 
 class TripDetailViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = Settings(application)
     private val locationProvider = LocationProvider(application)
+    private val outbox = Outbox(application)
+    private val workManager = WorkManager.getInstance(application)
 
     private val _story = MutableStateFlow<TripSummary?>(null)
     val story: StateFlow<TripSummary?> = _story.asStateFlow()
 
     private val _events = MutableStateFlow<List<TripEvent>>(emptyList())
     val events: StateFlow<List<TripEvent>> = _events.asStateFlow()
+
+    /** Trip writes still in the local outbox (waiting / syncing / failed). */
+    private val _pending = MutableStateFlow<List<OutboxItem>>(emptyList())
+    val pending: StateFlow<List<OutboxItem>> = _pending.asStateFlow()
+
+    /** True while the outbox drain worker is actively running. */
+    private val _syncing = MutableStateFlow(false)
+    val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
+
+    /**
+     * Server events and local pending items merged into one chronological list
+     * (newest first), so a just-queued note/photo shows in the timeline before
+     * it ever reaches the server.
+     */
+    val timeline: StateFlow<List<TimelineRow>> =
+        combine(_events, _pending) { events, pending ->
+            (events.map { TimelineRow.Synced(it) } + pending.map { TimelineRow.Pending(it) })
+                .sortedByDescending { instantOf(it.publishedIso) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -58,10 +85,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _selectedPhoto = MutableStateFlow<Uri?>(null)
     val selectedPhoto: StateFlow<Uri?> = _selectedPhoto.asStateFlow()
-
-    /** True while a photo is being uploaded + confirmed. */
-    private val _uploading = MutableStateFlow(false)
-    val uploading: StateFlow<Boolean> = _uploading.asStateFlow()
 
     /** Presigned URL for the full-size original being viewed (null = closed). */
     private val _viewerUrl = MutableStateFlow<String?>(null)
@@ -91,6 +114,22 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     private var storyId: Long = -1
 
+    init {
+        // Track the drain worker: keep the pending list fresh, drive the
+        // "Syncing…" label, and reload server events when a drain completes
+        // (so synced items flip from pending → real timeline rows).
+        viewModelScope.launch {
+            var wasRunning = false
+            workManager.getWorkInfosForUniqueWorkFlow(SyncScheduler.OUTBOX).collect { infos ->
+                val running = infos.any { it.state == WorkInfo.State.RUNNING }
+                _syncing.value = running
+                refreshPending()
+                if (wasRunning && !running) reloadIfLoaded()
+                wasRunning = running
+            }
+        }
+    }
+
     fun load(id: Long) {
         if (id == storyId && _story.value != null) return
         storyId = id
@@ -98,7 +137,10 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun refresh() {
-        viewModelScope.launch { reload() }
+        viewModelScope.launch {
+            reload()
+            refreshPending()
+        }
     }
 
     fun openAddNote() {
@@ -120,7 +162,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun closeAddPhoto() {
-        if (_uploading.value) return
         _photoDialogOpen.value = false
         _selectedPhoto.value = null
         _gps.value = GpsState.Idle
@@ -162,8 +203,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     fun sendNote(text: String) {
         val story = _story.value ?: return
         if (story.stopped != null) return
-        val gpsState = _gps.value
-        val fix = (gpsState as? GpsState.Ready)?.fix
+        val fix = (_gps.value as? GpsState.Ready)?.fix
         if (fix == null && !_allowNoLocation.value) return
 
         val comment = composeComment(fix, text)
@@ -172,21 +212,12 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         _gps.value = GpsState.Idle
         _allowNoLocation.value = false
 
+        // Queue locally and kick the drain; the item shows immediately and the
+        // worker delivers it (now or when connectivity returns).
         viewModelScope.launch {
-            val snapshot = ensureConfigured() ?: return@launch
-            try {
-                val api = buildApi(snapshot)
-                api.addTripNote(
-                    TripNoteRequest(
-                        storyId = story.id,
-                        comment = comment,
-                        published = published,
-                    )
-                )
-                reload()
-            } catch (t: Throwable) {
-                _error.value = t.message ?: t.javaClass.simpleName
-            }
+            withContext(Dispatchers.IO) { outbox.enqueueNote(story.id, comment, published) }
+            refreshPending()
+            SyncScheduler.drainOutbox(getApplication())
         }
     }
 
@@ -194,58 +225,58 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         val story = _story.value ?: return
         if (story.stopped != null) return
         val uri = _selectedPhoto.value ?: return
-        val gpsState = _gps.value
-        val fix = (gpsState as? GpsState.Ready)?.fix
+        val fix = (_gps.value as? GpsState.Ready)?.fix
         if (fix == null && !_allowNoLocation.value) return
 
         val comment = composeComment(fix, text)
-        _uploading.value = true
+        // Close the dialog now; copy + enqueue happen in the background.
+        _photoDialogOpen.value = false
+        _selectedPhoto.value = null
+        _gps.value = GpsState.Idle
+        _allowNoLocation.value = false
 
         viewModelScope.launch {
-            val snapshot = ensureConfigured()
-            if (snapshot == null) {
-                _uploading.value = false
-                return@launch
-            }
             try {
                 val resolver = getApplication<Application>().contentResolver
                 val contentType = resolver.getType(uri) ?: "image/jpeg"
+                // Read the bytes NOW — the picker's content Uri is only readable
+                // for this session, so they must be copied before we lose access.
                 val bytes = withContext(Dispatchers.IO) {
                     resolver.openInputStream(uri)?.use { it.readBytes() }
                 } ?: throw IOException("could not read the selected photo")
-                // Timestamp the photo with when it was taken, not now. The
-                // backend further overrides this with the original's EXIF
-                // DateTimeOriginal when present.
                 val published = withContext(Dispatchers.IO) { captureTimeFor(uri) }
-
-                val api = buildApi(snapshot)
-                val presign = api.presignPhoto(
-                    PhotoPresignRequest(storyId = story.id, contentType = contentType)
-                )
                 withContext(Dispatchers.IO) {
-                    TasksClient.putToPresignedUrl(presign.uploadUrl, bytes, contentType)
+                    outbox.enqueuePhoto(story.id, comment, published, contentType, bytes)
                 }
-                api.addTripPhoto(
-                    PhotoConfirmRequest(
-                        storyId = story.id,
-                        key = presign.key,
-                        comment = comment,
-                        contentType = contentType,
-                        published = published,
-                    )
-                )
-                _photoDialogOpen.value = false
-                _selectedPhoto.value = null
-                _gps.value = GpsState.Idle
-                _allowNoLocation.value = false
-                reload()
+                refreshPending()
+                SyncScheduler.drainOutbox(getApplication())
             } catch (t: Throwable) {
                 _error.value = t.message ?: t.javaClass.simpleName
-            } finally {
-                _uploading.value = false
             }
         }
     }
+
+    /** Re-queue a permanently-failed item for another delivery attempt. */
+    fun retry(item: OutboxItem) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                outbox.update(item.copy(failedPermanently = false, lastError = null))
+            }
+            refreshPending()
+            SyncScheduler.drainOutbox(getApplication())
+        }
+    }
+
+    /** Drop a queued item (and its photo file) without sending it. */
+    fun discard(item: OutboxItem) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { outbox.remove(item) }
+            refreshPending()
+        }
+    }
+
+    /** Local file backing a pending photo, for the timeline thumbnail. */
+    fun pendingPhotoFile(item: OutboxItem): File? = outbox.photoFile(item)
 
     /**
      * Best-effort capture time of a picked image: the gallery's DATE_TAKEN
@@ -344,6 +375,10 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         _error.value = null
     }
 
+    private fun reloadIfLoaded() {
+        if (storyId > 0) viewModelScope.launch { reload() }
+    }
+
     private suspend fun reload() {
         if (storyId <= 0) return
         val snapshot = ensureConfigured() ?: return
@@ -361,6 +396,14 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private suspend fun refreshPending() {
+        _pending.value = if (storyId <= 0) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.IO) { outbox.forStory(storyId) }
+        }
+    }
+
     private suspend fun ensureConfigured(): SettingsSnapshot? {
         val snapshot = settings.snapshot()
         if (!snapshot.isConfigured) {
@@ -372,6 +415,19 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun buildApi(snapshot: SettingsSnapshot): TasksApi =
         TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
+
+    /** One row in the merged timeline: either a server event or a queued item. */
+    sealed class TimelineRow {
+        abstract val publishedIso: String
+
+        data class Synced(val event: TripEvent) : TimelineRow() {
+            override val publishedIso: String get() = event.published
+        }
+
+        data class Pending(val item: OutboxItem) : TimelineRow() {
+            override val publishedIso: String get() = item.published
+        }
+    }
 
     companion object {
         internal fun composeComment(fix: LocationFix?, text: String): String {
@@ -385,5 +441,8 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                 trimmed
             }
         }
+
+        private fun instantOf(iso: String): Instant =
+            runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrDefault(Instant.EPOCH)
     }
 }
