@@ -49,6 +49,11 @@
     <string name="trip_sync_badge_failed">%1$d failed to sync</string>
     <string name="trip_sync_retry_all">Retry all</string>
 
+    <string name="trip_tracking_channel_name">Trip location tracking</string>
+    <string name="trip_tracking_notification_title">Recording trip location</string>
+    <string name="trip_tracking_notification_text">Sampling your location while this trip is active.</string>
+    <string name="trip_note_gps_from_track">Location from your trip track (%1$s)</string>
+
     <string name="today_empty">Nothing on today\'s plan yet.</string>
     <string name="today_add_hint">Add a task</string>
     <string name="today_add_button">Add</string>
