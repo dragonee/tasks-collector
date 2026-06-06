@@ -1,5 +1,9 @@
 package org.polybrain.tasks.health.ui.trip
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -53,6 +58,21 @@ fun TripsScreen(
         }
     }
 
+    // Starting a trip turns on location tracking, so ask for the permissions it
+    // needs first (location to sample; notifications for the ongoing service
+    // notice on Android 13+). The trip starts once the user responds either way.
+    val trackingPermissions = remember {
+        buildList {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }.toTypedArray()
+    }
+    val startTripLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { vm.startTrip() }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
 
@@ -70,7 +90,7 @@ fun TripsScreen(
                 ) {
                     item {
                         Button(
-                            onClick = vm::startTrip,
+                            onClick = { startTripLauncher.launch(trackingPermissions) },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.trips_start_button))

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.polybrain.tasks.health.data.BreadcrumbStore
 import org.polybrain.tasks.health.data.Outbox
 import org.polybrain.tasks.health.data.OutboxItem
 import org.polybrain.tasks.health.data.Settings
@@ -35,6 +36,8 @@ import org.polybrain.tasks.health.data.TripSummary
 import org.polybrain.tasks.health.data.TripUpdateRequest
 import org.polybrain.tasks.health.location.LocationFix
 import org.polybrain.tasks.health.location.LocationProvider
+import org.polybrain.tasks.health.location.PhotoLocationResolver
+import org.polybrain.tasks.health.location.TripTracker
 import org.polybrain.tasks.health.sync.SyncScheduler
 
 class TripDetailViewModel(application: Application) : AndroidViewModel(application) {
@@ -42,6 +45,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     private val settings = Settings(application)
     private val locationProvider = LocationProvider(application)
     private val outbox = Outbox(application)
+    private val breadcrumbStore = BreadcrumbStore(application)
     private val workManager = WorkManager.getInstance(application)
 
     private val _story = MutableStateFlow<TripSummary?>(null)
@@ -94,10 +98,18 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
      * GPS resolution state. The dialog reads this to decide whether to
      * gate the Send button and what hint to show.
      */
+    /** Where a Ready fix came from: a live GPS read (notes) or the trip's recorded track (photos). */
+    enum class GpsSource { LIVE, TRACK }
+
     sealed class GpsState {
         object Idle : GpsState()
         object Waiting : GpsState()
-        data class Ready(val fix: LocationFix) : GpsState()
+        data class Ready(
+            val fix: LocationFix,
+            val source: GpsSource = GpsSource.LIVE,
+            // For TRACK: the photo's capture time, shown in the dialog hint.
+            val atMillis: Long? = null,
+        ) : GpsState()
         object Denied : GpsState()
         object Unavailable : GpsState()
     }
@@ -154,11 +166,32 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         _allowNoLocation.value = false
     }
 
-    /** Open the add-photo dialog for a picked image and resolve GPS. */
+    /**
+     * Open the add-photo dialog for a picked image. Unlike a note, a photo's
+     * location comes from the trip's recorded breadcrumb trail at the photo's
+     * capture time (so an old photo gets where it was *taken*, not where you
+     * are now) — never a fresh fix.
+     */
     fun openAddPhoto(uri: Uri) {
         _selectedPhoto.value = uri
         _photoDialogOpen.value = true
-        startGpsResolution()
+        _allowNoLocation.value = false
+        _gps.value = GpsState.Waiting
+        viewModelScope.launch {
+            val captureMs = withContext(Dispatchers.IO) {
+                captureMillisFor(uri) ?: System.currentTimeMillis()
+            }
+            val fix = withContext(Dispatchers.IO) {
+                PhotoLocationResolver.resolve(breadcrumbStore.all(), captureMs)
+            }
+            _gps.value = if (fix != null) {
+                GpsState.Ready(fix, GpsSource.TRACK, captureMs)
+            } else {
+                // No trusted track location for this photo's time — the dialog
+                // offers "send without location".
+                GpsState.Unavailable
+            }
+        }
     }
 
     fun closeAddPhoto() {
@@ -284,8 +317,21 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
      * with the original's EXIF DateTimeOriginal when the file carries one.
      */
     private fun captureTimeFor(uri: Uri): String {
+        val millis = captureMillisFor(uri)
+        return if (millis != null) {
+            OffsetDateTime.ofInstant(
+                Instant.ofEpochMilli(millis),
+                ZoneId.systemDefault(),
+            ).toString()
+        } else {
+            OffsetDateTime.now().toString()
+        }
+    }
+
+    /** The gallery's DATE_TAKEN (epoch millis), or null when absent. */
+    private fun captureMillisFor(uri: Uri): Long? {
         val resolver = getApplication<Application>().contentResolver
-        val millis = runCatching {
+        return runCatching {
             resolver.query(
                 uri,
                 arrayOf(MediaStore.Images.Media.DATE_TAKEN),
@@ -300,15 +346,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                     null
                 }
             }
-        }.getOrNull()
-        return if (millis != null && millis > 0) {
-            OffsetDateTime.ofInstant(
-                Instant.ofEpochMilli(millis),
-                ZoneId.systemDefault(),
-            ).toString()
-        } else {
-            OffsetDateTime.now().toString()
-        }
+        }.getOrNull()?.takeIf { it > 0 }
     }
 
     /** Fetch a fresh presigned URL for a photo's original and open the viewer. */
@@ -336,6 +374,8 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val api = buildApi(snapshot)
                 api.stopTrip(TripStoryIdRequest(storyId = story.id))
+                // Stop recording the breadcrumb trail for this trip.
+                TripTracker.stop(getApplication(), story.id)
                 reload()
             } catch (t: Throwable) {
                 _error.value = t.message ?: t.javaClass.simpleName

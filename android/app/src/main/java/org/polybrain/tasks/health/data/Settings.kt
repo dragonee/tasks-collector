@@ -80,11 +80,38 @@ class Settings(private val context: Context) {
         }
     }
 
+    /**
+     * Story ids whose trips are currently being location-tracked on this phone.
+     * The local source of truth for whether [TripLocationService] should run:
+     * survives an app kill (tracking resumes on reopen) but not a reboot.
+     */
+    suspend fun trackedStoryIds(): Set<String> =
+        context.dataStore.data.first()[TRACKED_STORY_IDS].orEmpty()
+
+    suspend fun addTrackedStoryId(id: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[TRACKED_STORY_IDS] = prefs[TRACKED_STORY_IDS].orEmpty() + id.toString()
+        }
+    }
+
+    suspend fun removeTrackedStoryId(id: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[TRACKED_STORY_IDS] = prefs[TRACKED_STORY_IDS].orEmpty() - id.toString()
+        }
+    }
+
+    suspend fun replaceTrackedStoryIds(ids: Collection<Long>) {
+        context.dataStore.edit { prefs ->
+            prefs[TRACKED_STORY_IDS] = ids.map { it.toString() }.toSet()
+        }
+    }
+
     private companion object {
         val SERVER_URL = stringPreferencesKey("server_url")
         val API_TOKEN = stringPreferencesKey("api_token")
         val LAST_SYNC_MS = longPreferencesKey("last_sync_ms")
         val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
         val SYNCED_BIKE_SESSION_IDS = stringSetPreferencesKey("synced_bike_session_ids")
+        val TRACKED_STORY_IDS = stringSetPreferencesKey("tracked_story_ids")
     }
 }

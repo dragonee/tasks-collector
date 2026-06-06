@@ -10,6 +10,7 @@ import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TrackHabitTextRequest
+import org.polybrain.tasks.health.location.TripTracker
 import org.polybrain.tasks.health.sync.SyncScheduler
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -68,6 +69,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // The worker no-ops when unconfigured, so this is safe to call always.
         SyncScheduler.drainOutbox(application)
         viewModelScope.launch {
+            // Resume location tracking if a trip was being tracked before the
+            // app was killed (the foreground service doesn't survive that).
+            TripTracker.resumeIfNeeded(getApplication())
             refreshPermissionState()
             if (_permissionsGranted.value) refreshMetrics()
         }

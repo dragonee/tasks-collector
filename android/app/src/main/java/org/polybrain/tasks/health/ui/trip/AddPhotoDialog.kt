@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +26,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import org.polybrain.tasks.health.R
 
 @Composable
@@ -59,12 +64,28 @@ fun AddPhotoDialog(vm: TripDetailViewModel) {
                             .aspectRatio(4f / 3f),
                     )
                 }
-                GpsStatusBlock(
-                    state = gps,
-                    onRequestPermission = {
-                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                    },
-                )
+                val gpsState = gps
+                if (gpsState is TripDetailViewModel.GpsState.Ready &&
+                    gpsState.source == TripDetailViewModel.GpsSource.TRACK
+                ) {
+                    // A photo's location comes from the recorded trip track, not
+                    // a live fix — say so, with the capture time it was matched to.
+                    Text(
+                        text = stringResource(
+                            R.string.trip_note_gps_from_track,
+                            formatTrackTime(gpsState.atMillis),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    GpsStatusBlock(
+                        state = gps,
+                        onRequestPermission = {
+                            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        },
+                    )
+                }
                 if (gps is TripDetailViewModel.GpsState.Denied ||
                     gps is TripDetailViewModel.GpsState.Unavailable
                 ) {
@@ -101,3 +122,9 @@ fun AddPhotoDialog(vm: TripDetailViewModel) {
         },
     )
 }
+
+private val TRACK_TIME_FORMAT: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(ZoneId.systemDefault())
+
+private fun formatTrackTime(millis: Long?): String =
+    if (millis == null) "" else TRACK_TIME_FORMAT.format(Instant.ofEpochMilli(millis))

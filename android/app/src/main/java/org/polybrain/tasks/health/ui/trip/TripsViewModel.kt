@@ -13,6 +13,7 @@ import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TripStartRequest
 import org.polybrain.tasks.health.data.TripSummary
+import org.polybrain.tasks.health.location.TripTracker
 
 class TripsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -56,6 +57,8 @@ class TripsViewModel(application: Application) : AndroidViewModel(application) {
                 val api = buildApi(snapshot)
                 val story = api.startTrip(TripStartRequest()).story
                 _focusTrip.value = story.id
+                // Begin recording the location breadcrumb trail for this trip.
+                TripTracker.start(getApplication(), story.id)
                 reload()
             } catch (t: Throwable) {
                 _error.value = t.message ?: t.javaClass.simpleName
@@ -114,6 +117,9 @@ class TripsViewModel(application: Application) : AndroidViewModel(application) {
             _history.value = page.history
             _totalHistory.value = page.totalHistory
             _error.value = null
+            // Align tracking with the server: a trip stopped elsewhere (e.g.
+            // the web) turns the breadcrumb service off; an active one keeps it on.
+            TripTracker.reconcile(getApplication(), page.active.map { it.id })
             // On first successful load only, if exactly one active trip
             // exists, hop the user straight into it. Subsequent refreshes
             // leave them on the list so back-navigation works.
