@@ -46,6 +46,14 @@
             </div>
 
             <div class="form-group">
+                <label for="{{ profile_form.map_provider.id_for_label }}">Map Provider:</label>
+                <div class="form-control">
+                    {{ profile_form.map_provider }}
+                </div>
+                <small class="form-text text-muted">Which map service to open for location pins (e.g. trip photo/note coordinates).</small>
+            </div>
+
+            <div class="form-group">
                 <label>Habit Keywords Filter:</label>
                 <div class="habit-keywords-checkboxes">
                     {{ profile_form.habit_keywords }}

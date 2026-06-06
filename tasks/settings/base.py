@@ -197,9 +197,22 @@ except ImportError:
     AWS_S3_PUBLIC_ENDPOINT_URL = os.environ.get(
         "AWS_S3_PUBLIC_ENDPOINT_URL", AWS_S3_ENDPOINT_URL
     )
+    # Endpoint baked into presigned URLs handed to a desktop *browser* (the
+    # read-only web trip views). The public endpoint above targets the Android
+    # emulator (10.0.2.2), which a browser can't reach; this signs against a
+    # browser-reachable host instead. Same MinIO, different signed Host.
+    AWS_S3_WEB_ENDPOINT_URL = os.environ.get(
+        "AWS_S3_WEB_ENDPOINT_URL", "http://localhost:9000"
+    )
     AWS_S3_ADDRESSING_STYLE = os.environ.get("AWS_S3_ADDRESSING_STYLE", "path")
     PHOTO_PRESIGN_PUT_TTL = int(os.environ.get("PHOTO_PRESIGN_PUT_TTL", "300"))
     PHOTO_PRESIGN_GET_TTL = int(os.environ.get("PHOTO_PRESIGN_GET_TTL", "3600"))
     PHOTO_THUMBNAIL_MAX_EDGE = int(os.environ.get("PHOTO_THUMBNAIL_MAX_EDGE", "480"))
+
+# When the config came from aws.py (or didn't set a web endpoint), fall back to
+# the public endpoint — correct in prod, where both are the real bucket host.
+globals().setdefault(
+    "AWS_S3_WEB_ENDPOINT_URL", globals().get("AWS_S3_PUBLIC_ENDPOINT_URL")
+)
 
 CELERY_BEAT_SCHEDULE = {}

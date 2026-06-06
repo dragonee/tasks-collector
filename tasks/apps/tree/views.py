@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
+from django.db.models import prefetch_related_objects
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.generic.dates import MonthArchiveView
@@ -19,6 +20,7 @@ from .serializers import *
 from .services.journalling import process_journal_entry
 from .utils.datetime import make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
+from .views_trip import attach_photo_urls
 
 
 class PlanFilter(filters.FilterSet):
@@ -179,6 +181,15 @@ class JournalArchiveContextMixin:
         context["order"] = self.get_order()
         context["dates"] = self.get_queryset().dates("published", "month", order="DESC")
         context["tags"] = JournalTag.objects.all()
+
+        # Render trip photos and badges the same way today.html does: presign
+        # thumbnails and prefetch the StoryEvent -> Story link (one query for
+        # the whole month, no per-entry lookup for the badge). Materialise so
+        # the attributes survive the template's repeated iteration of the list.
+        entries = list(context["object_list"])
+        prefetch_related_objects(entries, "story_entry__story")
+        attach_photo_urls(entries)
+        context["object_list"] = entries
 
         return context
 

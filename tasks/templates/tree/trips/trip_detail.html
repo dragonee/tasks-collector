@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}{{ story }} | Trips{% endblock %}
+
+{% block content %}
+
+<section class="journal trip-entries">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+    <h1>{{ story }}</h1>
+    <p class="trip-meta">
+        {{ story.started|date:"D, d M Y H:i" }}
+        {% if story.stopped %}
+            &ndash; {{ story.stopped|date:"D, d M Y H:i" }}
+        {% else %}
+            &middot; <strong>active</strong>
+        {% endif %}
+    </p>
+
+    {% regroup events by published.date as entries_by_date %}
+
+    {% if entries_by_date|length > 1 %}
+    <aside class="days">
+        <ul>
+        {% for date, day_events in entries_by_date %}
+            <li>
+                <a href="#{{ date|date:"b-d" }}">{{ date|date:"d" }}</a>
+            </li>
+        {% endfor %}
+        </ul>
+    </aside>
+    {% endif %}
+
+    <main>
+        <ul>
+            {% for date, day_events in entries_by_date %}
+                <li id="{{ date|date:"b-d" }}">
+                    <strong>{{ date|date:"d F Y" }}</strong>
+                    <ul>
+                        {% for event in day_events %}
+                            <li>
+                                {% include "tree/events/journal_added.html" with readonly=True hide_trip_marker=True %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            {% empty %}
+                <li>No entries in this trip yet.</li>
+            {% endfor %}
+        </ul>
+    </main>
+</section>
+{% endblock %}

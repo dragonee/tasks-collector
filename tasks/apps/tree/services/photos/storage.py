@@ -43,6 +43,10 @@ def _public_client():
     return _client(settings.AWS_S3_PUBLIC_ENDPOINT_URL)
 
 
+def _web_client():
+    return _client(settings.AWS_S3_WEB_ENDPOINT_URL)
+
+
 def presign_put(key, content_type, expires=None):
     """Presigned PUT URL the client uses to upload the original directly."""
     expires = expires if expires is not None else settings.PHOTO_PRESIGN_PUT_TTL
@@ -61,6 +65,23 @@ def presign_get(key, expires=None):
     """Short-lived presigned GET URL for displaying an object."""
     expires = expires if expires is not None else settings.PHOTO_PRESIGN_GET_TTL
     return _public_client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.AWS_S3_BUCKET, "Key": key},
+        ExpiresIn=expires,
+    )
+
+
+def presign_get_web(key, expires=None):
+    """Presigned GET URL whose signed host is reachable from a desktop browser.
+
+    The read-only web trip views use this instead of ``presign_get``: in dev
+    the device-facing public endpoint points at the Android emulator host
+    (10.0.2.2), unreachable from a browser, and SigV4 signs the Host header so
+    the URL cannot be rewritten after signing. In prod both endpoints are the
+    real bucket host, so the two functions produce equivalent URLs.
+    """
+    expires = expires if expires is not None else settings.PHOTO_PRESIGN_GET_TTL
+    return _web_client().generate_presigned_url(
         "get_object",
         Params={"Bucket": settings.AWS_S3_BUCKET, "Key": key},
         ExpiresIn=expires,

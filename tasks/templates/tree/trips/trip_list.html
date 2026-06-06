@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block body_class %}page-daily{% endblock %}
+
+{% block title %}Trips | Tasks Collector{% endblock %}
+
+{% block content %}
+
+<section class="journal">
+    <div class="cont">
+        {% include "menu.html" %}
+    </div>
+
+    <h1>Trips</h1>
+
+    <aside class="months">
+        <h2>Archive</h2>
+        <ul>
+            {% for month in months %}
+                <li>
+                    <a href="#{{ month|date:"Y-m" }}">{{ month|date:"F Y" }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </aside>
+
+    <main class="trip-months">
+        {% regroup trips by started|date:"F Y" as trips_by_month %}
+        {% for month, month_trips in trips_by_month %}
+            <section class="trip-month" id="{{ month_trips.0.started|date:"Y-m" }}">
+                <h3>{{ month }}</h3>
+                <div class="trip-tiles">
+                    {% for story in month_trips %}
+                        <a class="trip-tile" href="{% url 'trip-detail' story.id %}">
+                            <div class="trip-tile-photo">
+                                {% if story.cover_photo %}
+                                    <img src="{{ story.cover_photo.thumbnail_url|default:story.cover_photo.original_url }}" alt="" loading="lazy">
+                                {% else %}
+                                    <div class="trip-tile-noimg">🧳</div>
+                                {% endif %}
+                            </div>
+                            <div class="trip-tile-body">
+                                <span class="trip-tile-title">{{ story }}</span>
+                                <span class="trip-tile-dates">
+                                    {{ story.date_label }}
+                                    {% if not story.stopped %}<span class="trip-active">active</span>{% endif %}
+                                </span>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+        {% empty %}
+            <p>No trips yet.</p>
+        {% endfor %}
+    </main>
+</section>
+{% endblock %}

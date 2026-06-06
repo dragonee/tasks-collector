@@ -21,6 +21,7 @@ from .utils.datetime import (
     make_last_day_of_the_week,
 )
 from .utils.itertools import itemize
+from .views_trip import attach_photo_urls
 
 
 def make_aware_start(date):
@@ -447,10 +448,18 @@ def today(request):
         tomorrow_plan_form = PlanForm(instance=tomorrow_plan, prefix="tomorrow_plan")
         reflection_form = ReflectionForm(instance=reflection, prefix="reflection")
 
-    journals = JournalAdded.objects.filter(
-        published__range=period.as_tuple(),
-        thread=thread,
-    ).order_by("published")
+    # Materialise so we can attach presigned photo URLs; prefetch the trip
+    # link (StoryEvent -> Story) so the per-entry trip badge costs no extra
+    # query per journal entry.
+    journals = list(
+        JournalAdded.objects.filter(
+            published__range=period.as_tuple(),
+            thread=thread,
+        )
+        .prefetch_related("story_entry__story")
+        .order_by("published")
+    )
+    attach_photo_urls(journals)
 
     actual_today = timezone.now().date()
 

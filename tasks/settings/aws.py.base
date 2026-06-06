@@ -19,6 +19,11 @@ AWS_S3_BUCKET = "tasks-trip-photos"
 AWS_S3_ENDPOINT_URL = None
 # Endpoint baked into presigned URLs handed to clients. None = real AWS S3.
 AWS_S3_PUBLIC_ENDPOINT_URL = None
+# Endpoint baked into presigned URLs for the read-only web trip views (desktop
+# browser). For MinIO this is a browser-reachable host (often different from the
+# device endpoint above); for AWS leave None. Falls back to the public endpoint
+# when omitted.
+AWS_S3_WEB_ENDPOINT_URL = None
 # "virtual" for AWS S3; "path" for MinIO / most S3-compatible servers.
 AWS_S3_ADDRESSING_STYLE = "virtual"
 
