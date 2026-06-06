@@ -26,17 +26,16 @@
 
     <string name="trip_note_dialog_title">Add a note</string>
     <string name="trip_note_hint">What\'s going on?</string>
-    <string name="trip_note_send">Send</string>
+    <string name="trip_send">Send</string>
+    <string name="trip_save_with_location">Save with location</string>
     <string name="trip_note_cancel">Cancel</string>
     <string name="trip_note_gps_waiting">Waiting for GPS…</string>
     <string name="trip_note_gps_ready">Location ready (%1$.5f, %2$.5f)</string>
     <string name="trip_note_gps_missing">No location available.</string>
-    <string name="trip_note_send_without_location">Send without location</string>
     <string name="trip_note_grant_location">Grant location permission</string>
 
     <string name="trip_photo_dialog_title">Add a photo</string>
     <string name="trip_photo_hint">Add a caption (optional)</string>
-    <string name="trip_photo_send">Upload</string>
     <string name="trip_photo_processing">Processing photo…</string>
 
     <string name="trip_sync_waiting">Waiting to sync</string>
