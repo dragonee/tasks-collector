@@ -99,4 +99,9 @@ if not AWS_CONFIG_FROM_FILE:
     AWS_S3_PUBLIC_ENDPOINT_URL = (
         os.environ.get("AWS_S3_PUBLIC_ENDPOINT_URL", "") or None
     )
+    # Browser-facing endpoint for the web trip views; defaults to the public
+    # (device) endpoint, which in prod is the real bucket host anyway.
+    AWS_S3_WEB_ENDPOINT_URL = (
+        os.environ.get("AWS_S3_WEB_ENDPOINT_URL", "") or AWS_S3_PUBLIC_ENDPOINT_URL
+    )
     AWS_S3_ADDRESSING_STYLE = os.environ.get("AWS_S3_ADDRESSING_STYLE", "virtual")

@@ -1,6 +1,7 @@
 {% load model_presenters %}
 
 <div class="event-content journal-added" data-id="{{ event.id }}" data-time="{{ event.published|time:"H:i" }}">
+    {% if not readonly %}
     <div class="add-breakthrough">
         <button class="add-breakthrough-button">+Breakthrough</button>
     </div>
@@ -8,6 +9,25 @@
     <div class="habit-form hidden">
         {% include "tree/habit_tracked/form.html" with form=event|get_habit_form %}
     </div>
+    {% endif %}
 
-    {{ event.comment|linebreaks }}
+    {% if event.is_photo %}
+    <figure class="journal-photo{% if not event.thumbnail_url %} pending{% endif %}">
+        <a href="{{ event.original_url }}" target="_blank" rel="noopener">
+            <img src="{{ event.thumbnail_url|default:event.original_url }}" alt="Trip photo" loading="lazy">
+        </a>
+    </figure>
+    {% endif %}
+
+    <div class="journal-comment">{{ event.comment|linebreaks }}</div>
+
+    <div class="trip-markers">
+        {% if not hide_trip_marker %}
+            {% with story=event.story_entry.story %}
+                {% if story %}
+                <a class="trip-badge" href="{% url 'trip-detail' story.id %}">🧳 {{ story }} ›</a>
+                {% endif %}
+            {% endwith %}
+        {% endif %}
+    </div>
 </div>

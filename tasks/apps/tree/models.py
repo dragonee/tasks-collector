@@ -575,6 +575,10 @@ class JournalAdded(Event):
 
     template = "tree/events/journal_added.html"
 
+    # Lets templates branch on plain vs. photo entries without isinstance.
+    # PhotoAdded overrides this to True.
+    is_photo = False
+
     def __str__(self):
         return self.comment
 
@@ -596,6 +600,8 @@ class PhotoAdded(JournalAdded):
     height = models.PositiveIntegerField(null=True, blank=True)
 
     template = "tree/events/journal_added.html"
+
+    is_photo = True
 
 
 class JournalTag(models.Model):
@@ -869,12 +875,22 @@ class Statistics(models.Model):
 
 
 class Profile(models.Model):
+    class MapProvider(models.TextChoices):
+        OPENSTREETMAP = "osm", _("OpenStreetMap")
+        GOOGLE_MAPS = "google", _("Google Maps")
+
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     default_board_thread = models.ForeignKey(
         Thread, on_delete=models.SET_NULL, null=True, blank=True
     )
     habit_keywords = models.ManyToManyField(
         HabitKeyword, related_name="profiles", blank=True
+    )
+    # Map service used for location pins (e.g. trip POI links) in the web UI.
+    map_provider = models.CharField(
+        max_length=16,
+        choices=MapProvider.choices,
+        default=MapProvider.OPENSTREETMAP,
     )
 
     def __str__(self):

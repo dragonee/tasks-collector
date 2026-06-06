@@ -25,7 +25,7 @@
 
         {% block extrahead %} {% endblock %}
     </head>
-    <body class="{% block body_class %}{% endblock %}">
+    <body class="{% block body_class %}{% endblock %}" data-map-provider="{{ user.profile.map_provider|default:'osm' }}">
         {% block content %} {% endblock %}
 
         {% if APP_VERSION %}

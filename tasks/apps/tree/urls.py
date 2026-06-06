@@ -12,6 +12,7 @@ from . import (
     views_habit_api,
     views_observation,
     views_today,
+    views_trip,
 )
 
 # API Router - REST Framework ViewSets
@@ -271,6 +272,9 @@ urlpatterns = [
         views.JournalTagArchiveMonthView.as_view(month_format="%m"),
         name="public-diary-archive-month-tag",
     ),
+    # === Trips (views_trip) — read-only web mirror of the Android trips ===
+    path("trips/", views_trip.trip_list, name="trip-list"),
+    path("trips/<int:story_id>/", views_trip.trip_detail, name="trip-detail"),
     # === Events (views) ===
     path(
         "events/",
