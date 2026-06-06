@@ -46,12 +46,11 @@ class TripAPITestCase(APITestCase):
             format="json",
         )
 
-    def _note(self, story_id, comment, published=PUB_AT):
-        return self.client.post(
-            reverse("android-trip-note"),
-            {"story_id": story_id, "comment": comment, "published": published},
-            format="json",
-        )
+    def _note(self, story_id, comment, published=PUB_AT, idempotency_key=None):
+        payload = {"story_id": story_id, "comment": comment, "published": published}
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return self.client.post(reverse("android-trip-note"), payload, format="json")
 
     def _list(self, page=1, page_size=20):
         return self.client.get(
@@ -154,6 +153,21 @@ class TripAPITestCase(APITestCase):
         self._auth(self.other_token)
         r = self._note(sid, "leak attempt")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_note_idempotency_key_dedupes(self):
+        # A retried POST with the same idempotency_key returns the same
+        # journal_id and creates exactly one event + one StoryEvent link.
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        first = self._note(sid, "walking", idempotency_key="abc-123")
+        second = self._note(sid, "walking", idempotency_key="abc-123")
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.json()["journal_id"], second.json()["journal_id"])
+        self.assertEqual(
+            JournalAdded.objects.filter(idempotency_key="abc-123").count(), 1
+        )
+        self.assertEqual(StoryEvent.objects.filter(story_id=sid).count(), 1)
 
     def test_list_returns_active_and_history(self):
         self._auth()

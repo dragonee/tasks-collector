@@ -172,9 +172,16 @@ class AndroidTripNoteView(APIView):
         published = _parse_datetime(request.data.get("published"))
         if published is None:
             return _bad_request("published is required (full ISO 8601 timestamp)")
+        idempotency_key = request.data.get("idempotency_key")
+        if idempotency_key is not None and not isinstance(idempotency_key, str):
+            return _bad_request("idempotency_key must be a string")
         try:
             journal = add_trip_note(
-                request.user, story_id, comment=comment, published=published
+                request.user,
+                story_id,
+                comment=comment,
+                published=published,
+                idempotency_key=idempotency_key,
             )
         except StoryNotFoundError:
             return _not_found()
@@ -287,6 +294,9 @@ class AndroidTripPhotoConfirmView(APIView):
         published = _parse_datetime(request.data.get("published"))
         if published is None:
             return _bad_request("published is required (full ISO 8601 timestamp)")
+        idempotency_key = request.data.get("idempotency_key")
+        if idempotency_key is not None and not isinstance(idempotency_key, str):
+            return _bad_request("idempotency_key must be a string")
         try:
             photo = add_trip_photo(
                 request.user,
@@ -295,6 +305,7 @@ class AndroidTripPhotoConfirmView(APIView):
                 comment=comment,
                 content_type=content_type,
                 published=published,
+                idempotency_key=idempotency_key,
             )
         except StoryNotFoundError:
             return _not_found()

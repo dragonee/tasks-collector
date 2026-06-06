@@ -8,7 +8,7 @@ either all commit or none do.
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from ...models import JournalAdded, PhotoAdded, Story, StoryEvent, Thread
@@ -53,6 +53,17 @@ def _get_owned_story(user, story_id):
         ) from e
 
 
+def _existing_event(model, idempotency_key):
+    """The event previously created for ``idempotency_key``, or None.
+
+    Used for exactly-once writes: a retried request (whose first response was
+    lost) re-uses the existing event instead of creating a duplicate.
+    """
+    if not idempotency_key:
+        return None
+    return model.objects.filter(idempotency_key=idempotency_key).first()
+
+
 @transaction.atomic
 def start_trip(user, title=None, type_=Story.Type.TRIP, started=None):
     """Create and persist a new Story for the user.
@@ -90,23 +101,44 @@ def update_trip(user, story_id, title=None):
 
 
 @transaction.atomic
-def add_trip_note(user, story_id, comment, published=None):
+def add_trip_note(user, story_id, comment, published=None, idempotency_key=None):
     """Create a JournalAdded linked to ``story``, processed through the
     journalling pipeline so embedded hashtags create HabitTracked
     entries that are also linked to the story.
 
     Raises ``StoryStoppedError`` if the story is already stopped.
+
+    ``idempotency_key`` makes the write exactly-once: a retry carrying a key
+    that already produced a note returns that same note. The lookup runs
+    *before* the stopped check so re-delivering an already-saved note succeeds
+    even if the trip was stopped in the meantime.
     """
     story = _get_owned_story(user, story_id)
+
+    existing = _existing_event(JournalAdded, idempotency_key)
+    if existing is not None:
+        return existing
+
     if story.stopped is not None:
         raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add new notes.")
 
-    journal_added = JournalAdded.objects.create(
-        thread=_journal_thread_for(user),
-        comment=comment,
-        published=published or timezone.now(),
-    )
-    process_journal_entry(journal_added, story=story)
+    try:
+        # Nested savepoint so a unique-key collision (concurrent retry) rolls
+        # back only this insert, leaving the outer transaction usable for the
+        # re-fetch below.
+        with transaction.atomic():
+            journal_added = JournalAdded.objects.create(
+                thread=_journal_thread_for(user),
+                comment=comment,
+                published=published or timezone.now(),
+                idempotency_key=idempotency_key,
+            )
+            process_journal_entry(journal_added, story=story)
+    except IntegrityError:
+        existing = _existing_event(JournalAdded, idempotency_key)
+        if existing is not None:
+            return existing
+        raise
     return journal_added
 
 
@@ -141,15 +173,27 @@ def _capture_datetime_from_storage(key):
 
 
 @transaction.atomic
-def add_trip_photo(user, story_id, key, comment, content_type, published=None):
+def add_trip_photo(
+    user, story_id, key, comment, content_type, published=None, idempotency_key=None
+):
     """Confirm an uploaded photo: create a PhotoAdded linked to ``story`` and
     run it through the journalling pipeline (so a ``#poi`` line in ``comment``
     still creates a HabitTracked). Enqueues the thumbnail task on commit.
 
     Raises ``StoryStoppedError`` if stopped, ``PhotoObjectMissingError`` if the
     object isn't in the bucket (or the key doesn't belong to this user/story).
+
+    ``idempotency_key`` makes the confirm exactly-once: a retry carrying a key
+    that already produced a photo returns that same photo (checked before the
+    stopped/object existence guards, so a re-delivered confirm succeeds even
+    after the trip stopped or the S3 object was swept).
     """
     story = _get_owned_story(user, story_id)
+
+    existing = _existing_event(PhotoAdded, idempotency_key)
+    if existing is not None:
+        return existing
+
     if story.stopped is not None:
         raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add photos.")
     if not key_belongs_to(key, user.pk, story_id):
@@ -163,14 +207,24 @@ def add_trip_photo(user, story_id, key, comment, content_type, published=None):
     # the correct date.
     captured = _capture_datetime_from_storage(key)
 
-    photo = PhotoAdded.objects.create(
-        thread=_journal_thread_for(user),
-        comment=comment,
-        original_key=key,
-        content_type=content_type,
-        published=captured or published or timezone.now(),
-    )
-    process_journal_entry(photo, story=story)
+    try:
+        # Nested savepoint so a unique-key collision (concurrent retry) rolls
+        # back only this insert, leaving the outer transaction usable.
+        with transaction.atomic():
+            photo = PhotoAdded.objects.create(
+                thread=_journal_thread_for(user),
+                comment=comment,
+                original_key=key,
+                content_type=content_type,
+                published=captured or published or timezone.now(),
+                idempotency_key=idempotency_key,
+            )
+            process_journal_entry(photo, story=story)
+    except IntegrityError:
+        existing = _existing_event(PhotoAdded, idempotency_key)
+        if existing is not None:
+            return existing
+        raise
 
     # Import here to avoid importing celery tasks at module load.
     from ...tasks import generate_photo_thumbnail
