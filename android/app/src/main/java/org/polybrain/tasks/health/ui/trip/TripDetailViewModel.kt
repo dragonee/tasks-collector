@@ -117,10 +117,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     private val _gps = MutableStateFlow<GpsState>(GpsState.Idle)
     val gps: StateFlow<GpsState> = _gps.asStateFlow()
 
-    /** Whether the user has explicitly opted to send without location. */
-    private val _allowNoLocation = MutableStateFlow(false)
-    val allowNoLocation: StateFlow<Boolean> = _allowNoLocation.asStateFlow()
-
     private val _renameOpen = MutableStateFlow(false)
     val renameOpen: StateFlow<Boolean> = _renameOpen.asStateFlow()
 
@@ -163,7 +159,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     fun closeAddNote() {
         _noteDialogOpen.value = false
         _gps.value = GpsState.Idle
-        _allowNoLocation.value = false
     }
 
     /**
@@ -175,7 +170,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     fun openAddPhoto(uri: Uri) {
         _selectedPhoto.value = uri
         _photoDialogOpen.value = true
-        _allowNoLocation.value = false
         _gps.value = GpsState.Waiting
         viewModelScope.launch {
             val captureMs = withContext(Dispatchers.IO) {
@@ -187,8 +181,8 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
             _gps.value = if (fix != null) {
                 GpsState.Ready(fix, GpsSource.TRACK, captureMs)
             } else {
-                // No trusted track location for this photo's time — the dialog
-                // offers "send without location".
+                // No trusted track location for this photo's time — only plain
+                // "Send" (without location) will be offered.
                 GpsState.Unavailable
             }
         }
@@ -198,12 +192,10 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         _photoDialogOpen.value = false
         _selectedPhoto.value = null
         _gps.value = GpsState.Idle
-        _allowNoLocation.value = false
     }
 
-    /** Shared GPS bootstrap used by both the note and photo dialogs. */
+    /** Live GPS bootstrap for the note dialog (a note is recorded "now"). */
     private fun startGpsResolution() {
-        _allowNoLocation.value = false
         _gps.value = GpsState.Waiting
         viewModelScope.launch {
             if (!locationProvider.hasFineLocationPermission()) {
@@ -213,10 +205,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
             val fix = locationProvider.currentFix()
             _gps.value = if (fix != null) GpsState.Ready(fix) else GpsState.Unavailable
         }
-    }
-
-    fun setAllowNoLocation(value: Boolean) {
-        _allowNoLocation.value = value
     }
 
     /** Called by the screen after the runtime permission request finishes. */
@@ -233,17 +221,22 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun sendNote(text: String) {
+    /**
+     * Enqueue a note. [includeLocation] is the explicit "Save with location"
+     * choice — the default "Send" attaches no `#poi`, so location lands only on
+     * notes where it's actually wanted.
+     */
+    fun sendNote(text: String, includeLocation: Boolean) {
         val story = _story.value ?: return
         if (story.stopped != null) return
-        val fix = (_gps.value as? GpsState.Ready)?.fix
-        if (fix == null && !_allowNoLocation.value) return
+        val fix = if (includeLocation) (_gps.value as? GpsState.Ready)?.fix else null
 
         val comment = composeComment(fix, text)
+        // A note needs content; without a location line that means some text.
+        if (comment.isBlank()) return
         val published = OffsetDateTime.now().toString()
         _noteDialogOpen.value = false
         _gps.value = GpsState.Idle
-        _allowNoLocation.value = false
 
         // Queue locally and kick the drain; the item shows immediately and the
         // worker delivers it (now or when connectivity returns).
@@ -254,19 +247,18 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun sendPhoto(text: String) {
+    /** Enqueue a photo. [includeLocation] mirrors [sendNote] (the track fix). */
+    fun sendPhoto(text: String, includeLocation: Boolean) {
         val story = _story.value ?: return
         if (story.stopped != null) return
         val uri = _selectedPhoto.value ?: return
-        val fix = (_gps.value as? GpsState.Ready)?.fix
-        if (fix == null && !_allowNoLocation.value) return
+        val fix = if (includeLocation) (_gps.value as? GpsState.Ready)?.fix else null
 
         val comment = composeComment(fix, text)
         // Close the dialog now; copy + enqueue happen in the background.
         _photoDialogOpen.value = false
         _selectedPhoto.value = null
         _gps.value = GpsState.Idle
-        _allowNoLocation.value = false
 
         viewModelScope.launch {
             try {

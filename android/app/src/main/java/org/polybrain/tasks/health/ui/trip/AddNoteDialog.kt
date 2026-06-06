@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,16 +27,12 @@ import org.polybrain.tasks.health.R
 @Composable
 fun AddNoteDialog(vm: TripDetailViewModel) {
     val gps by vm.gps.collectAsState()
-    val allowNoLocation by vm.allowNoLocation.collectAsState()
 
     var draft by remember { mutableStateOf("") }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted -> vm.onLocationPermissionResult(granted) }
-
-    val canSend = gps is TripDetailViewModel.GpsState.Ready ||
-            (allowNoLocation && gps !is TripDetailViewModel.GpsState.Waiting)
 
     AlertDialog(
         onDismissRequest = { vm.closeAddNote() },
@@ -50,17 +45,6 @@ fun AddNoteDialog(vm: TripDetailViewModel) {
                         permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                     },
                 )
-                if (gps is TripDetailViewModel.GpsState.Denied ||
-                    gps is TripDetailViewModel.GpsState.Unavailable
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = allowNoLocation,
-                            onCheckedChange = vm::setAllowNoLocation,
-                        )
-                        Text(stringResource(R.string.trip_note_send_without_location))
-                    }
-                }
                 OutlinedTextField(
                     value = draft,
                     onValueChange = { draft = it },
@@ -71,12 +55,25 @@ fun AddNoteDialog(vm: TripDetailViewModel) {
                 )
             }
         },
+        // "Send" is the default action and attaches no location; "Save with
+        // location" is the explicit opt-in, enabled only when a fix is ready.
         confirmButton = {
-            TextButton(
-                onClick = { vm.sendNote(draft) },
-                enabled = canSend,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.trip_note_send))
+                TextButton(
+                    onClick = { vm.sendNote(draft, includeLocation = true) },
+                    enabled = gps is TripDetailViewModel.GpsState.Ready,
+                ) {
+                    Text(stringResource(R.string.trip_save_with_location))
+                }
+                TextButton(
+                    onClick = { vm.sendNote(draft, includeLocation = false) },
+                    enabled = draft.isNotBlank(),
+                ) {
+                    Text(stringResource(R.string.trip_send))
+                }
             }
         },
         dismissButton = {
