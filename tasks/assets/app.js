@@ -6,6 +6,7 @@
 import "./scripts/shared.js";
 import "./app.scss";
 import "./observation_search.js";
+import "./observation_master_detail.js";
 
 const nodeList = document.querySelectorAll(
     'article.observation'

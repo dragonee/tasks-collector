@@ -2,42 +2,54 @@
 {% load render_assets %}
 {% load observation_menu %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-observations{% endblock %}
 
 {% block title %}Closed Observations | Tasks Collector{% endblock %}
+
 {% block content %}
-<!-- Vue entry-point -->
 
+<div class="split-layout observations-layout" data-base-obs="">
 
-<div class="observations">
-    <div class="cont">
+    {% include "tree/_observation_topbar.html" %}
 
-        {% observation_menu %}
+    <div class="split-left">
+        <ul class="situation-list">
+            {% for observation in object_list %}
+                <li class="situation-item"
+                    data-obs="{{ observation.pk }}"
+                    data-search="{{ observation.situation|default:'' }} {{ observation.interpretation|default:'' }} {{ observation.approach|default:'' }}">
+                    <div class="situation-text">{{ observation.situation|linebreaks }}</div>
+                    <div class="situation-meta">
+                        {{ observation.published|date }} ·
+                        <span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>
+                    </div>
+                </li>
+            {% empty %}
+                <li class="empty">No closed observations yet.</li>
+            {% endfor %}
+        </ul>
     </div>
+
+    <div class="split-right">
+        <div class="detail-empty">Select an observation to view its details.</div>
+
         {% for observation in object_list %}
-        <article class="observation" id="observation-{{ observation.pk }}">
+            <article class="observation-detail" data-obs="{{ observation.pk }}" id="observation-{{ observation.pk }}">
+                <div class="meta">{{ observation.published|date }} (<span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span> <a href="{% url 'public-observation-closed-detail' observation.event_stream_id %}">details</a>)</div>
+                <div class="strong">{{ observation.situation|linebreaks }}</div>
 
-            <div class="meta">
-                {{ observation.published|date }}
-                (<span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>;
-                <span class="thread">{{ observation.thread }}</span>
-                <a href="{% url 'public-observation-closed-detail' observation.event_stream_id %}">$</a>)
-            </div>
-            <div class="strong">{{ observation.situation|linebreaks }}</div>
+                <div class="label">How you saw it, what you felt?</div>
+                <div>{{ observation.interpretation|linebreaks }}</div>
+                <div class="label">How should you approach it in the future?</div>
+                <div>{{ observation.approach|linebreaks }}</div>
 
-            <div class="expand">
-            <div class="label">How you saw it, what you felt?</div>
-            <div>{{ observation.interpretation|linebreaks }}</div>
-            <div class="label">How should you approach it in the future?</div>
-            <div>{{ observation.approach|linebreaks }}</div>
-            </div>
-        </article>
-
-        {% empty %}
-        <div class="empty">
-            No articles yet.
-        </div>
+                <div class="detail-actions">
+                    <a href="{% url 'public-observation-closed-detail' observation.event_stream_id %}" class="btn">View timeline</a>
+                </div>
+            </article>
         {% endfor %}
+    </div>
+
 </div>
 
 {% endblock %}
