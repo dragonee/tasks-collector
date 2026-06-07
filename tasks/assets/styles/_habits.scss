@@ -3,3 +3,18 @@
 #id_habit_line-line {
     height: 4em;
 }
+
+// Single-habit page: occurrences grouped into month sections (the rail carries
+// the matching "Archive" of months + counts).
+.habit-month {
+    margin-top: 2.5rem;
+
+    &:first-child {
+        margin-top: 1rem;
+    }
+
+    h3 {
+        margin: 0;
+        color: #999;
+    }
+}

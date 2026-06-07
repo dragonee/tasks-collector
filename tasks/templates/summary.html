@@ -1,85 +1,91 @@
 {% extends 'base.html' %}
 {% load render_assets %}
 
+{% block body_class %}page-rail{% endblock %}
+
 {% block title %}Summaries | Tasks Collector{% endblock %}
 
 {% block content %}
-<!-- Vue entry-point -->
 
+<div class="split-layout content-rail no-rail">
+
+<div class="topbar">
+    <div class="upper-pane">
+        <h1>{% if single_view %}Summary{% else %}Summaries{% endif %}</h1>
+    </div>
     {% if not single_view %}
-    <div class="topbar">
-        <div class="upper-pane">
-            <h1>Summaries</h1>
-        </div>
-        <div class="lower-pane">
-            <form class="date-filters" method="get" action="{% url 'summaries' %}">
-                <label for="from">From:</label>
-                <input type="date" id="from" name="from" value="{{ request.GET.from }}" onchange="this.form.submit()">
+    <div class="lower-pane">
+        <form class="date-filters" method="get" action="{% url 'summaries' %}">
+            <label for="from">From:</label>
+            <input type="date" id="from" name="from" value="{{ request.GET.from }}" onchange="this.form.submit()">
 
-                <label for="to">To:</label>
-                <input type="date" id="to" name="to" value="{{ request.GET.to }}" onchange="this.form.submit()">
+            <label for="to">To:</label>
+            <input type="date" id="to" name="to" value="{{ request.GET.to }}" onchange="this.form.submit()">
 
-                {% if request.GET.from or request.GET.to %}
-                <a href="{% url 'summaries' %}">Reset</a>
-                {% endif %}
-            </form>
-        </div>
+            {% if request.GET.from or request.GET.to %}
+            <a href="{% url 'summaries' %}">Reset</a>
+            {% endif %}
+        </form>
     </div>
     {% endif %}
+</div>
 
-<div class="summaries">
+<div class="split-left">
+    <div class="summaries">
 
-    {% for summary in summaries %}
+        {% for summary in summaries %}
 
-    <article class="summary">
-        <h2>
-            {% if not single_view %}
-            <a href="{% url 'board-summary' summary.board.id %}">
+        <article class="summary" id="summary-{{ summary.board.id }}">
+            <h2>
+                {% if not single_view %}
+                <a href="{% url 'board-summary' summary.board.id %}">
+                    {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
+                </a>
+                {% else %}
                 {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
-            </a>
-            {% else %}
-            {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
-            {% endif %}
-            <span class="focus">
-                {{ summary.board.focus }}
+                {% endif %}
+                <span class="focus">
+                    {{ summary.board.focus }}
 
 
-                <small>
-                    [{{ summary.board.date_started|date:"Y-m-d" }} –
-                    {{ summary.board.date_closed|date:"Y-m-d" }},
-                    {{ summary.days }} days]
-                </small>
-            </span>
-        </h2>
+                    <small>
+                        [{{ summary.board.date_started|date:"Y-m-d" }} –
+                        {{ summary.board.date_closed|date:"Y-m-d" }},
+                        {{ summary.days }} days]
+                    </small>
+                </span>
+            </h2>
 
-        <div class="boxes">
-            {% if summary.finished_count > 0 %}
-            <ol class="finished">
-                {% for item in summary.finished %}
-                    {% include "item.html" %}
-                {% endfor %}
-            </ol>
-            {% endif %}
-    
-            {% if summary.postponed_count > 0 %}
-            <ol class="postponed">
-                {% for item in summary.postponed %}
-                    {% include "item.html" %}
-                {% endfor %}
-            </ol>
-            {% endif %}
-            {% if summary.removed_count > 0 %}
-            <ol class="removed">
-                {% for item in summary.removed %}
-                    {% include "item.html" %}
-                {% endfor %}
-            </ol>
-            {% endif %}
-        </div>
-    </article>
+            <div class="boxes">
+                {% if summary.finished_count > 0 %}
+                <ol class="finished">
+                    {% for item in summary.finished %}
+                        {% include "item.html" %}
+                    {% endfor %}
+                </ol>
+                {% endif %}
 
-    {% endfor %}
+                {% if summary.postponed_count > 0 %}
+                <ol class="postponed">
+                    {% for item in summary.postponed %}
+                        {% include "item.html" %}
+                    {% endfor %}
+                </ol>
+                {% endif %}
+                {% if summary.removed_count > 0 %}
+                <ol class="removed">
+                    {% for item in summary.removed %}
+                        {% include "item.html" %}
+                    {% endfor %}
+                </ol>
+                {% endif %}
+            </div>
+        </article>
+
+        {% endfor %}
+    </div>
+</div>
+
 </div>
 
 {% endblock %}
-

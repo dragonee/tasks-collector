@@ -1,45 +1,71 @@
 {% extends "base.html" %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-rail{% endblock %}
 
 {% block title %}{{ object.name }} | Habits | Tasks Collector{% endblock %}
 
 {% block content %}
 
+<div class="split-layout content-rail">
 
 <div class="topbar">
     <div class="upper-pane">
         <h1>Habit: {{ object.name }}</h1>
-        <span class="topbar-meta on-right">Total events: {{ total_event_count }}</span>
+    </div>
+    <div class="lower-pane">
+        Total events: {{ total_event_count }}
     </div>
 </div>
 
-<section class="journal">
-    <div class="cont">
-    </div>
+<div class="split-left">
+    <section class="journal">
+        <div class="calendar" data-color-from="#8de0f3" data-color-to="#4199ad" data-color-negative="#bfab59">
+            {% include "tree/calendar.html" %}
+        </div>
 
-    <div class="calendar" data-color-from="#8de0f3" data-color-to="#4199ad" data-color-negative="#bfab59">
-        {% include "tree/calendar.html" %}
-    </div>
-
-    <main>
-        <ul>
-            {% regroup tracked_habits by published.date as entries_by_date %}
-            {% for date, entries in entries_by_date %}
-                <li id="{{ date|date:"b-d" }}">
-                    <strong>{{ date|date:"d F" }}</strong>
+        <main>
+            {% regroup tracked_habits by published|date:"F Y" as tracked_by_month %}
+            {% for month, month_events in tracked_by_month %}
+                <section class="habit-month" id="{{ month_events.0.published|date:"Y-m" }}">
+                    <h3>{{ month }}</h3>
                     <ul>
-                        {% for event in entries %}
-                            <li>
-                                {% include event.template %}
+                        {% regroup month_events by published.date as entries_by_date %}
+                        {% for date, entries in entries_by_date %}
+                            <li id="{{ date|date:"b-d" }}">
+                                <strong>{{ date|date:"d F" }}</strong>
+                                <ul>
+                                    {% for event in entries %}
+                                        <li>
+                                            {% include event.template %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
                             </li>
                         {% endfor %}
                     </ul>
-                </li>
+                </section>
             {% empty %}
-                <li>No journal entries for this month.</li>
+                <p>No occurrences yet.</p>
+            {% endfor %}
+        </main>
+    </section>
+</div>
+
+<div class="split-right">
+    <aside class="months">
+        <h2>Archive</h2>
+        <ul>
+            {% regroup tracked_habits by published|date:"F Y" as tracked_by_month %}
+            {% for month, month_events in tracked_by_month %}
+                <li>
+                    <a href="#{{ month_events.0.published|date:"Y-m" }}">
+                        {{ month }} ({{ month_events|length }})
+                    </a>
+                </li>
             {% endfor %}
         </ul>
-    </main>
-</section>
+    </aside>
+</div>
+
+</div>
 {% endblock %}

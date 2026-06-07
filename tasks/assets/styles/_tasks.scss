@@ -533,6 +533,14 @@
     border: 0;
 }
 
+// On the content-rail layout the summaries fill the white left column instead
+// of being a centered fixed-min-width block.
+.content-rail .summaries {
+    width: auto;
+    min-width: 0;
+    margin: 0;
+}
+
 .summaries {
     width: 75%;
 

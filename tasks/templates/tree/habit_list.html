@@ -1,32 +1,33 @@
 {% extends "base.html" %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-rail{% endblock %}
 
 {% block title %}Habits | Tasks Collector{% endblock %}
 
 {% block content %}
 
+<div class="split-layout content-rail no-rail">
 
 <div class="topbar"><div class="upper-pane"><h1>Habits</h1></div></div>
 
-<section class="journal">
-    <div class="cont">
-    </div>
+<div class="split-left">
+    <section class="journal">
+        <main>
+            <dl>
+                {% for habit in object_list %}
+                    <dt id="habit-{{ habit.slug }}">
+                        <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.name }}</a></strong> ({{ habit.as_hashtags|join:', ' }})
+                    </dt>
+                    {% if habit.description %}
+                        <dd>
+                            {{ habit.description|linebreaks }}
+                        </dd>
+                    {% endif %}
+                {% endfor %}
+            </dl>
+        </main>
+    </section>
+</div>
 
-    <main>
-        <dl>
-            {% for habit in object_list %}
-                <dt>
-                    <strong><a href="{% url 'public-habit-detail' habit.slug %}">{{ habit.name }}</a></strong> ({{ habit.as_hashtags|join:', ' }})
-                </dt>
-                {% if habit.description %}
-                    <dd>
-                        {{ habit.description|linebreaks }}
-                    </dd>
-                {% endif %}
-            {% endfor %}
-        </dl>
-        </ul>
-    </main>
-</section>
+</div>
 {% endblock %}
