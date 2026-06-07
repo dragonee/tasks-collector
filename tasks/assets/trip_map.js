@@ -21,11 +21,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 const mapEl = document.getElementById('trip-map');
 const dataEl = document.getElementById('trip-map-data');
 
-const showEmpty = () => {
-    mapEl.classList.add('trip-map-empty');
-    mapEl.textContent = mapEl.dataset.emptyText || '';
-};
-
+// The template only renders the map (and loads this bundle) when the trip has
+// located entries, but guard anyway so a stray empty payload is a no-op.
 if (mapEl && dataEl) {
     let points = [];
     try {
@@ -34,9 +31,7 @@ if (mapEl && dataEl) {
         points = [];
     }
 
-    if (points.length === 0) {
-        showEmpty();
-    } else {
+    if (points.length > 0) {
         initMap(points);
     }
 }
