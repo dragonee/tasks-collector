@@ -1,9 +1,9 @@
-// Client-side filter for the observation list (/observations/).
+// Client-side filter for the Observations pages (live / closed / insights).
 //
 // All searchable text (situation, interpretation, approach and every update
-// comment) is already rendered into each article's `data-search` attribute by
-// the template, so this builds small in-memory stem indexes from the DOM and
-// hides the articles that don't match the query.
+// comment) is already rendered into each situation row's `data-search`
+// attribute by the template, so this builds small in-memory stem indexes from
+// the DOM and hides the situation rows that don't match the query.
 //
 // Stemming handles both Polish and English: every token is reduced by both the
 // Polish (lunr-languages) and English (lunr core) stemmers. Polish is only
@@ -115,7 +115,7 @@ const initObservationSearch = () => {
     }
 
     const articles = [
-        ...document.querySelectorAll("article.observation[data-search]"),
+        ...document.querySelectorAll(".situation-item[data-search]"),
     ];
 
     if (articles.length === 0) {
@@ -184,7 +184,11 @@ const initObservationSearch = () => {
         input.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
-    articles.forEach((article) => decorateTags(article, applyTag));
+    // Decorate [bracketed] shortcuts in both the situation list and the detail
+    // panels so they are clickable wherever they appear.
+    document
+        .querySelectorAll(".situation-item, .observation-detail")
+        .forEach((el) => decorateTags(el, applyTag));
 };
 
 initObservationSearch();

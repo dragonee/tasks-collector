@@ -1,9 +1,9 @@
-<p class="menu observation with-badges">
-    <a href="{% url 'public-observation-list' %}">Mine <span class="badge">{{ mine_count }}</span></a>
-    <a href="{% url 'public-observation-list-all' %}">All <span class="badge">{{ open_count }}</span></a>
-    <a href="{% url 'public-observation-list-closed' %}">Closed <span class="badge">{{ closed_count }}</span></a>
-    <a href="{% url 'public-insights-list' %}">Insights <span class="badge">{{ insights_count }}</span></a>
+<nav class="observation-tabs">
+    <a class="{% if active == 'public-observation-list' %}active{% endif %}" href="{% url 'public-observation-list' %}">Mine <span class="badge">{{ mine_count }}</span></a>
+    <a class="{% if active == 'public-observation-list-all' %}active{% endif %}" href="{% url 'public-observation-list-all' %}">All <span class="badge">{{ open_count }}</span></a>
+    <a class="{% if active == 'public-observation-list-closed' %}active{% endif %}" href="{% url 'public-observation-list-closed' %}">Closed <span class="badge">{{ closed_count }}</span></a>
+    <a class="{% if active == 'public-insights-list' %}active{% endif %}" href="{% url 'public-insights-list' %}">Insights <span class="badge">{{ insights_count }}</span></a>
     {% if attach_mode %}
-        <a href="?">Exit Attach Mode</a>
+        <a class="attach-exit" href="?">Exit Attach Mode</a>
     {% endif %}
-</p>
+</nav>

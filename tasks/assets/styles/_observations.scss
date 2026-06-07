@@ -399,3 +399,353 @@
         margin-left: 0;
     }
 }
+
+// === Observations: two-column master-detail layout (live / closed / insights) ===
+// An email-style reading view on the shared .split-layout grid: a white list of
+// situations on the left, the selected observation's full detail on the right.
+
+body.page-observations {
+    background: #f9f9f9;
+}
+
+.observations-layout {
+    // 40 / 60 split.
+    --split-cols: 2fr 3fr;
+
+    // Fixed viewport with independently scrolling columns (like a mail client).
+    height: 100vh;
+    overflow: hidden;
+
+    .split-left,
+    .split-right {
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    // Left: the white, shadowless situation list.
+    .split-left {
+        background: #fff;
+        border-right: 1px solid #e6e6e6;
+        padding: 0;
+    }
+
+    // Right: the reading pane.
+    .split-right {
+        background: #fff;
+        padding: 1.5rem 2rem 4rem;
+    }
+
+    // --- Upper pane: the filter sits in the middle, "+ New" on the right ---
+    .observation-filter-bar {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin: 0 1rem;
+
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .observation-filter-input {
+        flex: 1 1 auto;
+        min-width: 0;
+
+        padding: 0.35rem 0.75rem;
+
+        font-size: 0.95rem;
+        color: #343434;
+
+        background: #fff;
+        border: 1px solid #d3d8de;
+        border-radius: 4px;
+
+        &::placeholder {
+            color: #aab1ba;
+        }
+
+        &:focus {
+            outline: 0;
+            border-color: #4a7dfb;
+            box-shadow: 0 0 0 0.15rem rgba(74, 125, 251, 0.2);
+        }
+    }
+
+    .observation-filter-count {
+        flex: 0 0 auto;
+        font-size: 0.8rem;
+        color: #999;
+        white-space: nowrap;
+    }
+
+    .btn-new {
+        flex: 0 0 auto;
+
+        padding: 0.3rem 0.75rem;
+
+        border: 1px solid #c7d8f5;
+        border-radius: 4px;
+        background: #eef3fd;
+        color: #3367d6;
+
+        text-decoration: none;
+        font-size: 0.9rem;
+        white-space: nowrap;
+
+        &:hover {
+            background: #e0eaff;
+        }
+    }
+}
+
+// --- Lower pane: the Mine / All / Closed / Insights tabs ---
+.page-observations .lower-pane {
+    align-items: stretch;
+    padding: 0 12px;
+    gap: 0;
+}
+
+.observation-tabs {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+
+    a {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+
+        padding: 0 0.9rem;
+
+        color: #666;
+        text-decoration: none;
+        font-size: 0.95rem;
+
+        border-bottom: 2px solid transparent;
+
+        &:hover {
+            color: #205e7d;
+        }
+
+        &.active {
+            color: #205e7d;
+            font-weight: 600;
+            border-bottom-color: #205e7d;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #888;
+            background: #eef0f2;
+            border-radius: 9px;
+            padding: 0.2em 0.45em;
+        }
+
+        &.active .badge {
+            color: #205e7d;
+            background: #dbe9f1;
+        }
+    }
+
+    .attach-exit {
+        margin-left: auto;
+        color: #c0392b;
+
+        &:hover {
+            color: color.adjust(#c0392b, $lightness: -10%);
+        }
+    }
+}
+
+// --- Left column: situation list ---
+.situation-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    .empty {
+        padding: 2rem 1.25rem;
+        color: #999;
+        font-style: italic;
+    }
+}
+
+.situation-item {
+    position: relative;
+
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid #eee;
+
+    cursor: pointer;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+
+    transition: background 0.1s ease;
+
+    &:hover {
+        background: #f6f8fa;
+    }
+
+    &.selected {
+        background: #eef3fd;
+        box-shadow: inset 3px 0 0 #4a7dfb;
+    }
+
+    .situation-text {
+        color: #333;
+        font-weight: 600;
+        line-height: 1.4;
+
+        // Keep rows compact — a few lines, like an email subject/preview.
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+
+        p {
+            margin: 0;
+        }
+    }
+
+    .situation-meta {
+        color: #999;
+        font-size: 0.82rem;
+
+        .complex-badge {
+            font-style: normal;
+        }
+    }
+}
+
+// Attach mode: a checkbox in the gutter of each candidate row.
+.observations-layout.attach-mode {
+    .situation-item {
+        padding-left: 2.6rem;
+    }
+
+    .attach-toggle {
+        position: absolute;
+        left: 0.95rem;
+        top: 1.05rem;
+    }
+
+    .situation-item.is-base {
+        background: #fff7e6;
+        box-shadow: inset 3px 0 0 #ca8911;
+    }
+
+    .attach-hint {
+        margin: 0;
+        padding: 0.75rem 1.25rem;
+        background: #fff7e6;
+        border-bottom: 1px solid #f0e2c0;
+        color: #8a6d3b;
+        font-size: 0.9rem;
+    }
+}
+
+// --- Right column: detail pane ---
+.detail-empty {
+    color: #999;
+    font-style: italic;
+}
+
+.observation-detail {
+    display: none;
+    max-width: 48rem;
+
+    &.shown {
+        display: block;
+    }
+
+    .meta {
+        color: #999;
+        font-size: 1rem;
+        font-style: italic;
+
+        a {
+            color: #999;
+        }
+    }
+
+    .type {
+        color: #ca8911;
+    }
+
+    .strong {
+        color: #444;
+        font-weight: bold;
+        font-size: 1.15rem;
+        margin: 1rem 0;
+    }
+
+    .situation-italic {
+        font-style: italic;
+        color: #666;
+        margin-top: 0.5rem;
+    }
+
+    .label {
+        color: #999;
+        margin-top: 1.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .update {
+        margin-top: 1rem;
+    }
+
+    hr.just-line {
+        border: 0;
+        border-top: 1px solid #eee;
+        margin: 1.5rem 0;
+    }
+
+    .complex-badge {
+        display: inline-block;
+        margin-left: 0.25rem;
+
+        color: #4a7dfb;
+
+        font-size: 0.8rem;
+        font-style: normal;
+        white-space: nowrap;
+    }
+
+    .detail-actions {
+        margin-top: 2rem;
+        display: flex;
+        gap: 0.75rem;
+
+        .btn {
+            padding: 0.4rem 0.9rem;
+
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.9rem;
+
+            background: #1a5f8d;
+            color: #fff;
+            border: 1px solid #1a5f8d;
+
+            &:hover {
+                background: color.adjust(#1a5f8d, $lightness: -8%);
+            }
+
+            &.btn-outline {
+                background: #fff;
+                color: #1a5f8d;
+
+                &:hover {
+                    background: #eef3fd;
+                }
+            }
+        }
+    }
+}

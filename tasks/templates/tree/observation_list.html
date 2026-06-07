@@ -2,119 +2,122 @@
 {% load render_assets %}
 {% load observation_menu %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-observations{% endblock %}
 
 {% block title %}Observations | Tasks Collector{% endblock %}
 
 {% block content %}
-<!-- Vue entry-point -->
 
 {% csrf_token %}
-<div class="observations">
-    <div class="cont">
-        <div class="observation-filter-bar">
-            <input type="search"
-                   id="observation-filter"
-                   class="observation-filter-input"
-                   placeholder="Filter observations (Polish/English)…"
-                   autocomplete="off"
-                   aria-label="Filter observations">
-            <span id="observation-filter-count" class="observation-filter-count" aria-live="polite"></span>
-        </div>
+<div class="split-layout observations-layout{% if attach_mode %} attach-mode{% endif %}" data-base-obs="{{ attach_observation_id }}">
 
+    {% include "tree/_observation_topbar.html" %}
 
-        {% observation_menu attach_mode=attach_mode %}
-    </div>
-        {% for observation in object_list %}
-        <article class="observation{% if observation.attached_count %} is-complex{% endif %}"
-                 id="observation-{{ observation.pk }}"
-                 data-search="{{ observation.situation|default:'' }} {{ observation.interpretation|default:'' }} {{ observation.approach|default:'' }}{% for update in observation.observationupdated_set.all %} {{ update.comment|default:'' }}{% endfor %}">
-            {% if attach_mode and not attach_observation_id|stringformat:"s" == observation.pk|stringformat:"s" %}
-                <div class="attach-checkbox">
-                    <input type="checkbox" 
-                           id="attach-{{ observation.event_stream_id }}" 
-                           data-observation-id="{{ observation.pk }}"
-                           data-event-stream-id="{{ observation.event_stream_id }}"
-                           class="attach-toggle">
-                    <label for="attach-{{ observation.event_stream_id }}">Attach/Detach</label>
-                </div>
-            {% endif %}
+    <div class="split-left">
+        {% if attach_mode %}
+            <p class="attach-hint">Tick the observations to attach to <strong>#{{ attach_observation_id }}</strong>.</p>
+        {% endif %}
 
-            <div class="meta">{{ observation.pub_date }} (<span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span> <a href="{% url 'public-observation-edit' observation.pk %}">#{{ observation.pk }}</a>){% if observation.attached_count %} <span class="complex-badge" title="{{ observation.attached_count }} attached observation{{ observation.attached_count|pluralize }}">&#128206; {{ observation.attached_count }}</span>{% endif %}</div>
-            <div class="strong">{{ observation.situation|linebreaks }}</div>
-
-            <div class="expand">
-            <div class="label">How you saw it, what you felt?</div>
-            <div>{{ observation.interpretation|linebreaks }}</div>
-            <div class="label">How should you approach it in the future?</div>
-            <div>{{ observation.approach|linebreaks }}</div>
-
-            {% if not attach_mode %}
-                <a href="?attach_mode=true&observation_id={{ observation.pk }}" class="btn btn-sm btn-outline-secondary">Enter Attach Mode</a>
-            {% endif %}
-
-            {% if observation.observationupdated_set.all %}
-                <hr class="just-line">
-
-                {% for update in observation.observationupdated_set.all %}
-                    <div class="update">
-                        <p class="label">Updated on {{ update.published|date:"Y-m-d" }}</p>
-                        <div>
-                            {{ update.comment | linebreaks }}
-                        </div>
+        <ul class="situation-list">
+            {% for observation in object_list %}
+                <li class="situation-item{% if observation.attached_count %} is-complex{% endif %}{% if attach_mode and attach_observation_id|stringformat:"s" == observation.pk|stringformat:"s" %} is-base{% endif %}"
+                    data-obs="{{ observation.pk }}"
+                    data-search="{{ observation.situation|default:'' }} {{ observation.interpretation|default:'' }} {{ observation.approach|default:'' }}{% for update in observation.observationupdated_set.all %} {{ update.comment|default:'' }}{% endfor %}">
+                    {% if attach_mode and not attach_observation_id|stringformat:"s" == observation.pk|stringformat:"s" %}
+                        <input type="checkbox"
+                               id="attach-{{ observation.event_stream_id }}"
+                               data-observation-id="{{ observation.pk }}"
+                               data-event-stream-id="{{ observation.event_stream_id }}"
+                               class="attach-toggle"
+                               aria-label="Attach/Detach">
+                    {% endif %}
+                    <div class="situation-text">{{ observation.situation|linebreaks }}</div>
+                    <div class="situation-meta">
+                        {{ observation.pub_date }} ·
+                        <span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span> ·
+                        #{{ observation.pk }}{% if observation.attached_count %} · <span class="complex-badge" title="{{ observation.attached_count }} attached">&#128206; {{ observation.attached_count }}</span>{% endif %}
                     </div>
-                {% endfor %}
-            {% endif %}
-            </div>
-        </article>
+                </li>
+            {% empty %}
+                <li class="empty">
+                    No observations yet. <a href="{% url 'public-observation-add' %}">Create your first observation</a>.
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
 
-        {% empty %}
-        <div class="empty">
-            No observations yet. <a href="{% url 'public-observation-add' %}">Create your first observation</a>.
-        </div>
+    <div class="split-right">
+        <div class="detail-empty">Select an observation to view its details.</div>
+
+        {% for observation in object_list %}
+            <article class="observation-detail" data-obs="{{ observation.pk }}" id="observation-{{ observation.pk }}">
+                <div class="meta">{{ observation.pub_date }} (<span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span>; <span class="thread">{{ observation.thread }}</span> <a href="{% url 'public-observation-edit' observation.pk %}">#{{ observation.pk }}</a>){% if observation.attached_count %} <span class="complex-badge" title="{{ observation.attached_count }} attached observation{{ observation.attached_count|pluralize }}">&#128206; {{ observation.attached_count }}</span>{% endif %}</div>
+                <div class="strong">{{ observation.situation|linebreaks }}</div>
+
+                <div class="label">How you saw it, what you felt?</div>
+                <div>{{ observation.interpretation|linebreaks }}</div>
+                <div class="label">How should you approach it in the future?</div>
+                <div>{{ observation.approach|linebreaks }}</div>
+
+                {% if observation.observationupdated_set.all %}
+                    <hr class="just-line">
+                    {% for update in observation.observationupdated_set.all %}
+                        <div class="update">
+                            <p class="label">Updated on {{ update.published|date:"Y-m-d" }}</p>
+                            <div>{{ update.comment|linebreaks }}</div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="detail-actions">
+                    <a href="{% url 'public-observation-edit' observation.pk %}" class="btn">Edit</a>
+                    {% if not attach_mode %}
+                        <a href="?attach_mode=true&observation_id={{ observation.pk }}" class="btn btn-outline">Enter Attach Mode</a>
+                    {% endif %}
+                </div>
+            </article>
         {% endfor %}
+    </div>
+
 </div>
 
 {% endblock %}
 
-<!-- Load Vue app -->
 {% block extrajs %}
 {% if attach_mode %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const attachObservationId = '{{ attach_observation_id }}';
-    
+
     // Load current attachments and set checkbox states
     fetch(`/observations/${attachObservationId}/attachments/`)
         .then(response => response.json())
         .then(data => {
             const attachedStreamIds = data.attached_observation_stream_ids;
-            
-            // Set checkbox states based on current attachments
+
             document.querySelectorAll('.attach-toggle').forEach(checkbox => {
                 const eventStreamId = checkbox.dataset.eventStreamId;
                 checkbox.checked = attachedStreamIds.includes(eventStreamId);
             });
         })
         .catch(error => console.error('Error loading attachments:', error));
-    
+
     // Handle checkbox clicks
     document.querySelectorAll('.attach-toggle').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             const eventStreamId = this.dataset.eventStreamId;
             const observationId = this.dataset.observationId;
             const isAttaching = this.checked;
-            
+
             const url = `/observations/${attachObservationId}/${isAttaching ? 'attach' : 'detach'}/`;
             const data = {
                 other_event_stream_id: eventStreamId
             };
-            
-            // Add observation_id for attach requests (as fallback)
+
             if (isAttaching) {
                 data.other_observation_id = observationId;
             }
-            
+
             fetch(url, {
                 method: 'POST',
                 headers: {
@@ -126,21 +129,18 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    // Revert checkbox state on error
                     this.checked = !this.checked;
                     alert('Error: ' + data.error);
                 }
             })
             .catch(error => {
-                // Revert checkbox state on error
                 this.checked = !this.checked;
                 console.error('Error:', error);
                 alert('An error occurred. Please try again.');
             });
         });
     });
-    
-    // CSRF token helper function
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -159,4 +159,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 {% endif %}
 {% endblock %}
-
