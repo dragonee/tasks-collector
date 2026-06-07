@@ -24,7 +24,7 @@ from .models import (
 @login_required
 def breakthrough(request, year):
     year = int(year)
-    review_mode = request.GET.get("review") == "1"
+    review_mode = request.GET.get("review", "1") == "1"
     last_year = year if review_mode else year - 1
 
     try:
