@@ -130,9 +130,9 @@ class TripWebTestCase(TestCase):
         # A single-day trip hides the day-jump nav.
         self.assertNotContains(r, 'aside class="days"')
 
-    def test_trip_detail_multi_day_has_no_rail(self):
-        # The trip detail page is full-width (no-rail): no day-jump rail even
-        # when the trip spans several days.
+    def test_trip_detail_uses_map_layout_without_day_rail(self):
+        # The trip detail page is a two-column map (left) + history (right)
+        # layout — no day-jump rail even when the trip spans several days.
         self._note("Day one", published=timezone.now() - timedelta(days=2))
         self._note("Day three", published=timezone.now())
 
@@ -140,8 +140,25 @@ class TripWebTestCase(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Day one")
         self.assertContains(r, "Day three")
-        self.assertContains(r, "content-rail no-rail")
+        self.assertContains(r, "trip-map-layout")
+        self.assertContains(r, 'id="trip-map"')
+        self.assertContains(r, 'id="trip-map-data"')
         self.assertNotContains(r, 'aside class="days"')
+
+    def test_trip_detail_map_points_only_for_entries_with_coords(self):
+        # Notes carrying a #poi/#coords line become map points (id + lat/lng);
+        # notes without coordinates are left off the map.
+        located = self._note("#coords lat=38.71 lng=-9.14\nMiradouro")
+        self._note("Just a plain note, no location")
+
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        points = r.context["map_points"]
+        self.assertEqual([p["id"] for p in points], [located.pk])
+        self.assertAlmostEqual(points[0]["lat"], 38.71)
+        self.assertAlmostEqual(points[0]["lng"], -9.14)
+        self.assertEqual(points[0]["note"], "Miradouro")
+        self.assertFalse(points[0]["is_photo"])
 
     def test_trip_detail_same_day_shows_single_date(self):
         # A trip that starts and stops on the same (UTC) day shows one date,

@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
+{% load render_assets %}
 
-{% block body_class %}page-rail{% endblock %}
+{% block body_class %}page-rail trip-map-page{% endblock %}
 
 {% block title %}{{ story }} | Trips{% endblock %}
 
 {% block content %}
 
-<div class="split-layout content-rail no-rail">
+<div class="split-layout trip-map-layout">
 
 <div class="topbar">
     <div class="upper-pane">
@@ -25,16 +26,24 @@
 </div>
 
 <div class="split-left">
+    <div id="trip-map" data-empty-text="No locations recorded for this trip yet."></div>
+</div>
+
+<div class="split-right">
     <section class="journal trip-entries">
+        <div id="trip-history-filter" class="trip-history-filter hidden">
+            <span class="trip-history-filter-text"></span>
+            <button type="button" class="trip-history-filter-reset">Show all</button>
+        </div>
         <main>
             <ul>
                 {% regroup events by published.date as entries_by_date %}
                 {% for date, day_events in entries_by_date %}
-                    <li id="{{ date|date:"b-d" }}">
+                    <li id="{{ date|date:"b-d" }}" class="trip-day">
                         <strong>{{ date|date:"d F Y" }}</strong>
                         <ul>
                             {% for event in day_events %}
-                                <li>
+                                <li class="trip-entry" data-event-id="{{ event.id }}">
                                     {% include "tree/events/journal_added.html" with readonly=True hide_trip_marker=True %}
                                 </li>
                             {% endfor %}
@@ -49,4 +58,14 @@
 </div>
 
 </div>
+
+{{ map_points|json_script:"trip-map-data" }}
+{% endblock %}
+
+{% block extracss %}
+    {% render_css 'trip_map' %}
+{% endblock %}
+
+{% block extrajs %}
+    {% render_js 'trip_map' %}
 {% endblock %}
