@@ -1,7 +1,6 @@
 {% extends 'base.html' %}
 {% load render_assets %}
 {% load observation_menu %}
-{% load observation_calendar %}
 
 {% block body_class %}page-daily{% endblock %}
 
@@ -12,8 +11,6 @@
 
 <div class="observations">
     <div class="cont">
-
-        {% observation_calendar %}
 
         {% observation_menu %}
     </div>
