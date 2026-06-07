@@ -6,23 +6,28 @@
 {% block content %}
 <!-- Vue entry-point -->
 
-<div class="summaries">
-
     {% if not single_view %}
-    <div class="date-filters" style="margin-bottom: 20px;">
-        <form method="get" action="{% url 'summaries' %}" style="display: flex; gap: 10px; align-items: center;">
-            <label for="from">From:</label>
-            <input type="date" id="from" name="from" value="{{ request.GET.from }}" onchange="this.form.submit()">
+    <div class="topbar">
+        <div class="upper-pane">
+            <h1>Summaries</h1>
+        </div>
+        <div class="lower-pane">
+            <form class="date-filters" method="get" action="{% url 'summaries' %}">
+                <label for="from">From:</label>
+                <input type="date" id="from" name="from" value="{{ request.GET.from }}" onchange="this.form.submit()">
 
-            <label for="to">To:</label>
-            <input type="date" id="to" name="to" value="{{ request.GET.to }}" onchange="this.form.submit()">
+                <label for="to">To:</label>
+                <input type="date" id="to" name="to" value="{{ request.GET.to }}" onchange="this.form.submit()">
 
-            {% if request.GET.from or request.GET.to %}
-            <a href="{% url 'summaries' %}" style="margin-left: 10px;">Reset</a>
-            {% endif %}
-        </form>
+                {% if request.GET.from or request.GET.to %}
+                <a href="{% url 'summaries' %}">Reset</a>
+                {% endif %}
+            </form>
+        </div>
     </div>
     {% endif %}
+
+<div class="summaries">
 
     {% for summary in summaries %}
 

@@ -7,6 +7,13 @@
 $lower-pane: 40px;
 $upper-pane: 54px;
 
+// Expose the pane heights as CSS custom properties (seeded from the Sass vars)
+// so the Board topic-bar height can be tuned at runtime without a rebuild.
+:root {
+    --upper-pane: #{$upper-pane};
+    --lower-pane: #{$lower-pane};
+}
+
 @import './styles/general';
 @import './styles/sidebar';
 @import './styles/tasks';        // uses $upper-pane / $lower-pane (defined above)

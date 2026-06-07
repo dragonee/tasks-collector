@@ -8,42 +8,47 @@
 {% block content %}
 <!-- Vue entry-point -->
 
+<div class="topbar">
+    <div class="upper-pane">
+        <h1>{{ today|date:"l, d M Y" }}</h1>
+    </div>
+    <div class="lower-pane">
+        <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&lt;</a>
+        {% if not is_today and thread.name == 'Daily' %}
+            <a class="menulink" href="?date={{ actual_today|date:"Y-m-d" }}"><small>&times;</small></a>
+        {% endif %}
+
+
+        <select name="thread" id="thread">
+            {% for a_thread in threads %}
+            <option
+                value="{{ a_thread.name }}"
+                {% if a_thread.name == thread.name %}
+                    selected
+                {% endif %}
+            >{{ a_thread }}</option>
+            {% endfor %}
+        </select>
+        <script type="text/javascript">
+            const searchParams = new URLSearchParams(window.location.search);
+
+            function setThread(ev) {
+                searchParams.set('thread', ev.target.value);
+                window.location.search = searchParams.toString();
+            }
+
+            document
+                .getElementById('thread')
+                .addEventListener('change', setThread);
+        </script>
+        <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&gt;</a>
+    </div>
+</div>
+
 <div class="daily">
 <form action="" method="POST">
     {% csrf_token %}
     <div class="cont">
-
-        <h2>
-            <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&lt;</a>
-            {% if not is_today and thread.name == 'Daily' %}
-                <a class="menulink" href="?date={{ actual_today|date:"Y-m-d" }}"><small>&times;</small></a>
-            {% endif %}
-            {{ today|date:"l, d M Y" }}:
-
-            <select name="thread" id="thread">
-                {% for a_thread in threads %}
-                <option
-                    value="{{ a_thread.name }}"
-                    {% if a_thread.name == thread.name %}
-                        selected
-                    {% endif %}
-                >{{ a_thread }}</option>
-                {% endfor %}
-            </select>
-            <script type="text/javascript">
-                const searchParams = new URLSearchParams(window.location.search);
-
-                function setThread(ev) {
-                    searchParams.set('thread', ev.target.value);
-                    window.location.search = searchParams.toString();
-                }
-
-                document
-                    .getElementById('thread')
-                    .addEventListener('change', setThread);
-            </script>
-            <a class="menulink" href="?date={{ tomorrow|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&gt;</a>
-        </h2>
 
     </div>
 

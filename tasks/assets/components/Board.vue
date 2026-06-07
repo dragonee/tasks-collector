@@ -1,7 +1,47 @@
 <template>
     <div class="board">
-        <div class="upper-pane">
-            <h1>{{ startDate }}: <input v-model="focus" @blur="saveState" @keyup.stop></h1>
+        <div class="topbar">
+            <div class="upper-pane">
+                <h1>{{ startDate }}: <input v-model="focus" @blur="saveState" @keyup.stop></h1>
+                <button @click.prevent="prepareCommit" class="on-right">commit</button>
+            </div>
+            <div class="lower-pane">
+                <button @click.prevent="addItem">+</button>
+                <select @change="changeThread($event)">
+                    <option v-for="thread in threads" :key="thread.id" :value="thread.id" :selected="thread.id == currentThreadId">
+                        {{ thread.name }}
+                    </option>
+                </select>
+
+                <button @click.prevent="toggleListViewMode" class="secondary">{{ listViewMode ? 'tree' : 'list' }}</button>
+
+                <router-link class="menulink" to="/">Board</router-link>
+                <router-link class="menulink" to="/eisenhower">Eisenhower</router-link>
+                <router-link class="menulink" to="/moscow">MoSCoW</router-link>
+
+                <select
+                    v-show="!listViewMode"
+                    v-model="filterMode"
+                    class="filter-select"
+                >
+                    <option value="all">all</option>
+                    <option value="important">important</option>
+                    <option value="deprecated">deprecated</option>
+                    <option value="finalizing">clearable</option>
+                    <optgroup label="MoSCoW">
+                        <option value="moscow-must">Must have</option>
+                        <option value="moscow-should">Should have</option>
+                        <option value="moscow-could">Could have</option>
+                        <option value="moscow-wont">Won't have</option>
+                    </optgroup>
+                    <optgroup label="Eisenhower">
+                        <option value="eisenhower-urgent-important">Urgent &amp; Important</option>
+                        <option value="eisenhower-not-urgent-important">Not Urgent &amp; Important</option>
+                        <option value="eisenhower-urgent-not-important">Urgent &amp; Not Important</option>
+                        <option value="eisenhower-not-urgent-not-important">Not Urgent &amp; Not Important</option>
+                    </optgroup>
+                </select>
+            </div>
         </div>
 
         <tree
@@ -17,46 +57,6 @@
         </tree>
 
         <TreeListView v-show="listViewMode" />
-
-        <div class="lower-pane">
-            <button @click.prevent="addItem">+</button>
-            <select @change="changeThread($event)">
-                <option v-for="thread in threads" :key="thread.id" :value="thread.id" :selected="thread.id == currentThreadId">
-                    {{ thread.name }}
-                </option>
-            </select>
-
-            <button @click.prevent="toggleListViewMode" class="secondary">{{ listViewMode ? 'tree' : 'list' }}</button>
-
-            <router-link class="menulink" to="/">Board</router-link>
-            <router-link class="menulink" to="/eisenhower">Eisenhower</router-link>
-            <router-link class="menulink" to="/moscow">MoSCoW</router-link>
-
-            <select
-                v-show="!listViewMode"
-                v-model="filterMode"
-                class="filter-select on-right"
-            >
-                <option value="all">all</option>
-                <option value="important">important</option>
-                <option value="deprecated">deprecated</option>
-                <option value="finalizing">clearable</option>
-                <optgroup label="MoSCoW">
-                    <option value="moscow-must">Must have</option>
-                    <option value="moscow-should">Should have</option>
-                    <option value="moscow-could">Could have</option>
-                    <option value="moscow-wont">Won't have</option>
-                </optgroup>
-                <optgroup label="Eisenhower">
-                    <option value="eisenhower-urgent-important">Urgent &amp; Important</option>
-                    <option value="eisenhower-not-urgent-important">Not Urgent &amp; Important</option>
-                    <option value="eisenhower-urgent-not-important">Urgent &amp; Not Important</option>
-                    <option value="eisenhower-not-urgent-not-important">Not Urgent &amp; Not Important</option>
-                </optgroup>
-            </select>
-
-            <button @click.prevent="prepareCommit" :class="{ 'on-right': listViewMode }">commit</button>
-        </div>
 
         <CommitConfirmationModal
             :show="showCommitModal"

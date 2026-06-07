@@ -255,19 +255,16 @@
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr;
     grid-template-areas:
-        "column1 header"
+        "header  header"
         "column1 column2";
     gap: 0;
 
     header {
         grid-area: header;
-        padding: 0 20px;
+        margin-bottom: 0;
 
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-
+        // Layout comes from .topbar / .upper-pane / .lower-pane; this is just the
+        // grid cell + the Save button styling.
         button {
             padding: 0.5rem 1rem;
             font-size: 1.2rem;
