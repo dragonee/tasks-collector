@@ -53,6 +53,7 @@ export default {
         threads: null,
         currentThreadPtr: name_ptr(DEFAULT_NAME),
         filterMode: 'all',
+        listViewMode: false,
     },
 
     getters: {
@@ -144,6 +145,10 @@ export default {
 
         setFilterMode(state, mode) {
             state.filterMode = mode;
+        },
+
+        setListViewMode(state, listViewMode) {
+            state.listViewMode = listViewMode;
         }
     },
 
@@ -180,6 +185,13 @@ export default {
             commit('setCurrentThreadId', threadId)
 
             await dispatch('loadBoardsForThread', threadId)
+        },
+
+        async saveFocus({ getters, dispatch }, focus) {
+            await dispatch('save', {
+                state: getters.currentBoard.state,
+                focus,
+            })
         },
 
         async save({ commit, getters }, payload) {

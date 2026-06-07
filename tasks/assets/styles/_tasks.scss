@@ -408,6 +408,7 @@
 // .lower-pane in _general); the tree flex-fills the remaining viewport height.
 .board .topbar {
     margin-bottom: 0;
+    background: #f9f9f9;
 }
 
 .board .tree,
@@ -428,13 +429,41 @@
     input {
         padding: 0;
         border: 0;
-        margin: 0;
+        margin: 0 0 0 6px;
+        font-family: 'Raleway', sans-serif;
         font-size: 1em;
         outline: 0;
-        font-weight: bold;
+        font-weight: normal;
         flex: 1 1 auto;
         min-width: 0;
-        color: #666;
+        background: transparent;
+        color: #e8590c;
+    }
+}
+
+// Board topbar controls: a row of labeled, transparent-background selects
+// (Thread / Mode / Filter / Display) shared by Board, Eisenhower and MoSCoW.
+.board-controls {
+    gap: 1rem;
+
+    .control {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+        cursor: pointer;
+    }
+
+    .control-label {
+        color: #999;
+    }
+
+    select {
+        background: transparent;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        color: #343434;
+        cursor: pointer;
     }
 }
 
