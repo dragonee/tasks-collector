@@ -131,10 +131,13 @@ class TripWebTestCase(TestCase):
         self.assertNotContains(r, 'aside class="days"')
 
     def test_trip_detail_uses_map_layout_without_day_rail(self):
-        # The trip detail page is a two-column map (left) + history (right)
-        # layout — no day-jump rail even when the trip spans several days.
-        self._note("Day one", published=timezone.now() - timedelta(days=2))
-        self._note("Day three", published=timezone.now())
+        # With located entries the trip detail page is a two-column map (left) +
+        # history (right) layout — no day-jump rail even across several days.
+        self._note(
+            "#poi lat=38.7 lng=-9.1\nDay one",
+            published=timezone.now() - timedelta(days=2),
+        )
+        self._note("#poi lat=38.8 lng=-9.2\nDay three", published=timezone.now())
 
         r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
         self.assertEqual(r.status_code, 200)
@@ -144,6 +147,20 @@ class TripWebTestCase(TestCase):
         self.assertContains(r, 'id="trip-map"')
         self.assertContains(r, 'id="trip-map-data"')
         self.assertNotContains(r, 'aside class="days"')
+
+    def test_trip_detail_without_pois_shows_no_map(self):
+        # A trip whose entries carry no coordinates renders the plain
+        # full-width history — no map column and no Leaflet payload.
+        self._note("Just a walk, no location recorded")
+
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Just a walk, no location recorded")
+        self.assertEqual(r.context["map_points"], [])
+        self.assertNotContains(r, 'id="trip-map"')
+        self.assertNotContains(r, "trip-map-layout")
+        # Falls back to the full-width content layout.
+        self.assertContains(r, "content-rail no-rail")
 
     def test_trip_detail_map_points_only_for_entries_with_coords(self):
         # Notes carrying a #poi/#coords line become map points (id + lat/lng);

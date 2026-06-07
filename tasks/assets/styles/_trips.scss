@@ -114,16 +114,6 @@
     z-index: 0; // keep Leaflet panes/controls below the app sidebar
 }
 
-#trip-map.trip-map-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    color: #999;
-    font-size: 0.95rem;
-    text-align: center;
-}
-
 // Markers: photos as circular miniatures, notes as a small pin dot.
 .trip-map-marker {
     background: transparent;
