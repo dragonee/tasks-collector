@@ -169,11 +169,17 @@ function initMap(points) {
 // A circular photo miniature for photo entries; a small pin dot for notes.
 function iconFor(point) {
     if (point.is_photo && point.thumbnail_url) {
+        // Render the miniature as a background image on the <span> rather than
+        // an <img>: Leaflet's `.leaflet-marker-pane img` rule forces width:auto
+        // on marker images, so an <img> won't fill the circle. Setting the
+        // presigned S3 URL inline and verbatim (no encodeURI) keeps the SigV4
+        // signature intact — encodeURI double-encoded %2F -> %252F (S3 -> 400).
+        const span = document.createElement('span');
+        span.className = 'trip-map-pin trip-map-pin--photo';
+        span.style.backgroundImage = `url("${point.thumbnail_url}")`;
         return L.divIcon({
             className: 'trip-map-marker',
-            html: `<span class="trip-map-pin trip-map-pin--photo"><img src="${encodeURI(
-                point.thumbnail_url
-            )}" alt=""></span>`,
+            html: span,
             iconSize: [46, 46],
             iconAnchor: [23, 23],
             popupAnchor: [0, -24],
