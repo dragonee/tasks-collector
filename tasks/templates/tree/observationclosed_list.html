@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load render_assets %}
 {% load observation_menu %}
 
 {% block body_class %}page-observations{% endblock %}
@@ -10,7 +9,7 @@
 
 <div class="split-layout observations-layout" data-base-obs="">
 
-    {% include "tree/_observation_topbar.html" %}
+    {% observation_menu %}
 
     <div class="split-left">
         <ul class="situation-list">

@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load render_assets %}
 {% load observation_menu %}
 
 {% block body_class %}page-observations{% endblock %}
@@ -11,7 +10,7 @@
 {% csrf_token %}
 <div class="split-layout observations-layout{% if attach_mode %} attach-mode{% endif %}" data-base-obs="{{ attach_observation_id }}">
 
-    {% include "tree/_observation_topbar.html" %}
+    {% observation_menu attach_mode=attach_mode %}
 
     <div class="split-left">
         {% if attach_mode %}
