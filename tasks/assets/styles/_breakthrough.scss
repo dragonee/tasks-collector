@@ -28,55 +28,63 @@
     }
 }
 
-// Projected Outcome Events History styles
-.projected-outcome-history {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
+// Projected Outcome event history — same workspace layout as the observation
+// editor: current status (transparent left) + event history (white right).
+body.page-outcome-history {
+    background: #f9f9f9;
 }
 
-.outcome-summary {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 30px;
+.projected-outcome-workspace {
+    height: 100vh;
+    overflow: hidden;
 
-    .outcome-info p {
-        margin-bottom: 10px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas:
+        "header header"
+        "status history";
+
+    > .topbar {
+        grid-area: header;
+        margin-bottom: 0;
     }
-}
 
-.timeline {
-    position: relative;
-    padding-left: 30px;
+    .outcome-status {
+        grid-area: status;
+        background: transparent;
+        border-right: 1px solid #e6e6e6;
+    }
 
-    &::before {
-        content: '';
-        position: absolute;
-        left: 15px;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: #dee2e6;
+    .outcome-history {
+        grid-area: history;
+        background: #fff;
+    }
+
+    .outcome-status,
+    .outcome-history {
+        min-height: 0;
+        overflow-y: auto;
+        padding: 1.5rem 2rem;
+    }
+
+    // Column headings (not the per-event headings inside the timeline).
+    .outcome-status > h3,
+    .outcome-history > h3 {
+        margin-top: 0;
+        color: #999;
+    }
+
+    // Status fields use the shared .field-readonly style (black label + orange
+    // 1.3rem value, matching the observation fields).
+    .meta {
+        color: #999;
+        font-size: 0.9rem;
     }
 }
 
 .timeline-event {
-    position: relative;
     margin-bottom: 30px;
-
-    &::before {
-        content: '';
-        position: absolute;
-        left: -8px;
-        top: 10px;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: #007bff;
-        border: 2px solid white;
-        box-shadow: 0 0 0 2px #dee2e6;
-    }
 }
 
 .event-date {
@@ -88,14 +96,9 @@
     color: #6c757d;
 }
 
-.projected-outcome-history .event-content {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    padding: 20px;
-}
-
 .event-type {
+    padding-left: 1rem;
+
     h3 {
         margin: 0 0 15px 0;
         font-size: 1.1em;

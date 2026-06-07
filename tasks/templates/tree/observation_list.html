@@ -35,7 +35,7 @@
                     <div class="situation-meta">
                         {{ observation.pub_date }} ·
                         <span class="type" style="color: {{ observation.type.color }};">{{ observation.type }}</span> ·
-                        #{{ observation.pk }}{% if observation.attached_count %} · <span class="complex-badge" title="{{ observation.attached_count }} attached">&#128206; {{ observation.attached_count }}</span>{% endif %}
+                        #{{ observation.pk }}{% with update_count=observation.observationupdated_set.all|length %}{% if update_count %} · {{ update_count }} update{{ update_count|pluralize }}{% endif %}{% endwith %}{% if observation.attached_count %} · <span class="complex-badge" title="{{ observation.attached_count }} attached">&#128206; {{ observation.attached_count }}</span>{% endif %}
                     </div>
                 </li>
             {% empty %}
