@@ -1,0 +1,6 @@
+// Profile / account settings. The settings page otherwise reuses section.journal
+// (see _daily.scss); only the page background is specific to it.
+
+body.page-settings {
+    background: #f9f9f9;
+}
