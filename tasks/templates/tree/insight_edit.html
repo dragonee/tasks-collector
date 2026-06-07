@@ -1,60 +1,68 @@
 {% extends 'base.html' %}
-{% load render_assets %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-observation-edit{% endblock %}
 
 {% block title %}
-    {% if latest_insight %}
-        Edit Insight
-    {% else %}
-        Extract Insight
-    {% endif %}
+    {% if latest_insight %}Edit Insight{% else %}Extract Insight{% endif %}
 {% endblock %}
 
 {% block content %}
-<!-- Vue entry-point -->
 
-
-<div class="observations">
-    <div class="cont">
-    </div>
-
-<div class="observation-edit page">
-
-<form action="" method="POST">
+<form class="observation-editor" method="POST">
     {% csrf_token %}
 
-    <div class="form">
-
-        <div class="left">
-            <h3>Insight</h3>
-            <p class="meta">{{ instance.event_stream_id }} <br>Refine the situation and approach from your observation.</p>
-            {{ form.as_p }}
+    {# --- Topbar: original situation (left) + Save (right) --- #}
+    <div class="topbar">
+        <div class="upper-pane">
+            <a class="back-chevron" href="{% url 'public-insights-list' %}" aria-label="Back to insights">&lsaquo;</a>
+            <div class="editor-title">{{ instance.situation|truncatechars:100 }}</div>
+            <div class="editor-actions on-right">
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
         </div>
-
-        <div class="right">
-            <h3>Original Observation</h3>
-            <p class="meta">Closed on {{ instance.published|date }}</p>
-            <div class="situation">
-                <strong>Situation</strong>
-                {{ instance.situation|linebreaks }}
-            </div>
-            <div class="interpretation">
-                <strong>Interpretation</strong>
-                {{ instance.interpretation|linebreaks }}
-            </div>
-            <div class="approach">
-                <strong>Approach</strong>
-                {{ instance.approach|linebreaks }}
-            </div>
+        <div class="lower-pane">
+            <span class="stream-id">{{ instance.event_stream_id }}</span>
+            <span class="closed-meta">{% if latest_insight %}Insight{% else %}New insight{% endif %} &middot; closed {{ instance.published|date }}</span>
         </div>
     </div>
-    <div class="submit">
-        <div class="submit-buttons">
-            <button class="submit">Save</button>
+
+    {# --- Left: editable insight fields --- #}
+    <div class="editor-form">
+        {{ form.non_field_errors }}
+
+        <div class="field">
+            <label for="{{ form.approach.id_for_label }}">Approach</label>
+            {{ form.approach }}
+            {{ form.approach.errors }}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.situation.id_for_label }}">Situation</label>
+            {{ form.situation }}
+            {{ form.situation.errors }}
         </div>
     </div>
-    <div class="updates">
+
+    {# --- Right: original observation + history --- #}
+    <div class="editor-updates">
+        <h3>Original Observation</h3>
+
+        <div class="field-readonly">
+            <div class="label">Situation</div>
+            <div class="value">{{ instance.situation|linebreaks }}</div>
+        </div>
+        <div class="field-readonly">
+            <div class="label">Interpretation</div>
+            <div class="value">{{ instance.interpretation|linebreaks }}</div>
+        </div>
+        <div class="field-readonly">
+            <div class="label">Approach</div>
+            <div class="value">{{ instance.approach|linebreaks }}</div>
+        </div>
+
+        <hr class="just-line">
+
+        <h3>History</h3>
         {% for event in events %}
             <div class="event">
                 {% if event.template %}
@@ -65,8 +73,6 @@
             </div>
         {% endfor %}
     </div>
-</form>
-</div>
 
-</div>
+</form>
 {% endblock %}

@@ -1,61 +1,56 @@
 {% extends 'base.html' %}
-{% load render_assets %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-observation-edit{% endblock %}
 
-{% block title %}
-    {{ instance.situation_truncated }}
-{% endblock %}
+{% block title %}{{ instance.situation_truncated }}{% endblock %}
 
 {% block content %}
-<!-- Vue entry-point -->
 
+<div class="observation-closed">
 
-<div class="observations">
-    <div class="cont">
-    </div>
+    {# --- Topbar: truncated situation (left) + Insight action (right) --- #}
+    <div class="topbar">
+        <div class="upper-pane">
+            <a class="back-chevron" href="{% url 'public-observation-list-closed' %}" aria-label="Back to closed observations">&lsaquo;</a>
+            <div class="editor-title">{{ instance.situation|truncatechars:100 }}</div>
 
-<div class="observation-edit page">
-    <div class="form">
-
-        <div class="left">
-            <h3>Observation</h3>
-            <p class="meta">Opened for {{ time_to_closed }}</p>
-            <div class="situation">
-                {{ instance.situation|linebreaks }}
-            </div>
-            <div class="interpretation">
-                {{ instance.interpretation|linebreaks }}
-            </div>
-            <div class="approach">
-                {{ instance.approach|linebreaks }}
-            </div>
-
-            <div class="submit" style="margin-top: 1rem;">
+            <div class="editor-actions on-right">
                 {% if insight %}
-                    <a href="{% url 'public-insight-edit' instance.event_stream_id %}" class="btn btn-sm btn-outline-secondary">Edit Insight</a>
+                    <a class="btn-primary" href="{% url 'public-insight-edit' instance.event_stream_id %}">Insight</a>
                 {% else %}
-                    <form method="POST" action="{% url 'public-observation-extract-insight' instance.event_stream_id %}">
+                    <form method="post" action="{% url 'public-observation-extract-insight' instance.event_stream_id %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-primary">Extract Insight</button>
+                        <button type="submit" class="btn-primary">Extract insight</button>
                     </form>
                 {% endif %}
             </div>
         </div>
-
-        <div class="right">
-            <h3>Updates</h3>
-            <p class="meta"></p>
-            {% for update in updates %}
-                <div class="update">
-                    {{ update.comment|linebreaks }}
-                </div>
-            {% endfor %}
+        <div class="lower-pane">
+            <span class="stream-id">{{ instance.event_stream_id }}</span>
+            <span class="closed-meta">Opened for {{ time_to_closed }}</span>
         </div>
     </div>
-    <div class="updates">
-        <p class="meta">{{ events|length }} events total</p>
 
+    {# --- Left: the final, read-only observation --- #}
+    <div class="closed-fields">
+        <div class="field-readonly">
+            <div class="label">Situation</div>
+            <div class="value">{{ instance.situation|linebreaks }}</div>
+        </div>
+        <div class="field-readonly">
+            <div class="label">How you saw it, what you felt?</div>
+            <div class="value">{{ instance.interpretation|linebreaks }}</div>
+        </div>
+        <div class="field-readonly">
+            <div class="label">How should you approach it in the future?</div>
+            <div class="value">{{ instance.approach|linebreaks }}</div>
+        </div>
+    </div>
+
+    {# --- Right: the full event history --- #}
+    <div class="closed-history">
+        <h3>History</h3>
+        <p class="meta">{{ events|length }} event{{ events|length|pluralize }} total</p>
         {% for event in events %}
             <div class="event">
                 {% if event.template %}
@@ -66,7 +61,6 @@
             </div>
         {% endfor %}
     </div>
-</div>
 
 </div>
 {% endblock %}

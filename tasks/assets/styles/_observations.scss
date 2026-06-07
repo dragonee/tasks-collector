@@ -400,6 +400,617 @@
     }
 }
 
+// === Single observation editor (three columns + collapsible drawer) ===
+// Form column (situation / interpretation / approach) | editable updates |
+// a History / Complex drawer that expands as a third column on demand. The
+// <form> itself is the grid container so the topbar Save buttons submit it and
+// the htmx Close buttons carry the CSRF token. Mirrors the Daily form style.
+
+body.page-observation-edit {
+    background: #f9f9f9;
+}
+
+// Shared topbar bits for the observation editor and the closed-observation view:
+// the truncated situation title (left) and the action buttons (right).
+// (The back chevron lives in _general.scss as a reusable topbar affordance.)
+.upper-pane .editor-title {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #343434;
+}
+
+.editor-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    // The extract-insight action is a small <form>; let its button sit inline.
+    form {
+        display: contents;
+    }
+
+    button,
+    .btn-primary,
+    .btn-secondary {
+        display: inline-block;
+
+        font-family: inherit;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        cursor: pointer;
+        text-decoration: none;
+
+        padding: 0.4rem 0.85rem;
+        border: 1px solid #c5ccd2;
+        border-radius: 4px;
+    }
+
+    .btn-primary {
+        background: #0066cc;
+        color: #fff;
+        border-color: #0066cc;
+
+        &:hover {
+            background: #0057c1;
+            color: #fff;
+        }
+    }
+
+    .btn-secondary {
+        background: #fff;
+        color: #555;
+
+        &:hover {
+            background: #f1f3f5;
+        }
+    }
+
+    .split-action {
+        position: relative;
+        display: flex;
+        align-items: stretch;
+
+        > button:first-child {
+            border-radius: 4px 0 0 4px;
+        }
+
+        > .burger {
+            border-radius: 0 4px 4px 0;
+            border-left: 0;
+            padding: 0.4rem 0.5rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    .action-menu {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 0.25rem;
+        z-index: 1200;
+
+        min-width: 14rem;
+
+        background: #fff;
+        border: 1px solid #d3d8de;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+
+        button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.5rem 0.85rem;
+            border: 0;
+            background: transparent;
+            color: #343434;
+            white-space: nowrap;
+
+            &:hover {
+                background: #f1f3f5;
+                color: #343434;
+            }
+        }
+    }
+}
+
+.observation-editor {
+    height: 100vh;
+    overflow: hidden;
+
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas:
+        "header header"
+        "form   updates";
+
+    // Existing observations carry the drawer rail as a thin third column,
+    // expanding to a full panel when History or Complex is open.
+    &.with-drawer {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 2.75rem;
+        grid-template-areas:
+            "header header  header"
+            "form   updates drawer";
+
+        &.drawer-open {
+            grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 26rem;
+        }
+    }
+
+    > .topbar {
+        grid-area: header;
+        margin-bottom: 0;
+    }
+
+    .editor-form {
+        grid-area: form;
+    }
+    .editor-updates {
+        grid-area: updates;
+    }
+    .editor-drawer {
+        grid-area: drawer;
+    }
+
+    .editor-form,
+    .editor-updates {
+        min-height: 0;
+        overflow-y: auto;
+        padding: 1.5rem 2rem;
+    }
+
+    // The updates column is white; the form column and the drawer are
+    // transparent (page backdrop), separated by dividers.
+    .editor-form {
+        background: transparent;
+        border-right: 1px solid #e6e6e6;
+    }
+
+    .editor-updates {
+        background: #fff;
+    }
+
+    // Topbar title + action buttons are shared with the closed-observation
+    // view — see the top-level `.editor-title` / `.editor-actions` rules below.
+
+    // --- Left column: the observation form (Daily orange-underline style) ---
+    .editor-form {
+        .field {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            color: #999;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        textarea {
+            width: 100%;
+            display: block;
+            min-height: 5rem;
+
+            color: #e27410;
+            font-family: 'Raleway', sans-serif;
+            font-size: 1.3rem;
+
+            background-color: transparent;
+            border: 0;
+            border-bottom: 1px solid #d8dbdb;
+            padding: 0 0 0.25rem;
+            outline: none;
+
+            &::placeholder {
+                font-style: italic;
+                color: #999;
+            }
+        }
+
+        .field-meta {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+
+            .field {
+                flex: 1;
+                margin-bottom: 0;
+            }
+
+            select,
+            input {
+                width: 100%;
+                padding: 0.3rem 0.4rem;
+
+                border: 1px solid #e6e6e6;
+                border-radius: 4px;
+                background: #fff;
+
+                font-family: 'Raleway', sans-serif;
+                color: #205e7d;
+
+                &:focus {
+                    outline: none;
+                    border-color: #c7d8f5;
+                }
+            }
+        }
+    }
+
+    // --- Middle column: editable updates (and, on the insight page, the
+    //     original observation + history reference) ---
+    .editor-updates {
+        h3 {
+            margin-top: 0;
+            color: #999;
+        }
+
+        .meta {
+            color: #999;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        hr.just-line {
+            border: 0;
+            border-top: 1px solid #e6e6e6;
+            margin: 2rem 0;
+        }
+
+        .event {
+            margin: 0.4rem 0;
+        }
+
+        .update-form {
+            margin-bottom: 1.25rem;
+
+            textarea {
+                width: 100%;
+
+                border: 1px solid #f0f2f2;
+                border-radius: 4px;
+                padding: 0.5rem 0.75rem;
+
+                font-family: 'Raleway', sans-serif;
+                font-size: 1rem;
+                color: #205e7d;
+                outline: none;
+
+                &:focus,
+                &:hover {
+                    border-color: #e0e6e6;
+                }
+            }
+
+            .delete-update {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                margin-top: 0.35rem;
+
+                color: #b94a48;
+                font-size: 0.85rem;
+            }
+        }
+    }
+
+    // --- Right column: drawer (rail + expanding panel) ---
+    .editor-drawer {
+        min-height: 0;
+        display: flex;
+        flex-direction: row;
+        overflow: hidden;
+
+        background: transparent;
+        border-left: 1px solid #e6e6e6;
+    }
+
+    .drawer-panels {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-y: auto;
+        padding: 1.25rem 1.25rem 3rem;
+
+        display: none;
+    }
+
+    &.drawer-open .drawer-panels {
+        display: block;
+    }
+
+    .drawer-panel {
+        display: none;
+
+        &.shown {
+            display: block;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #999;
+        }
+
+        h4 {
+            color: #343a40;
+            font-size: 0.95rem;
+            margin: 1.25rem 0 0.5rem;
+        }
+
+        .drawer-empty {
+            color: #999;
+            font-style: italic;
+        }
+    }
+
+    .drawer-history .event {
+        margin: 0.4rem 0;
+    }
+
+    .drawer-rail {
+        flex: 0 0 2.75rem;
+        display: flex;
+        flex-direction: column;
+
+        border-left: 1px solid #e6e6e6;
+        background: #f3f4f6;
+
+        button {
+            flex: 1 1 auto;
+
+            border: 0;
+            border-bottom: 1px solid #e6e6e6;
+            background: transparent;
+            cursor: pointer;
+
+            color: #666;
+            font-family: inherit;
+            font-size: 0.85rem;
+
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+
+            &:hover {
+                background: #e9ecef;
+                color: #205e7d;
+            }
+
+            &.active {
+                background: #fff;
+                color: #205e7d;
+                font-weight: 600;
+            }
+        }
+    }
+
+    // --- Complex panel innards ---
+    .search-container {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    #observation-search {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1100;
+
+        background: #fff;
+        border: 1px solid #ced4da;
+        border-top: 0;
+        border-radius: 0 0 4px 4px;
+
+        max-height: 300px;
+        overflow-y: auto;
+
+        display: none;
+    }
+
+    .search-result {
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid #eee;
+        font-size: 0.85rem;
+
+        &:hover {
+            background: #f8f9fa;
+        }
+
+        .result-meta {
+            color: #999;
+            font-size: 0.78rem;
+        }
+
+        .attach-btn {
+            margin-top: 0.3rem;
+            padding: 0.2rem 0.5rem;
+
+            background: #1a5f8d;
+            color: #fff;
+            border: 0;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+
+            &:hover {
+                background: color.adjust(#1a5f8d, $lightness: -8%);
+            }
+        }
+    }
+
+    .no-results,
+    .search-error,
+    .no-attached,
+    .no-events {
+        color: #999;
+        font-style: italic;
+        font-size: 0.85rem;
+        padding: 0.4rem 0;
+    }
+
+    // Compact, one-line attached observations.
+    .attached-list {
+        margin-bottom: 1rem;
+    }
+
+    .attached-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+
+        padding: 0.3rem 0;
+        border-bottom: 1px solid #eee;
+        font-size: 0.85rem;
+
+        .attached-sit {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        &.closed .attached-sit {
+            color: #999;
+        }
+
+        .detach-btn {
+            flex: 0 0 auto;
+            padding: 0 0.25rem;
+
+            background: transparent;
+            border: 0;
+            color: #b94a48;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+
+            &:hover {
+                color: #922;
+            }
+        }
+    }
+
+    .attached-event {
+        margin-bottom: 0.4rem;
+        padding: 0.4rem 0.5rem;
+
+        border: 1px solid #eee;
+        border-radius: 4px;
+        font-size: 0.82rem;
+
+        .event-meta {
+            color: #999;
+            font-size: 0.75rem;
+            margin-bottom: 0.2rem;
+        }
+    }
+}
+
+// Read-only field display (closed observation fields, and the "Original
+// Observation" reference on the insight page). Black label, orange value to
+// mirror the editor's editable fields.
+.field-readonly {
+    margin-bottom: 2.5rem;
+
+    .label {
+        color: #1a1a1a;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .value {
+        color: #e27410;
+        font-size: 1.3rem;
+
+        p:first-child {
+            margin-top: 0;
+        }
+
+        p:last-child {
+            margin-bottom: 0;
+        }
+    }
+}
+
+// === Closed observation detail (read-only): fields + history ===
+// Mirrors the editor's two main columns — final situation / interpretation /
+// approach on the (transparent) left, the event history on the (white) right.
+.observation-closed {
+    height: 100vh;
+    overflow: hidden;
+
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas:
+        "header header"
+        "fields history";
+
+    > .topbar {
+        grid-area: header;
+        margin-bottom: 0;
+    }
+
+    .closed-fields {
+        grid-area: fields;
+        background: transparent;
+        border-right: 1px solid #e6e6e6;
+    }
+
+    .closed-history {
+        grid-area: history;
+        background: #fff;
+    }
+
+    .closed-fields,
+    .closed-history {
+        min-height: 0;
+        overflow-y: auto;
+        padding: 1.5rem 2rem;
+    }
+
+    .closed-history {
+        h3 {
+            margin-top: 0;
+            color: #999;
+        }
+
+        .meta {
+            color: #999;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        .event {
+            margin: 0.4rem 0;
+        }
+    }
+
+    .lower-pane {
+        gap: 1rem;
+
+        .closed-meta {
+            color: #999;
+        }
+    }
+}
+
 // === Observations: two-column master-detail layout (live / closed / insights) ===
 // An email-style reading view on the shared .split-layout grid: a white list of
 // situations on the left, the selected observation's full detail on the right.
