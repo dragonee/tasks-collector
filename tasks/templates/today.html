@@ -6,11 +6,12 @@
 {% block title %}{{ today|date:"l, d M Y" }} | Tasks Collector{% endblock %}
 
 {% block content %}
-<!-- Vue entry-point -->
+<div class="split-layout">
 
 <div class="topbar">
     <div class="upper-pane">
         <h1>{{ today|date:"l, d M Y" }}</h1>
+        <button type="submit" form="daily-form" class="on-right">Save</button>
     </div>
     <div class="lower-pane">
         <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&lt;</a>
@@ -45,87 +46,51 @@
     </div>
 </div>
 
-<div class="daily">
-<form action="" method="POST">
-    {% csrf_token %}
-    <div class="cont">
+<div class="split-left">
+    <form id="daily-form" action="" method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="thread" value="{{ thread.name }}">
 
-    </div>
+        <div class="navigation">
+            {% for plan in larger_plans %}
+                <div class="larger-plan small-plan">
+                    <h3>{{ plan.thread.name }} plan</h3>
+                    {% if plan.focus %}
+                        <div class="focus">
+                            {{ plan.focus|linebreaks }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
 
-    <div class="form">
-
-
-        <div class="left">
-            <div class="navigation">
-
-                {% for plan in larger_plans %}
-                    <div class="larger-plan small-plan">
-                        <h3>{{ plan.thread.name }} plan</h3>
-                        {% if plan.focus %}
-                            <div class="focus">
-                                <h4>Focus</h4>
-                                {{ plan.focus|linebreaks }}
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-
-
-            </div>
-
+        <div class="plans-row">
             <div class="plan">
-            <h3>Today's plan</h3>
-            {{ today_plan_form.as_p }}
+                <h3>Today's plan</h3>
+                {{ today_plan_form.as_p }}
             </div>
 
             <div class="tomorrow">
-            <h3>Tomorrow's plan</h3>
-            {{ tomorrow_plan_form.as_p }}
+                <h3>Tomorrow's plan</h3>
+                {{ tomorrow_plan_form.as_p }}
             </div>
         </div>
 
-        <div class="right">
-
-            <div class="reflection">
+        <div class="reflection">
             <h3>Today's reflection</h3>
             {{ reflection_form.as_p }}
-            </div>
-
-            <div class="habits">
-                <h3>Habits</h3>
-                <p>
-                    Use the <code>journal</code> tool to add habits to the application. Use the following tags:<br>
-                    <small>{% for habit in habits %}{{ habit.as_hashtags|join:', ' }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>
-                </p>
-                {% if tracked_habits %}
-                    <p>
-                    {% for item in tracked_habits %}
-                        <span>
-                        {% if item.occured %}<input type="checkbox" readonly checked disabled>{% else %}<input type="checkbox" readonly disabled>{% endif %}
-                        {{ item.habit }}: {{ item.note }}
-                        </span><br>
-                    {% endfor %}
-                    </p>
-                {% else %}
-                    <p>No habits found.</p>
-                {% endif %}
-            </div>
-
-            <button>Submit</button>
         </div>
-    </div>
-</form>
+    </form>
+</div>
 
+<div class="split-right">
     <section class="journal">
-        <h1>Journal Entries </h1>
-        <a href="{% url 'public-journal-add' %}">+Add Journal Entry</a>
-
         <main>
             <ul>
                 {% regroup journals by published.date as entries_by_date %}
                 {% for date, entries in entries_by_date %}
                     <li id="{{ date|date:"b-d" }}">
-                        <strong>{{ date|date:"d F" }}</strong>
+                        {% if not period_is_single_day %}<strong>{{ date|date:"d F" }}</strong>{% endif %}
                         <ul>
                             {% for event in entries %}
                                 <li>
@@ -140,6 +105,24 @@
             </ul>
         </main>
     </section>
+
+    <div class="habits">
+        <h3>Habits</h3>
+        {% if tracked_habits %}
+            <p>
+            {% for item in tracked_habits %}
+                <span>
+                {% if item.occured %}<input type="checkbox" readonly checked disabled>{% else %}<input type="checkbox" readonly disabled>{% endif %}
+                {{ item.habit }}: {{ item.note }}
+                </span><br>
+            {% endfor %}
+            </p>
+        {% else %}
+            <p>No habits found.</p>
+        {% endif %}
+    </div>
+</div>
+
 </div>
 
 {% endblock %}

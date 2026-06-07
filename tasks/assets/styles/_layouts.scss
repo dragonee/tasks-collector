@@ -1,0 +1,30 @@
+// Reusable full-height split layouts: a full-width header row (the .topbar) above
+// two columns that fill the viewport, modeled on the Breakthrough grid. Set
+// --split-cols to change the column ratio (default 40/60, left at least 50rem).
+
+.split-layout {
+    min-height: 100vh;
+
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: var(--split-cols, minmax(50rem, 2fr) 3fr);
+    grid-template-areas:
+        "header header"
+        "left   right";
+    gap: 0;
+
+    > .topbar {
+        grid-area: header;
+        margin-bottom: 0;
+    }
+
+    > .split-left {
+        grid-area: left;
+        min-width: 0;
+    }
+
+    > .split-right {
+        grid-area: right;
+        min-width: 0;
+    }
+}
