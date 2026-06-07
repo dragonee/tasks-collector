@@ -19,7 +19,6 @@
     "sass": "^1.79.3"
   },
   "dependencies": {
-    "bootstrap": "^4.6.2",
     "deep-equal": "^2.2.3",
     "lunr": "^2.3.9",
     "lunr-languages": "^1.20.0",
