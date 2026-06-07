@@ -1,8 +1,6 @@
 import datetime
 from abc import ABC, abstractmethod
-from collections import Counter
 from datetime import date
-from re import A
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -10,17 +8,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .forms import PlanForm, ReflectionForm
-from .models import Event, Habit, HabitTracked, JournalAdded, Plan, Reflection, Thread
+from .models import Habit, HabitTracked, JournalAdded, Plan, Reflection, Thread
 from .utils.datetime import (
-    DayCount,
     adjust_start_date_to_monday,
-    date_range_generator,
-    generate_periods,
-    get_week_period,
     make_last_day_of_the_month,
     make_last_day_of_the_week,
 )
-from .utils.itertools import itemize
 from .views_trip import attach_photo_urls
 
 
