@@ -130,13 +130,41 @@ class TripWebTestCase(TestCase):
         # A single-day trip hides the day-jump nav.
         self.assertNotContains(r, 'aside class="days"')
 
-    def test_trip_detail_multi_day_shows_day_nav(self):
+    def test_trip_detail_multi_day_has_no_rail(self):
+        # The trip detail page is full-width (no-rail): no day-jump rail even
+        # when the trip spans several days.
         self._note("Day one", published=timezone.now() - timedelta(days=2))
         self._note("Day three", published=timezone.now())
 
         r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, 'aside class="days"')
+        self.assertContains(r, "Day one")
+        self.assertContains(r, "Day three")
+        self.assertContains(r, "content-rail no-rail")
+        self.assertNotContains(r, 'aside class="days"')
+
+    def test_trip_detail_same_day_shows_single_date(self):
+        # A trip that starts and stops on the same (UTC) day shows one date,
+        # not a start–stop range, in the topbar lower pane.
+        start = timezone.now().replace(hour=8, minute=0, second=0, microsecond=0)
+        self.story.started = start
+        self.story.stopped = start.replace(hour=20)
+        self.story.save()
+
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "&ndash;")
+
+    def test_trip_detail_multi_day_shows_date_range(self):
+        # A trip spanning days shows a start–stop range in the lower pane.
+        start = timezone.now().replace(hour=8, minute=0, second=0, microsecond=0)
+        self.story.started = start
+        self.story.stopped = start + timedelta(days=2)
+        self.story.save()
+
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "&ndash;")
 
     @mock.patch(f"{STORAGE}.presign_get_web")
     def test_trip_detail_renders_photo_thumbnail(self, presign_get_web):
