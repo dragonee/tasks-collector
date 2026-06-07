@@ -7,12 +7,11 @@
 
 {% block content %}
 
-<section class="journal">
-    <div class="cont">
+<div class="topbar">
+    <div class="upper-pane">
+        <h1>Journal Entries for {{ month|date:"F Y" }} {% if tag %}tagged "{{ tag.name }}"{% endif %}</h1>
     </div>
-
-    <h1>Journal Entries for {{ month|date:"F Y" }} {% if tag %}tagged "{{ tag.name }}"{% endif %}</h1>
-
+    <div class="lower-pane">
     Show:
     <select onchange="if (this.value) window.location.href=this.value">
         {% if is_current_month %}
@@ -40,6 +39,12 @@
         <option value="asc" {% if order == 'asc' %}selected{% endif %}>Ascending</option>
         <option value="desc" {% if order == 'desc' %}selected{% endif %}>Descending</option>
     </select>
+    </div>
+</div>
+
+<section class="journal">
+    <div class="cont">
+    </div>
 
     <aside class="months">
         <h2>Archive</h2>

@@ -24,6 +24,77 @@ body, html {
     width: 0.5rem;
 }
 
+// Reusable page heading bar: a full-width, two-row header that sits OUTSIDE the
+// page's centered container. Row 1 (.upper-pane) holds the prominent title and
+// right-aligned actions (.on-right); row 2 (.lower-pane) holds filters / nav.
+// Both panes are fixed-height (--upper-pane / --lower-pane). Modeled on the Board.
+.topbar {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #efefef;
+}
+
+.upper-pane {
+    height: var(--upper-pane);
+    padding: 0 20px;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+
+    // Tighten the gap to the lower-pane, but only when one actually follows.
+    &:has(+ .lower-pane) {
+        margin-bottom: -10px;
+    }
+
+    h1, h2, h3 {
+        margin: 0;
+        color: #343434;
+        font-weight: 600;
+        font-size: 1.6rem;
+    }
+
+    .topbar-meta {
+        color: #999;
+        font-size: 0.95rem;
+    }
+}
+
+.lower-pane {
+    height: var(--lower-pane);
+    padding: 0 20px;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+
+    font-size: 0.9rem;
+    color: #666;
+
+    select {
+        font-family: 'Raleway', sans-serif;
+        font-size: 0.9rem;
+        padding: 0.15rem 0.35rem;
+    }
+
+    .menulink {
+        font-size: 0.95rem;
+    }
+
+    .date-filters {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+
+        a {
+            margin-left: 10px;
+        }
+    }
+}
+
 .menu a, .menulink {
     color: #205e7d;
     text-decoration: none;

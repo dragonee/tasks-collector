@@ -1,6 +1,8 @@
 <template>
+    <div>
+    <div class="topbar"><div class="upper-pane"><h1>Cognitive Functions</h1></div></div>
+
     <div class="enfp-dashboard">
-        <h1 class="mb-4 text-center">Cognitive Functions</h1>
 
         <p v-if="loading" class="text-center">Loading…</p>
 
@@ -152,6 +154,7 @@
                 </div>
             </section>
         </template>
+    </div>
     </div>
 </template>
 
