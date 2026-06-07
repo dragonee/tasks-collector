@@ -132,14 +132,15 @@
     overflow: hidden;
     border: 2px solid #fff;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-    background: #f3f4f6;
-
-    img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
+    // Render the photo as a background rather than an <img>. Leaflet's
+    // `.leaflet-marker-pane img` rule forces width:auto on every marker image
+    // (higher specificity, and trip_map.css loads after app.css), so an <img>
+    // can't fill the circle without !important. A background sidesteps that
+    // entirely. The URL is set inline by iconFor() in trip_map.js.
+    background-color: #f3f4f6;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
 }
 
 .trip-map-pin--note {
