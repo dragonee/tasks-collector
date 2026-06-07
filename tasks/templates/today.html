@@ -16,7 +16,6 @@
 <form action="" method="POST">
     {% csrf_token %}
     <div class="cont">
-        {% include "menu.html" %}
 
         <h2>
             <a class="menulink" href="?date={{ yesterday|date:"Y-m-d" }}{% if thread.name != 'Daily' %}&thread={{ thread.name }}{% endif %}">&lt;</a>
