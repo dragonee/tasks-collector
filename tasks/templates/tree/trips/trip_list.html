@@ -1,28 +1,16 @@
 {% extends 'base.html' %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-rail{% endblock %}
 
 {% block title %}Trips | Tasks Collector{% endblock %}
 
 {% block content %}
 
+<div class="split-layout content-rail">
+
 <div class="topbar"><div class="upper-pane"><h1>Trips</h1></div></div>
 
-<section class="journal">
-    <div class="cont">
-    </div>
-
-    <aside class="months">
-        <h2>Archive</h2>
-        <ul>
-            {% for month in months %}
-                <li>
-                    <a href="#{{ month|date:"Y-m" }}">{{ month|date:"F Y" }}</a>
-                </li>
-            {% endfor %}
-        </ul>
-    </aside>
-
+<div class="split-left">
     <main class="trip-months">
         {% regroup trips by started|date:"F Y" as trips_by_month %}
         {% for month, month_trips in trips_by_month %}
@@ -53,5 +41,20 @@
             <p>No trips yet.</p>
         {% endfor %}
     </main>
-</section>
+</div>
+
+<div class="split-right">
+    <aside class="months">
+        <h2>Archive</h2>
+        <ul>
+            {% for month in months %}
+                <li>
+                    <a href="#{{ month|date:"Y-m" }}">{{ month|date:"F Y" }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </aside>
+</div>
+
+</div>
 {% endblock %}

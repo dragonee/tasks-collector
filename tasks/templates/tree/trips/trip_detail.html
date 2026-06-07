@@ -1,56 +1,52 @@
 {% extends 'base.html' %}
 
-{% block body_class %}page-daily{% endblock %}
+{% block body_class %}page-rail{% endblock %}
 
 {% block title %}{{ story }} | Trips{% endblock %}
 
 {% block content %}
 
-<section class="journal trip-entries">
-    <div class="cont">
-    </div>
+<div class="split-layout content-rail no-rail">
 
-    <h1>{{ story }}</h1>
-    <p class="trip-meta">
-        {{ story.started|date:"D, d M Y H:i" }}
+<div class="topbar">
+    <div class="upper-pane">
+        <h1>{{ story }}</h1>
+    </div>
+    <div class="lower-pane">
+        {{ story.started|date:"D, d M Y" }}
         {% if story.stopped %}
-            &ndash; {{ story.stopped|date:"D, d M Y H:i" }}
+            {% if story.started|date:"Y-m-d" != story.stopped|date:"Y-m-d" %}
+                &ndash; {{ story.stopped|date:"D, d M Y" }}
+            {% endif %}
         {% else %}
             &middot; <strong>active</strong>
         {% endif %}
-    </p>
+    </div>
+</div>
 
-    {% regroup events by published.date as entries_by_date %}
+<div class="split-left">
+    <section class="journal trip-entries">
+        <main>
+            <ul>
+                {% regroup events by published.date as entries_by_date %}
+                {% for date, day_events in entries_by_date %}
+                    <li id="{{ date|date:"b-d" }}">
+                        <strong>{{ date|date:"d F Y" }}</strong>
+                        <ul>
+                            {% for event in day_events %}
+                                <li>
+                                    {% include "tree/events/journal_added.html" with readonly=True hide_trip_marker=True %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% empty %}
+                    <li>No entries in this trip yet.</li>
+                {% endfor %}
+            </ul>
+        </main>
+    </section>
+</div>
 
-    {% if entries_by_date|length > 1 %}
-    <aside class="days">
-        <ul>
-        {% for date, day_events in entries_by_date %}
-            <li>
-                <a href="#{{ date|date:"b-d" }}">{{ date|date:"d" }}</a>
-            </li>
-        {% endfor %}
-        </ul>
-    </aside>
-    {% endif %}
-
-    <main>
-        <ul>
-            {% for date, day_events in entries_by_date %}
-                <li id="{{ date|date:"b-d" }}">
-                    <strong>{{ date|date:"d F Y" }}</strong>
-                    <ul>
-                        {% for event in day_events %}
-                            <li>
-                                {% include "tree/events/journal_added.html" with readonly=True hide_trip_marker=True %}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </li>
-            {% empty %}
-                <li>No entries in this trip yet.</li>
-            {% endfor %}
-        </ul>
-    </main>
-</section>
+</div>
 {% endblock %}

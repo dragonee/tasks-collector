@@ -28,3 +28,147 @@
         min-width: 0;
     }
 }
+
+// === Content + rail variant ===
+// A white content column on the LEFT, in line with the topbar, plus a transparent
+// rail on the RIGHT for sticky navigation (day jump-lists, month/section
+// archives). Shared by the diary, trips, habits, and task summaries. Pair with
+// `page-rail` on the <body> for the surrounding off-white backdrop.
+body.page-rail {
+    background: #f9f9f9;
+}
+
+.split-layout.content-rail {
+    --split-cols: minmax(50rem, 1fr) 16rem;
+
+    .split-left {
+        background: #fff;
+        padding: 1.5rem 2.5rem 1.5rem 1.5rem;
+
+        // Let an embedded journal section fill the column rather than render as
+        // its own centered card.
+        section.journal {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+        }
+
+        .pagination {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: flex-start;
+            gap: 0.75rem;
+
+            a {
+                color: #0066cc;
+                text-decoration: none;
+
+                &:hover {
+                    text-decoration: underline;
+                }
+            }
+        }
+    }
+
+    .split-right {
+        padding: 1.5rem 1.25rem;
+        background: transparent;
+
+        display: flex;
+        flex-direction: row;
+        gap: 1.25rem;
+        align-items: flex-start;
+    }
+
+    // Rail-less variant: drop the right rail and let the white content column
+    // fill the full width, still in line with the topbar. Add `no-rail` to the
+    // .split-layout and omit the .split-right element.
+    &.no-rail {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "header"
+            "left";
+    }
+}
+
+// Rail nav blocks. Default is a vertical link list (month / section archives);
+// add `.days` for a wrap of compact day-number jump chips.
+.content-rail .split-right aside {
+    position: sticky;
+    top: 20px;
+    flex: 1 1 auto;
+
+    // Defend against the floated, faded styling asides pick up inside
+    // section.journal on the older centered layouts.
+    float: none;
+    margin: 0;
+    width: auto;
+    max-width: none;
+    opacity: 1;
+
+    background: transparent;
+    border: 0;
+    padding: 0;
+
+    h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    ul {
+        margin: 0;
+        padding-left: 0;
+    }
+
+    li {
+        list-style: none;
+        margin-bottom: 0.5rem;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    a {
+        color: #0066cc;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+// Day jump-list: a narrow column of day-number chips.
+.content-rail .split-right aside.days {
+    flex: 0 0 auto;
+
+    li {
+        margin-bottom: 0;
+    }
+
+    a {
+        display: block;
+        margin: 0.25rem 0;
+        padding: 0.25rem 0.5rem;
+
+        border: 1px solid #ddd;
+        border-radius: 0.25rem;
+        background: #fff;
+
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-align: center;
+
+        &:hover {
+            border-color: #83bcf5;
+            color: #336ca4;
+            text-decoration: none;
+        }
+    }
+}
