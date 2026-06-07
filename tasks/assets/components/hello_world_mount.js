@@ -10,12 +10,15 @@ import store from '../store'
 
 import LiquorTree from '../liquor-tree/src/main.js'
 
+import { autosizeDirective } from '../autosize.js'
+
 import "../app.scss";
 import "../scripts/shared.js";
 
 Vue.use(LiquorTree)
 Vue.use(Vuex)
 Vue.use(VueRouter)
+Vue.directive('autosize', autosizeDirective)
 
 // Helper function to get CSRF token and make fetch requests
 const apiRequest = async (url, options = {}) => {
