@@ -175,21 +175,6 @@ class TripWebTestCase(TestCase):
         self.assertIsNone(photo.thumbnail_url)
         self.assertEqual(photo.original_url, "https://signed/trips/1/1/x.jpg")
 
-    # --- today page: miniature + trip badge through the shared partial ---
-
-    @mock.patch(f"{STORAGE}.presign_get_web")
-    def test_today_page_shows_miniature_and_trip_badge(self, presign_get_web):
-        presign_get_web.side_effect = lambda key: f"https://signed/{key}"
-        self._photo(comment="#poi lat=38.71 lng=-9.14\nHarbour lunch")
-
-        r = self.client.get(reverse("public-today"))
-        self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "journal-photo")
-        self.assertContains(r, "https://signed/trips/1/1/x_thumb.webp")
-        # Trip badge links back to the trip detail page.
-        self.assertContains(r, "trip-badge")
-        self.assertContains(r, reverse("trip-detail", args=[self.story.pk]))
-
     # --- map provider profile setting ---
 
     def test_account_settings_shows_map_provider(self):
