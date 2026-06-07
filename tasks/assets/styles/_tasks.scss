@@ -413,6 +413,15 @@
         margin-bottom: 0;
         color: #999;
 
+        // Flex row so the focus input fills the remaining width instead of a
+        // viewport-based calc; this keeps the date + topic on one line while the
+        // sidebar slides (the content width animates).
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+
         input {
             padding: 0;
             border: 0;
@@ -420,7 +429,8 @@
             font-size: 1em;
             outline: 0;
             font-weight: bold;
-            width: calc(100vw - 200px);
+            flex: 1 1 auto;
+            min-width: 0;
             color: #666;
         }
     }
@@ -440,6 +450,12 @@
     display: flex;
     align-items: center;
     flex-direction: row;
+
+    // Vue condenses whitespace between elements, so the view links would render
+    // with no gap; space them explicitly.
+    .menulink {
+        margin: 0 0.35rem;
+    }
 }
 
 .tree > .tree-root {

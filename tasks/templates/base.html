@@ -9,6 +9,17 @@
         <title>{% block title %}Tasks Collector{% endblock %}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+        {# Restore the collapsed sidebar state before paint to avoid a flash. #}
+        <script>
+            (function () {
+                try {
+                    if (localStorage.getItem('sidebarCollapsed') === '1') {
+                        document.documentElement.classList.add('sidebar-collapsed');
+                    }
+                } catch (e) {}
+            })();
+        </script>
+
         {% block cssmount %}
             {% render_css 'app' %}
         {% endblock %}
@@ -25,13 +36,31 @@
 
         {% block extrahead %} {% endblock %}
     </head>
-    <body class="{% block body_class %}{% endblock %}" data-map-provider="{{ user.profile.map_provider|default:'osm' }}">
-        {% block content %} {% endblock %}
+    <body class="{% if user.is_authenticated %}has-sidebar {% endif %}{% block body_class %}{% endblock %}" data-map-provider="{{ user.profile.map_provider|default:'osm' }}">
+        {% if user.is_authenticated %}{% include "sidebar.html" %}{% endif %}
 
-        {% if APP_VERSION %}
-        <footer class="app-version-footer">
-            <span class="app-version">{{ APP_VERSION }}</span>
-        </footer>
+        <div class="app-main">
+            {% block content %} {% endblock %}
+
+            {% if APP_VERSION %}
+            <footer class="app-version-footer">
+                <span class="app-version">{{ APP_VERSION }}</span>
+            </footer>
+            {% endif %}
+        </div>
+
+        {% if user.is_authenticated %}
+        <script>
+            (function () {
+                var btn = document.querySelector('.app-sidebar-toggle');
+                if (!btn) return;
+                btn.addEventListener('click', function () {
+                    var collapsed = document.documentElement.classList.toggle('sidebar-collapsed');
+                    try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+                    btn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+                });
+            })();
+        </script>
         {% endif %}
 
         {% block jsmount %}

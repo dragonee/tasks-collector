@@ -8,7 +8,6 @@
 
 
 <div class="observations">
-    {% include "menu.html" %}
     
     {% for quest in object_list %}
     <article class="quest fall {% if quest.date_closed %}completed{% endif %}" id="observation-{{ quest.pk }}">

@@ -32,17 +32,6 @@
             <router-link class="menulink" to="/eisenhower">Eisenhower</router-link>
             <router-link class="menulink" to="/moscow">MoSCoW</router-link>
 
-            <span class="menulink">/</span>
-
-            <a class="menulink" href="/">Daily</a>
-            <a class="menulink" href="/todo/">Tasks</a>
-            <a class="menulink" href="/observations/">Observations</a>
-            <a class="menulink" href="/admin/tree/observation/add/">+Observation</a>
-            <a class="menulink" href="/summaries/">Summaries</a>
-            <a class="menulink" href="/quests/">Quests</a>
-            <a class="menulink" href="/quests/view/">Journal</a>
-            <a class="menulink" href="/accounts/settings/">⚙</a>
-
             <select
                 v-show="!listViewMode"
                 v-model="filterMode"

@@ -1,0 +1,212 @@
+// Left navigation sidebar (global app chrome). Markup: tasks/templates/sidebar.html.
+// Width is driven by the --sidebar-w custom property; the `sidebar-collapsed` class
+// on <html> toggles between the expanded and icon-only rail.
+
+:root {
+    --sidebar-w: 220px;
+}
+
+html.sidebar-collapsed {
+    --sidebar-w: 56px;
+}
+
+.app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1100;
+
+    width: var(--sidebar-w);
+
+    display: flex;
+    flex-direction: column;
+
+    background: #fff;
+    border-right: 1px solid #e6e6e6;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    font-family: 'Raleway', sans-serif;
+
+    transition: width 0.15s ease;
+}
+
+// Content lives to the right of the rail. Only applied when a sidebar is present
+// (authenticated pages); login and other anonymous pages keep margin-left: 0.
+.has-sidebar .app-main {
+    margin-left: var(--sidebar-w);
+    transition: margin-left 0.15s ease;
+}
+
+.app-sidebar-head {
+    display: flex;
+    align-items: center;
+    min-height: 54px;
+    padding: 0.5rem;
+}
+
+.app-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+
+    &:hover {
+        background: #f0f0f0;
+        color: #205e7d;
+    }
+}
+
+.app-sidebar-nav {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.25rem 0.5rem;
+}
+
+.app-sidebar-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.5rem;
+    border-top: 1px solid #eee;
+}
+
+.nav-row {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+}
+
+.nav-item {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px;
+
+    color: #444;
+    text-decoration: none;
+    white-space: nowrap;
+
+    transition: background-color 0.12s ease, color 0.12s ease;
+
+    &:hover {
+        background: #f0f4f7;
+        color: #205e7d;
+    }
+
+    &.active {
+        background: #eaf1f6;
+        color: #205e7d;
+        font-weight: 600;
+    }
+}
+
+.nav-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: inherit;
+
+    svg {
+        display: block;
+    }
+}
+
+.nav-label {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-add {
+    flex: 0 0 auto;
+    width: 28px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 6px;
+    color: #9aa3ab;
+    text-decoration: none;
+
+    transition: background-color 0.12s ease, color 0.12s ease;
+
+    &:hover {
+        background: #f0f4f7;
+        color: #205e7d;
+    }
+}
+
+// Secondary tier: smaller, indented sub-items (Weekly/Journal/Trips, Summaries).
+.nav-item.sub {
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+    padding-left: 1.6rem;
+    gap: 0.6rem;
+
+    font-size: 0.85rem;
+    color: #6a747c;
+
+    .nav-icon {
+        width: 20px;
+        height: 20px;
+
+        svg {
+            width: 16px;
+            height: 16px;
+        }
+    }
+}
+
+// Collapsed rail: icons only, centered. (Comes after .sub so its padding wins.)
+html.sidebar-collapsed {
+    .nav-label,
+    .nav-add {
+        display: none;
+    }
+
+    .nav-item {
+        justify-content: center;
+        gap: 0;
+        padding: 0.5rem 0;
+    }
+}
+
+// Desktop-first app; on small screens fall back to the icon-only rail.
+@media screen and (max-width: 767px) {
+    :root,
+    html.sidebar-collapsed {
+        --sidebar-w: 56px;
+    }
+
+    .app-sidebar .nav-label,
+    .app-sidebar .nav-add {
+        display: none;
+    }
+
+    .app-sidebar .nav-item {
+        justify-content: center;
+        gap: 0;
+        padding: 0.5rem 0;
+    }
+}
