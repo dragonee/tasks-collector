@@ -1,0 +1,75 @@
+// Quests: quest list/fall items, single quest view, and quest meta.
+
+article.quest {
+    a.main {
+        text-decoration: none;
+        color: rgb(158, 38, 1);
+
+        font-weight: 600;
+
+        margin-right: 2em;
+    }
+
+    &.completed {
+        a.main {
+            color: rgb(139, 153, 111);
+        }
+    }
+
+    &.fall {
+        margin: 0;
+        padding: 14px 20px;
+
+        border-radius: 0;
+
+        .meta {
+            float: right;
+        }
+    }
+}
+
+.cont + article.quest.fall {
+    margin-top: 2rem;
+}
+
+.quest-single-item {
+    .stage {
+        position: absolute;
+        left: -140px;
+        width: 120px;
+        text-align: right;
+        font-size: 4em;
+        color: #d3d3d3;
+        font-weight: 500;
+    }
+
+    .date {
+        color: #999;
+    }
+}
+
+.quest-meta {
+    margin: 3rem 20px .25rem;
+    opacity: 40%;
+
+    transition: 0.4s all ease-in-out;
+
+    &:hover {
+        opacity: 100%;
+    }
+
+    a.main {
+        text-decoration: none;
+        color: rgb(158, 38, 1);
+
+        font-weight: 600;
+
+        margin-right: 2em;
+    }
+
+    &.completed {
+        a.main {
+            color: rgb(139, 153, 111);
+        }
+    }
+}
