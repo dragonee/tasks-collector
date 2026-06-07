@@ -554,6 +554,7 @@ section.journal {
 
 // Journal photo miniatures (shared by the journal feed and trip entries).
 .journal-photo {
+    display: inline-block;
     margin: 0.4rem 0;
 
     img {

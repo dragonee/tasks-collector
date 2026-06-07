@@ -73,6 +73,172 @@
     }
 }
 
+// === Trip detail: map (left) + scrolling history (right) ===
+// A fixed-height app frame so the map fills its column while the history
+// scrolls independently. Built on .split-layout from _layouts.scss; the map
+// gets the wider column.
+.trip-map-layout {
+    --split-cols: minmax(0, 3fr) minmax(26rem, 2fr);
+
+    height: 100vh;
+    overflow: hidden;
+
+    .split-left {
+        min-height: 0;
+    }
+
+    .split-right {
+        min-height: 0;
+        height: 100%;
+        overflow-y: auto;
+
+        background: #fff;
+        padding: 1.25rem 1.5rem;
+
+        // Let the embedded journal fill the column instead of rendering as its
+        // own centered card (matches the content-rail treatment).
+        section.journal {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            background: transparent;
+        }
+    }
+}
+
+#trip-map {
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    background: #e8eaed;
+    z-index: 0; // keep Leaflet panes/controls below the app sidebar
+}
+
+#trip-map.trip-map-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: #999;
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+// Markers: photos as circular miniatures, notes as a small pin dot.
+.trip-map-marker {
+    background: transparent;
+    border: 0;
+}
+
+.trip-map-pin {
+    display: block;
+    box-sizing: border-box;
+}
+
+.trip-map-pin--photo {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+    background: #f3f4f6;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+}
+
+.trip-map-pin--note {
+    width: 18px;
+    height: 18px;
+    margin: 2px;
+    border-radius: 50%;
+    background: #3367d6;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+// Marker popup (photo thumb + date/time + note).
+.trip-popup {
+    font-size: 0.85rem;
+
+    .trip-popup-photo {
+        width: 100%;
+        border-radius: 4px;
+        display: block;
+        margin-bottom: 0.4rem;
+    }
+
+    .trip-popup-meta {
+        color: #999;
+        font-size: 0.78rem;
+    }
+
+    .trip-popup-note {
+        margin-top: 0.25rem;
+        white-space: pre-wrap;
+    }
+}
+
+// History list cross-linking with the map. A selected entry is flagged by
+// turning its time marker (the [data-time]::before time gutter from _daily)
+// into a yellow badge — no row background.
+.trip-map-layout {
+    .trip-entry {
+        cursor: pointer;
+    }
+
+    .trip-entry.is-located [data-time]::before {
+        color: #fff;
+        background: #f0b429;
+        padding: 0.05rem 0.45rem;
+        border-radius: 999px;
+    }
+
+    .trip-entry.is-filtered-out,
+    .trip-day.is-filtered-out {
+        display: none;
+    }
+}
+
+// Banner shown while a cluster filter is active.
+.trip-history-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.45rem 0.7rem;
+
+    background: #eef3fd;
+    border: 1px solid #c7d8f5;
+    border-radius: 6px;
+
+    font-size: 0.85rem;
+    color: #3367d6;
+
+    .trip-history-filter-text {
+        flex: 1;
+    }
+
+    .trip-history-filter-reset {
+        border: 1px solid #c7d8f5;
+        border-radius: 999px;
+        background: #fff;
+        color: #3367d6;
+        font-size: 0.8rem;
+        padding: 0.1rem 0.6rem;
+        cursor: pointer;
+
+        &:hover {
+            background: #e0eaff;
+        }
+    }
+}
+
 // Trips index: month sections of clickable tiles (cover photo + title + dates).
 .trip-month {
     margin-bottom: 1.5rem;

@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "deep-equal": "^2.2.3",
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "lunr": "^2.3.9",
     "lunr-languages": "^1.20.0",
     "moment": "^2.30.1",
