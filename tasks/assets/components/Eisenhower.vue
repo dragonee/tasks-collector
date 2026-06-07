@@ -1,8 +1,6 @@
 <template>
     <div class="board eisenhower">
-        <div class="upper-pane">
-            <h1>Eisenhower Matrix</h1>
-        </div>
+        <BoardTopbar />
 
         <div class="eisenhower-layout">
             <div class="task-tree-pane">
@@ -64,17 +62,13 @@
         >
             <button @click="removeStatus">Remove</button>
         </div>
-
-        <div class="lower-pane">
-            <router-link class="menulink" to="/">Board</router-link>
-            <router-link class="menulink" to="/eisenhower">Eisenhower</router-link>
-            <router-link class="menulink" to="/moscow">MoSCoW</router-link>
-        </div>
     </div>
 </template>
 
 <script>
 import { mapGetters } from 'vuex'
+
+import BoardTopbar from './BoardTopbar.vue'
 
 const QUADRANTS = [
     { id: 'urgent-important', title: 'Urgent & Important – DO' },
@@ -96,6 +90,10 @@ function getNodeByPath(state, path) {
 }
 
 export default {
+    components: {
+        BoardTopbar,
+    },
+
     data: () => ({
         contextMenu: { visible: false, x: 0, y: 0, item: null },
         draggedItem: null,
