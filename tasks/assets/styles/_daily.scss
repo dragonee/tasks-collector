@@ -82,6 +82,143 @@ body.page-daily {
     }
 }
 
+// Diary / journal month archive: the white journal column sits on the LEFT in
+// line with the topbar (inverting Daily), and a transparent rail on the RIGHT
+// carries two side-by-side nav columns — the Days jump-list and the month Archive.
+.page-diary {
+    background: #f9f9f9;
+
+    .split-layout {
+        --split-cols: minmax(50rem, 1fr) 16rem;
+    }
+
+    // White journal column. The wide left padding gives the [data-time] gutter
+    // (offset -3.24rem from each entry) room to sit inside the white box.
+    .split-left {
+        background: #fff;
+        padding: 1.5rem 2.5rem 1.5rem 4rem;
+    }
+
+    // Drop the standalone journal's own centering / card so it fills the column.
+    .split-left section.journal {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+    }
+
+    .split-left .pagination {
+        margin-top: 2rem;
+        display: flex;
+        gap: 1.5rem;
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+
+    // Transparent rail: Days | Archive as two columns, each sticky.
+    .split-right {
+        padding: 1.5rem 1.25rem;
+        background: transparent;
+
+        display: flex;
+        flex-direction: row;
+        gap: 1.25rem;
+        align-items: flex-start;
+    }
+
+    aside.days,
+    aside.months {
+        position: sticky;
+        top: 20px;
+
+        // Reset the floated, negative-margin, faded styling the asides inherit
+        // when they live inside section.journal on the centered layout.
+        float: none;
+        margin: 0;
+        width: auto;
+        max-width: none;
+        opacity: 1;
+
+        background: transparent;
+        border: 0;
+        padding: 0;
+
+        h2 {
+            margin: 0 0 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 0;
+        }
+
+        li {
+            list-style: none;
+        }
+    }
+
+    // Day jump-list: a narrow column of day-number chips.
+    aside.days {
+        flex: 0 0 auto;
+
+        a {
+            display: block;
+            margin: 0.25rem 0;
+            padding: 0.25rem 0.5rem;
+
+            border: 1px solid #ddd;
+            border-radius: 0.25rem;
+            background: #fff;
+
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-align: center;
+
+            color: #0066cc;
+            text-decoration: none;
+
+            &:hover {
+                border-color: #83bcf5;
+                color: #336ca4;
+            }
+        }
+    }
+
+    // Month archive: a column of month links.
+    aside.months {
+        flex: 1 1 auto;
+
+        li {
+            margin-bottom: 0.5rem;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+
+            a {
+                color: #0066cc;
+                text-decoration: none;
+
+                &:hover {
+                    text-decoration: underline;
+                }
+            }
+        }
+    }
+}
+
 .small-plan {
     margin-bottom: 1rem;
     h3, h4, p {
