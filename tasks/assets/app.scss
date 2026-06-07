@@ -16,6 +16,7 @@ $upper-pane: 54px;
 
 @import './styles/general';
 @import './styles/sidebar';
+@import './styles/layouts';
 @import './styles/tasks';        // uses $upper-pane / $lower-pane (defined above)
 @import './styles/breakthrough';
 @import './styles/observations';

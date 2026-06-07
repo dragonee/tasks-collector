@@ -7,65 +7,82 @@ body.page-daily {
     background: #f9f9f9;
 }
 
-.page-daily .daily {
+// Daily split-view: column spacing, the plan/reflection form, and the journal feed.
+.page-daily {
+    .split-left,
+    .split-right {
+        padding: 1rem 20px;
+    }
 
-    width: 75%;
-
-    min-width: 1140px;
-    margin: auto;
-
-    padding-top: 1px;
-
-    .cont {
-        margin-left: 20px;
-        margin-right: 20px;
+    .split-left > * + *,
+    .split-right > * + * {
+        margin-top: 1.5rem;
     }
 
     h2, h3 {
         color: #999;
     }
 
-    .form {
+    // today's plan | tomorrow's plan side by side
+    .plans-row {
         display: flex;
+        gap: 1.5rem;
 
+        > * {
+            flex: 1;
+            min-width: 0;
+        }
     }
 
-    .left, .right {
-        margin: 0 20px;
-        flex: 1;
-    }
+    .split-left {
 
-    label {
-        display: block;
-    }
-
-    textarea {
-        width: 100%;
-        border: 1px solid #f4f9f9;
-
-        &:focus, &:hover {
-            border: 1px solid #eee;
+        label {
+            display: none;
         }
 
-        outline:none;
+        // Orange, underline-style inputs copied from Breakthrough.
+        textarea,
+        input[type="text"] {
+            width: 100%;
+            display: block;
 
-        font-size: 1rem;
-        font-family: 'Raleway', sans-serif;
+            color: #e27410;
+            font-family: 'Raleway', sans-serif;
+            font-size: 1.4rem;
 
-        color: #205e7d;
+            background-color: transparent;
+            border: 0;
+            border-bottom: 1px solid #d8dbdb;
+            padding: 0 0 0.25rem;
+            outline: none;
 
-        padding: 0.45rem 0.75rem;
+            &::placeholder {
+                font-style: italic;
+                color: #999;
+            }
+        }
 
+        textarea {
+            height: 8rem;
+        }
 
+        .helptext {
+            font-size: 0.9em;
+            color: #999;
+        }
     }
 
-    .left textarea {
-        height: 8rem;
+    .split-right {
+        background: #fff;
     }
 
-    .helptext {
-        font-size: 0.9em;
-        color: #999;
+    // The day's journal feed fills the right column (it is max-width: 50rem,
+    // margin: auto on the standalone diary/trip/habit pages).
+    .split-right section.journal {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        background: transparent;
     }
 }
 

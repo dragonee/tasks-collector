@@ -60,6 +60,26 @@ body, html {
         color: #999;
         font-size: 0.95rem;
     }
+
+    // Shared primary-action button for top bars (Daily Submit, Breakthrough Save,
+    // Board commit).
+    button {
+        padding: 0.5rem 1rem;
+        font-size: 1.2rem;
+
+        background-color: #0066cc;
+        color: #fff;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+
+        transition: all 0.2s ease-in-out;
+
+        &:hover, &:active {
+            background-color: #0057c1;
+            color: #c1d8f5;
+        }
+    }
 }
 
 .lower-pane {

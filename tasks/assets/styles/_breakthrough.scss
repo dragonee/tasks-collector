@@ -263,25 +263,8 @@
         grid-area: header;
         margin-bottom: 0;
 
-        // Layout comes from .topbar / .upper-pane / .lower-pane; this is just the
-        // grid cell + the Save button styling.
-        button {
-            padding: 0.5rem 1rem;
-            font-size: 1.2rem;
-
-            background-color: #0066cc;
-            color: #fff;
-            border: none;
-            border-radius: 0.25rem;
-            cursor: pointer;
-
-            transition: all 0.2s ease-in-out;
-
-            &:hover, &:active {
-                background-color: #0057c1;
-                color: #c1d8f5;
-            }
-        }
+        // Layout comes from .topbar / .upper-pane / .lower-pane; the Save button
+        // uses the shared .upper-pane button style in _general.scss.
     }
 
     .column1 {

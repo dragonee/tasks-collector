@@ -357,6 +357,12 @@ def today(request):
 
     actual_today = timezone.now().date()
 
+    # Labels are hidden in the UI; surface the prompts as field placeholders.
+    today_plan_form.fields["focus"].widget.attrs["placeholder"] = "Today's focus"
+    tomorrow_plan_form.fields["focus"].widget.attrs["placeholder"] = "Tomorrow's focus"
+    for field in reflection_form.fields.values():
+        field.widget.attrs["placeholder"] = field.help_text
+
     return render(
         request,
         "today.html",
@@ -378,5 +384,6 @@ def today(request):
             "thread": thread,
             "threads": Thread.objects.all(),
             "journals": journals,
+            "period_is_single_day": period.start.date() == period.end.date(),
         },
     )
