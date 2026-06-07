@@ -143,6 +143,7 @@
                             <textarea
                                 id="enfp-description"
                                 v-model="form.description"
+                                v-autosize
                                 class="form-control"
                                 rows="2"
                             ></textarea>

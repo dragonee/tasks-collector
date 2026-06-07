@@ -8,6 +8,13 @@
 
 }
 
+// Textareas managed by the JS autosizer (assets/autosize.js): height is driven
+// from content, so the box must not scroll or expose a manual resize grabber.
+textarea.js-autosize {
+    overflow: hidden;
+    resize: none;
+}
+
 
 body, html {
     margin: 0;
