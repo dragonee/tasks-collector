@@ -19,10 +19,6 @@ body.page-daily {
         margin-top: 1.5rem;
     }
 
-    h2, h3 {
-        color: #999;
-    }
-
     // today's plan | tomorrow's plan side by side
     .plans-row {
         display: flex;
@@ -87,12 +83,7 @@ body.page-daily {
 }
 
 .small-plan {
-    font-size: 0.9rem;
-
-    padding: 0.5rem 1rem;
-
-    background-color: #f0f0f0;
-
+    margin-bottom: 1rem;
     h3, h4, p {
         margin-top: 0.5rem;
         margin-bottom: 0.5rem;
