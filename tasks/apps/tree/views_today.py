@@ -204,105 +204,6 @@ class Monthly(Period):
         return Monthly(next_month_start).canonical()
 
 
-def _event_calendar(start, end):
-    events = (
-        JournalAdded.objects.filter(
-            published__range=(start, end),
-        )
-        .order_by("published")
-        .values("published")
-    )
-
-    c = Counter()
-
-    for event in events:
-        c[event["published"].date()] += 1
-
-    return c
-
-
-def get_summary_calendar(start, end, thread_name, period_func):
-    """Generic function to get summary calendar for any period type"""
-    # Get all reflections for this thread
-    reflections = Reflection.objects.filter(
-        pub_date__range=(start, end), thread__name=thread_name
-    ).values("pub_date")
-
-    # Group reflections by their periods
-    periods_with_summaries = Counter()
-    for reflection in reflections:
-        period = period_func(reflection["pub_date"])
-        periods_with_summaries[period] += 1
-
-    # Generate all periods in the date range
-    all_periods = generate_periods(start, end, period_func)
-
-    # Create result list with period end dates and counts
-    result = []
-    for period_start, period_end in all_periods:
-        period_tuple = (period_start, period_end)
-        count = periods_with_summaries.get(period_tuple, 0)
-        has_summary = 1 if count > 0 else 0
-        result.append(DayCount(date=period_end, count=has_summary))
-
-    return result
-
-
-def event_calendar(start, end):
-    start = adjust_start_date_to_monday(start)
-
-    return itemize(
-        date_range_generator(start, end),
-        _event_calendar(start, end),
-        default=0,
-        item_type=DayCount,
-    )
-
-
-def weekly_summary_calendar(start, end):
-    """Generate calendar data for weekly summaries - one indicator per week"""
-    start = adjust_start_date_to_monday(start)
-    return get_summary_calendar(start, end, "Weekly", get_week_period)
-
-
-def monthly_summary_calendar(start, end):
-    """Generate calendar data for monthly summaries - mark ALL weeks within months that have summaries"""
-    start = adjust_start_date_to_monday(start)
-
-    # Get monthly reflections
-    reflections = Reflection.objects.filter(
-        pub_date__range=(start, end), thread__name="big-picture"
-    ).values("pub_date")
-
-    # Map monthly summaries to months
-    months_with_summaries = set()
-    for reflection in reflections:
-        month_key = (reflection["pub_date"].year, reflection["pub_date"].month)
-        months_with_summaries.add(month_key)
-
-    # Generate all weekly periods in the date range
-    all_weekly_periods = generate_periods(start, end, get_week_period)
-
-    # Create result list - mark ALL weeks that fall within months with summaries
-    result = []
-    for period_start, period_end in all_weekly_periods:
-        # Check if any day in this week falls within a month that has a summary
-        has_summary = 0
-
-        # Check each day in this week
-        current_day = period_start
-        while current_day <= period_end:
-            month_key = (current_day.year, current_day.month)
-            if month_key in months_with_summaries:
-                has_summary = 1
-                break
-            current_day += datetime.timedelta(days=1)
-
-        result.append(DayCount(date=period_end, count=has_summary))
-
-    return result
-
-
 def save_or_remove_object_if_empty(object, fields):
     is_empty = not any(getattr(object, field) for field in fields)
 
@@ -484,14 +385,5 @@ def today(request):
             "thread": thread,
             "threads": Thread.objects.all(),
             "journals": journals,
-            "event_calendar": event_calendar(
-                period.start - datetime.timedelta(weeks=52), period.end
-            ),
-            "weekly_summary_calendar": weekly_summary_calendar(
-                (period.start - datetime.timedelta(weeks=52)).date(), period.end.date()
-            ),
-            "monthly_summary_calendar": monthly_summary_calendar(
-                (period.start - datetime.timedelta(weeks=52)).date(), period.end.date()
-            ),
         },
     )

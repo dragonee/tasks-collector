@@ -1,7 +1,6 @@
 {% extends 'base.html' %}
 {% load render_assets %}
 {% load observation_menu %}
-{% load observation_calendar %}
 
 {% block body_class %}page-daily{% endblock %}
 
@@ -23,8 +22,6 @@
             <span id="observation-filter-count" class="observation-filter-count" aria-live="polite"></span>
         </div>
 
-
-        {% observation_calendar %}
 
         {% observation_menu attach_mode=attach_mode %}
     </div>
