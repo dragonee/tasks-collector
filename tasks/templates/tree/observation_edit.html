@@ -102,7 +102,7 @@
 
         {% for update_form in formset %}
             <div class="update-form">
-                {{ update_form.id }}
+                {{ update_form.event_ptr }}
                 {{ update_form.comment }}
                 {{ update_form.comment.errors }}
                 {% if update_form.instance.pk %}
