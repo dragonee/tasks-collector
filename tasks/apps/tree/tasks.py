@@ -4,6 +4,10 @@ from django.conf import settings
 
 from celery import shared_task
 from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
+
+# Teach Pillow to decode the HEIC/HEIF originals phones upload by default.
+register_heif_opener()
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)

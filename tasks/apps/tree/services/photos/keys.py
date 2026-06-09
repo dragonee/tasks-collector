@@ -3,10 +3,14 @@
 import uuid
 
 # Allowed upload content types -> file extension for the original object.
+# HEIC/HEIF is what real phones produce by default; thumbnailing decodes it
+# via the pillow-heif opener registered in tasks.py.
 CONTENT_TYPE_EXT = {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
+    "image/heic": "heic",
+    "image/heif": "heif",
 }
 
 
