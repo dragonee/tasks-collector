@@ -46,7 +46,7 @@ class Outbox(private val dir: File) {
     }
 
     fun enqueuePhoto(
-        storyId: Long,
+        storyId: Long?,
         comment: String,
         published: String,
         contentType: String,

@@ -3,7 +3,10 @@ package org.polybrain.tasks.health
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -24,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +44,8 @@ import org.polybrain.tasks.health.ui.HealthScreen
 import org.polybrain.tasks.health.ui.MainViewModel
 import org.polybrain.tasks.health.ui.SettingsScreen
 import org.polybrain.tasks.health.ui.TodayScreen
+import org.polybrain.tasks.health.ui.photo.AddPhotoViewModel
+import org.polybrain.tasks.health.ui.trip.AddPhotoDialog
 import org.polybrain.tasks.health.ui.trip.TripDetailScreen
 import org.polybrain.tasks.health.ui.trip.TripsScreen
 
@@ -74,6 +80,14 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
     var boardPickerDate by remember { mutableStateOf<LocalDate?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    // Standalone "Add Photo" flow, launched from the Today FAB. The picker
+    // hands a content Uri to the view model, which opens the photo dialog.
+    val addPhotoVm: AddPhotoViewModel = viewModel()
+    val photoDialogOpen by addPhotoVm.dialogOpen.collectAsState()
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> if (uri != null) addPhotoVm.openAddPhoto(uri) }
 
     BackHandler(enabled = tripDetailId != null) {
         tripDetailId = null
@@ -150,7 +164,27 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
                                 onCancel = { boardPickerDate = null },
                             )
                         } else {
-                            TodayScreen(onAddFromBoard = { boardPickerDate = it })
+                            TodayScreen(
+                                onAddFromBoard = { boardPickerDate = it },
+                                onAddPhoto = {
+                                    photoPicker.launch(
+                                        PickVisualMediaRequest(
+                                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                                        )
+                                    )
+                                },
+                            )
+                        }
+                        if (photoDialogOpen) {
+                            val gps by addPhotoVm.gps.collectAsState()
+                            val selectedPhoto by addPhotoVm.selectedPhoto.collectAsState()
+                            AddPhotoDialog(
+                                selectedPhoto = selectedPhoto,
+                                gps = gps,
+                                onPermissionResult = addPhotoVm::onLocationPermissionResult,
+                                onSend = addPhotoVm::sendPhoto,
+                                onDismiss = addPhotoVm::closeAddPhoto,
+                            )
                         }
                     }
                     Destination.Trips -> {

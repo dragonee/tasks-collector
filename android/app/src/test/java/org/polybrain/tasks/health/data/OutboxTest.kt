@@ -66,6 +66,19 @@ class OutboxTest {
     }
 
     @Test
+    fun `enqueuePhoto with null story is a standalone photo`() {
+        val bytes = byteArrayOf(4, 2)
+        val item = outbox.enqueuePhoto(null, "cap", "2026-06-06T10:00:00Z", "image/jpeg", bytes)
+        assertNull(item.storyId)
+        val reloaded = outbox.all().single()
+        assertNull(reloaded.storyId)
+        assertTrue(bytes.contentEquals(outbox.photoBytes(reloaded)))
+        // A storyless photo never shows under any trip, but is still drained.
+        assertTrue(outbox.forStory(0L).isEmpty())
+        assertEquals(1, outbox.all().size)
+    }
+
+    @Test
     fun `update rewrites the same file in place`() {
         val item = outbox.enqueueNote(1L, "x", "t")
         outbox.update(item.copy(attempts = 3, lastError = "boom"))

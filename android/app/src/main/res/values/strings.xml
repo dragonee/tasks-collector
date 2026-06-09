@@ -77,6 +77,10 @@
     <string name="today_top_bar_title">Tasks Collector</string>
 
     <string name="today_board_fab_label">Add from board</string>
+    <string name="today_fab_expand">Add</string>
+    <string name="today_fab_close">Close</string>
+    <string name="today_fab_add_task">Add Task</string>
+    <string name="today_fab_add_photo">Add Photo</string>
     <string name="board_picker_add_button">Add %1$d</string>
     <string name="board_picker_cancel">Cancel</string>
     <string name="board_picker_empty">This board has no items.</string>

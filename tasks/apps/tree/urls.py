@@ -5,6 +5,7 @@ from rest_framework import routers
 from . import (
     views,
     views_android_api,
+    views_android_photo,
     views_android_trip,
     views_board_tasks,
     views_breakthrough,
@@ -139,6 +140,21 @@ urlpatterns = [
         "api/v1/android/trip/<int:story_id>/",
         views_android_trip.AndroidTripDetailView.as_view(),
         name="android-trip-detail",
+    ),
+    path(
+        "api/v1/android/photo/presign/",
+        views_android_photo.AndroidPhotoPresignView.as_view(),
+        name="android-photo-presign",
+    ),
+    path(
+        "api/v1/android/photo/",
+        views_android_photo.AndroidPhotoConfirmView.as_view(),
+        name="android-photo-confirm",
+    ),
+    path(
+        "api/v1/android/photo/<int:event_id>/original/",
+        views_android_trip.AndroidTripPhotoOriginalView.as_view(),
+        name="android-photo-original",
     ),
     path(
         "habit/keywords/mine/", views_habit.my_habit_keywords, name="my-habit-keywords"

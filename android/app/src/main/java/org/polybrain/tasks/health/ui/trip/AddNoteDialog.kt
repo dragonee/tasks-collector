@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.polybrain.tasks.health.R
+import org.polybrain.tasks.health.location.GpsState
 
 @Composable
 fun AddNoteDialog(vm: TripDetailViewModel) {
@@ -64,7 +65,7 @@ fun AddNoteDialog(vm: TripDetailViewModel) {
             ) {
                 TextButton(
                     onClick = { vm.sendNote(draft, includeLocation = true) },
-                    enabled = gps is TripDetailViewModel.GpsState.Ready,
+                    enabled = gps is GpsState.Ready,
                 ) {
                     Text(stringResource(R.string.trip_save_with_location))
                 }
@@ -86,24 +87,24 @@ fun AddNoteDialog(vm: TripDetailViewModel) {
 
 @Composable
 internal fun GpsStatusBlock(
-    state: TripDetailViewModel.GpsState,
+    state: GpsState,
     onRequestPermission: () -> Unit,
 ) {
     when (state) {
-        TripDetailViewModel.GpsState.Idle,
-        TripDetailViewModel.GpsState.Waiting -> Text(
+        GpsState.Idle,
+        GpsState.Waiting -> Text(
             text = stringResource(R.string.trip_note_gps_waiting),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        is TripDetailViewModel.GpsState.Ready -> Text(
+        is GpsState.Ready -> Text(
             text = stringResource(R.string.trip_note_gps_ready).format(
                 state.fix.lat, state.fix.lng,
             ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        TripDetailViewModel.GpsState.Denied -> Column {
+        GpsState.Denied -> Column {
             Text(
                 text = stringResource(R.string.trip_note_gps_missing),
                 style = MaterialTheme.typography.bodySmall,
@@ -113,7 +114,7 @@ internal fun GpsStatusBlock(
                 Text(stringResource(R.string.trip_note_grant_location))
             }
         }
-        TripDetailViewModel.GpsState.Unavailable -> Text(
+        GpsState.Unavailable -> Text(
             text = stringResource(R.string.trip_note_gps_missing),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,

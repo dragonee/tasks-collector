@@ -1,11 +1,15 @@
 package org.polybrain.tasks.health.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -31,6 +36,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -43,6 +50,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -58,6 +67,7 @@ import org.polybrain.tasks.health.data.TodayTask
 fun TodayScreen(
     vm: TodayViewModel = viewModel(),
     onAddFromBoard: (LocalDate) -> Unit = {},
+    onAddPhoto: () -> Unit = {},
 ) {
     val tasks by vm.tasks.collectAsState()
     val weekPlan by vm.weekPlan.collectAsState()
@@ -67,7 +77,12 @@ fun TodayScreen(
     val pendingComplete by vm.pendingComplete.collectAsState()
     val selectedDate by vm.selectedDate.collectAsState()
 
+    var fabExpanded by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) { vm.refresh() }
+
+    // Back collapses the speed-dial before bubbling up to the nav drawer.
+    BackHandler(enabled = fabExpanded) { fabExpanded = false }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -135,20 +150,16 @@ fun TodayScreen(
             }
         }
 
-        // FAB opens the board picker for the currently-viewed day. Hidden
-        // until configured, matching the disabled add-task row above.
+        // Speed-dial FAB: tapping it reveals "Add Task" (board picker, the old
+        // FAB action) and "Add Photo" (a standalone photo). Hidden until
+        // configured, matching the disabled add-task row above.
         if (configured) {
-            FloatingActionButton(
-                onClick = { onAddFromBoard(selectedDate) },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(24.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.today_board_fab_label),
-                )
-            }
+            AddSpeedDial(
+                expanded = fabExpanded,
+                onExpandedChange = { fabExpanded = it },
+                onAddTask = { onAddFromBoard(selectedDate) },
+                onAddPhoto = onAddPhoto,
+            )
         }
     }
 
@@ -432,6 +443,99 @@ private fun EmptyState(text: String) {
         contentAlignment = Alignment.Center,
     ) {
         Text(text)
+    }
+}
+
+/**
+ * Expanding speed-dial in the bottom-end corner. Collapsed it's a single "+"
+ * FAB; expanded it dims the screen with a tap-to-dismiss scrim and reveals the
+ * "Add Task" and "Add Photo" mini-actions, with the main button flipping to "×".
+ */
+@Composable
+private fun BoxScope.AddSpeedDial(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onAddTask: () -> Unit,
+    onAddPhoto: () -> Unit,
+) {
+    if (expanded) {
+        // Full-screen scrim; tapping anywhere outside the actions collapses it.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                ) { onExpandedChange(false) },
+        )
+    }
+    Column(
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(bottom = 12.dp),
+            ) {
+                SpeedDialItem(
+                    label = stringResource(R.string.today_fab_add_task),
+                    icon = Icons.Filled.Add,
+                    onClick = {
+                        onExpandedChange(false)
+                        onAddTask()
+                    },
+                )
+                SpeedDialItem(
+                    label = stringResource(R.string.today_fab_add_photo),
+                    icon = Icons.Filled.Add,
+                    onClick = {
+                        onExpandedChange(false)
+                        onAddPhoto()
+                    },
+                )
+            }
+        }
+        FloatingActionButton(onClick = { onExpandedChange(!expanded) }) {
+            Icon(
+                imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.Add,
+                contentDescription = stringResource(
+                    if (expanded) R.string.today_fab_close else R.string.today_fab_expand,
+                ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpeedDialItem(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 3.dp,
+            shadowElevation = 2.dp,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
+        SmallFloatingActionButton(onClick = onClick) {
+            Icon(imageVector = icon, contentDescription = null)
+        }
     }
 }
 

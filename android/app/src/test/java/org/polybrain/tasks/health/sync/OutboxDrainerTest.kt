@@ -20,6 +20,8 @@ import org.polybrain.tasks.health.data.PhotoOriginalResponse
 import org.polybrain.tasks.health.data.PhotoPresignRequest
 import org.polybrain.tasks.health.data.PhotoPresignResponse
 import org.polybrain.tasks.health.data.PlanListResponse
+import org.polybrain.tasks.health.data.StandalonePhotoConfirmRequest
+import org.polybrain.tasks.health.data.StandalonePhotoPresignRequest
 import org.polybrain.tasks.health.data.TaskCompleteRequest
 import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
@@ -107,6 +109,28 @@ class OutboxDrainerTest {
     }
 
     @Test
+    fun `standalone photo presigns and confirms via storyless endpoints`() = runTest {
+        // storyId = null marks a standalone photo (a PhotoTaken with no trip).
+        val item = outbox.enqueuePhoto(null, "cap", "t", "image/jpeg", byteArrayOf(9))
+        val api = FakeApi(presignKey = "photos/7/k.jpg", presignUrl = "https://put/s")
+        var putCalls = 0
+        val put = OutboxDrainer.PhotoPutter { url, _, _ ->
+            putCalls++
+            assertEquals("https://put/s", url)
+        }
+        val outcome = OutboxDrainer.process(item, api, outbox, put)
+        assertTrue(outcome is OutboxDrainer.Outcome.Sent)
+        assertEquals(1, putCalls)
+        // The trip endpoints are never touched; the storyless ones are.
+        assertEquals(0, api.presignRequests.size)
+        assertEquals(0, api.confirmRequests.size)
+        assertEquals(1, api.standalonePresignRequests.size)
+        val confirm = api.standaloneConfirmRequests.single()
+        assertEquals("photos/7/k.jpg", confirm.key)
+        assertEquals(item.id, confirm.idempotencyKey)
+    }
+
+    @Test
     fun `4xx is permanent`() = runTest {
         val item = outbox.enqueueNote(1L, "x", "t")
         val api = FakeApi(noteError = httpException(409))
@@ -154,6 +178,8 @@ class OutboxDrainerTest {
         val noteRequests = mutableListOf<TripNoteRequest>()
         val presignRequests = mutableListOf<PhotoPresignRequest>()
         val confirmRequests = mutableListOf<PhotoConfirmRequest>()
+        val standalonePresignRequests = mutableListOf<StandalonePhotoPresignRequest>()
+        val standaloneConfirmRequests = mutableListOf<StandalonePhotoConfirmRequest>()
 
         override suspend fun addTripNote(body: TripNoteRequest): TripNoteResponse {
             noteError?.let { throw it }
@@ -169,6 +195,21 @@ class OutboxDrainerTest {
         override suspend fun addTripPhoto(body: PhotoConfirmRequest): PhotoConfirmResponse {
             photoError?.let { throw it }
             confirmRequests += body
+            return PhotoConfirmResponse(ok = true, photoId = 1)
+        }
+
+        override suspend fun presignStandalonePhoto(
+            body: StandalonePhotoPresignRequest,
+        ): PhotoPresignResponse {
+            standalonePresignRequests += body
+            return PhotoPresignResponse(key = presignKey, uploadUrl = presignUrl)
+        }
+
+        override suspend fun addStandalonePhoto(
+            body: StandalonePhotoConfirmRequest,
+        ): PhotoConfirmResponse {
+            photoError?.let { throw it }
+            standaloneConfirmRequests += body
             return PhotoConfirmResponse(ok = true, photoId = 1)
         }
 
