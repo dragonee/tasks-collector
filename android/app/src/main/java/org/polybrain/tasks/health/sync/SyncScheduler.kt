@@ -1,6 +1,7 @@
 package org.polybrain.tasks.health.sync
 
 import android.content.Context
+import androidx.core.content.ContextCompat
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -8,6 +9,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -77,23 +79,37 @@ object SyncScheduler {
 
     /**
      * Kick the trip-outbox drain. Network-constrained so it waits for
-     * connectivity, with exponential backoff between retries. Enqueued as
-     * APPEND_OR_REPLACE so an item added while a drain is mid-flight still gets
-     * a fresh pass afterwards; the worker is idempotent (re-reads the queue,
-     * server dedupes on the idempotency key), so an extra pass is harmless.
+     * connectivity, with exponential backoff between retries.
+     *
+     * While a drain is actively RUNNING the kick is APPENDed so the mid-flight
+     * pass finishes and a fresh one follows. Otherwise the existing chain is
+     * REPLACEd: after a string of failures the chain sits in exponential
+     * backoff (hours, eventually), and APPEND would park this kick — and every
+     * later one — behind that wait; a user-initiated kick should retry *now*.
+     * Replacing is safe because the worker is idempotent: it re-reads the
+     * queue, a photo's upload resume flags are persisted, and the server
+     * dedupes on the idempotency key. The check-then-enqueue race (a worker
+     * starting in between and getting cancelled) is harmless for the same
+     * reason.
      *
      * Safe to call on app start to resume after a reboot/kill.
      */
     fun drainOutbox(context: Context) {
+        val wm = WorkManager.getInstance(context)
         val request = OneTimeWorkRequestBuilder<OutboxWorker>()
             .setConstraints(networkConstraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            OUTBOX,
-            ExistingWorkPolicy.APPEND_OR_REPLACE,
-            request,
-        )
+        val infos = wm.getWorkInfosForUniqueWork(OUTBOX)
+        infos.addListener({
+            val running = runCatching { infos.get() }
+                .getOrDefault(emptyList())
+                .any { it.state == WorkInfo.State.RUNNING }
+            val policy =
+                if (running) ExistingWorkPolicy.APPEND_OR_REPLACE
+                else ExistingWorkPolicy.REPLACE
+            wm.enqueueUniqueWork(OUTBOX, policy, request)
+        }, ContextCompat.getMainExecutor(context))
     }
 
     fun cancelAll(context: Context) {

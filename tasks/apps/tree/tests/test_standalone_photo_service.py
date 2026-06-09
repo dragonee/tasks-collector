@@ -30,6 +30,10 @@ class PhotoKeyTestCase(TestCase):
         with self.assertRaises(ValueError):
             photo_key(7, "image/gif")
 
+    def test_photo_key_accepts_heic(self):
+        self.assertTrue(photo_key(7, "image/heic").endswith(".heic"))
+        self.assertTrue(photo_key(7, "image/heif").endswith(".heif"))
+
     def test_photo_key_belongs_to_accepts_own_prefix(self):
         self.assertTrue(photo_key_belongs_to("photos/7/abc.jpg", 7))
 

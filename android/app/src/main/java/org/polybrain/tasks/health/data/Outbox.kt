@@ -78,6 +78,9 @@ class Outbox(private val dir: File) {
 
     fun forStory(storyId: Long): List<OutboxItem> = all().filter { it.storyId == storyId }
 
+    /** Standalone (storyless) items, oldest first. */
+    fun standalone(): List<OutboxItem> = all().filter { it.storyId == null }
+
     /** Persist a mutated item back to its file (same name — id/createdAt are immutable). */
     fun update(item: OutboxItem) = write(item)
 

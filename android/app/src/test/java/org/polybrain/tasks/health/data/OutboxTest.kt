@@ -79,6 +79,14 @@ class OutboxTest {
     }
 
     @Test
+    fun `standalone returns only storyless items`() {
+        outbox.enqueueNote(1L, "trip note", "t")
+        outbox.enqueuePhoto(1L, "trip photo", "t", "image/jpeg", byteArrayOf(1))
+        val solo = outbox.enqueuePhoto(null, "standalone", "t", "image/jpeg", byteArrayOf(2))
+        assertEquals(listOf(solo.id), outbox.standalone().map { it.id })
+    }
+
+    @Test
     fun `update rewrites the same file in place`() {
         val item = outbox.enqueueNote(1L, "x", "t")
         outbox.update(item.copy(attempts = 3, lastError = "boom"))

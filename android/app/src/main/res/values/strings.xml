@@ -81,6 +81,13 @@
     <string name="today_fab_close">Close</string>
     <string name="today_fab_add_task">Add Task</string>
     <string name="today_fab_add_photo">Add Photo</string>
+    <plurals name="photo_uploaded">
+        <item quantity="one">Photo uploaded</item>
+        <item quantity="other">%d photos uploaded</item>
+    </plurals>
+    <string name="photo_upload_failed">Photo upload failed: %1$s</string>
+    <string name="photo_upload_failed_retry">Photo upload failed: %1$s — will retry</string>
+    <string name="photo_queue_failed">Could not save photo: %1$s</string>
     <string name="board_picker_add_button">Add %1$d</string>
     <string name="board_picker_cancel">Cancel</string>
     <string name="board_picker_empty">This board has no items.</string>

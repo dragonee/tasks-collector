@@ -2,13 +2,20 @@ package org.polybrain.tasks.health.ui.photo
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import java.io.IOException
 import java.time.OffsetDateTime
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,11 +34,30 @@ import org.polybrain.tasks.health.sync.SyncScheduler
  *
  * The photo is enqueued with `storyId = null`; [org.polybrain.tasks.health.sync.OutboxDrainer]
  * then delivers it through the storyless `photo/…` endpoints.
+ *
+ * Unlike a trip photo (whose outbox state shows in the trip timeline), a
+ * standalone photo has no screen of its own, so delivery is reported through
+ * one-shot [events]: the drain worker is watched and each completed pass emits
+ * either [UploadEvent.Uploaded] or [UploadEvent.Failed] for the storyless
+ * items it was responsible for.
  */
 class AddPhotoViewModel(application: Application) : AndroidViewModel(application) {
 
+    /** One-shot delivery notifications, shown as snackbars by the main screen. */
+    sealed class UploadEvent {
+        /** All queued standalone photos were delivered. */
+        data class Uploaded(val count: Int) : UploadEvent()
+
+        /** A drain pass finished with standalone photos still queued. */
+        data class Failed(val error: String, val willRetry: Boolean) : UploadEvent()
+
+        /** The photo never made it into the queue (e.g. unreadable image). */
+        data class QueueFailed(val error: String) : UploadEvent()
+    }
+
     private val locationProvider = LocationProvider(application)
     private val outbox = Outbox(application)
+    private val workManager = WorkManager.getInstance(application)
 
     /** Open/closed state for the add-photo dialog and the picked image. */
     private val _dialogOpen = MutableStateFlow(false)
@@ -43,8 +69,50 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
     private val _gps = MutableStateFlow<GpsState>(GpsState.Idle)
     val gps: StateFlow<GpsState> = _gps.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _events = MutableSharedFlow<UploadEvent>(extraBufferCapacity = 8)
+    val events: SharedFlow<UploadEvent> = _events.asSharedFlow()
+
+    /**
+     * Ids of queued standalone photos whose delivery hasn't been reported yet.
+     * Only touched from [viewModelScope] (main thread), so no synchronization.
+     */
+    private var watched: Set<String> = emptySet()
+
+    init {
+        // Watch the drain worker and report what each completed pass did to
+        // the watched standalone photos: gone from the outbox means delivered,
+        // still present means failed (with the recorded error). Trip items are
+        // ignored — their state shows in the trip timeline.
+        viewModelScope.launch {
+            watched = withContext(Dispatchers.IO) {
+                outbox.standalone().map { it.id }.toSet()
+            }
+            var wasRunning = false
+            workManager.getWorkInfosForUniqueWorkFlow(SyncScheduler.OUTBOX).collect { infos ->
+                val running = infos.any { it.state == WorkInfo.State.RUNNING }
+                if (wasRunning && !running) reportDrainResult()
+                wasRunning = running
+            }
+        }
+    }
+
+    private suspend fun reportDrainResult() {
+        val remaining = withContext(Dispatchers.IO) { outbox.standalone() }
+        val remainingIds = remaining.map { it.id }.toSet()
+        val delivered = (watched - remainingIds).size
+        if (remaining.isEmpty()) {
+            if (delivered > 0) _events.emit(UploadEvent.Uploaded(delivered))
+        } else {
+            val failed = remaining.firstOrNull { it.lastError != null } ?: remaining.first()
+            _events.emit(
+                UploadEvent.Failed(
+                    error = failed.lastError ?: "unknown error",
+                    willRetry = remaining.none { it.failedPermanently },
+                )
+            )
+        }
+        watched = remainingIds
+    }
 
     /** Open the dialog for a picked image and start resolving a live GPS fix. */
     fun openAddPhoto(uri: Uri) {
@@ -108,18 +176,24 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                 val bytes = withContext(Dispatchers.IO) {
                     resolver.openInputStream(uri)?.use { it.readBytes() }
                 } ?: throw IOException("could not read the selected photo")
-                withContext(Dispatchers.IO) {
+                val item = withContext(Dispatchers.IO) {
                     // storyId = null -> delivered through the storyless endpoints.
                     outbox.enqueuePhoto(null, comment, published, contentType, bytes)
                 }
+                watched = watched + item.id
                 SyncScheduler.drainOutbox(getApplication())
+            } catch (e: CancellationException) {
+                throw e
             } catch (t: Throwable) {
-                _error.value = t.message ?: t.javaClass.simpleName
+                Log.w(TAG, "could not queue standalone photo", t)
+                _events.tryEmit(
+                    UploadEvent.QueueFailed(t.message ?: t.javaClass.simpleName)
+                )
             }
         }
     }
 
-    fun clearError() {
-        _error.value = null
+    private companion object {
+        const val TAG = "AddPhotoViewModel"
     }
 }

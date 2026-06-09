@@ -22,11 +22,14 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -89,6 +93,30 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
         ActivityResultContracts.PickVisualMedia(),
     ) { uri -> if (uri != null) addPhotoVm.openAddPhoto(uri) }
 
+    // Standalone photos have no screen showing their outbox state, so delivery
+    // results (uploaded / failed / couldn't queue) surface here as snackbars.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    LaunchedEffect(addPhotoVm) {
+        addPhotoVm.events.collect { event ->
+            val message = when (event) {
+                is AddPhotoViewModel.UploadEvent.Uploaded ->
+                    context.resources.getQuantityString(
+                        R.plurals.photo_uploaded, event.count, event.count,
+                    )
+                is AddPhotoViewModel.UploadEvent.Failed ->
+                    context.getString(
+                        if (event.willRetry) R.string.photo_upload_failed_retry
+                        else R.string.photo_upload_failed,
+                        event.error,
+                    )
+                is AddPhotoViewModel.UploadEvent.QueueFailed ->
+                    context.getString(R.string.photo_queue_failed, event.error)
+            }
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     BackHandler(enabled = tripDetailId != null) {
         tripDetailId = null
     }
@@ -124,6 +152,7 @@ private fun MainScaffold(vm: MainViewModel = viewModel()) {
         },
     ) {
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
                     // The Today screen's top bar carries the product name
