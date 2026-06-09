@@ -1,8 +1,11 @@
+import io
 from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
+
+from PIL import Image
 
 from ..models import HabitTracked, JournalAdded, PhotoAdded, Profile, StoryEvent, Thread
 from ..services.photos import (
@@ -87,6 +90,32 @@ class StandalonePhotoServiceTestCase(TestCase):
         self.assertEqual(photo.thread, self.daily)
         # The defining property of a standalone photo: no StoryEvent link.
         self.assertEqual(StoryEvent.objects.filter(event=photo).count(), 0)
+
+    @staticmethod
+    def _jpeg_with_exif_datetime(dt_str):
+        """A tiny JPEG carrying ``dt_str`` as its EXIF DateTime."""
+        img = Image.new("RGB", (4, 4), "red")
+        exif = img.getexif()
+        exif[0x0132] = dt_str  # DateTime
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", exif=exif)
+        return buf.getvalue()
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_standalone_photo_ignores_exif_capture_time(self, _exists):
+        # Unlike a trip photo, a standalone photo keeps the added-at time even
+        # when the original carries an EXIF capture time.
+        added_at = timezone.now()
+        jpeg = self._jpeg_with_exif_datetime("2021:07:15 09:30:00")
+        with mock.patch(f"{STORAGE}.download_bytes", return_value=jpeg):
+            photo = add_standalone_photo(
+                self.alice,
+                key=f"photos/{self.alice.pk}/abc.jpg",
+                comment="sunset",
+                content_type="image/jpeg",
+                published=added_at,
+            )
+        self.assertEqual(photo.published, added_at)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_add_standalone_photo_idempotency_returns_same_photo(self, _exists):

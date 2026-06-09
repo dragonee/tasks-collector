@@ -20,12 +20,7 @@ from django.utils import timezone
 from ...models import PhotoAdded
 from ..journalling import process_journal_entry
 from . import storage as photo_storage
-from .events import (
-    PhotoObjectMissingError,
-    capture_datetime_from_storage,
-    daily_thread,
-    existing_event,
-)
+from .events import PhotoObjectMissingError, daily_thread, existing_event
 from .keys import photo_key, photo_key_belongs_to
 
 
@@ -53,6 +48,10 @@ def add_standalone_photo(
     Raises ``PhotoObjectMissingError`` if the object isn't in the bucket (or the
     key doesn't belong to this user's ``photos/{user}/`` prefix).
 
+    Unlike a trip photo, a standalone photo is timestamped with when it was
+    *added* (the client-supplied ``published``, i.e. now), **not** the image's
+    EXIF/capture time — so its event_stream_id lands on the day it was filed.
+
     ``idempotency_key`` makes the confirm exactly-once: a retry carrying a key
     that already produced a photo returns that same photo.
     """
@@ -65,12 +64,6 @@ def add_standalone_photo(
     if not photo_storage.object_exists(key):
         raise PhotoObjectMissingError(f"no uploaded object at {key!r}")
 
-    # Prefer the time the photo was taken (EXIF) over upload time. Falls back
-    # to the client-supplied ``published`` (the gallery's DATE_TAKEN) and then
-    # to now. Done here so the pre_save signal computes event_stream_id from
-    # the correct date.
-    captured = capture_datetime_from_storage(key)
-
     try:
         # Nested savepoint so a unique-key collision (concurrent retry) rolls
         # back only this insert, leaving the outer transaction usable.
@@ -80,7 +73,7 @@ def add_standalone_photo(
                 comment=comment,
                 original_key=key,
                 content_type=content_type,
-                published=captured or published or timezone.now(),
+                published=published or timezone.now(),
                 idempotency_key=idempotency_key,
             )
             process_journal_entry(photo, story=None)

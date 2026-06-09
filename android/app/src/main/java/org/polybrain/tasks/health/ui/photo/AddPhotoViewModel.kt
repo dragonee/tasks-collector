@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.io.IOException
+import java.time.OffsetDateTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,6 +94,9 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
         val uri = _selectedPhoto.value ?: return
         val fix = if (includeLocation) (_gps.value as? GpsState.Ready)?.fix else null
         val comment = composeComment(fix, text)
+        // A standalone photo is timestamped when it's added (now), not by the
+        // image's capture/EXIF time — unlike a trip photo.
+        val published = OffsetDateTime.now().toString()
         _dialogOpen.value = false
         _selectedPhoto.value = null
         _gps.value = GpsState.Idle
@@ -104,7 +108,6 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                 val bytes = withContext(Dispatchers.IO) {
                     resolver.openInputStream(uri)?.use { it.readBytes() }
                 } ?: throw IOException("could not read the selected photo")
-                val published = withContext(Dispatchers.IO) { captureTimeFor(resolver, uri) }
                 withContext(Dispatchers.IO) {
                     // storyId = null -> delivered through the storyless endpoints.
                     outbox.enqueuePhoto(null, comment, published, contentType, bytes)
