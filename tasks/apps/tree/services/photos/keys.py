@@ -27,6 +27,12 @@ def original_key(user_id, story_id, content_type):
     return f"trips/{user_id}/{story_id}/{uuid.uuid4()}.{ext}"
 
 
+def photo_key(user_id, content_type):
+    """Allocate a fresh S3 key for a standalone (storyless) photo upload."""
+    ext = ext_for_content_type(content_type)
+    return f"photos/{user_id}/{uuid.uuid4()}.{ext}"
+
+
 def thumbnail_key_for(original):
     """Deterministic WebP thumbnail key derived from an original key."""
     base = original.rsplit(".", 1)[0]
@@ -36,3 +42,8 @@ def thumbnail_key_for(original):
 def key_belongs_to(key, user_id, story_id):
     """Guard: a confirmed key must live under this user's/story's prefix."""
     return key.startswith(f"trips/{user_id}/{story_id}/")
+
+
+def photo_key_belongs_to(key, user_id):
+    """Guard: a confirmed standalone key must live under this user's prefix."""
+    return key.startswith(f"photos/{user_id}/")

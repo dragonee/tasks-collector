@@ -180,7 +180,15 @@ fun TripDetailScreen(
         AddNoteDialog(vm)
     }
     if (photoOpen) {
-        AddPhotoDialog(vm)
+        val gps by vm.gps.collectAsState()
+        val selectedPhoto by vm.selectedPhoto.collectAsState()
+        AddPhotoDialog(
+            selectedPhoto = selectedPhoto,
+            gps = gps,
+            onPermissionResult = vm::onLocationPermissionResult,
+            onSend = vm::sendPhoto,
+            onDismiss = vm::closeAddPhoto,
+        )
     }
     if (renameOpen && s != null) {
         RenameDialog(

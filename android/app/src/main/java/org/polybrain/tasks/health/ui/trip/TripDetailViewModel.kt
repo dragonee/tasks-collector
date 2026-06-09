@@ -2,7 +2,6 @@ package org.polybrain.tasks.health.ui.trip
 
 import android.app.Application
 import android.net.Uri
-import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
@@ -11,8 +10,6 @@ import java.io.File
 import java.io.IOException
 import java.time.Instant
 import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,11 +31,15 @@ import org.polybrain.tasks.health.data.TripEvent
 import org.polybrain.tasks.health.data.TripStoryIdRequest
 import org.polybrain.tasks.health.data.TripSummary
 import org.polybrain.tasks.health.data.TripUpdateRequest
-import org.polybrain.tasks.health.location.LocationFix
+import org.polybrain.tasks.health.location.GpsSource
+import org.polybrain.tasks.health.location.GpsState
 import org.polybrain.tasks.health.location.LocationProvider
 import org.polybrain.tasks.health.location.PhotoLocationResolver
 import org.polybrain.tasks.health.location.TripTracker
+import org.polybrain.tasks.health.location.composeComment
 import org.polybrain.tasks.health.sync.SyncScheduler
+import org.polybrain.tasks.health.ui.photo.captureMillisFor
+import org.polybrain.tasks.health.ui.photo.captureTimeFor
 
 class TripDetailViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -94,26 +95,8 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     private val _viewerUrl = MutableStateFlow<String?>(null)
     val viewerUrl: StateFlow<String?> = _viewerUrl.asStateFlow()
 
-    /**
-     * GPS resolution state. The dialog reads this to decide whether to
-     * gate the Send button and what hint to show.
-     */
-    /** Where a Ready fix came from: a live GPS read (notes) or the trip's recorded track (photos). */
-    enum class GpsSource { LIVE, TRACK }
-
-    sealed class GpsState {
-        object Idle : GpsState()
-        object Waiting : GpsState()
-        data class Ready(
-            val fix: LocationFix,
-            val source: GpsSource = GpsSource.LIVE,
-            // For TRACK: the photo's capture time, shown in the dialog hint.
-            val atMillis: Long? = null,
-        ) : GpsState()
-        object Denied : GpsState()
-        object Unavailable : GpsState()
-    }
-
+    // GPS resolution state (see location/GpsState.kt); the dialog reads this to
+    // decide whether to enable "Save with location" and what hint to show.
     private val _gps = MutableStateFlow<GpsState>(GpsState.Idle)
     val gps: StateFlow<GpsState> = _gps.asStateFlow()
 
@@ -172,8 +155,9 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         _photoDialogOpen.value = true
         _gps.value = GpsState.Waiting
         viewModelScope.launch {
+            val resolver = getApplication<Application>().contentResolver
             val captureMs = withContext(Dispatchers.IO) {
-                captureMillisFor(uri) ?: System.currentTimeMillis()
+                captureMillisFor(resolver, uri) ?: System.currentTimeMillis()
             }
             val fix = withContext(Dispatchers.IO) {
                 PhotoLocationResolver.resolve(breadcrumbStore.all(), captureMs)
@@ -269,7 +253,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                 val bytes = withContext(Dispatchers.IO) {
                     resolver.openInputStream(uri)?.use { it.readBytes() }
                 } ?: throw IOException("could not read the selected photo")
-                val published = withContext(Dispatchers.IO) { captureTimeFor(uri) }
+                val published = withContext(Dispatchers.IO) { captureTimeFor(resolver, uri) }
                 withContext(Dispatchers.IO) {
                     outbox.enqueuePhoto(story.id, comment, published, contentType, bytes)
                 }
@@ -302,44 +286,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     /** Local file backing a pending photo, for the timeline thumbnail. */
     fun pendingPhotoFile(item: OutboxItem): File? = outbox.photoFile(item)
-
-    /**
-     * Best-effort capture time of a picked image: the gallery's DATE_TAKEN
-     * (epoch millis, UTC) when present, else now. The backend overrides this
-     * with the original's EXIF DateTimeOriginal when the file carries one.
-     */
-    private fun captureTimeFor(uri: Uri): String {
-        val millis = captureMillisFor(uri)
-        return if (millis != null) {
-            OffsetDateTime.ofInstant(
-                Instant.ofEpochMilli(millis),
-                ZoneId.systemDefault(),
-            ).toString()
-        } else {
-            OffsetDateTime.now().toString()
-        }
-    }
-
-    /** The gallery's DATE_TAKEN (epoch millis), or null when absent. */
-    private fun captureMillisFor(uri: Uri): Long? {
-        val resolver = getApplication<Application>().contentResolver
-        return runCatching {
-            resolver.query(
-                uri,
-                arrayOf(MediaStore.Images.Media.DATE_TAKEN),
-                null,
-                null,
-                null,
-            )?.use { cursor ->
-                val index = cursor.getColumnIndex(MediaStore.Images.Media.DATE_TAKEN)
-                if (index >= 0 && cursor.moveToFirst() && !cursor.isNull(index)) {
-                    cursor.getLong(index)
-                } else {
-                    null
-                }
-            }
-        }.getOrNull()?.takeIf { it > 0 }
-    }
 
     /** Fetch a fresh presigned URL for a photo's original and open the viewer. */
     fun openPhoto(eventId: Long) {
@@ -462,18 +408,6 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     companion object {
-        internal fun composeComment(fix: LocationFix?, text: String): String {
-            val trimmed = text.trim()
-            return if (fix != null) {
-                val prefix = String.format(
-                    Locale.US, "#poi lat=%.6f lng=%.6f", fix.lat, fix.lng,
-                )
-                if (trimmed.isEmpty()) prefix else "$prefix\n$trimmed"
-            } else {
-                trimmed
-            }
-        }
-
         private fun instantOf(iso: String): Instant =
             runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrDefault(Instant.EPOCH)
     }

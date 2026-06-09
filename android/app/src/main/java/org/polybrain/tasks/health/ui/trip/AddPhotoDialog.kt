@@ -1,6 +1,7 @@
 package org.polybrain.tasks.health.ui.trip
 
 import android.Manifest
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +15,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,20 +30,31 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import org.polybrain.tasks.health.R
+import org.polybrain.tasks.health.location.GpsSource
+import org.polybrain.tasks.health.location.GpsState
 
+/**
+ * Reusable add-photo dialog, decoupled from any specific ViewModel. Used both by
+ * the trip detail (location resolved from the trip track) and by the standalone
+ * photo flow (a live GPS fix). The TRACK hint only appears for trip photos; a
+ * standalone photo's [gps] is always LIVE, so it shows the [GpsStatusBlock].
+ */
 @Composable
-fun AddPhotoDialog(vm: TripDetailViewModel) {
-    val gps by vm.gps.collectAsState()
-    val selectedPhoto by vm.selectedPhoto.collectAsState()
-
+fun AddPhotoDialog(
+    selectedPhoto: Uri?,
+    gps: GpsState,
+    onPermissionResult: (Boolean) -> Unit,
+    onSend: (text: String, includeLocation: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
     var draft by remember { mutableStateOf("") }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted -> vm.onLocationPermissionResult(granted) }
+    ) { granted -> onPermissionResult(granted) }
 
     AlertDialog(
-        onDismissRequest = { vm.closeAddPhoto() },
+        onDismissRequest = { onDismiss() },
         title = { Text(stringResource(R.string.trip_photo_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -58,8 +69,8 @@ fun AddPhotoDialog(vm: TripDetailViewModel) {
                     )
                 }
                 val gpsState = gps
-                if (gpsState is TripDetailViewModel.GpsState.Ready &&
-                    gpsState.source == TripDetailViewModel.GpsSource.TRACK
+                if (gpsState is GpsState.Ready &&
+                    gpsState.source == GpsSource.TRACK
                 ) {
                     // A photo's location comes from the recorded trip track, not
                     // a live fix — say so, with the capture time it was matched to.
@@ -90,25 +101,25 @@ fun AddPhotoDialog(vm: TripDetailViewModel) {
             }
         },
         // "Send" is the default and attaches no location; "Save with location"
-        // is the explicit opt-in, enabled only when the track produced a fix.
+        // is the explicit opt-in, enabled only when a fix is ready.
         confirmButton = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(
-                    onClick = { vm.sendPhoto(draft, includeLocation = true) },
-                    enabled = gps is TripDetailViewModel.GpsState.Ready,
+                    onClick = { onSend(draft, true) },
+                    enabled = gps is GpsState.Ready,
                 ) {
                     Text(stringResource(R.string.trip_save_with_location))
                 }
-                TextButton(onClick = { vm.sendPhoto(draft, includeLocation = false) }) {
+                TextButton(onClick = { onSend(draft, false) }) {
                     Text(stringResource(R.string.trip_send))
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = { vm.closeAddPhoto() }) {
+            TextButton(onClick = { onDismiss() }) {
                 Text(stringResource(R.string.trip_note_cancel))
             }
         },

@@ -207,6 +207,22 @@ data class PhotoConfirmResponse(
     @SerialName("photo_id") val photoId: Long = 0,
 )
 
+// Standalone (storyless) photo upload: same two-phase flow as a trip photo,
+// but with no `story_id`. The confirm creates a PhotoTaken attached to no trip.
+@Serializable
+data class StandalonePhotoPresignRequest(
+    @SerialName("content_type") val contentType: String,
+)
+
+@Serializable
+data class StandalonePhotoConfirmRequest(
+    @SerialName("key") val key: String,
+    @SerialName("comment") val comment: String,
+    @SerialName("content_type") val contentType: String,
+    @SerialName("published") val published: String,
+    @SerialName("idempotency_key") val idempotencyKey: String,
+)
+
 @Serializable
 data class PhotoOriginalResponse(
     @SerialName("url") val url: String,
@@ -286,4 +302,14 @@ interface TasksApi {
 
     @GET("api/v1/android/trip/photo/{id}/original/")
     suspend fun photoOriginal(@Path("id") eventId: Long): PhotoOriginalResponse
+
+    @POST("api/v1/android/photo/presign/")
+    suspend fun presignStandalonePhoto(
+        @Body body: StandalonePhotoPresignRequest,
+    ): PhotoPresignResponse
+
+    @POST("api/v1/android/photo/")
+    suspend fun addStandalonePhoto(
+        @Body body: StandalonePhotoConfirmRequest,
+    ): PhotoConfirmResponse
 }

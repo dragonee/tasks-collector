@@ -11,11 +11,20 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from ...models import JournalAdded, PhotoAdded, Story, StoryEvent, Thread
+from ...models import JournalAdded, PhotoAdded, Story, StoryEvent
 from ..journalling import process_journal_entry
-from ..photos import key_belongs_to, original_key, read_capture_datetime
+from ..photos import key_belongs_to, original_key, photo_key_belongs_to
 from ..photos import storage as photo_storage
+from ..photos.events import (
+    PhotoObjectMissingError,
+    capture_datetime_from_storage,
+    daily_thread,
+    existing_event,
+)
 from .titles import default_title
+
+# ``PhotoObjectMissingError`` is imported from ``..photos.events`` and re-exported
+# here so ``services.trips`` keeps its existing public surface.
 
 
 class StoryNotFoundError(Exception):
@@ -26,22 +35,12 @@ class StoryStoppedError(Exception):
     """The Story is already stopped; no further events can be attached."""
 
 
-class PhotoObjectMissingError(Exception):
-    """The presigned upload was never completed (no object in the bucket)."""
-
-
-def _daily_thread():
-    return Thread.objects.get(name="Daily")
-
-
 def _journal_thread_for(user):
     """Resolve the Thread used for a trip note's/photo's JournalAdded.
 
-    Trip notes are diary-style entries, so they always go to the Daily
-    thread — deliberately *not* the user's ``Profile.default_board_thread``
-    (which targets boards/tasks and may be the Inbox).
+    Trip notes are diary-style entries, so they always go to the Daily thread.
     """
-    return _daily_thread()
+    return daily_thread()
 
 
 def _get_owned_story(user, story_id):
@@ -51,17 +50,6 @@ def _get_owned_story(user, story_id):
         raise StoryNotFoundError(
             f"Story #{story_id} not found for user {user.pk}"
         ) from e
-
-
-def _existing_event(model, idempotency_key):
-    """The event previously created for ``idempotency_key``, or None.
-
-    Used for exactly-once writes: a retried request (whose first response was
-    lost) re-uses the existing event instead of creating a duplicate.
-    """
-    if not idempotency_key:
-        return None
-    return model.objects.filter(idempotency_key=idempotency_key).first()
 
 
 @transaction.atomic
@@ -115,7 +103,7 @@ def add_trip_note(user, story_id, comment, published=None, idempotency_key=None)
     """
     story = _get_owned_story(user, story_id)
 
-    existing = _existing_event(JournalAdded, idempotency_key)
+    existing = existing_event(JournalAdded, idempotency_key)
     if existing is not None:
         return existing
 
@@ -135,7 +123,7 @@ def add_trip_note(user, story_id, comment, published=None, idempotency_key=None)
             )
             process_journal_entry(journal_added, story=story)
     except IntegrityError:
-        existing = _existing_event(JournalAdded, idempotency_key)
+        existing = existing_event(JournalAdded, idempotency_key)
         if existing is not None:
             return existing
         raise
@@ -158,20 +146,6 @@ def presign_photo_upload(user, story_id, content_type):
     return {"key": key, "upload_url": url, "expires_at": expires_at.isoformat()}
 
 
-def _capture_datetime_from_storage(key):
-    """Best-effort EXIF capture time of the just-uploaded original.
-
-    Returns None on any failure (download error, non-image, no EXIF date) so a
-    missing or unreadable timestamp never blocks the confirm — the caller then
-    falls back to the client-supplied ``published``.
-    """
-    try:
-        raw = photo_storage.download_bytes(key)
-    except Exception:  # noqa: BLE001 - storage hiccups must not fail confirm
-        return None
-    return read_capture_datetime(raw)
-
-
 @transaction.atomic
 def add_trip_photo(
     user, story_id, key, comment, content_type, published=None, idempotency_key=None
@@ -190,7 +164,7 @@ def add_trip_photo(
     """
     story = _get_owned_story(user, story_id)
 
-    existing = _existing_event(PhotoAdded, idempotency_key)
+    existing = existing_event(PhotoAdded, idempotency_key)
     if existing is not None:
         return existing
 
@@ -205,7 +179,7 @@ def add_trip_photo(
     # to the client-supplied ``published`` (the gallery's DATE_TAKEN) and then
     # to now. Done here so the pre_save signal computes event_stream_id from
     # the correct date.
-    captured = _capture_datetime_from_storage(key)
+    captured = capture_datetime_from_storage(key)
 
     try:
         # Nested savepoint so a unique-key collision (concurrent retry) rolls
@@ -221,7 +195,7 @@ def add_trip_photo(
             )
             process_journal_entry(photo, story=story)
     except IntegrityError:
-        existing = _existing_event(PhotoAdded, idempotency_key)
+        existing = existing_event(PhotoAdded, idempotency_key)
         if existing is not None:
             return existing
         raise
@@ -235,19 +209,26 @@ def add_trip_photo(
 
 def presign_photo_original(user, event_id):
     """Fresh presigned GET URL for the full-resolution original of a photo the
-    user owns (ownership resolved via StoryEvent -> Story.user).
+    user owns.
+
+    Ownership is resolved two ways so this serves both trip photos and
+    standalone ones: a trip photo is owned if a ``StoryEvent`` links it to one
+    of the user's Stories; a standalone photo (no ``StoryEvent``) is owned if
+    its ``original_key`` lives under the user's ``photos/{user}/`` prefix (the
+    Daily thread is global, so the key prefix is the only owner signal).
 
     Raises ``StoryNotFoundError`` if no such owned photo exists (404-safe).
     """
-    try:
-        entry = StoryEvent.objects.select_related("story").get(
-            event_id=event_id, story__user=user
-        )
-    except StoryEvent.DoesNotExist as e:
-        raise StoryNotFoundError(f"Photo #{event_id} not found for user") from e
-    photo = entry.event.get_real_instance()
-    if not isinstance(photo, PhotoAdded):
-        raise StoryNotFoundError(f"Event #{event_id} is not a photo")
+    photo = PhotoAdded.objects.filter(pk=event_id).first()
+    if photo is None:
+        raise StoryNotFoundError(f"Photo #{event_id} not found")
+    entry = StoryEvent.objects.select_related("story").filter(event_id=event_id).first()
+    if entry is not None:
+        owned = entry.story.user_id == user.id
+    else:
+        owned = photo_key_belongs_to(photo.original_key, user.pk)
+    if not owned:
+        raise StoryNotFoundError(f"Photo #{event_id} not found for user")
     return {"url": photo_storage.presign_get(photo.original_key)}
 
 

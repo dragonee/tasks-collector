@@ -5,6 +5,8 @@ import org.polybrain.tasks.health.data.Outbox
 import org.polybrain.tasks.health.data.OutboxItem
 import org.polybrain.tasks.health.data.PhotoConfirmRequest
 import org.polybrain.tasks.health.data.PhotoPresignRequest
+import org.polybrain.tasks.health.data.StandalonePhotoConfirmRequest
+import org.polybrain.tasks.health.data.StandalonePhotoPresignRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TripNoteRequest
 import retrofit2.HttpException
@@ -50,9 +52,12 @@ object OutboxDrainer {
         return try {
             when (item.kind) {
                 OutboxItem.Kind.NOTE -> {
+                    // Notes are always trip-bound; a storyless note is a bug.
                     api.addTripNote(
                         TripNoteRequest(
-                            storyId = item.storyId,
+                            storyId = requireNotNull(item.storyId) {
+                                "note ${item.id} has no story"
+                            },
                             comment = item.comment,
                             published = item.published,
                             idempotencyKey = item.id,
@@ -84,6 +89,10 @@ object OutboxDrainer {
      * straight to confirm and a PUT-failure retry re-presigns fresh. Returns the
      * (possibly updated) item so the caller's bookkeeping won't clobber the
      * resume flags.
+     *
+     * A null [OutboxItem.storyId] is a standalone photo (no trip): it goes
+     * through the storyless `photo/…` endpoints instead of the trip ones. The
+     * resume logic is identical for both — only the two API calls differ.
      */
     private suspend fun sendPhoto(
         item: OutboxItem,
@@ -93,27 +102,47 @@ object OutboxDrainer {
     ): OutboxItem {
         var current = item
         val contentType = current.contentType ?: "image/jpeg"
+        val storyId = current.storyId
         if (!current.uploaded) {
             val bytes = outbox.photoBytes(current)
                 ?: throw PermanentFailure("photo file missing for ${current.id}")
-            val presign = api.presignPhoto(
-                PhotoPresignRequest(storyId = current.storyId, contentType = contentType)
-            )
+            val presign = if (storyId != null) {
+                api.presignPhoto(
+                    PhotoPresignRequest(storyId = storyId, contentType = contentType)
+                )
+            } else {
+                api.presignStandalonePhoto(
+                    StandalonePhotoPresignRequest(contentType = contentType)
+                )
+            }
             put.put(presign.uploadUrl, bytes, contentType)
             // Persist immediately so a process kill after PUT still resumes at confirm.
             current = current.copy(presignedKey = presign.key, uploaded = true)
             outbox.update(current)
         }
-        api.addTripPhoto(
-            PhotoConfirmRequest(
-                storyId = current.storyId,
-                key = current.presignedKey!!,
-                comment = current.comment,
-                contentType = contentType,
-                published = current.published,
-                idempotencyKey = current.id,
+        val key = current.presignedKey!!
+        if (storyId != null) {
+            api.addTripPhoto(
+                PhotoConfirmRequest(
+                    storyId = storyId,
+                    key = key,
+                    comment = current.comment,
+                    contentType = contentType,
+                    published = current.published,
+                    idempotencyKey = current.id,
+                )
             )
-        )
+        } else {
+            api.addStandalonePhoto(
+                StandalonePhotoConfirmRequest(
+                    key = key,
+                    comment = current.comment,
+                    contentType = contentType,
+                    published = current.published,
+                    idempotencyKey = current.id,
+                )
+            )
+        }
         return current
     }
 

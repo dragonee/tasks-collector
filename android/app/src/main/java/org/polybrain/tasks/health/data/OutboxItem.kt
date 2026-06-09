@@ -14,12 +14,16 @@ import kotlinx.serialization.Serializable
  *
  * [id] doubles as the server `idempotency_key`, so a retry whose first response
  * was lost re-uses the existing event instead of creating a duplicate.
+ *
+ * [storyId] is null for a standalone photo (a `PhotoTaken` with no trip): the
+ * drainer then delivers it through the storyless photo endpoints instead of the
+ * trip ones, and [forStory] never returns it.
  */
 @Serializable
 data class OutboxItem(
     val id: String,
     val kind: Kind,
-    val storyId: Long,
+    val storyId: Long?,
     val comment: String,
     val published: String,
     val createdAt: Long,
