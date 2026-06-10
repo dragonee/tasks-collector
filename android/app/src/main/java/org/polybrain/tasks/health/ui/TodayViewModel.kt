@@ -18,6 +18,7 @@ import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TodayTask
+import org.polybrain.tasks.health.data.TripSummary
 
 class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -69,6 +70,14 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _pendingComplete = MutableStateFlow<PendingComplete?>(null)
     val pendingComplete: StateFlow<PendingComplete?> = _pendingComplete.asStateFlow()
+
+    /**
+     * The most recently started active trip, refreshed alongside the task
+     * list. Drives the "Save to trip" button on the add-note dialog; null
+     * when no trip is active.
+     */
+    private val _activeTrip = MutableStateFlow<TripSummary?>(null)
+    val activeTrip: StateFlow<TripSummary?> = _activeTrip.asStateFlow()
 
     fun refresh() {
         viewModelScope.launch { reload() }
@@ -149,8 +158,21 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** OK button on the add-note dialog. */
+    /** Save button on the add-note dialog. */
     fun confirmCompletion(note: String) {
+        completePending(note, storyId = null)
+    }
+
+    /**
+     * Save-to-trip button on the add-note dialog: same completion, but the
+     * journal entry is linked to the active trip. Falls back to a plain
+     * save if the trip vanished since the dialog opened.
+     */
+    fun confirmCompletionToTrip(note: String) {
+        completePending(note, storyId = _activeTrip.value?.id)
+    }
+
+    private fun completePending(note: String, storyId: Long?) {
         val pending = _pendingComplete.value as? PendingComplete.AddNote ?: return
         _pendingComplete.value = null
         viewModelScope.launch {
@@ -159,7 +181,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
             }
             mutate { api ->
                 api.completeTodayTask(
-                    TaskCompleteRequest(pending.text, true, nowIso(), note)
+                    TaskCompleteRequest(pending.text, true, nowIso(), note, storyId)
                 )
             }
         }
@@ -226,6 +248,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         if (!snapshot.isConfigured) {
             _tasks.value = emptyList()
             _weekPlan.value = emptyList()
+            _activeTrip.value = null
             return
         }
         _loading.value = true
@@ -240,6 +263,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
                 ?.filter { it.isNotEmpty() }
                 ?.toList()
                 ?: emptyList()
+            _activeTrip.value = api.listTrips(page = 1, pageSize = 1).active.firstOrNull()
             _error.value = null
         } catch (t: Throwable) {
             _error.value = t.message ?: t.javaClass.simpleName

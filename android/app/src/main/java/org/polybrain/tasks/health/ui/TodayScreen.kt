@@ -165,12 +165,17 @@ fun TodayScreen(
 
     pendingComplete?.let { pending ->
         when (pending) {
-            is TodayViewModel.PendingComplete.AddNote -> JournalNoteDialog(
-                onConfirm = vm::confirmCompletion,
-                onCancel = vm::cancelCompletion,
-                // Reset the draft each time a new pending request arrives.
-                resetKey = pending.text,
-            )
+            is TodayViewModel.PendingComplete.AddNote -> {
+                val activeTrip by vm.activeTrip.collectAsState()
+                JournalNoteDialog(
+                    hasActiveTrip = activeTrip != null,
+                    onConfirm = vm::confirmCompletion,
+                    onConfirmToTrip = vm::confirmCompletionToTrip,
+                    onCancel = vm::cancelCompletion,
+                    // Reset the draft each time a new pending request arrives.
+                    resetKey = pending.text,
+                )
+            }
             is TodayViewModel.PendingComplete.CompletedAction -> CompletedTaskDialog(
                 taskText = pending.text,
                 onAddAnother = vm::confirmAddAnother,
@@ -184,7 +189,9 @@ fun TodayScreen(
 
 @Composable
 private fun JournalNoteDialog(
+    hasActiveTrip: Boolean,
     onConfirm: (String) -> Unit,
+    onConfirmToTrip: (String) -> Unit,
     onCancel: () -> Unit,
     resetKey: Any,
 ) {
@@ -203,8 +210,15 @@ private fun JournalNoteDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(draft) }) {
-                Text(stringResource(R.string.today_note_ok))
+            Row {
+                if (hasActiveTrip) {
+                    TextButton(onClick = { onConfirmToTrip(draft) }) {
+                        Text(stringResource(R.string.today_note_save_to_trip))
+                    }
+                }
+                TextButton(onClick = { onConfirm(draft) }) {
+                    Text(stringResource(R.string.today_note_save))
+                }
             }
         },
         dismissButton = {
