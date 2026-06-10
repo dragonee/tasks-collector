@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,14 +19,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -76,6 +81,9 @@ fun TripDetailScreen(
     val photoOpen by vm.photoDialogOpen.collectAsState()
     val renameOpen by vm.renameOpen.collectAsState()
     val viewerUrl by vm.viewerUrl.collectAsState()
+    val share by vm.share.collectAsState()
+    val shareOpen by vm.shareDialogOpen.collectAsState()
+    val shareBusy by vm.shareBusy.collectAsState()
 
     LaunchedEffect(storyId) { vm.load(storyId) }
 
@@ -94,85 +102,75 @@ fun TripDetailScreen(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        if (s != null) {
-            TripHeader(
-                title = s.title,
-                startedIso = s.started,
-                stoppedIso = s.stopped,
-                onRename = vm::openRename,
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            if (s != null) {
+                TripHeader(
+                    title = s.title,
+                    startedIso = s.started,
+                    stoppedIso = s.stopped,
+                    onRename = vm::openRename,
+                    onShare = vm::openShare,
+                    onStop = vm::stop,
+                )
+            }
+
+            error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
+
+            SyncBadge(
+                pending = pending,
+                syncing = syncing,
+                onRetryAll = { pending.filter { it.failedPermanently }.forEach(vm::retry) },
             )
+
+            PullToRefreshBox(
+                isRefreshing = loading,
+                onRefresh = vm::refresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                if (timeline.isEmpty()) {
+                    EmptyState(stringResource(R.string.trip_detail_empty))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        // Keep the last entry reachable above the FAB.
+                        contentPadding = PaddingValues(bottom = 88.dp),
+                    ) {
+                        items(items = timeline, key = ::rowKey) { row ->
+                            when (row) {
+                                is TimelineRow.Synced -> EventRow(
+                                    event = row.event,
+                                    formatter = formatter ?: FALLBACK_FORMATTER,
+                                    onOpenPhoto = vm::openPhoto,
+                                )
+                                is TimelineRow.Pending -> PendingRow(
+                                    item = row.item,
+                                    formatter = formatter ?: FALLBACK_FORMATTER,
+                                    syncing = syncing,
+                                    photoFile = vm.pendingPhotoFile(row.item),
+                                    onRetry = { vm.retry(row.item) },
+                                    onDiscard = { vm.discard(row.item) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Button(
-                onClick = vm::openAddNote,
-                enabled = s != null && s.stopped == null,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(stringResource(R.string.trip_detail_add_note))
-            }
-            OutlinedButton(
-                onClick = {
+        if (s != null && s.stopped == null) {
+            AddActionsFab(
+                onAddNote = vm::openAddNote,
+                onAddPhoto = {
                     photoPicker.launch(
                         PickVisualMediaRequest(
                             ActivityResultContracts.PickVisualMedia.ImageOnly
                         )
                     )
                 },
-                enabled = s != null && s.stopped == null,
-            ) {
-                Text(stringResource(R.string.trip_detail_add_photo))
-            }
-            if (s != null && s.stopped == null) {
-                OutlinedButton(onClick = vm::stop) {
-                    Text(stringResource(R.string.trip_detail_stop))
-                }
-            }
-        }
-
-        SyncBadge(
-            pending = pending,
-            syncing = syncing,
-            onRetryAll = { pending.filter { it.failedPermanently }.forEach(vm::retry) },
-        )
-
-        PullToRefreshBox(
-            isRefreshing = loading,
-            onRefresh = vm::refresh,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (timeline.isEmpty()) {
-                EmptyState(stringResource(R.string.trip_detail_empty))
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(items = timeline, key = ::rowKey) { row ->
-                        when (row) {
-                            is TimelineRow.Synced -> EventRow(
-                                event = row.event,
-                                formatter = formatter ?: FALLBACK_FORMATTER,
-                                onOpenPhoto = vm::openPhoto,
-                            )
-                            is TimelineRow.Pending -> PendingRow(
-                                item = row.item,
-                                formatter = formatter ?: FALLBACK_FORMATTER,
-                                syncing = syncing,
-                                photoFile = vm.pendingPhotoFile(row.item),
-                                onRetry = { vm.retry(row.item) },
-                                onDiscard = { vm.discard(row.item) },
-                            )
-                        }
-                    }
-                }
-            }
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            )
         }
     }
 
@@ -195,6 +193,15 @@ fun TripDetailScreen(
             currentTitle = s.title,
             onConfirm = vm::rename,
             onCancel = vm::closeRename,
+        )
+    }
+    if (shareOpen) {
+        ShareTripDialog(
+            share = share,
+            busy = shareBusy,
+            onCreate = vm::createShare,
+            onUnshare = vm::unshare,
+            onDismiss = vm::closeShare,
         )
     }
     viewerUrl?.let { url ->
@@ -265,13 +272,60 @@ private fun PhotoViewerDialog(url: String, onDismiss: () -> Unit) {
     }
 }
 
+/**
+ * Speed-dial FAB for the timeline actions: the main + button expands into
+ * labeled "Add photo" / "Add note" actions. Only rendered for active trips —
+ * a stopped trip accepts no new entries.
+ */
+@Composable
+private fun AddActionsFab(
+    onAddNote: () -> Unit,
+    onAddPhoto: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (expanded) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    expanded = false
+                    onAddPhoto()
+                },
+            ) {
+                Text(stringResource(R.string.trip_detail_add_photo))
+            }
+            ExtendedFloatingActionButton(
+                onClick = {
+                    expanded = false
+                    onAddNote()
+                },
+            ) {
+                Text(stringResource(R.string.trip_detail_add_note))
+            }
+        }
+        FloatingActionButton(onClick = { expanded = !expanded }) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = stringResource(R.string.trip_detail_add_actions),
+            )
+        }
+    }
+}
+
 @Composable
 private fun TripHeader(
     title: String,
     startedIso: String,
     stoppedIso: String?,
     onRename: () -> Unit,
+    onShare: () -> Unit,
+    onStop: () -> Unit,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -282,8 +336,41 @@ private fun TripHeader(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onRename) {
-                Text(stringResource(R.string.trip_detail_rename))
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = stringResource(R.string.trip_detail_menu),
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.trip_detail_rename)) },
+                        onClick = {
+                            menuOpen = false
+                            onRename()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.trip_share)) },
+                        onClick = {
+                            menuOpen = false
+                            onShare()
+                        },
+                    )
+                    if (stoppedIso == null) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.trip_detail_stop)) },
+                            onClick = {
+                                menuOpen = false
+                                onStop()
+                            },
+                        )
+                    }
+                }
             }
         }
         Text(

@@ -22,6 +22,8 @@
     <string name="trip_detail_empty">No notes yet — tap Add note to record one.</string>
     <string name="trip_detail_rename">Rename</string>
     <string name="trip_detail_rename_title">Rename trip</string>
+    <string name="trip_detail_menu">More options</string>
+    <string name="trip_detail_add_actions">Add note or photo</string>
     <string name="trip_detail_open_in_maps">Open location in Maps</string>
 
     <string name="trip_note_dialog_title">Add a note</string>
@@ -33,6 +35,16 @@
     <string name="trip_note_gps_ready">Location ready (%1$.5f, %2$.5f)</string>
     <string name="trip_note_gps_missing">No location available.</string>
     <string name="trip_note_grant_location">Grant location permission</string>
+
+    <string name="trip_share">Share</string>
+    <string name="trip_share_dialog_title">Share trip</string>
+    <string name="trip_share_not_shared">Create a public link that anyone can use to view this trip.</string>
+    <string name="trip_share_shared_hint">Anyone with this link can view the trip.</string>
+    <string name="trip_share_create">Create link</string>
+    <string name="trip_share_copy">Copy link</string>
+    <string name="trip_share_send">Share…</string>
+    <string name="trip_share_unshare">Unshare</string>
+    <string name="trip_share_close">Close</string>
 
     <string name="trip_photo_dialog_title">Add a photo</string>
     <string name="trip_photo_hint">Add a caption (optional)</string>
@@ -63,7 +75,8 @@
 
     <string name="today_note_dialog_title">Add a note</string>
     <string name="today_note_hint">Optional</string>
-    <string name="today_note_ok">OK</string>
+    <string name="today_note_save">Save</string>
+    <string name="today_note_save_to_trip">Save to trip</string>
     <string name="today_note_cancel">Cancel</string>
 
     <string name="today_done_dialog_title">Task complete</string>

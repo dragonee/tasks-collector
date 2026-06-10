@@ -56,6 +56,9 @@ data class TaskCompleteRequest(
     // (uncheck path or pre-modal builds); empty string = create entry
     // with just the [x] marker line.
     @SerialName("note") val note: String? = null,
+    // "Save to trip": link the completion journal entry to this active
+    // trip (Story). null = plain save, no trip link.
+    @SerialName("story_id") val storyId: Long? = null,
 )
 
 @Serializable
@@ -228,10 +231,26 @@ data class PhotoOriginalResponse(
     @SerialName("url") val url: String,
 )
 
+// Public share link for a trip. The server builds the full absolute URL —
+// the client never assembles URLs itself.
+@Serializable
+data class TripShare(
+    @SerialName("uuid") val uuid: String,
+    @SerialName("url") val url: String,
+)
+
+@Serializable
+data class TripShareResponse(
+    @SerialName("shared") val shared: Boolean = false,
+    @SerialName("share") val share: TripShare? = null,
+)
+
 @Serializable
 data class TripDetailResponse(
     @SerialName("story") val story: TripSummary,
     @SerialName("events") val events: List<TripEvent> = emptyList(),
+    // Null when the trip is not shared (and on older servers).
+    @SerialName("share") val share: TripShare? = null,
 )
 
 interface TasksApi {
@@ -281,6 +300,12 @@ interface TasksApi {
 
     @POST("api/v1/android/trip/update/")
     suspend fun updateTrip(@Body body: TripUpdateRequest): TripResponse
+
+    @POST("api/v1/android/trip/share/")
+    suspend fun shareTrip(@Body body: TripStoryIdRequest): TripShareResponse
+
+    @POST("api/v1/android/trip/share/revoke/")
+    suspend fun revokeTripShare(@Body body: TripStoryIdRequest): TripShareResponse
 
     @POST("api/v1/android/trip/note/")
     suspend fun addTripNote(@Body body: TripNoteRequest): TripNoteResponse
