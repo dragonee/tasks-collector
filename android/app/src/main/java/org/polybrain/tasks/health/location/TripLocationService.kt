@@ -92,9 +92,12 @@ class TripLocationService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!hasLocationPermission()) {
-            // Started without the location grant (e.g. the user denied it).
-            // Do NOT promote to a location-type foreground service — that throws
-            // on Android 14+. Stop cleanly before the start-timeout instead.
+            // Last-resort backstop: TripTracker gates startForegroundService on
+            // the fine-location grant, so this path should be unreachable. If it
+            // is reached anyway, promoting to a location-type FGS would throw on
+            // Android 14+, and stopping here without startForeground() still
+            // risks ForegroundServiceDidNotStartInTimeException — there is no
+            // fully safe option at this point, only the lesser evil.
             stopSelf()
             return START_NOT_STICKY
         }
