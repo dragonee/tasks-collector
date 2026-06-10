@@ -28,6 +28,7 @@ import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TripDetailResponse
 import org.polybrain.tasks.health.data.TripEvent
+import org.polybrain.tasks.health.data.TripShare
 import org.polybrain.tasks.health.data.TripStoryIdRequest
 import org.polybrain.tasks.health.data.TripSummary
 import org.polybrain.tasks.health.data.TripUpdateRequest
@@ -102,6 +103,17 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _renameOpen = MutableStateFlow(false)
     val renameOpen: StateFlow<Boolean> = _renameOpen.asStateFlow()
+
+    /** The trip's public share link (null = not shared). */
+    private val _share = MutableStateFlow<TripShare?>(null)
+    val share: StateFlow<TripShare?> = _share.asStateFlow()
+
+    private val _shareDialogOpen = MutableStateFlow(false)
+    val shareDialogOpen: StateFlow<Boolean> = _shareDialogOpen.asStateFlow()
+
+    /** True while a share/unshare request is in flight. */
+    private val _shareBusy = MutableStateFlow(false)
+    val shareBusy: StateFlow<Boolean> = _shareBusy.asStateFlow()
 
     private var storyId: Long = -1
 
@@ -349,6 +361,51 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun openShare() {
+        _shareDialogOpen.value = true
+    }
+
+    fun closeShare() {
+        _shareDialogOpen.value = false
+    }
+
+    /** Create (or fetch) the public share link. Works for stopped trips too. */
+    fun createShare() {
+        val story = _story.value ?: return
+        if (_shareBusy.value) return
+        viewModelScope.launch {
+            val snapshot = ensureConfigured() ?: return@launch
+            _shareBusy.value = true
+            try {
+                val api = buildApi(snapshot)
+                _share.value = api.shareTrip(TripStoryIdRequest(storyId = story.id)).share
+            } catch (t: Throwable) {
+                _error.value = t.message ?: t.javaClass.simpleName
+            } finally {
+                _shareBusy.value = false
+            }
+        }
+    }
+
+    /** Revoke the share link; the old URL stops working permanently. */
+    fun unshare() {
+        val story = _story.value ?: return
+        if (_shareBusy.value) return
+        viewModelScope.launch {
+            val snapshot = ensureConfigured() ?: return@launch
+            _shareBusy.value = true
+            try {
+                val api = buildApi(snapshot)
+                api.revokeTripShare(TripStoryIdRequest(storyId = story.id))
+                _share.value = null
+            } catch (t: Throwable) {
+                _error.value = t.message ?: t.javaClass.simpleName
+            } finally {
+                _shareBusy.value = false
+            }
+        }
+    }
+
     fun clearError() {
         _error.value = null
     }
@@ -366,6 +423,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
             val detail: TripDetailResponse = api.tripDetail(storyId)
             _story.value = detail.story
             _events.value = detail.events
+            _share.value = detail.share
             _error.value = null
         } catch (t: Throwable) {
             _error.value = t.message ?: t.javaClass.simpleName
