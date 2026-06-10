@@ -1,0 +1,60 @@
+<div class="split-layout {% if map_points %}trip-map-layout{% else %}content-rail no-rail{% endif %}">
+
+<div class="topbar">
+    <div class="upper-pane">
+        <h1>{{ story }}</h1>
+        {% if show_share_control %}
+            {% include "tree/trips/_share_control.html" %}
+        {% endif %}
+    </div>
+    <div class="lower-pane">
+        {{ story.started|date:"D, d M Y" }}
+        {% if story.stopped %}
+            {% if story.started|date:"Y-m-d" != story.stopped|date:"Y-m-d" %}
+                &ndash; {{ story.stopped|date:"D, d M Y" }}
+            {% endif %}
+        {% else %}
+            &middot; <strong>active</strong>
+        {% endif %}
+    </div>
+</div>
+
+{% if map_points %}
+<div class="split-left">
+    <div id="trip-map"></div>
+</div>
+{% endif %}
+
+<div class="{% if map_points %}split-right{% else %}split-left{% endif %}">
+    <section class="journal trip-entries">
+        {% if map_points %}
+        <div id="trip-history-filter" class="trip-history-filter hidden">
+            <span class="trip-history-filter-text"></span>
+            <button type="button" class="trip-history-filter-reset">Show all</button>
+        </div>
+        {% endif %}
+        <main>
+            <ul>
+                {% regroup events by published.date as entries_by_date %}
+                {% for date, day_events in entries_by_date %}
+                    <li id="{{ date|date:"b-d" }}" class="trip-day">
+                        <strong>{{ date|date:"d F Y" }}</strong>
+                        <ul>
+                            {% for event in day_events %}
+                                <li class="trip-entry" data-event-id="{{ event.id }}">
+                                    {% include "tree/events/journal_added.html" with readonly=True hide_trip_marker=True %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% empty %}
+                    <li>No entries in this trip yet.</li>
+                {% endfor %}
+            </ul>
+        </main>
+    </section>
+</div>
+
+</div>
+
+{% if map_points %}{{ map_points|json_script:"trip-map-data" }}{% endif %}

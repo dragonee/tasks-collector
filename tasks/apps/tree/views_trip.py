@@ -1,9 +1,10 @@
-"""Read-only web (HTML) views for Trips (Story).
+"""Web (HTML) views for Trips (Story).
 
 The Android client drives trips through the JSON API in
 ``views_android_trip``; these views are the human-facing mirror — an index
-of the user's trips and a per-trip page that reuses the journal-entry
-partial to render notes and photo miniatures. Nothing here mutates state.
+of the user's trips, a per-trip page that reuses the journal-entry partial
+to render notes and photo miniatures, the HTMX share/unshare toggle, and
+the public (unauthenticated) page behind a share link.
 """
 
 import re
@@ -12,6 +13,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import render
 from django.template.defaultfilters import date as date_filter
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from .models import PhotoAdded, Story, StoryEvent
 from .services.photos import storage as photo_storage
@@ -109,6 +112,33 @@ def _map_points(events):
     return points
 
 
+def _story_events(story):
+    """All journal/photo entries of a trip as real model instances, newest
+    first, with presigned photo URLs attached.
+
+    Mirrors ``operations.get_detail`` (JournalAdded + PhotoAdded, no
+    side-effect HabitTracked rows). Shared by the private and public detail
+    views so both render through the same pipeline.
+    """
+    entries = (
+        StoryEvent.objects.filter(story=story, event__journaladded__isnull=False)
+        .select_related("event")
+        .order_by("-event__published")
+    )
+    events = [entry.event.get_real_instance() for entry in entries]
+    return attach_photo_urls(events)
+
+
+def _share_context(request, story):
+    share = getattr(story, "share", None)
+    share_url = (
+        request.build_absolute_uri(reverse("trip-shared-detail", args=[share.uuid]))
+        if share
+        else None
+    )
+    return {"story": story, "share": share, "share_url": share_url}
+
+
 def _trip_date_label(story):
     """Human date(s) for a trip tile. A same-day or still-active trip shows a
     single date rather than repeating it as a range."""
@@ -155,17 +185,63 @@ def trip_detail(request, story_id):
     if story is None:
         raise Http404("Trip not found")
 
-    entries = (
-        StoryEvent.objects.filter(story=story, event__journaladded__isnull=False)
-        .select_related("event")
-        .order_by("-event__published")
-    )
-    events = [entry.event.get_real_instance() for entry in entries]
-    attach_photo_urls(events)
+    events = _story_events(story)
 
     return render(
         request,
         "tree/trips/trip_detail.html",
+        {
+            **_share_context(request, story),
+            "events": events,
+            "map_points": _map_points(events),
+            "show_share_control": True,
+        },
+    )
+
+
+@login_required
+@require_POST
+def trip_share(request, story_id):
+    """HTMX endpoint: create the public share link and re-render the share
+    control with the URL + Unshare button."""
+    try:
+        share = trip_ops.share_trip(request.user, story_id)
+    except trip_ops.StoryNotFoundError:
+        raise Http404("Trip not found")
+    return render(
+        request,
+        "tree/trips/_share_control.html",
+        _share_context(request, share.story),
+    )
+
+
+@login_required
+@require_POST
+def trip_unshare(request, story_id):
+    """HTMX endpoint: revoke the share link and re-render the share control."""
+    try:
+        story = trip_ops.unshare_trip(request.user, story_id)
+    except trip_ops.StoryNotFoundError:
+        raise Http404("Trip not found")
+    return render(
+        request,
+        "tree/trips/_share_control.html",
+        _share_context(request, story),
+    )
+
+
+def trip_shared_detail(request, share_uuid):
+    """Public, unauthenticated mirror of ``trip_detail``, keyed by share UUID."""
+    share = trip_ops.get_shared_story(share_uuid)
+    if share is None:
+        raise Http404("Shared trip not found")
+
+    story = share.story
+    events = _story_events(story)
+
+    return render(
+        request,
+        "tree/trips/trip_shared_detail.html",
         {
             "story": story,
             "events": events,

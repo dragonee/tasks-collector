@@ -1,0 +1,14 @@
+<form id="trip-share-control" class="trip-share-control">
+    {% csrf_token %}
+    {% if share %}
+        <input type="text" class="trip-share-url" readonly value="{{ share_url }}">
+        <button type="button" class="trip-share-copy" data-share-url="{{ share_url }}">Copy link</button>
+        <button type="button" class="trip-share-toggle"
+                hx-post="{% url 'trip-unshare' story.id %}"
+                hx-target="#trip-share-control" hx-swap="outerHTML">Unshare</button>
+    {% else %}
+        <button type="button" class="trip-share-toggle"
+                hx-post="{% url 'trip-share' story.id %}"
+                hx-target="#trip-share-control" hx-swap="outerHTML">Share</button>
+    {% endif %}
+</form>

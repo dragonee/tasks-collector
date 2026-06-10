@@ -112,6 +112,16 @@ urlpatterns = [
         name="android-trip-update",
     ),
     path(
+        "api/v1/android/trip/share/",
+        views_android_trip.AndroidTripShareView.as_view(),
+        name="android-trip-share",
+    ),
+    path(
+        "api/v1/android/trip/share/revoke/",
+        views_android_trip.AndroidTripShareRevokeView.as_view(),
+        name="android-trip-share-revoke",
+    ),
+    path(
         "api/v1/android/trip/note/",
         views_android_trip.AndroidTripNoteView.as_view(),
         name="android-trip-note",
@@ -290,7 +300,14 @@ urlpatterns = [
     ),
     # === Trips (views_trip) — read-only web mirror of the Android trips ===
     path("trips/", views_trip.trip_list, name="trip-list"),
+    path(
+        "trips/shared/<uuid:share_uuid>/",
+        views_trip.trip_shared_detail,
+        name="trip-shared-detail",
+    ),
     path("trips/<int:story_id>/", views_trip.trip_detail, name="trip-detail"),
+    path("trips/<int:story_id>/share/", views_trip.trip_share, name="trip-share"),
+    path("trips/<int:story_id>/unshare/", views_trip.trip_unshare, name="trip-unshare"),
     # === Events (views) ===
     path(
         "events/",
