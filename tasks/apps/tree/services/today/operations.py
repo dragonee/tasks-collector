@@ -12,7 +12,17 @@ from typing import Optional
 from django.db import transaction
 from django.utils import timezone
 
-from ...models import Board, JournalAdded, Plan, Profile, Reflection, Thread
+from ...models import (
+    Board,
+    JournalAdded,
+    Plan,
+    Profile,
+    Reflection,
+    Story,
+    StoryEvent,
+    Thread,
+)
+from ..trips.operations import StoryNotFoundError, StoryStoppedError
 from . import board_tree, text_lines
 from .progress import parse_progress, render_progress
 
@@ -43,28 +53,50 @@ def _today(today, published=None):
     return date_cls.today()
 
 
-def _maybe_add_journal(text_for_marker, note, published, daily, done):
+def _maybe_add_journal(text_for_marker, note, published, daily, done, story=None):
     """Record a JournalAdded with ``- [x] <text_for_marker>`` followed by
-    the user's free-form note.
+    the user's free-form note, linked to ``story`` when one is given.
 
     Skipped when:
     - ``done`` is False (the [x] semantics don't fit reversal); or
-    - ``note`` is falsy (None or empty string) — confirming a check
-      without any text counts as "just tick the task", not journal-worthy.
+    - ``note`` is falsy (None or empty string) and there is no ``story`` —
+      confirming a check without any text counts as "just tick the task",
+      not journal-worthy. "Save to trip" with an empty note is an explicit
+      choice, so the marker-only entry is kept and linked.
 
     Deliberately bypasses ``services.journalling.process_journal_entry``:
     the ``[x]`` prefix would otherwise re-trigger reflection extraction
     and duplicate the line that ``_set_task_done_*`` already wrote to
     ``Reflection.good``.
     """
-    if not done or not note:
+    if not done or (not note and story is None):
         return
-    comment = f"- [x] {text_for_marker}\n{note}"
-    JournalAdded.objects.create(
+    marker = f"- [x] {text_for_marker}"
+    comment = f"{marker}\n{note}" if note else marker
+    journal = JournalAdded.objects.create(
         thread=daily,
         comment=comment,
         published=published or timezone.now(),
     )
+    if story is not None:
+        StoryEvent.objects.create(story=story, event=journal)
+
+
+def _owned_active_story(user, story_id):
+    """Resolve the trip a completion note should be linked to.
+
+    Raises the trips-domain errors so the view layer maps them the same
+    way as the trip endpoints (404 not-owned / 409 stopped).
+    """
+    try:
+        story = Story.objects.get(pk=story_id, user=user)
+    except Story.DoesNotExist as e:
+        raise StoryNotFoundError(
+            f"Story #{story_id} not found for user {user.pk}"
+        ) from e
+    if story.stopped is not None:
+        raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add notes.")
+    return story
 
 
 def _daily_thread():
@@ -165,7 +197,9 @@ def add_task(user, text, today=None):
 
 
 @transaction.atomic
-def set_task_done(user, text, done, today=None, note=None, published=None):
+def set_task_done(
+    user, text, done, today=None, note=None, published=None, story_id=None
+):
     """Mark the task as done / not-done.
 
     For plain tasks this flips the board node's ``data.state`` and adds /
@@ -175,16 +209,21 @@ def set_task_done(user, text, done, today=None, note=None, published=None):
 
     When ``note is not None`` and ``done is True`` (and the operation
     isn't a no-op), a ``JournalAdded`` is recorded too — see
-    ``_maybe_add_journal``.
+    ``_maybe_add_journal``. ``story_id`` links that journal entry to an
+    active trip ("Save to trip"); raises ``StoryNotFoundError`` /
+    ``StoryStoppedError`` like the trip endpoints.
     """
+    story = _owned_active_story(user, story_id) if story_id is not None else None
     progress = parse_progress(text)
     if progress is None:
-        _set_task_done_boolean(user, text, done, today, note, published)
+        _set_task_done_boolean(user, text, done, today, note, published, story)
     else:
-        _set_task_done_progress(user, text, done, progress, today, note, published)
+        _set_task_done_progress(
+            user, text, done, progress, today, note, published, story
+        )
 
 
-def _set_task_done_boolean(user, text, done, today, note, published):
+def _set_task_done_boolean(user, text, done, today, note, published, story=None):
     pub_date = _today(today, published)
     board = _current_board(user)
 
@@ -212,7 +251,7 @@ def _set_task_done_boolean(user, text, done, today, note, published):
         reflection.good = new_good
         reflection.save()
 
-    _maybe_add_journal(text, note, published, daily, done)
+    _maybe_add_journal(text, note, published, daily, done, story)
 
 
 def _next_progress_step(progress, done):
@@ -233,7 +272,9 @@ def _next_progress_step(progress, done):
     return 0
 
 
-def _set_task_done_progress(user, text, done, progress, today, note, published):
+def _set_task_done_progress(
+    user, text, done, progress, today, note, published, story=None
+):
     next_current = _next_progress_step(progress, done)
     if next_current is None:
         return
@@ -288,7 +329,7 @@ def _set_task_done_progress(user, text, done, progress, today, note, published):
         reflection.good = new_good
         reflection.save()
 
-    _maybe_add_journal(new_text, note, published, daily, done)
+    _maybe_add_journal(new_text, note, published, daily, done, story)
 
 
 @transaction.atomic

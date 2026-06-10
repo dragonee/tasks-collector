@@ -11,7 +11,16 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..board_operations import create_task_item
-from ..models import Board, JournalAdded, Plan, Profile, Reflection, Thread
+from ..models import (
+    Board,
+    JournalAdded,
+    Plan,
+    Profile,
+    Reflection,
+    Story,
+    StoryEvent,
+    Thread,
+)
 
 TODAY = date_cls(2026, 5, 21)
 TODAY_ISO = TODAY.isoformat()
@@ -418,3 +427,81 @@ class AndroidTaskAPITestCase(APITestCase):
                 ]
             ),
         )
+
+    # --- "Save to trip": story_id links the completion journal to a trip ---
+
+    def _trip(self, user=None, **kwargs):
+        return Story.objects.create(user=user or self.user, title="Lisbon", **kwargs)
+
+    def test_complete_with_story_id_links_journal_to_trip(self):
+        self._auth()
+        self._add("buy bread")
+        trip = self._trip()
+
+        response = self._complete(
+            "buy bread", True, note="bought rye instead", story_id=trip.pk
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "- [x] buy bread\nbought rye instead")
+        self.assertTrue(StoryEvent.objects.filter(story=trip, event=entry).exists())
+
+    def test_complete_with_story_id_and_empty_note_keeps_marker_entry(self):
+        # "Save to trip" is an explicit choice, so unlike the plain empty-note
+        # path the marker-only entry is created and linked.
+        self._auth()
+        self._add("buy bread")
+        trip = self._trip()
+
+        response = self._complete("buy bread", True, note="", story_id=trip.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "- [x] buy bread")
+        self.assertTrue(StoryEvent.objects.filter(story=trip, event=entry).exists())
+
+    def test_complete_without_story_id_links_nothing(self):
+        self._auth()
+        self._add("buy bread")
+        self._trip()
+
+        self._complete("buy bread", True, note="done it")
+        self.assertFalse(StoryEvent.objects.exists())
+
+    def test_complete_with_other_users_story_returns_404(self):
+        User = get_user_model()
+        other = User.objects.create_user(username="other", password="x")
+        self._auth()
+        self._add("buy bread")
+        trip = self._trip(user=other)
+
+        response = self._complete("buy bread", True, note="x", story_id=trip.pk)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_complete_with_stopped_story_returns_409(self):
+        self._auth()
+        self._add("buy bread")
+        trip = self._trip(stopped=COMPLETE_AT)
+
+        response = self._complete("buy bread", True, note="x", story_id=trip.pk)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_complete_with_non_integer_story_id_returns_400(self):
+        self._auth()
+        response = self._complete("buy bread", True, note="x", story_id="abc")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_complete_progress_task_with_story_id_links_journal(self):
+        self._auth()
+        self._add("Do tasks (1)")
+        trip = self._trip()
+
+        response = self._complete("Do tasks (1)", True, note="first", story_id=trip.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        entry = JournalAdded.objects.get(thread=self.daily)
+        self.assertEqual(entry.comment, "- [x] Do tasks (1/1)\nfirst")
+        self.assertTrue(StoryEvent.objects.filter(story=trip, event=entry).exists())

@@ -19,6 +19,7 @@ from .services.today import (
     list_today_tasks,
     set_task_done,
 )
+from .services.trips import StoryNotFoundError, StoryStoppedError
 
 
 def _text_from(request):
@@ -165,6 +166,10 @@ class AndroidTaskCompleteView(APIView):
     line ``[x] <post-tick text>`` (plus the note on subsequent lines) is
     created. Empty-string notes are kept (just the marker line). Missing
     ``note`` means no journal entry.
+
+    An optional ``story_id`` ("Save to trip") links the journal entry to
+    that active trip via ``StoryEvent``. Story errors mirror the trip
+    endpoints: 404 for missing/not-owned, 409 for a stopped trip.
     """
 
     authentication_classes = [TokenAuthentication]
@@ -182,11 +187,33 @@ class AndroidTaskCompleteView(APIView):
         note = request.data.get("note")
         if note is not None and not isinstance(note, str):
             return _bad_request("note must be a string")
+        story_id = request.data.get("story_id")
+        if story_id is not None:
+            try:
+                story_id = int(story_id)
+            except (TypeError, ValueError):
+                return _bad_request("story_id must be an integer")
         done = bool(request.data.get("done"))
         try:
-            set_task_done(request.user, text, done, published=published, note=note)
+            set_task_done(
+                request.user,
+                text,
+                done,
+                published=published,
+                note=note,
+                story_id=story_id,
+            )
         except NoBoardError:
             return _no_board_response()
+        except StoryNotFoundError:
+            return Response(
+                {"error": "story not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except StoryStoppedError:
+            return Response(
+                {"error": "trip is stopped; cannot add notes"},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
