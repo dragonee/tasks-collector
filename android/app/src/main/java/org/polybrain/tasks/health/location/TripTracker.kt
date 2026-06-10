@@ -1,7 +1,9 @@
 package org.polybrain.tasks.health.location
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import org.polybrain.tasks.health.data.BreadcrumbStore
 import org.polybrain.tasks.health.data.Settings
@@ -51,6 +53,14 @@ object TripTracker {
     private suspend fun ensureService(appContext: Context, settings: Settings) {
         val intent = Intent(appContext, TripLocationService::class.java)
         if (settings.trackedStoryIds().isNotEmpty()) {
+            // Without the fine-location grant the service could never promote
+            // itself to a location-type FGS (Android 14+ throws), and bailing
+            // out inside onStartCommand still trips the startForeground
+            // deadline (ForegroundServiceDidNotStartInTimeException) — so the
+            // service must not be started at all. The tracked ids are kept:
+            // the next ensureService call after the user grants location
+            // brings the service up.
+            if (!hasFineLocation(appContext)) return
             ContextCompat.startForegroundService(appContext, intent)
         } else {
             appContext.stopService(intent)
@@ -58,4 +68,9 @@ object TripTracker {
             BreadcrumbStore(appContext).clear()
         }
     }
+
+    private fun hasFineLocation(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
 }
