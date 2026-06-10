@@ -109,6 +109,23 @@ const decorateTripMarkers = (event) => {
 
 [...journalAddedEvents].forEach(decorateTripMarkers);
 
+// Copy the public share link from the trip-detail share control. Delegated so
+// it keeps working after HTMX swaps the control on share/unshare.
+document.addEventListener('click', (e) => {
+    const button = e.target.closest('.trip-share-copy');
+    if (!button) {
+        return;
+    }
+
+    navigator.clipboard.writeText(button.dataset.shareUrl).then(() => {
+        const label = button.textContent;
+        button.textContent = 'Copied';
+        setTimeout(() => {
+            button.textContent = label;
+        }, 1500);
+    });
+});
+
 const onBreakthroughAdded = (element) => {
     const closestJournalAdded = element.closest('.journal-added');
 

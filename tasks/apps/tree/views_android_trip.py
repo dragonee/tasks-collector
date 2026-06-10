@@ -1,5 +1,6 @@
 from datetime import datetime as datetime_cls
 
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -21,8 +22,10 @@ from .services.trips import (
     list_history,
     presign_photo_original,
     presign_photo_upload,
+    share_trip,
     start_trip,
     stop_trip,
+    unshare_trip,
     update_trip,
 )
 
@@ -64,6 +67,19 @@ def _serialize_story(story):
         "title": story.title,
         "started": story.started.isoformat(),
         "stopped": story.stopped.isoformat() if story.stopped else None,
+    }
+
+
+def _serialize_share(share, request):
+    """Serialize a SharedStory with the full absolute public URL — the
+    client never assembles URLs itself."""
+    if share is None:
+        return None
+    return {
+        "uuid": str(share.uuid),
+        "url": request.build_absolute_uri(
+            reverse("trip-shared-detail", args=[share.uuid])
+        ),
     }
 
 
@@ -149,6 +165,45 @@ class AndroidTripUpdateView(APIView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+class AndroidTripShareView(APIView):
+    """Create-or-get the public share link for a trip (stopped trips too)."""
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        story_id = _story_id_from(request)
+        if story_id is None:
+            return _bad_request("story_id is required")
+        try:
+            share = share_trip(request.user, story_id)
+        except StoryNotFoundError:
+            return _not_found()
+        return Response(
+            {"shared": True, "share": _serialize_share(share, request)},
+            status=status.HTTP_200_OK,
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidTripShareRevokeView(APIView):
+    """Delete the share link. Idempotent: revoking an unshared trip is 200."""
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        story_id = _story_id_from(request)
+        if story_id is None:
+            return _bad_request("story_id is required")
+        try:
+            unshare_trip(request.user, story_id)
+        except StoryNotFoundError:
+            return _not_found()
+        return Response({"shared": False, "share": None}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class AndroidTripNoteView(APIView):
     """Add a journal note to an active trip.
 
@@ -231,6 +286,7 @@ class AndroidTripDetailView(APIView):
             {
                 "story": _serialize_story(story),
                 "events": [_serialize_event(e) for e in events],
+                "share": _serialize_share(getattr(story, "share", None), request),
             },
             status=status.HTTP_200_OK,
         )

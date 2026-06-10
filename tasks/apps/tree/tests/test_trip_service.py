@@ -1,4 +1,5 @@
 import io
+import uuid
 from datetime import datetime as datetime_cls
 from datetime import timezone as dt_timezone
 from unittest import mock
@@ -14,6 +15,7 @@ from ..models import (
     JournalAdded,
     PhotoAdded,
     Profile,
+    SharedStory,
     Story,
     StoryEvent,
     Thread,
@@ -25,12 +27,15 @@ from ..services.trips import (
     add_trip_note,
     add_trip_photo,
     get_detail,
+    get_shared_story,
     list_active,
     list_history,
     presign_photo_original,
     presign_photo_upload,
+    share_trip,
     start_trip,
     stop_trip,
+    unshare_trip,
     update_trip,
 )
 
@@ -243,6 +248,73 @@ class TripServiceTestCase(TestCase):
         story = start_trip(self.alice)
         with self.assertRaises(StoryNotFoundError):
             get_detail(self.bob, story.pk)
+
+
+class TripShareServiceTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.alice = User.objects.create_user(username="alice", password="x")
+        cls.bob = User.objects.create_user(username="bob", password="x")
+        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
+        Profile.objects.create(user=cls.alice, default_board_thread=cls.daily)
+        Profile.objects.create(user=cls.bob, default_board_thread=cls.daily)
+
+    def test_share_trip_creates_share_with_uuid(self):
+        story = start_trip(self.alice)
+        share = share_trip(self.alice, story.pk)
+        self.assertEqual(share.story, story)
+        self.assertIsNotNone(share.uuid)
+        self.assertEqual(SharedStory.objects.filter(story=story).count(), 1)
+
+    def test_share_trip_is_get_or_create(self):
+        story = start_trip(self.alice)
+        first = share_trip(self.alice, story.pk)
+        second = share_trip(self.alice, story.pk)
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first.uuid, second.uuid)
+
+    def test_share_trip_works_on_stopped_trip(self):
+        story = start_trip(self.alice)
+        stop_trip(self.alice, story.pk)
+        share = share_trip(self.alice, story.pk)
+        self.assertEqual(share.story, story)
+
+    def test_share_trip_other_user_raises(self):
+        story = start_trip(self.alice)
+        with self.assertRaises(StoryNotFoundError):
+            share_trip(self.bob, story.pk)
+
+    def test_unshare_trip_deletes_share_and_is_idempotent(self):
+        story = start_trip(self.alice)
+        share_trip(self.alice, story.pk)
+        unshare_trip(self.alice, story.pk)
+        self.assertFalse(SharedStory.objects.filter(story=story).exists())
+        unshare_trip(self.alice, story.pk)
+
+    def test_unshare_trip_other_user_raises(self):
+        story = start_trip(self.alice)
+        share_trip(self.alice, story.pk)
+        with self.assertRaises(StoryNotFoundError):
+            unshare_trip(self.bob, story.pk)
+        self.assertTrue(SharedStory.objects.filter(story=story).exists())
+
+    def test_reshare_after_revoke_mints_new_uuid(self):
+        story = start_trip(self.alice)
+        first = share_trip(self.alice, story.pk)
+        unshare_trip(self.alice, story.pk)
+        second = share_trip(self.alice, story.pk)
+        self.assertNotEqual(first.uuid, second.uuid)
+
+    def test_get_shared_story_finds_share_by_uuid(self):
+        story = start_trip(self.alice)
+        share = share_trip(self.alice, story.pk)
+        found = get_shared_story(share.uuid)
+        self.assertEqual(found.pk, share.pk)
+        self.assertEqual(found.story.pk, story.pk)
+
+    def test_get_shared_story_unknown_uuid_returns_none(self):
+        self.assertIsNone(get_shared_story(uuid.uuid4()))
 
 
 class TripPhotoServiceTestCase(TestCase):

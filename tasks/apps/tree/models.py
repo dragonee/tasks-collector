@@ -933,3 +933,15 @@ class StoryEvent(models.Model):
 
     def __str__(self):
         return f"{self.story} <- event #{self.event_id}"
+
+
+class SharedStory(models.Model):
+    """Public share link for a Story. Revoke = delete the row; re-sharing
+    creates a new row and therefore a fresh UUID."""
+
+    story = models.OneToOneField(Story, on_delete=models.CASCADE, related_name="share")
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Share {self.uuid} -> {self.story}"

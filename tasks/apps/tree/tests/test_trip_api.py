@@ -216,3 +216,98 @@ class TripAPITestCase(APITestCase):
         self._auth(self.other_token)
         r = self._detail(sid)
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def _share(self, story_id):
+        return self.client.post(
+            reverse("android-trip-share"), {"story_id": story_id}, format="json"
+        )
+
+    def _revoke_share(self, story_id):
+        return self.client.post(
+            reverse("android-trip-share-revoke"),
+            {"story_id": story_id},
+            format="json",
+        )
+
+    def test_share_returns_absolute_public_url(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        r = self._share(sid)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        body = r.json()
+        self.assertTrue(body["shared"])
+        self.assertTrue(
+            body["share"]["url"].startswith("http://testserver/trips/shared/")
+        )
+        self.assertIn(body["share"]["uuid"], body["share"]["url"])
+
+    def test_share_twice_returns_same_uuid(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        first = self._share(sid).json()["share"]["uuid"]
+        second = self._share(sid).json()["share"]["uuid"]
+        self.assertEqual(first, second)
+
+    def test_share_works_on_stopped_trip(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        self._stop(sid)
+        r = self._share(sid)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_share_other_user_returns_404(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        self._auth(self.other_token)
+        r = self._share(sid)
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_share_requires_story_id(self):
+        self._auth()
+        r = self.client.post(reverse("android-trip-share"), {}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_share_requires_auth(self):
+        self.client.credentials()
+        r = self.client.post(
+            reverse("android-trip-share"), {"story_id": 1}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_revoke_share_is_idempotent(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        self._share(sid)
+        r = self._revoke_share(sid)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(r.json()["shared"])
+        r = self._revoke_share(sid)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_revoke_share_other_user_returns_404(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        self._share(sid)
+        self._auth(self.other_token)
+        r = self._revoke_share(sid)
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_detail_exposes_share_state_across_lifecycle(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        self.assertIsNone(self._detail(sid).json()["share"])
+
+        share = self._share(sid).json()["share"]
+        detail_share = self._detail(sid).json()["share"]
+        self.assertEqual(detail_share, share)
+
+        self._revoke_share(sid)
+        self.assertIsNone(self._detail(sid).json()["share"])
+
+    def test_reshare_after_revoke_mints_new_uuid(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        first = self._share(sid).json()["share"]["uuid"]
+        self._revoke_share(sid)
+        second = self._share(sid).json()["share"]["uuid"]
+        self.assertNotEqual(first, second)

@@ -1,6 +1,8 @@
-"""Read-only web (HTML) views for Trips: index, detail, and the photo
-miniature + trip badge rendered through the shared journal partial."""
+"""Web (HTML) views for Trips: index, detail, the photo miniature + trip
+badge rendered through the shared journal partial, the share/unshare HTMX
+toggle, and the public page behind a share link."""
 
+import uuid as uuid_module
 from datetime import timedelta
 from unittest import mock
 
@@ -9,7 +11,15 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from ..models import JournalAdded, PhotoAdded, Profile, Story, StoryEvent, Thread
+from ..models import (
+    JournalAdded,
+    PhotoAdded,
+    Profile,
+    SharedStory,
+    Story,
+    StoryEvent,
+    Thread,
+)
 from ..views_trip import attach_photo_urls
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
@@ -237,6 +247,57 @@ class TripWebTestCase(TestCase):
         self.assertIsNone(photo.thumbnail_url)
         self.assertEqual(photo.original_url, "https://signed/trips/1/1/x.jpg")
 
+    # --- share/unshare HTMX toggle ---
+
+    def test_trip_detail_shows_share_control(self):
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertContains(r, 'id="trip-share-control"')
+        self.assertContains(r, reverse("trip-share", args=[self.story.pk]))
+
+    def test_trip_detail_shows_share_url_when_shared(self):
+        share = SharedStory.objects.create(story=self.story)
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertContains(r, str(share.uuid))
+        self.assertContains(r, reverse("trip-unshare", args=[self.story.pk]))
+
+    def test_trip_share_creates_link_and_returns_control(self):
+        r = self.client.post(reverse("trip-share", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        share = SharedStory.objects.get(story=self.story)
+        self.assertContains(r, str(share.uuid))
+        self.assertContains(r, "Unshare")
+        self.assertContains(r, "trip-share-copy")
+
+    def test_trip_unshare_deletes_link_and_returns_control(self):
+        SharedStory.objects.create(story=self.story)
+        r = self.client.post(reverse("trip-unshare", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(SharedStory.objects.filter(story=self.story).exists())
+        self.assertContains(r, "Share")
+        self.assertNotContains(r, "Unshare")
+
+    def test_trip_share_requires_login(self):
+        self.client.logout()
+        r = self.client.post(reverse("trip-share", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 302)
+
+    def test_trip_share_requires_post(self):
+        r = self.client.get(reverse("trip-share", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 405)
+
+    def test_trip_share_other_users_story_404(self):
+        theirs = Story.objects.create(user=self.other, title="Theirs")
+        r = self.client.post(reverse("trip-share", args=[theirs.pk]))
+        self.assertEqual(r.status_code, 404)
+        self.assertFalse(SharedStory.objects.filter(story=theirs).exists())
+
+    def test_trip_unshare_other_users_story_404(self):
+        theirs = Story.objects.create(user=self.other, title="Theirs")
+        SharedStory.objects.create(story=theirs)
+        r = self.client.post(reverse("trip-unshare", args=[theirs.pk]))
+        self.assertEqual(r.status_code, 404)
+        self.assertTrue(SharedStory.objects.filter(story=theirs).exists())
+
     # --- map provider profile setting ---
 
     def test_account_settings_shows_map_provider(self):
@@ -279,3 +340,81 @@ class TripWebTestCase(TestCase):
         self.assertContains(r, "https://signed/trips/1/1/x_thumb.webp")
         self.assertContains(r, "trip-badge")
         self.assertContains(r, reverse("trip-detail", args=[self.story.pk]))
+
+
+class SharedTripWebTestCase(TestCase):
+    """The public (unauthenticated) trip page behind a share link."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="me", password="x")
+        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
+        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
+
+    def setUp(self):
+        # Deliberately no login: every request in this case is anonymous.
+        self.story = Story.objects.create(user=self.user, title="Lisbon weekend")
+        self.share = SharedStory.objects.create(story=self.story)
+
+    def _url(self, share_uuid=None):
+        return reverse("trip-shared-detail", args=[share_uuid or self.share.uuid])
+
+    def _note(self, comment, published=None):
+        note = JournalAdded.objects.create(
+            thread=self.daily, comment=comment, published=published or timezone.now()
+        )
+        StoryEvent.objects.create(story=self.story, event=note)
+        return note
+
+    def test_public_page_renders_without_auth(self):
+        self._note("Walked along the river")
+        r = self.client.get(self._url())
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Lisbon weekend")
+        self.assertContains(r, "Walked along the river")
+
+    def test_public_page_has_no_chrome_or_edit_affordances(self):
+        self._note("Walked along the river")
+        r = self.client.get(self._url())
+        self.assertNotContains(r, "has-sidebar")
+        self.assertNotContains(r, "trip-share-control")
+        self.assertNotContains(r, "trip-badge")
+        self.assertNotContains(r, "add-breakthrough")
+
+    def test_public_page_unknown_uuid_404(self):
+        r = self.client.get(self._url(uuid_module.uuid4()))
+        self.assertEqual(r.status_code, 404)
+
+    def test_public_page_404_after_revoke(self):
+        url = self._url()
+        self.share.delete()
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 404)
+
+    def test_public_page_renders_map_for_located_entries(self):
+        self._note("#poi lat=38.7 lng=-9.1\nMiradouro")
+        r = self.client.get(self._url())
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "trip-map-layout")
+        self.assertContains(r, 'id="trip-map"')
+        self.assertContains(r, 'id="trip-map-data"')
+
+    @mock.patch(f"{STORAGE}.presign_get_web")
+    def test_public_page_renders_photo_thumbnail(self, presign_get_web):
+        presign_get_web.side_effect = lambda key: f"https://signed/{key}"
+        photo = PhotoAdded.objects.create(
+            thread=self.daily,
+            comment="At the beach",
+            published=timezone.now(),
+            original_key="trips/1/1/x.jpg",
+            content_type="image/jpeg",
+            thumbnail_key="trips/1/1/x_thumb.webp",
+        )
+        StoryEvent.objects.create(story=self.story, event=photo)
+
+        r = self.client.get(self._url())
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "journal-photo")
+        self.assertContains(r, "https://signed/trips/1/1/x_thumb.webp")
+        self.assertContains(r, "https://signed/trips/1/1/x.jpg")

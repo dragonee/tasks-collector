@@ -11,7 +11,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from ...models import JournalAdded, PhotoAdded, Story, StoryEvent
+from ...models import JournalAdded, PhotoAdded, SharedStory, Story, StoryEvent
 from ..journalling import process_journal_entry
 from ..photos import key_belongs_to, original_key, photo_key_belongs_to
 from ..photos import storage as photo_storage
@@ -86,6 +86,35 @@ def update_trip(user, story_id, title=None):
         story.title = title.strip()
         story.save(update_fields=["title"])
     return story
+
+
+@transaction.atomic
+def share_trip(user, story_id):
+    """Create-or-get the public share link for a trip.
+
+    Works for stopped trips too — sharing a finished trip is the common case.
+    """
+    story = _get_owned_story(user, story_id)
+    share, _ = SharedStory.objects.get_or_create(story=story)
+    return share
+
+
+@transaction.atomic
+def unshare_trip(user, story_id):
+    """Delete the share link, killing the public URL permanently.
+
+    Idempotent: unsharing an unshared trip is a no-op. Returns the story.
+    """
+    story = _get_owned_story(user, story_id)
+    SharedStory.objects.filter(story=story).delete()
+    return story
+
+
+def get_shared_story(share_uuid):
+    """Public (unauthenticated) lookup: the SharedStory for a share UUID,
+    or None. ``select_related`` so callers get the story in the same query.
+    """
+    return SharedStory.objects.select_related("story").filter(uuid=share_uuid).first()
 
 
 @transaction.atomic

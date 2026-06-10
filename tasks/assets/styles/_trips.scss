@@ -230,6 +230,45 @@
     }
 }
 
+// Share control in the trip-detail topbar: a Share pill that HTMX-swaps into
+// a readonly URL + Copy + Unshare. Overrides the prominent .upper-pane button
+// style from _general.scss (this file is imported later, same specificity).
+.trip-share-control {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0 auto;
+
+    .trip-share-url {
+        width: 16rem;
+        max-width: 40vw;
+        padding: 0.15rem 0.5rem;
+
+        border: 1px solid #ddd;
+        border-radius: 6px;
+
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    button {
+        padding: 0.1rem 0.6rem;
+
+        background: #fff;
+        border: 1px solid #c7d8f5;
+        border-radius: 999px;
+        color: #3367d6;
+
+        font-size: 0.8rem;
+        cursor: pointer;
+
+        &:hover, &:active {
+            background: #e0eaff;
+            color: #3367d6;
+        }
+    }
+}
+
 // Trips index: month sections of clickable tiles (cover photo + title + dates).
 .trip-month {
     margin-bottom: 1.5rem;
