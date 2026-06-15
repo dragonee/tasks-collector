@@ -127,6 +127,7 @@
     <string name="activity_note_hint">Add a note (optional)</string>
     <string name="activity_send">Track</string>
     <string name="activity_cancel">Cancel</string>
+    <string name="weight_kg_hint">Weight (kg)</string>
 
     <string name="today_metrics_heading">Today</string>
     <string name="metric_steps_format">Steps: %1$d</string>
@@ -134,4 +135,6 @@
     <string name="metric_active_format">Active: %1$d min</string>
     <string name="metric_kcal_format">Calories: %1$.0f kcal</string>
     <string name="metric_loading">Reading from Health Connect…</string>
+    <string name="metric_weight_format">Last weight: %1$.1f kg (%2$s)</string>
+    <string name="metric_weight_none">No weight recorded yet</string>
 </resources>

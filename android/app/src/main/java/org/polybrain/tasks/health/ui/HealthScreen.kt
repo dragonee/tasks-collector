@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -32,11 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import org.polybrain.tasks.health.R
 import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -46,6 +49,7 @@ fun HealthScreen(vm: MainViewModel) {
     val state by vm.settingsState.collectAsState()
     val permissionsGranted by vm.permissionsGranted.collectAsState()
     val todayMetrics by vm.todayMetrics.collectAsState()
+    val healthData by vm.healthData.collectAsState()
     val activityDialogOpen by vm.activityDialogOpen.collectAsState()
     val scope = rememberCoroutineScope()
 
@@ -98,6 +102,19 @@ fun HealthScreen(vm: MainViewModel) {
                 },
             )
 
+            // Last recorded weight comes from the server (independent of Health
+            // Connect permissions), so it shows regardless of the grant state.
+            HorizontalDivider()
+            val weightKg = healthData?.weightKg
+            if (weightKg != null) {
+                Text(
+                    stringResource(R.string.metric_weight_format)
+                        .format(weightKg, formatWeightDate(healthData?.recordedAt))
+                )
+            } else {
+                Text(stringResource(R.string.metric_weight_none))
+            }
+
             if (permissionsGranted) {
                 HorizontalDivider()
                 Text(
@@ -144,6 +161,11 @@ private fun TrackActivityDialog(vm: MainViewModel) {
 
     var selectedType by remember { mutableStateOf(ActivityType.Gym) }
     var note by remember { mutableStateOf("") }
+    var weightText by remember { mutableStateOf("") }
+
+    val isWeight = selectedType == ActivityType.Weight
+    val weightKg = weightText.trim().toDoubleOrNull()
+    val canConfirm = if (isWeight) weightKg != null && weightKg > 0 else true
 
     AlertDialog(
         onDismissRequest = { vm.closeActivityDialog() },
@@ -159,14 +181,25 @@ private fun TrackActivityDialog(vm: MainViewModel) {
                         )
                     }
                 }
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    placeholder = { Text(stringResource(R.string.activity_note_hint)) },
-                    singleLine = false,
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (isWeight) {
+                    OutlinedTextField(
+                        value = weightText,
+                        onValueChange = { weightText = it },
+                        placeholder = { Text(stringResource(R.string.weight_kg_hint)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        placeholder = { Text(stringResource(R.string.activity_note_hint)) },
+                        singleLine = false,
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 error?.let {
                     Text(
                         text = it,
@@ -178,8 +211,14 @@ private fun TrackActivityDialog(vm: MainViewModel) {
         },
         confirmButton = {
             TextButton(
-                onClick = { vm.trackActivity(selectedType, note) },
-                enabled = !saving,
+                onClick = {
+                    if (isWeight) {
+                        weightKg?.let { vm.trackWeight(it) }
+                    } else {
+                        vm.trackActivity(selectedType, note)
+                    }
+                },
+                enabled = !saving && canConfirm,
             ) {
                 Text(stringResource(R.string.activity_send))
             }
@@ -198,7 +237,20 @@ private fun TrackActivityDialog(vm: MainViewModel) {
 private val displayFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
+private val dateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
 private fun formatInstant(epochMs: Long): String =
     Instant.ofEpochMilli(epochMs)
         .atZone(ZoneId.systemDefault())
         .format(displayFormatter)
+
+/** Formats the server's ISO 8601 `recorded_at` as a local date, or "" if absent/unparseable. */
+private fun formatWeightDate(iso: String?): String {
+    if (iso == null) return ""
+    return runCatching {
+        OffsetDateTime.parse(iso)
+            .atZoneSameInstant(ZoneId.systemDefault())
+            .format(dateFormatter)
+    }.getOrDefault("")
+}

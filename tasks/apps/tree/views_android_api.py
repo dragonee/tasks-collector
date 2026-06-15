@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .services.health import latest_weight
 from .services.today import (
     NoBoardError,
     add_task,
@@ -215,6 +216,34 @@ class AndroidTaskCompleteView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
         return Response({"ok": True}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidHealthDataView(APIView):
+    """Return server-side health data for the Health screen.
+
+    Currently just the most recently recorded body weight and when it was
+    recorded; both null when nothing has been recorded yet. Named generically
+    so other server-derived metrics can be added here later.
+    """
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        record = latest_weight()
+        if record is None:
+            return Response(
+                {"weight_kg": None, "recorded_at": None},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "weight_kg": record.value_kg,
+                "recorded_at": record.recorded_at.isoformat(),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")

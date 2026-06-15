@@ -5,6 +5,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import org.polybrain.tasks.health.data.DailyMetrics
+import org.polybrain.tasks.health.data.HealthDataResponse
 import org.polybrain.tasks.health.data.HealthRepository
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
@@ -15,6 +16,7 @@ import org.polybrain.tasks.health.sync.SyncScheduler
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,10 +28,14 @@ import kotlinx.coroutines.launch
  * The activities the FAB on the Health screen can register, each mapped to the
  * hashtag the backend parses into a [HabitTracked]. [Gym] is the default
  * subtype. The keyword is sent verbatim (Unicode is fine) prefixed with '#'.
+ *
+ * [Weight] is special: instead of a free-text note it carries a numeric
+ * kilogram value, posted as `#weight weight=<x.x>kg` (see [MainViewModel.trackWeight]).
  */
 enum class ActivityType(val keyword: String) {
     Gym("siłka"),
     Workout("workout"),
+    Weight("weight"),
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -48,6 +54,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _todayMetrics = MutableStateFlow<DailyMetrics?>(null)
     val todayMetrics: StateFlow<DailyMetrics?> = _todayMetrics.asStateFlow()
+
+    /** Server-derived health data (last recorded weight); null until loaded. */
+    private val _healthData = MutableStateFlow<HealthDataResponse?>(null)
+    val healthData: StateFlow<HealthDataResponse?> = _healthData.asStateFlow()
 
     /** Open/closed state for the "register activity" dialog opened from the FAB. */
     private val _activityDialogOpen = MutableStateFlow(false)
@@ -74,6 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             TripTracker.resumeIfNeeded(getApplication())
             refreshPermissionState()
             if (_permissionsGranted.value) refreshMetrics()
+            refreshHealthData()
         }
     }
 
@@ -95,6 +106,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _todayMetrics.value = runCatching { health.aggregateDay(today) }.getOrNull()
     }
 
+    fun refreshHealthDataAsync() {
+        viewModelScope.launch { refreshHealthData() }
+    }
+
+    private suspend fun refreshHealthData() {
+        val snapshot = settings.snapshot()
+        if (!snapshot.isConfigured) return
+        val data = runCatching {
+            TasksClient.build(snapshot.serverUrl, snapshot.apiToken).healthData()
+        }.getOrNull()
+        if (data != null) _healthData.value = data
+    }
+
     fun save(serverUrl: String, apiToken: String) {
         viewModelScope.launch {
             settings.saveServerConfig(serverUrl, apiToken)
@@ -105,6 +129,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun syncNow() {
         SyncScheduler.runOnce(getApplication())
         refreshMetricsAsync()
+        refreshHealthDataAsync()
     }
 
     fun openActivityDialog() {
@@ -124,9 +149,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Multiple posts on the same day are intentional (e.g. two gym visits).
      */
     fun trackActivity(type: ActivityType, note: String) {
-        if (_activitySaving.value) return
         val trimmed = note.trim()
         val text = if (trimmed.isEmpty()) "#${type.keyword}" else "#${type.keyword} $trimmed"
+        postHabitLine(text)
+    }
+
+    /**
+     * Records body weight as `#weight weight=<x.x>kg` through the same
+     * non-idempotent text endpoint. Weight uses its own habit (separate from
+     * the sync's `health-metrics`), so each entry is preserved. Refreshes the
+     * last-weight display on success.
+     */
+    fun trackWeight(kg: Double) {
+        val text = "#${ActivityType.Weight.keyword} weight=${"%.1f".format(Locale.US, kg)}kg"
+        postHabitLine(text) { refreshHealthDataAsync() }
+    }
+
+    /**
+     * Shared post path for the activity dialog: sends a habit line, gating the
+     * dialog buttons via [activitySaving] and surfacing failures in
+     * [activityError]. Closes the dialog and runs [onSuccess] when the post
+     * succeeds.
+     */
+    private fun postHabitLine(text: String, onSuccess: () -> Unit = {}) {
+        if (_activitySaving.value) return
         // Wall-clock moment of the tap, so the entry lands on today.
         val published = OffsetDateTime.now().toString()
         _activitySaving.value = true
@@ -142,6 +188,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val api = TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
                 api.trackHabitText(TrackHabitTextRequest(text = text, published = published))
                 _activityDialogOpen.value = false
+                onSuccess()
             } catch (t: Throwable) {
                 _activityError.value = t.message ?: t.javaClass.simpleName
             } finally {
