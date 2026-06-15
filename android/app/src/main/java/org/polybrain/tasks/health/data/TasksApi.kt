@@ -37,6 +37,15 @@ data class OkResponse(
     @SerialName("ok") val ok: Boolean = false,
 )
 
+// Server-derived health data for the Health screen. Currently just the most
+// recently recorded body weight and when it was recorded; both null when
+// nothing has been recorded yet.
+@Serializable
+data class HealthDataResponse(
+    @SerialName("weight_kg") val weightKg: Double? = null,
+    @SerialName("recorded_at") val recordedAt: String? = null,
+)
+
 @Serializable
 data class TaskTextRequest(
     @SerialName("text") val text: String,
@@ -264,6 +273,10 @@ interface TasksApi {
     // collapse multiple events into one.
     @POST("habit/track/")
     suspend fun trackHabitText(@Body body: TrackHabitTextRequest): OkResponse
+
+    // Server-derived health data (currently the last recorded body weight).
+    @GET("api/v1/android/health/data/")
+    suspend fun healthData(): HealthDataResponse
 
     @GET("api/v1/android/task/today/")
     suspend fun listTodayTasks(@Query("date") date: String): TodayTasksResponse
