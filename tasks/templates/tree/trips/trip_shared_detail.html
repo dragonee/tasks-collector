@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load render_assets %}
 
 {% block body_class %}page-rail{% endblock %}
 
@@ -7,12 +6,4 @@
 
 {% block content %}
 {% include "tree/trips/_trip_detail_body.html" %}
-{% endblock %}
-
-{% block extracss %}
-    {% if map_points %}{% render_css 'trip_map' %}{% endif %}
-{% endblock %}
-
-{% block extrajs %}
-    {% if map_points %}{% render_js 'trip_map' %}{% endif %}
 {% endblock %}

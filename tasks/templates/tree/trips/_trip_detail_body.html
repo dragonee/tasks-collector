@@ -16,6 +16,12 @@
         {% else %}
             &middot; <strong>active</strong>
         {% endif %}
+        {% if can_add %}
+            <button type="button" class="trip-add-trigger" data-trip-add-open>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                add
+            </button>
+        {% endif %}
     </div>
 </div>
 
@@ -34,27 +40,37 @@
         </div>
         {% endif %}
         <main>
-            <ul>
-                {% regroup events by published.date as entries_by_date %}
-                {% for date, day_events in entries_by_date %}
-                    <li id="{{ date|date:"b-d" }}" class="trip-day">
-                        <strong>{{ date|date:"d F Y" }}</strong>
-                        <ul>
-                            {% for event in day_events %}
-                                <li class="trip-entry" data-event-id="{{ event.id }}">
-                                    {% include "tree/events/journal_added.html" with readonly=True hide_trip_marker=True %}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </li>
-                {% empty %}
-                    <li>No entries in this trip yet.</li>
-                {% endfor %}
-            </ul>
+            {% include "tree/trips/_trip_entries.html" %}
         </main>
     </section>
 </div>
 
 </div>
+
+{% if can_add %}
+<div class="trip-add-modal" id="trip-add-modal" data-story-id="{{ story.id }}" hidden>
+    <div class="trip-add-backdrop" data-trip-add-close></div>
+    <div class="trip-add-dialog" role="dialog" aria-modal="true" aria-label="Add to trip">
+        <form class="trip-add-form">
+            {% csrf_token %}
+            <textarea name="comment" rows="5" placeholder="Note…"></textarea>
+            <label class="trip-add-photo-file">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                <input type="file" accept="image/*">
+                <span class="trip-add-photo-name">Add a photo</span>
+            </label>
+            <div class="trip-add-preview" hidden>
+                <img alt="Selected photo preview">
+                <button type="button" class="trip-add-preview-remove" aria-label="Remove photo">&times;</button>
+            </div>
+            <div class="trip-add-actions">
+                <span class="trip-add-status" role="status"></span>
+                <button type="button" class="trip-add-cancel" data-trip-add-close>Cancel</button>
+                <button type="submit" class="trip-add-submit">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 {% if map_points %}{{ map_points|json_script:"trip-map-data" }}{% endif %}

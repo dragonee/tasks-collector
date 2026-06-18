@@ -230,6 +230,244 @@
     }
 }
 
+// Owner-only "add to trip" affordances (trip_add.js): a grayed "+ add" pill in
+// the lower pane, a modal with one note+photo form, and a drag-and-drop overlay
+// on the map/history column. Only rendered for an active trip the user owns —
+// absent on stopped trips and the public shared page.
+.trip-add-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: 0.5rem;
+    padding: 0.05rem 0.5rem;
+
+    background: #f3f4f6;
+    border: 1px solid #dadada;
+    border-radius: 999px;
+    color: #888;
+
+    font-size: 0.8rem;
+    line-height: 1.5;
+    cursor: pointer;
+
+    svg {
+        display: block;
+    }
+
+    &:hover {
+        background: #e9eaec;
+        color: #555;
+    }
+}
+
+.trip-add-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.trip-add-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.45);
+}
+
+.trip-add-dialog {
+    position: relative;
+    width: min(28rem, calc(100vw - 2rem));
+    padding: 1.1rem;
+
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.trip-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+
+    textarea {
+        width: 100%;
+        padding: 0.5rem 0.6rem;
+
+        border: 1px solid #c7d8f5;
+        border-radius: 6px;
+
+        font-size: 0.95rem;
+        resize: vertical;
+    }
+
+    .trip-add-photo-file {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        align-self: flex-start;
+        max-width: 100%;
+        padding: 0.3rem 0.7rem;
+
+        background: #fff;
+        border: 1px solid #c7d8f5;
+        border-radius: 999px;
+        color: #3367d6;
+
+        font-size: 0.85rem;
+        cursor: pointer;
+
+        input[type=file] {
+            display: none;
+        }
+
+        svg {
+            display: block;
+            flex-shrink: 0;
+        }
+
+        // A long file name shouldn't stretch the modal — clip it with an ellipsis.
+        .trip-add-photo-name {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    .trip-add-preview {
+        position: relative;
+        align-self: flex-start;
+
+        &[hidden] {
+            display: none;
+        }
+
+        img {
+            display: block;
+            max-width: 100%;
+            max-height: 12rem;
+
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+        }
+
+        .trip-add-preview-remove {
+            position: absolute;
+            top: 0.3rem;
+            right: 0.3rem;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.5rem;
+            height: 1.5rem;
+
+            background: rgba(17, 24, 39, 0.6);
+            border: none;
+            border-radius: 999px;
+            color: #fff;
+
+            font-size: 1.1rem;
+            line-height: 1;
+            cursor: pointer;
+
+            &:hover {
+                background: rgba(17, 24, 39, 0.85);
+            }
+        }
+    }
+}
+
+.trip-add-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    .trip-add-status {
+        flex: 1;
+        font-size: 0.8rem;
+        color: #777;
+
+        &.is-error {
+            color: #c0392b;
+        }
+    }
+
+    button {
+        padding: 0.35rem 1rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+
+    .trip-add-cancel {
+        background: #fff;
+        border: 1px solid #dadada;
+        color: #555;
+
+        &:hover {
+            background: #f3f4f6;
+        }
+    }
+
+    .trip-add-submit {
+        background: #3367d6;
+        border: 1px solid #3367d6;
+        color: #fff;
+
+        &:hover {
+            background: #2a57b8;
+        }
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+    }
+}
+
+// Drop overlay covering the map/history column while an image is dragged over.
+// Sits above Leaflet's controls (z-index 1000); never shown with the modal open.
+.trip-drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1100;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+
+    background: rgba(51, 103, 214, 0.12);
+    border: 2px dashed #3367d6;
+    border-radius: 8px;
+
+    &.is-active {
+        display: flex;
+    }
+
+    .trip-drop-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+
+        color: #3367d6;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+}
+
+body.trip-add-open {
+    overflow: hidden;
+}
+
 // Share control in the trip-detail topbar: a Share pill that HTMX-swaps into
 // a readonly URL + Copy + Unshare. Overrides the prominent .upper-pane button
 // style from _general.scss (this file is imported later, same specificity).
