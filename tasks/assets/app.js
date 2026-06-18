@@ -186,3 +186,16 @@ const setUrlParameter = (parameter, value) => {
 }
 
 window.setUrlParameter = setUrlParameter;
+
+// Trip-detail code is loaded on demand: only the trip pages carry these
+// selectors, so the Leaflet map (+ its CSS) and the add-modal logic never ship
+// on any other page. Each dynamic import() makes Rspack split the module into
+// its own async chunk, fetched from the same /static/ publicPath as this
+// bundle. Both modules also self-guard internally, so the selector check here
+// is purely to avoid the network request when they're not needed.
+if (document.getElementById('trip-map')) {
+    import(/* webpackChunkName: "trip_map" */ "./trip_map.js");
+}
+if (document.getElementById('trip-add-modal')) {
+    import(/* webpackChunkName: "trip_add" */ "./trip_add.js");
+}

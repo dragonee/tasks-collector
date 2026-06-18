@@ -2,6 +2,7 @@
 badge rendered through the shared journal partial, the share/unshare HTMX
 toggle, and the public page behind a share link."""
 
+import json
 import uuid as uuid_module
 from datetime import timedelta
 from unittest import mock
@@ -298,6 +299,162 @@ class TripWebTestCase(TestCase):
         self.assertEqual(r.status_code, 404)
         self.assertTrue(SharedStory.objects.filter(story=theirs).exists())
 
+    # --- add to trip: affordance visibility ---
+
+    def test_active_trip_shows_add_affordances(self):
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context["can_add"])
+        # The grayed "+ add" trigger and the modal it opens.
+        self.assertContains(r, "trip-add-trigger")
+        self.assertContains(r, 'id="trip-add-modal"')
+        self.assertContains(r, "trip-add-form")
+        self.assertContains(r, "trip-add-photo-file")
+
+    def test_stopped_trip_hides_add_affordances(self):
+        self.story.stopped = timezone.now()
+        self.story.save(update_fields=["stopped"])
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.context["can_add"])
+        self.assertNotContains(r, "trip-add-trigger")
+        self.assertNotContains(r, 'id="trip-add-modal"')
+
+    # --- add to trip: notes ---
+
+    def test_add_note_creates_journal_and_returns_entries(self):
+        r = self.client.post(
+            reverse("trip-add-note", args=[self.story.pk]),
+            {"comment": "Coffee by the river"},
+        )
+        self.assertEqual(r.status_code, 200)
+        note = JournalAdded.objects.get(comment="Coffee by the river")
+        self.assertTrue(
+            StoryEvent.objects.filter(story=self.story, event=note).exists()
+        )
+        # Returns the timeline partial so HTMX can swap it in.
+        self.assertContains(r, 'id="trip-entries"')
+        self.assertContains(r, "Coffee by the river")
+
+    def test_add_note_empty_comment_400(self):
+        r = self.client.post(
+            reverse("trip-add-note", args=[self.story.pk]), {"comment": "   "}
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(StoryEvent.objects.filter(story=self.story).exists())
+
+    def test_add_note_requires_post(self):
+        r = self.client.get(reverse("trip-add-note", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 405)
+
+    def test_add_note_other_users_story_404(self):
+        theirs = Story.objects.create(user=self.other, title="Theirs")
+        r = self.client.post(
+            reverse("trip-add-note", args=[theirs.pk]), {"comment": "hi"}
+        )
+        self.assertEqual(r.status_code, 404)
+        self.assertFalse(StoryEvent.objects.filter(story=theirs).exists())
+
+    def test_add_note_stopped_story_409(self):
+        self.story.stopped = timezone.now()
+        self.story.save(update_fields=["stopped"])
+        r = self.client.post(
+            reverse("trip-add-note", args=[self.story.pk]), {"comment": "too late"}
+        )
+        self.assertEqual(r.status_code, 409)
+        self.assertFalse(StoryEvent.objects.filter(story=self.story).exists())
+
+    # --- add to trip: photo presign ---
+
+    def _presign(self, story_id, content_type="image/jpeg"):
+        return self.client.post(
+            reverse("trip-photo-presign", args=[story_id]),
+            data=json.dumps({"content_type": content_type}),
+            content_type="application/json",
+        )
+
+    @mock.patch(f"{STORAGE}.presign_put_web", return_value="https://put.web/x")
+    def test_photo_presign_returns_web_url_and_key(self, _put):
+        r = self._presign(self.story.pk)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["upload_url"], "https://put.web/x")
+        self.assertTrue(
+            body["key"].startswith(f"trips/{self.user.pk}/{self.story.pk}/")
+        )
+
+    def test_photo_presign_bad_content_type_400(self):
+        r = self._presign(self.story.pk, content_type="image/gif")
+        self.assertEqual(r.status_code, 400)
+
+    def test_photo_presign_missing_content_type_400(self):
+        r = self.client.post(
+            reverse("trip-photo-presign", args=[self.story.pk]),
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+
+    def test_photo_presign_other_users_story_404(self):
+        theirs = Story.objects.create(user=self.other, title="Theirs")
+        r = self._presign(theirs.pk)
+        self.assertEqual(r.status_code, 404)
+
+    @mock.patch(f"{STORAGE}.presign_put_web", return_value="https://put.web/x")
+    def test_photo_presign_stopped_story_409(self, _put):
+        self.story.stopped = timezone.now()
+        self.story.save(update_fields=["stopped"])
+        r = self._presign(self.story.pk)
+        self.assertEqual(r.status_code, 409)
+
+    # --- add to trip: photo confirm ---
+
+    def _confirm(self, story_id, key, comment="", content_type="image/jpeg"):
+        return self.client.post(
+            reverse("trip-photo-confirm", args=[story_id]),
+            data=json.dumps(
+                {"key": key, "content_type": content_type, "comment": comment}
+            ),
+            content_type="application/json",
+        )
+
+    @mock.patch(
+        f"{STORAGE}.presign_get_web", side_effect=lambda key: f"https://signed/{key}"
+    )
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_photo_confirm_creates_photo_and_returns_entries(self, _exists, _get):
+        key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
+        r = self._confirm(self.story.pk, key, comment="At the beach")
+        self.assertEqual(r.status_code, 200)
+        photo = PhotoAdded.objects.get(original_key=key)
+        self.assertTrue(
+            StoryEvent.objects.filter(story=self.story, event=photo).exists()
+        )
+        self.assertContains(r, 'id="trip-entries"')
+        self.assertContains(r, "At the beach")
+
+    def test_photo_confirm_missing_key_400(self):
+        r = self.client.post(
+            reverse("trip-photo-confirm", args=[self.story.pk]),
+            data=json.dumps({"content_type": "image/jpeg", "comment": ""}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_photo_confirm_stopped_story_409(self, _exists):
+        self.story.stopped = timezone.now()
+        self.story.save(update_fields=["stopped"])
+        key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
+        r = self._confirm(self.story.pk, key)
+        self.assertEqual(r.status_code, 409)
+
+    def test_photo_confirm_other_users_story_404(self):
+        theirs = Story.objects.create(user=self.other, title="Theirs")
+        key = f"trips/{self.other.pk}/{theirs.pk}/abc.jpg"
+        r = self._confirm(theirs.pk, key)
+        self.assertEqual(r.status_code, 404)
+
     # --- map provider profile setting ---
 
     def test_account_settings_shows_map_provider(self):
@@ -381,6 +538,9 @@ class SharedTripWebTestCase(TestCase):
         self.assertNotContains(r, "trip-share-control")
         self.assertNotContains(r, "trip-badge")
         self.assertNotContains(r, "add-breakthrough")
+        # The owner-only add-to-trip affordances never appear on the public page.
+        self.assertNotContains(r, "trip-add-trigger")
+        self.assertNotContains(r, "trip-add-modal")
 
     def test_public_page_unknown_uuid_404(self):
         r = self.client.get(self._url(uuid_module.uuid4()))

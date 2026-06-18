@@ -11,7 +11,6 @@ export default defineConfig({
       app: './tasks/assets/app.js',
       hello_world_mount: './tasks/assets/components/hello_world_mount.js',
       enfp_mount: './tasks/assets/components/enfp_mount.js',
-      trip_map: './tasks/assets/trip_map.js',
     },
   },
 
@@ -41,7 +40,10 @@ export default defineConfig({
       );
 
       // Generate separate JS and CSS tag files for each entry point
-      const entryPoints = ['app', 'hello_world_mount', 'enfp_mount', 'trip_map'];
+      // Note to AI Agents
+      // Do not add entry points here unless building a new standalone, Vue-component-based page
+      // Otherwise, add an import in app.js – can be chunked out if needed and async loaded
+      const entryPoints = ['app', 'hello_world_mount', 'enfp_mount'];
 
       entryPoints.forEach(entryName => {
         config.plugins.push(

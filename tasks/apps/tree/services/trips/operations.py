@@ -160,8 +160,12 @@ def add_trip_note(user, story_id, comment, published=None, idempotency_key=None)
 
 
 @transaction.atomic
-def presign_photo_upload(user, story_id, content_type):
+def presign_photo_upload(user, story_id, content_type, web=False):
     """Allocate an S3 key and return a presigned PUT URL for a photo upload.
+
+    ``web=True`` signs the browser-reachable endpoint (the device-facing public
+    endpoint targets the Android emulator host in dev, unreachable from a
+    desktop browser); the default signs the device-facing endpoint.
 
     Raises ``StoryNotFoundError`` (not owned), ``StoryStoppedError`` (stopped),
     or ``ValueError`` (unsupported content type).
@@ -170,7 +174,8 @@ def presign_photo_upload(user, story_id, content_type):
     if story.stopped is not None:
         raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add photos.")
     key = original_key(user.pk, story_id, content_type)
-    url = photo_storage.presign_put(key, content_type)
+    presign = photo_storage.presign_put_web if web else photo_storage.presign_put
+    url = presign(key, content_type)
     expires_at = timezone.now() + timedelta(seconds=settings.PHOTO_PRESIGN_PUT_TTL)
     return {"key": key, "upload_url": url, "expires_at": expires_at.isoformat()}
 

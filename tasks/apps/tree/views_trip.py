@@ -5,15 +5,23 @@ The Android client drives trips through the JSON API in
 of the user's trips, a per-trip page that reuses the journal-entry partial
 to render notes and photo miniatures, the HTMX share/unshare toggle, and
 the public (unauthenticated) page behind a share link.
+
+The owner of an *active* trip can also attach notes and photos here: the
+write views reuse the same ``services.trips`` operations the Android API does
+(session auth + CSRF instead of token auth), so no logic is duplicated. Photos
+take the same presign -> direct-to-storage PUT -> confirm path, but signed for
+a browser (``web=True``) rather than the device-facing endpoint.
 """
 
+import json
 import re
 
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
 from django.template.defaultfilters import date as date_filter
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import PhotoAdded, Story, StoryEvent
@@ -173,6 +181,42 @@ def trip_list(request):
     )
 
 
+def _detail_context(request, story):
+    """Full render context for the private trip-detail page (and for re-rendering
+    after a note/photo write).
+
+    ``can_add`` gates the owner-only "add to trip" panel and its JS: only the
+    owner of an *active* trip may attach notes/photos (the service layer rejects
+    writes to a stopped trip anyway). The public shared view builds its own
+    context without these flags, so the panel never appears there.
+    """
+    events = _story_events(story)
+    return {
+        **_share_context(request, story),
+        "events": events,
+        "map_points": _map_points(events),
+        "show_share_control": True,
+        "can_add": story.stopped is None,
+    }
+
+
+def _owned_story_or_404(request, story_id):
+    story = Story.objects.filter(pk=story_id, user=request.user).first()
+    if story is None:
+        raise Http404("Trip not found")
+    return story
+
+
+def _render_entries(request, story_id):
+    """Re-render the timeline partial after a write so HTMX can swap it in."""
+    story = _owned_story_or_404(request, story_id)
+    return render(
+        request,
+        "tree/trips/_trip_entries.html",
+        {"events": _story_events(story), "can_add": story.stopped is None},
+    )
+
+
 @login_required
 def trip_detail(request, story_id):
     """A single trip with all its journal/photo entries, newest first.
@@ -181,21 +225,9 @@ def trip_detail(request, story_id):
     side-effect HabitTracked rows) but returns real model instances so the
     journal partial can render them.
     """
-    story = Story.objects.filter(pk=story_id, user=request.user).first()
-    if story is None:
-        raise Http404("Trip not found")
-
-    events = _story_events(story)
-
+    story = _owned_story_or_404(request, story_id)
     return render(
-        request,
-        "tree/trips/trip_detail.html",
-        {
-            **_share_context(request, story),
-            "events": events,
-            "map_points": _map_points(events),
-            "show_share_control": True,
-        },
+        request, "tree/trips/trip_detail.html", _detail_context(request, story)
     )
 
 
@@ -228,6 +260,94 @@ def trip_unshare(request, story_id):
         "tree/trips/_share_control.html",
         _share_context(request, story),
     )
+
+
+@login_required
+@require_POST
+def trip_add_note(request, story_id):
+    """Attach a text note to a trip and re-render the timeline for an HTMX swap.
+
+    Session-auth web twin of ``AndroidTripNoteView``: both call
+    ``operations.add_trip_note``. CSRF rides in the form field (the same
+    mechanism the share toggle uses).
+    """
+    comment = (request.POST.get("comment") or "").strip()
+    if not comment:
+        return HttpResponseBadRequest("comment is required")
+    try:
+        trip_ops.add_trip_note(
+            request.user, story_id, comment, published=timezone.now()
+        )
+    except trip_ops.StoryNotFoundError:
+        raise Http404("Trip not found")
+    except trip_ops.StoryStoppedError:
+        return HttpResponse(status=409)
+    return _render_entries(request, story_id)
+
+
+@login_required
+@require_POST
+def trip_photo_presign(request, story_id):
+    """Allocate an S3 key and return a browser-reachable presigned PUT URL.
+
+    Session-auth web twin of ``AndroidTripPhotoPresignView`` — but signs the
+    *web* endpoint (``web=True``) so the browser can PUT directly to the bucket.
+    """
+    try:
+        payload = json.loads(request.body or b"{}")
+    except ValueError:
+        return HttpResponseBadRequest("invalid JSON")
+    content_type = (payload.get("content_type") or "").strip()
+    if not content_type:
+        return HttpResponseBadRequest("content_type is required")
+    try:
+        result = trip_ops.presign_photo_upload(
+            request.user, story_id, content_type, web=True
+        )
+    except trip_ops.StoryNotFoundError:
+        raise Http404("Trip not found")
+    except trip_ops.StoryStoppedError:
+        return HttpResponse(status=409)
+    except ValueError as e:
+        return HttpResponseBadRequest(str(e))
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def trip_photo_confirm(request, story_id):
+    """Confirm a browser-uploaded photo and re-render the timeline.
+
+    Session-auth web twin of ``AndroidTripPhotoConfirmView``: both call
+    ``operations.add_trip_photo``, which links the PhotoAdded to the story and
+    enqueues the thumbnail task. Returns the timeline partial so the new photo
+    shows immediately (original first; the WebP thumbnail swaps in later).
+    """
+    try:
+        payload = json.loads(request.body or b"{}")
+    except ValueError:
+        return HttpResponseBadRequest("invalid JSON")
+    key = (payload.get("key") or "").strip()
+    content_type = (payload.get("content_type") or "").strip()
+    comment = payload.get("comment") or ""
+    if not key or not content_type:
+        return HttpResponseBadRequest("key and content_type are required")
+    try:
+        trip_ops.add_trip_photo(
+            request.user,
+            story_id,
+            key,
+            comment,
+            content_type,
+            published=timezone.now(),
+        )
+    except trip_ops.StoryNotFoundError:
+        raise Http404("Trip not found")
+    except trip_ops.StoryStoppedError:
+        return HttpResponse(status=409)
+    except trip_ops.PhotoObjectMissingError:
+        return HttpResponseBadRequest("uploaded object not found")
+    return _render_entries(request, story_id)
 
 
 def trip_shared_detail(request, share_uuid):

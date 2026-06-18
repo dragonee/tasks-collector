@@ -47,9 +47,22 @@ function initMap(points) {
     // Indexes for cross-linking markers <-> history entries.
     const markersById = new Map();
     const entriesById = new Map();
-    document.querySelectorAll('.trip-entry[data-event-id]').forEach((li) => {
-        entriesById.set(String(li.dataset.eventId), li);
-    });
+    indexEntries();
+
+    // Adding a note or photo (trip_add.js) re-renders the timeline and replaces
+    // its nodes, so re-index to keep marker->entry clicks pointing at live
+    // nodes. The delegated history->map handler below survives because <main>
+    // itself is never swapped. htmx:afterSwap is a defensive catch-all for any
+    // other HTMX swap on the page (e.g. the share toggle).
+    document.body.addEventListener('trip:entries-updated', indexEntries);
+    document.body.addEventListener('htmx:afterSwap', indexEntries);
+
+    function indexEntries() {
+        entriesById.clear();
+        document.querySelectorAll('.trip-entry[data-event-id]').forEach((li) => {
+            entriesById.set(String(li.dataset.eventId), li);
+        });
+    }
 
     const cluster = L.markerClusterGroup({
         // We handle cluster clicks ourselves (filter the history) instead of
