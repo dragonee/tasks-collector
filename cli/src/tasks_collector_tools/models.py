@@ -38,6 +38,10 @@ class JournalAdded(BaseEvent):
     tags: List[str]
 
 
+class PhotoAdded(JournalAdded):
+    resourcetype: Literal['PhotoAdded']
+
+
 class HabitTracked(BaseEvent):
     resourcetype: Literal['HabitTracked']
     note: str
@@ -190,8 +194,8 @@ class Plan(BaseModel):
 class Reflection(BaseModel):
     id: int
     good: str
-    better: str
-    best: str
+    better: Optional[str]
+    best: Optional[str]
     pub_date: date
 
     def empty(self):
@@ -208,8 +212,9 @@ class Reflection(BaseModel):
 
 
 Event = Union[
-    JournalAdded, 
-    HabitTracked, 
+    PhotoAdded,
+    JournalAdded,
+    HabitTracked,
     ObservationMade, 
     ObservationUpdated, 
     ObservationRecontextualized, 
