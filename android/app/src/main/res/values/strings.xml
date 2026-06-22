@@ -94,6 +94,16 @@
     <string name="today_fab_close">Close</string>
     <string name="today_fab_add_task">Add Task</string>
     <string name="today_fab_add_photo">Add Photo</string>
+    <string name="today_fab_track_habit">Track Habit</string>
+
+    <string name="today_habit_dialog_title">Track a habit</string>
+    <string name="today_habit_loading">Loading habits…</string>
+    <string name="today_habit_empty">No habits available.</string>
+    <string name="today_habit_keyword_hint">Habit</string>
+    <string name="today_habit_note_hint">Add a note (optional)</string>
+    <string name="today_habit_track">Track</string>
+    <string name="today_habit_retry">Retry</string>
+    <string name="today_habit_cancel">Cancel</string>
     <plurals name="photo_uploaded">
         <item quantity="one">Photo uploaded</item>
         <item quantity="other">%d photos uploaded</item>

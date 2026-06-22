@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.polybrain.tasks.health.data.HabitKeyword
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.TaskCompleteRequest
@@ -18,6 +19,7 @@ import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TodayTask
+import org.polybrain.tasks.health.data.TrackHabitRequest
 import org.polybrain.tasks.health.data.TripSummary
 
 class TodayViewModel(application: Application) : AndroidViewModel(application) {
@@ -78,6 +80,30 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
      */
     private val _activeTrip = MutableStateFlow<TripSummary?>(null)
     val activeTrip: StateFlow<TripSummary?> = _activeTrip.asStateFlow()
+
+    /**
+     * Available habit keywords for the "track a habit" dialog, fetched once
+     * and cached for the ViewModel's lifetime — the user's keyword set rarely
+     * changes. Empty until [loadHabitKeywords] first succeeds.
+     */
+    private val _habitKeywords = MutableStateFlow<List<HabitKeyword>>(emptyList())
+    val habitKeywords: StateFlow<List<HabitKeyword>> = _habitKeywords.asStateFlow()
+
+    /** Whether the track-a-habit dialog is open. */
+    private val _habitDialogOpen = MutableStateFlow(false)
+    val habitDialogOpen: StateFlow<Boolean> = _habitDialogOpen.asStateFlow()
+
+    /** True while the keyword list is being fetched (drives the dialog spinner). */
+    private val _habitKeywordsLoading = MutableStateFlow(false)
+    val habitKeywordsLoading: StateFlow<Boolean> = _habitKeywordsLoading.asStateFlow()
+
+    /** True while a habit is being posted; gates the dialog's Track button. */
+    private val _habitSaving = MutableStateFlow(false)
+    val habitSaving: StateFlow<Boolean> = _habitSaving.asStateFlow()
+
+    /** Last habit-dialog error (load or post), shown inline; null = none. */
+    private val _habitError = MutableStateFlow<String?>(null)
+    val habitError: StateFlow<String?> = _habitError.asStateFlow()
 
     fun refresh() {
         viewModelScope.launch { reload() }
@@ -240,6 +266,75 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearError() {
         _error.value = null
+    }
+
+    /**
+     * Open the track-a-habit dialog and make sure the keyword list is loaded.
+     * The list is cached across opens, so this only hits the network the first
+     * time (or after a previous failure left it empty).
+     */
+    fun openHabitDialog() {
+        _habitError.value = null
+        _habitDialogOpen.value = true
+        if (_habitKeywords.value.isEmpty()) loadHabitKeywords()
+    }
+
+    fun closeHabitDialog() {
+        if (_habitSaving.value) return
+        _habitDialogOpen.value = false
+    }
+
+    /**
+     * Fetch the user's available habit keywords. No-op while a fetch is already
+     * in flight or, unless [force] is set, when the cache is already populated.
+     */
+    fun loadHabitKeywords(force: Boolean = false) {
+        if (_habitKeywordsLoading.value) return
+        if (!force && _habitKeywords.value.isNotEmpty()) return
+        viewModelScope.launch {
+            val snapshot = settings.snapshot()
+            if (!snapshot.isConfigured) {
+                _habitError.value = "Configure server URL and API token first."
+                return@launch
+            }
+            _habitKeywordsLoading.value = true
+            try {
+                _habitKeywords.value = buildApi(snapshot).listHabitKeywords(today())
+                _habitError.value = null
+            } catch (t: Throwable) {
+                _habitError.value = t.message ?: t.javaClass.simpleName
+            } finally {
+                _habitKeywordsLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Record a habit for the selected day via the idempotent keyword endpoint
+     * (upsert on habit+date). Closes the dialog on success. The keyword cache
+     * is left intact — re-tracking just updates that day's note server-side.
+     */
+    fun trackHabit(keyword: String, note: String) {
+        if (_habitSaving.value) return
+        viewModelScope.launch {
+            val snapshot = settings.snapshot()
+            if (!snapshot.isConfigured) {
+                _habitError.value = "Configure server URL and API token first."
+                return@launch
+            }
+            _habitSaving.value = true
+            _habitError.value = null
+            try {
+                buildApi(snapshot).trackHabit(
+                    TrackHabitRequest(keyword = keyword, date = today(), note = note.trim())
+                )
+                _habitDialogOpen.value = false
+            } catch (t: Throwable) {
+                _habitError.value = t.message ?: t.javaClass.simpleName
+            } finally {
+                _habitSaving.value = false
+            }
+        }
     }
 
     private suspend fun reload() {

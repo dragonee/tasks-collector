@@ -12,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.polybrain.tasks.health.data.BoardItemsResponse
+import org.polybrain.tasks.health.data.HabitKeyword
 import org.polybrain.tasks.health.data.HealthDataResponse
 import org.polybrain.tasks.health.data.Outbox
 import org.polybrain.tasks.health.data.OkResponse
@@ -218,6 +219,7 @@ class OutboxDrainerTest {
         // --- unused endpoints ---
         override suspend fun trackHabit(body: TrackHabitRequest): TrackHabitResponse = nope()
         override suspend fun trackHabitText(body: TrackHabitTextRequest): OkResponse = nope()
+        override suspend fun listHabitKeywords(date: String): List<HabitKeyword> = nope()
         override suspend fun healthData(): HealthDataResponse = nope()
         override suspend fun listTodayTasks(date: String): TodayTasksResponse = nope()
         override suspend fun listBoardItems(): BoardItemsResponse = nope()
