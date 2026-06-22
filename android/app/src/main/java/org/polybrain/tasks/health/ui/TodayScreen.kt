@@ -30,11 +30,14 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
@@ -60,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import org.polybrain.tasks.health.R
+import org.polybrain.tasks.health.data.HabitKeyword
 import org.polybrain.tasks.health.data.TodayTask
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -159,8 +163,26 @@ fun TodayScreen(
                 onExpandedChange = { fabExpanded = it },
                 onAddTask = { onAddFromBoard(selectedDate) },
                 onAddPhoto = onAddPhoto,
+                onTrackHabit = vm::openHabitDialog,
             )
         }
+    }
+
+    val habitDialogOpen by vm.habitDialogOpen.collectAsState()
+    if (habitDialogOpen) {
+        val keywords by vm.habitKeywords.collectAsState()
+        val keywordsLoading by vm.habitKeywordsLoading.collectAsState()
+        val habitSaving by vm.habitSaving.collectAsState()
+        val habitError by vm.habitError.collectAsState()
+        TrackHabitDialog(
+            keywords = keywords,
+            loading = keywordsLoading,
+            saving = habitSaving,
+            error = habitError,
+            onConfirm = vm::trackHabit,
+            onRetry = { vm.loadHabitKeywords(force = true) },
+            onDismiss = vm::closeHabitDialog,
+        )
     }
 
     pendingComplete?.let { pending ->
@@ -277,6 +299,141 @@ private fun CompletedTaskDialog(
             }
         },
     )
+}
+
+/**
+ * Track an arbitrary habit for the selected day: search the user's available
+ * keywords (fetched and cached by the ViewModel) in an autocomplete field and
+ * optionally attach a note. The Track button stays disabled until the field
+ * text exactly names an available keyword. When the keyword list is empty
+ * after loading (no habits, or a load error), the confirm slot offers Retry.
+ */
+@Composable
+private fun TrackHabitDialog(
+    keywords: List<HabitKeyword>,
+    loading: Boolean,
+    saving: Boolean,
+    error: String?,
+    onConfirm: (keyword: String, note: String) -> Unit,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    // The chosen keyword is the field text once it exactly names an available
+    // keyword — set either by typing it in full or by picking from the dropdown.
+    val selected = remember(keywords, query) {
+        keywords.firstOrNull { it.keyword.equals(query.trim(), ignoreCase = true) }?.keyword
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.today_habit_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when {
+                    loading && keywords.isEmpty() ->
+                        Text(stringResource(R.string.today_habit_loading))
+                    keywords.isEmpty() ->
+                        Text(stringResource(R.string.today_habit_empty))
+                    else -> HabitKeywordPicker(
+                        keywords = keywords,
+                        query = query,
+                        onQueryChange = { query = it },
+                    )
+                }
+                if (keywords.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        placeholder = { Text(stringResource(R.string.today_habit_note_hint)) },
+                        singleLine = false,
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                error?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            // Nothing to track until the list loads; offer Retry in its place.
+            if (keywords.isEmpty() && !loading) {
+                TextButton(onClick = onRetry) {
+                    Text(stringResource(R.string.today_habit_retry))
+                }
+            } else {
+                TextButton(
+                    onClick = { selected?.let { onConfirm(it, note) } },
+                    enabled = !saving && selected != null,
+                ) {
+                    Text(stringResource(R.string.today_habit_track))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) {
+                Text(stringResource(R.string.today_habit_cancel))
+            }
+        },
+    )
+}
+
+/**
+ * Autocomplete keyword field: an editable text field anchoring a dropdown that
+ * narrows to the keywords containing the typed text (case-insensitive; all of
+ * them when the field is empty). Picking an item fills the field with that
+ * keyword. Scrolls, so it copes with long keyword lists.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HabitKeywordPicker(
+    keywords: List<HabitKeyword>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val filtered = remember(keywords, query) {
+        val q = query.trim()
+        if (q.isEmpty()) keywords
+        else keywords.filter { it.keyword.contains(q, ignoreCase = true) }
+    }
+    ExposedDropdownMenuBox(
+        expanded = expanded && filtered.isNotEmpty(),
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = {
+                onQueryChange(it)
+                expanded = true
+            },
+            label = { Text(stringResource(R.string.today_habit_keyword_hint)) },
+            singleLine = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded && filtered.isNotEmpty(),
+            onDismissRequest = { expanded = false },
+        ) {
+            filtered.forEach { kw ->
+                DropdownMenuItem(
+                    text = { Text("#${kw.keyword}") },
+                    onClick = {
+                        onQueryChange(kw.keyword)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
 }
 
 // Date label like "Wed, May 28"; the year is omitted to keep the bar
@@ -471,6 +628,7 @@ private fun BoxScope.AddSpeedDial(
     onExpandedChange: (Boolean) -> Unit,
     onAddTask: () -> Unit,
     onAddPhoto: () -> Unit,
+    onTrackHabit: () -> Unit,
 ) {
     if (expanded) {
         // Full-screen scrim; tapping anywhere outside the actions collapses it.
@@ -510,6 +668,14 @@ private fun BoxScope.AddSpeedDial(
                     onClick = {
                         onExpandedChange(false)
                         onAddPhoto()
+                    },
+                )
+                SpeedDialItem(
+                    label = stringResource(R.string.today_fab_track_habit),
+                    icon = Icons.Filled.Add,
+                    onClick = {
+                        onExpandedChange(false)
+                        onTrackHabit()
                     },
                 )
             }

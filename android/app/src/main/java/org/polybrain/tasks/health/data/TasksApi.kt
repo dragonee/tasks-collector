@@ -37,6 +37,23 @@ data class OkResponse(
     @SerialName("ok") val ok: Boolean = false,
 )
 
+// One option in the "track a habit" picker. Mirrors the `habit/keywords/mine/`
+// payload — a HabitKeyword row with its parent Habit nested. The lenient JSON
+// config ignores the extra habit fields the server also sends (slug,
+// description, today_tracked).
+@Serializable
+data class HabitKeyword(
+    @SerialName("id") val id: Long,
+    @SerialName("keyword") val keyword: String,
+    @SerialName("habit") val habit: HabitRef? = null,
+)
+
+@Serializable
+data class HabitRef(
+    @SerialName("id") val id: Long = 0,
+    @SerialName("name") val name: String = "",
+)
+
 // Server-derived health data for the Health screen. Currently just the most
 // recently recorded body weight and when it was recorded; both null when
 // nothing has been recorded yet.
@@ -273,6 +290,13 @@ interface TasksApi {
     // collapse multiple events into one.
     @POST("habit/track/")
     suspend fun trackHabitText(@Body body: TrackHabitTextRequest): OkResponse
+
+    // The current user's available habit keywords for the "track a habit"
+    // picker. Scoped to the profile's selection (the server falls back to all
+    // keywords when none are chosen) and, because it filters by `date`,
+    // excludes habits already tracked that day. Returns a bare JSON array.
+    @GET("habit/keywords/mine/")
+    suspend fun listHabitKeywords(@Query("date") date: String): List<HabitKeyword>
 
     // Server-derived health data (currently the last recorded body weight).
     @GET("api/v1/android/health/data/")
