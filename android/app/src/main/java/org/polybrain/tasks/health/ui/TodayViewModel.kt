@@ -151,6 +151,24 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Copy a task onto the actual current day. Offered from a task's context
+     * menu only while browsing some other day. Reuses the same /add path as a
+     * typed task, but pins the date to the real today rather than the selected
+     * day, so the task lands on today's Daily plan while staying put on the day
+     * being viewed. `mutate`'s reload refreshes the day in view (unchanged when
+     * that isn't today); navigating to today then shows the copy.
+     */
+    fun copyToToday(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            mutate { api ->
+                api.addTodayTask(TaskTextRequest(trimmed, LocalDate.now().toString()))
+            }
+        }
+    }
+
+    /**
      * Entry point for the checkbox tap.
      *
      * Branching:

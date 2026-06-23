@@ -142,11 +142,16 @@ fun TodayScreen(
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                             }
                         }
+                        // "Copy to today" only makes sense while browsing some
+                        // other day — on today it would be a no-op duplicate.
+                        val onAnotherDay = selectedDate != LocalDate.now()
                         items(items = tasks, key = TodayTask::text) { task ->
                             TaskRow(
                                 task = task,
                                 onToggle = { done -> vm.requestSetDone(task.text, done) },
                                 onDelete = { vm.delete(task.text) },
+                                onCopyToToday =
+                                    if (onAnotherDay) ({ vm.copyToToday(task.text) }) else null,
                             )
                         }
                     }
@@ -515,6 +520,9 @@ private fun TaskRow(
     task: TodayTask,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
+    // Non-null only when the row belongs to a day other than today; drives the
+    // optional "Copy to today" menu item.
+    onCopyToToday: (() -> Unit)? = null,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Row(
@@ -546,6 +554,15 @@ private fun TaskRow(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false },
             ) {
+                onCopyToToday?.let { copy ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.today_copy_to_today_menu)) },
+                        onClick = {
+                            menuExpanded = false
+                            copy()
+                        },
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.today_remove_menu)) },
                     onClick = {
