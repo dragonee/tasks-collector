@@ -91,7 +91,7 @@ services:
         command: "/app/docker/development/scripts/run-development.sh"
         working_dir: /app
     tasks-frontend:
-        image: "node:22-alpine"
+        image: "node:24-alpine"
         volumes:
             - "../..:/app"
         command: "/app/docker/development/scripts/run-frontend.sh"
