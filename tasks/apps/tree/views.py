@@ -18,7 +18,8 @@ from .forms import *
 from .models import *
 from .serializers import *
 from .services.journalling import process_journal_entry
-from .utils.datetime import make_last_day_of_the_week
+from .services.today import plan_tasks
+from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
 from .views_trip import attach_photo_urls
 
@@ -160,6 +161,54 @@ def add_task_to_plan(request):
         )
     except ValueError as e:
         return RestResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def _serialize_plan(pub_date, thread_name):
+    """Build the {thread, pub_date, tasks:[{text, done}]} payload for one plan,
+    delegating the crossed-off computation to the today service."""
+    return {
+        "thread": thread_name,
+        "pub_date": pub_date.isoformat(),
+        "tasks": [
+            {"text": t.text, "done": t.done} for t in plan_tasks(pub_date, thread_name)
+        ],
+    }
+
+
+@api_view(["GET"])
+def today_plans(request):
+    """Return the Daily / Weekly / Big-picture plans for the journal template,
+    each task flagged with whether it has been crossed off (i.e. the line also
+    appears in that day's Reflection.good). Powers the CLI `journal` command.
+
+    The Daily plan is for ``date`` (a YYYY-MM-DD query param, the caller's
+    local day; defaults to the server's today), the Weekly plan for the end of
+    that week, and the Big-picture plan for the end of that month.
+    """
+    from datetime import date as date_cls
+
+    raw_date = request.query_params.get("date")
+    if raw_date:
+        try:
+            pub_date = date_cls.fromisoformat(raw_date)
+        except ValueError:
+            return RestResponse(
+                {"error": "date must be YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    else:
+        pub_date = date_cls.today()
+
+    return RestResponse(
+        {
+            "daily": _serialize_plan(pub_date, "Daily"),
+            "weekly": _serialize_plan(make_last_day_of_the_week(pub_date), "Weekly"),
+            "monthly": _serialize_plan(
+                make_last_day_of_the_month(pub_date), "Big-picture"
+            ),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 ### XXX TODO

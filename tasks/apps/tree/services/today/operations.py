@@ -130,22 +130,35 @@ def _current_board(user):
     return board
 
 
-@transaction.atomic
-def list_today_tasks(user, today=None):
-    """Return today's Plan lines, each flagged done if it also appears in
-    Reflection.good. Unchecked first, original Plan order preserved within
-    each group.
-    """
-    pub_date = _today(today)
-    daily = _daily_thread()
+def plan_tasks(pub_date, thread_name):
+    """Return the Plan.focus lines for ``pub_date`` / ``thread_name``, each
+    flagged done if it also appears verbatim in that day's Reflection.good.
 
-    plan = Plan.objects.filter(pub_date=pub_date, thread=daily).first()
-    reflection = Reflection.objects.filter(pub_date=pub_date, thread=daily).first()
+    This is the single source of truth for "is a task crossed off": a plan
+    line is done iff it's an exact-match line in the reflection's ``good``
+    field. Order follows the Plan; empty lines are dropped. Returns an empty
+    list when the thread doesn't exist or there's no plan for the date.
+    """
+    thread = Thread.objects.filter(name=thread_name).first()
+    if thread is None:
+        return []
+
+    plan = Plan.objects.filter(pub_date=pub_date, thread=thread).first()
+    reflection = Reflection.objects.filter(pub_date=pub_date, thread=thread).first()
 
     plan_lines = [l for l in text_lines.split_lines(plan.focus if plan else None) if l]
     good = set(text_lines.split_lines(reflection.good if reflection else None))
 
-    items = [TodayTask(text=line, done=line in good) for line in plan_lines]
+    return [TodayTask(text=line, done=line in good) for line in plan_lines]
+
+
+@transaction.atomic
+def list_today_tasks(user, today=None):
+    """Return today's Daily Plan lines, each flagged done if it also appears
+    in Reflection.good. Unchecked first, original Plan order preserved within
+    each group.
+    """
+    items = plan_tasks(_today(today), "Daily")
     items.sort(key=lambda it: it.done)  # False (not done) sorts before True
     return items
 

@@ -58,6 +58,7 @@ urlpatterns = [
     path("summaries/", views_board_tasks.summaries, name="summaries"),
     # === Plans (views) ===
     path("plans/add-task/", views.add_task_to_plan, name="plan-add-task"),
+    path("api/v1/plans/today/", views.today_plans, name="today-plans"),
     # === Habits (views_habit) ===
     path("habits/", views_habit.HabitListView.as_view(), name="public-habit-list"),
     path(
