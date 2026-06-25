@@ -80,6 +80,21 @@ class TodayPlansAPITestCase(APITestCase):
             body["monthly"]["tasks"], [{"text": "month task", "done": True}]
         )
 
+    def test_crlf_stored_focus_returns_clean_task_text(self):
+        # Some writers store the focus with \r\n endings; task text must come
+        # back with no stray \r so the journal prints normal newlines.
+        Plan.objects.create(pub_date=TODAY, thread=self.daily, focus="alpha\r\nbravo")
+        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="bravo")
+
+        tasks = self._get().json()["daily"]["tasks"]
+        self.assertEqual(
+            tasks,
+            [
+                {"text": "alpha", "done": False},
+                {"text": "bravo", "done": True},
+            ],
+        )
+
     def test_empty_when_nothing_planned(self):
         body = self._get().json()
         self.assertEqual(body["daily"]["tasks"], [])

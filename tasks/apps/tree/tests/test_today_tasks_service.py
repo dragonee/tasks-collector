@@ -55,6 +55,17 @@ class TodayServiceTestCase(TestCase):
         self.assertEqual(text_lines.remove_line("only", "only"), "")
         self.assertEqual(text_lines.remove_line(None, "x"), "")
 
+    def test_text_lines_normalizes_crlf(self):
+        # CRLF-stored fields (e.g. via the CLI's sanitize_string) split into
+        # clean lines with no stray \r, and matching ignores the line ending.
+        self.assertEqual(text_lines.split_lines("a\r\nb"), ["a", "b"])
+        self.assertEqual(text_lines.split_lines("a\rb"), ["a", "b"])
+        self.assertTrue(text_lines.has_line("a\r\nb", "a"))
+        self.assertEqual(text_lines.remove_line("a\r\nb", "a"), "b")
+        self.assertEqual(text_lines.replace_line("a\r\nb", "a", "A"), "A\nb")
+        # add_unique_line normalizes the existing field on write.
+        self.assertEqual(text_lines.add_unique_line("a\r\nb", "c"), "a\nb\nc")
+
     # --- board_tree DFS -----------------------------------------------------
 
     def test_find_task_by_text_walks_children(self):
