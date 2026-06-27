@@ -31,10 +31,14 @@ import kotlinx.coroutines.launch
  *
  * [Weight] is special: instead of a free-text note it carries a numeric
  * kilogram value, posted as `#weight weight=<x.x>kg` (see [MainViewModel.trackWeight]).
+ *
+ * [Running] is likewise special: it carries a distance and a duration, posted
+ * as `#running distance=<x.x>km, time=<m>m<s>s` (see [MainViewModel.trackRunning]).
  */
 enum class ActivityType(val keyword: String) {
     Gym("siłka"),
     Workout("workout"),
+    Running("running"),
     Weight("weight"),
 }
 
@@ -62,6 +66,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Open/closed state for the "register activity" dialog opened from the FAB. */
     private val _activityDialogOpen = MutableStateFlow(false)
     val activityDialogOpen: StateFlow<Boolean> = _activityDialogOpen.asStateFlow()
+
+    /** Activity type the dialog should preselect when it opens (e.g. Weight when
+     *  the dialog is opened by tapping the weight section). */
+    private val _activityInitialType = MutableStateFlow(ActivityType.Gym)
+    val activityInitialType: StateFlow<ActivityType> = _activityInitialType.asStateFlow()
 
     /** True while an activity is being posted; gates the dialog buttons. */
     private val _activitySaving = MutableStateFlow(false)
@@ -132,7 +141,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshHealthDataAsync()
     }
 
-    fun openActivityDialog() {
+    fun openActivityDialog(initialType: ActivityType = ActivityType.Gym) {
+        _activityInitialType.value = initialType
         _activityError.value = null
         _activityDialogOpen.value = true
     }
@@ -163,6 +173,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun trackWeight(kg: Double) {
         val text = "#${ActivityType.Weight.keyword} weight=${"%.1f".format(Locale.US, kg)}kg"
         postHabitLine(text) { refreshHealthDataAsync() }
+    }
+
+    /**
+     * Records a run as `#running distance=<x.x>km, time=<m>m<s>s` through the
+     * same non-idempotent text endpoint. Distance is formatted with one decimal
+     * (US locale, so the separator is a dot the backend can parse).
+     */
+    fun trackRunning(distanceKm: Double, minutes: Int, seconds: Int) {
+        val distance = "%.1f".format(Locale.US, distanceKm)
+        val text = "#${ActivityType.Running.keyword} distance=${distance}km, time=${minutes}m${seconds}s"
+        postHabitLine(text)
     }
 
     /**
