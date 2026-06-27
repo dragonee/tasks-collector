@@ -74,6 +74,16 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     val pendingComplete: StateFlow<PendingComplete?> = _pendingComplete.asStateFlow()
 
     /**
+     * Text of the task the user is currently focusing on, or null when focus
+     * mode is off. In focus mode the screen hides everything except this task
+     * and already-finished ones, so only the one thing left to do is in view.
+     * Cleared on day change and when the focused task disappears from a reload
+     * (so its "exit focus" menu item can never become unreachable).
+     */
+    private val _focusedTask = MutableStateFlow<String?>(null)
+    val focusedTask: StateFlow<String?> = _focusedTask.asStateFlow()
+
+    /**
      * The most recently started active trip, refreshed alongside the task
      * list. Drives the "Save to trip" button on the add-note dialog; null
      * when no trip is active.
@@ -123,7 +133,18 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         _selectedDate.value = date
         // Any pending dialog refers to a task on the previous day's list.
         _pendingComplete.value = null
+        // Focus is scoped to the day it was started on.
+        _focusedTask.value = null
         viewModelScope.launch { reload() }
+    }
+
+    /**
+     * Context-menu toggle: focus this task (entering focus mode), or exit focus
+     * mode if this task is already the focused one. Pure view state — nothing is
+     * sent to the server.
+     */
+    fun toggleFocus(text: String) {
+        _focusedTask.value = if (_focusedTask.value == text) null else text
     }
 
     fun add(text: String) {
@@ -164,6 +185,24 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             mutate { api ->
                 api.addTodayTask(TaskTextRequest(trimmed, LocalDate.now().toString()))
+            }
+        }
+    }
+
+    /**
+     * Move a task to tomorrow: copy it onto tomorrow's Daily plan, then drop it
+     * from today's. Offered from a task's context menu only while viewing today.
+     * Both calls share one [mutate] block so a single reload reflects the result
+     * — the row leaves today and reappears when you step to tomorrow. Reuses the
+     * existing /add and /delete paths, so no new endpoint is needed.
+     */
+    fun moveToTomorrow(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            mutate { api ->
+                api.addTodayTask(TaskTextRequest(trimmed, LocalDate.now().plusDays(1).toString()))
+                api.deleteTodayTask(TaskTextRequest(trimmed, today()))
             }
         }
     }
@@ -219,6 +258,9 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     private fun completePending(note: String, storyId: Long?) {
         val pending = _pendingComplete.value as? PendingComplete.AddNote ?: return
         _pendingComplete.value = null
+        // Crossing off the focused task ends focus mode — its one job is done,
+        // so fall back to the full list (the completed task included).
+        if (_focusedTask.value == pending.text) _focusedTask.value = null
         viewModelScope.launch {
             _tasks.value = _tasks.value.map { t ->
                 if (t.text == pending.text) t.copy(done = true) else t
@@ -368,6 +410,11 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val api = buildApi(snapshot)
             _tasks.value = api.listTodayTasks(today()).items
+            // Drop focus if its task is gone (deleted, or its text changed),
+            // otherwise the "exit focus mode" item would vanish with the row.
+            if (_focusedTask.value != null && _tasks.value.none { it.text == _focusedTask.value }) {
+                _focusedTask.value = null
+            }
             _weekPlan.value = api.listPlans("Weekly", endOfWeek()).results
                 .firstOrNull()
                 ?.focus

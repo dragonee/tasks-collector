@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -53,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -80,6 +82,7 @@ fun TodayScreen(
     val configured by vm.configured.collectAsState()
     val pendingComplete by vm.pendingComplete.collectAsState()
     val selectedDate by vm.selectedDate.collectAsState()
+    val focusedTask by vm.focusedTask.collectAsState()
 
     var fabExpanded by remember { mutableStateOf(false) }
 
@@ -106,10 +109,18 @@ fun TodayScreen(
                 onRefresh = vm::refresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
+                // Focus mode hides everything but the focused task and the
+                // already-finished ones, so the single thing left to do stands
+                // alone (with the done list kept for motivation). The weekly
+                // plan section is hidden too — it's "other tasks".
+                val focusMode = focusedTask != null
                 // This week's plan items that aren't already on today's list.
                 // Adding one copies it onto today, after which it drops out here.
                 val todayTexts = tasks.map { it.text }.toSet()
-                val pendingWeekPlan = weekPlan.filterNot { it in todayTexts }
+                val pendingWeekPlan =
+                    if (focusMode) emptyList() else weekPlan.filterNot { it in todayTexts }
+                val displayedTasks =
+                    if (focusMode) tasks.filter { it.text == focusedTask || it.done } else tasks
                 when {
                     !configured -> EmptyState(stringResource(R.string.today_not_configured))
                     tasks.isEmpty() && pendingWeekPlan.isEmpty() ->
@@ -143,15 +154,20 @@ fun TodayScreen(
                             }
                         }
                         // "Copy to today" only makes sense while browsing some
-                        // other day — on today it would be a no-op duplicate.
+                        // other day; "Move to tomorrow" only on today — the two
+                        // are mutually exclusive on the same row.
                         val onAnotherDay = selectedDate != LocalDate.now()
-                        items(items = tasks, key = TodayTask::text) { task ->
+                        items(items = displayedTasks, key = TodayTask::text) { task ->
                             TaskRow(
                                 task = task,
                                 onToggle = { done -> vm.requestSetDone(task.text, done) },
                                 onDelete = { vm.delete(task.text) },
                                 onCopyToToday =
                                     if (onAnotherDay) ({ vm.copyToToday(task.text) }) else null,
+                                onMoveToTomorrow =
+                                    if (!onAnotherDay) ({ vm.moveToTomorrow(task.text) }) else null,
+                                focused = task.text == focusedTask,
+                                onToggleFocus = { vm.toggleFocus(task.text) },
                             )
                         }
                     }
@@ -445,6 +461,12 @@ private fun HabitKeywordPicker(
 // compact since most navigation stays within the current year.
 private val DATE_NAV_FORMAT = DateTimeFormatter.ofPattern("EEE, MMM d")
 
+// Translucent blue (Material Blue 500 at ~12% alpha) behind the focused task.
+// A tint rather than an opaque swatch so it sits well over the surface and
+// doesn't fight the row's text colour. The app uses the default violet
+// MaterialTheme, so this is an explicit blue rather than a theme token.
+private val FOCUS_HIGHLIGHT = Color(0x1F2196F3)
+
 @Composable
 private fun DateNavBar(
     selectedDate: LocalDate,
@@ -523,10 +545,28 @@ private fun TaskRow(
     // Non-null only when the row belongs to a day other than today; drives the
     // optional "Copy to today" menu item.
     onCopyToToday: (() -> Unit)? = null,
+    // Non-null only when the row belongs to today; drives the optional
+    // "Move to tomorrow" menu item, which copies the task onto tomorrow and
+    // removes it from today.
+    onMoveToTomorrow: (() -> Unit)? = null,
+    // Whether this row is the one currently being focused on, which flips the
+    // focus menu item between "Enter" and "Exit focus mode".
+    focused: Boolean = false,
+    onToggleFocus: () -> Unit = {},
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        // A faint blue wash marks the focused row so focus mode is obvious
+        // at a glance; rounded so it reads as a deliberate highlight band.
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (focused) {
+                    Modifier.clip(RoundedCornerShape(8.dp)).background(FOCUS_HIGHLIGHT)
+                } else {
+                    Modifier
+                },
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = task.done, onCheckedChange = onToggle)
@@ -563,6 +603,29 @@ private fun TaskRow(
                         },
                     )
                 }
+                onMoveToTomorrow?.let { move ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.today_move_to_tomorrow_menu)) },
+                        onClick = {
+                            menuExpanded = false
+                            move()
+                        },
+                    )
+                }
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                if (focused) R.string.today_focus_exit_menu
+                                else R.string.today_focus_enter_menu,
+                            )
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onToggleFocus()
+                    },
+                )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.today_remove_menu)) },
                     onClick = {

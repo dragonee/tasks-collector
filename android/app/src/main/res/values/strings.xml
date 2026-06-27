@@ -69,6 +69,9 @@
     <string name="today_add_hint">Add a task</string>
     <string name="today_add_button">Add</string>
     <string name="today_copy_to_today_menu">Copy to today</string>
+    <string name="today_move_to_tomorrow_menu">Move to tomorrow</string>
+    <string name="today_focus_enter_menu">Enter focus mode</string>
+    <string name="today_focus_exit_menu">Exit focus mode</string>
     <string name="today_remove_menu">Remove</string>
     <string name="today_not_configured">Configure server URL and API token in Settings first.</string>
     <string name="today_error_format">Error: %1$s</string>
