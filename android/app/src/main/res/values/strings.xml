@@ -139,6 +139,9 @@
     <string name="activity_send">Track</string>
     <string name="activity_cancel">Cancel</string>
     <string name="weight_kg_hint">Weight (kg)</string>
+    <string name="running_distance_hint">Distance (km)</string>
+    <string name="running_minutes_label">Min</string>
+    <string name="running_seconds_label">Sec</string>
 
     <string name="today_metrics_heading">Today</string>
     <string name="metric_steps_format">Steps: %1$d</string>

@@ -1,9 +1,13 @@
 package org.polybrain.tasks.health.ui
 
+import android.widget.NumberPicker
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import org.polybrain.tasks.health.R
@@ -104,15 +109,23 @@ fun HealthScreen(vm: MainViewModel) {
 
             // Last recorded weight comes from the server (independent of Health
             // Connect permissions), so it shows regardless of the grant state.
+            // Tapping the section opens the dialog ready to record a new weight.
             HorizontalDivider()
-            val weightKg = healthData?.weightKg
-            if (weightKg != null) {
-                Text(
-                    stringResource(R.string.metric_weight_format)
-                        .format(weightKg, formatWeightDate(healthData?.recordedAt))
-                )
-            } else {
-                Text(stringResource(R.string.metric_weight_none))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { vm.openActivityDialog(ActivityType.Weight) }
+                    .padding(vertical = 4.dp),
+            ) {
+                val weightKg = healthData?.weightKg
+                if (weightKg != null) {
+                    Text(
+                        stringResource(R.string.metric_weight_format)
+                            .format(weightKg, formatWeightDate(healthData?.recordedAt))
+                    )
+                } else {
+                    Text(stringResource(R.string.metric_weight_none))
+                }
             }
 
             if (permissionsGranted) {
@@ -154,25 +167,35 @@ fun HealthScreen(vm: MainViewModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TrackActivityDialog(vm: MainViewModel) {
     val saving by vm.activitySaving.collectAsState()
     val error by vm.activityError.collectAsState()
 
-    var selectedType by remember { mutableStateOf(ActivityType.Gym) }
+    var selectedType by remember { mutableStateOf(vm.activityInitialType.value) }
     var note by remember { mutableStateOf("") }
     var weightText by remember { mutableStateOf("") }
+    var distanceText by remember { mutableStateOf("") }
+    var minutes by remember { mutableStateOf(0) }
+    var seconds by remember { mutableStateOf(0) }
 
     val isWeight = selectedType == ActivityType.Weight
+    val isRunning = selectedType == ActivityType.Running
     val weightKg = weightText.trim().toDoubleOrNull()
-    val canConfirm = if (isWeight) weightKg != null && weightKg > 0 else true
+    val distanceKm = distanceText.trim().toDoubleOrNull()
+    val canConfirm = when {
+        isWeight -> weightKg != null && weightKg > 0
+        isRunning -> distanceKm != null && distanceKm > 0 && (minutes > 0 || seconds > 0)
+        else -> true
+    }
 
     AlertDialog(
         onDismissRequest = { vm.closeActivityDialog() },
         title = { Text(stringResource(R.string.activity_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActivityType.entries.forEach { type ->
                         FilterChip(
                             selected = type == selectedType,
@@ -181,24 +204,54 @@ private fun TrackActivityDialog(vm: MainViewModel) {
                         )
                     }
                 }
-                if (isWeight) {
-                    OutlinedTextField(
-                        value = weightText,
-                        onValueChange = { weightText = it },
-                        placeholder = { Text(stringResource(R.string.weight_kg_hint)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = note,
-                        onValueChange = { note = it },
-                        placeholder = { Text(stringResource(R.string.activity_note_hint)) },
-                        singleLine = false,
-                        minLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                when {
+                    isWeight -> {
+                        OutlinedTextField(
+                            value = weightText,
+                            onValueChange = { weightText = it },
+                            placeholder = { Text(stringResource(R.string.weight_kg_hint)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    isRunning -> {
+                        OutlinedTextField(
+                            value = distanceText,
+                            onValueChange = { distanceText = it },
+                            placeholder = { Text(stringResource(R.string.running_distance_hint)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            DurationWheel(
+                                label = stringResource(R.string.running_minutes_label),
+                                value = minutes,
+                                range = 0..240,
+                                onValueChange = { minutes = it },
+                            )
+                            DurationWheel(
+                                label = stringResource(R.string.running_seconds_label),
+                                value = seconds,
+                                range = 0..59,
+                                onValueChange = { seconds = it },
+                            )
+                        }
+                    }
+                    else -> {
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            placeholder = { Text(stringResource(R.string.activity_note_hint)) },
+                            singleLine = false,
+                            minLines = 3,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
                 error?.let {
                     Text(
@@ -212,10 +265,10 @@ private fun TrackActivityDialog(vm: MainViewModel) {
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (isWeight) {
-                        weightKg?.let { vm.trackWeight(it) }
-                    } else {
-                        vm.trackActivity(selectedType, note)
+                    when {
+                        isWeight -> weightKg?.let { vm.trackWeight(it) }
+                        isRunning -> distanceKm?.let { vm.trackRunning(it, minutes, seconds) }
+                        else -> vm.trackActivity(selectedType, note)
                     }
                 },
                 enabled = !saving && canConfirm,
@@ -232,6 +285,38 @@ private fun TrackActivityDialog(vm: MainViewModel) {
             }
         },
     )
+}
+
+/**
+ * A labelled spinning "wheel" for one component of the run duration. Compose has
+ * no native wheel picker, so this wraps the platform [NumberPicker] View; the
+ * label sits above it and [onValueChange] mirrors each scroll back into state.
+ */
+@Composable
+private fun DurationWheel(
+    label: String,
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = label, style = MaterialTheme.typography.bodySmall)
+        AndroidView(
+            factory = { context ->
+                NumberPicker(context).apply {
+                    minValue = range.first
+                    maxValue = range.last
+                    this.value = value
+                    setOnValueChangedListener { _, _, newValue -> onValueChange(newValue) }
+                }
+            },
+            update = { picker ->
+                picker.minValue = range.first
+                picker.maxValue = range.last
+                if (picker.value != value) picker.value = value
+            },
+        )
+    }
 }
 
 private val displayFormatter: DateTimeFormatter =
