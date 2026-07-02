@@ -1,14 +1,13 @@
 <template>
   <li class="tree-node" :data-id="node.id" :class="nodeClass" @mousedown.stop="handleMouseDown" @contextmenu.stop.prevent="openMenu">
-    <div class="tree-content" :style="[options.direction == 'ltr' ? {'padding-left': padding} : {'padding-right': padding}]" @click="select">
+    <div class="tree-content" :style="{'padding-left': padding}" @click="select">
       <i
         class="tree-arrow"
-        :class="[{'expanded': node.states.expanded, 'has-child': node.children.length || node.isBatch}, options.direction]"
+        :class="{'expanded': node.states.expanded, 'has-child': node.children.length}"
         @click.stop="toggleExpand">
       </i>
 
       <i
-        v-if="options.checkbox"
         class="tree-checkbox"
         :class="{'checked': node.states.checked, 'indeterminate': node.states.indeterminate}"
         @click.stop="check">
@@ -63,14 +62,12 @@
     data() {
       this.node.vm = this
 
-      return {
-        loading: false
-      }
+      return {}
     },
 
     computed: {
       padding() {
-        return this.node.depth * (this.options.paddingLeft ? this.options.paddingLeft : this.options.nodeIndent) + 'px'
+        return this.node.depth * this.options.nodeIndent + 'px'
       },
 
       nodeClass() {
@@ -81,15 +78,10 @@
           'expanded': hasChildren && state.expanded,
           'selected': state.selected,
           'disabled': state.disabled,
-          'matched': state.matched,
           'dragging': state.dragging,
-          'loading': this.loading,
-          'draggable': state.draggable
-        }
-
-        if (this.options.checkbox) {
-          classes['checked'] = state.checked
-          classes['indeterminate'] = state.indeterminate
+          'draggable': state.draggable,
+          'checked': state.checked,
+          'indeterminate': state.indeterminate
         }
 
         const markerMethods = [
@@ -143,52 +135,34 @@
       },
 
       select({ctrlKey} = evnt) {
-        const opts = this.options
         const tree = this.tree
         const node = this.node
 
         tree.$emit('node:clicked', node)
 
-        if (opts.editing && node.isEditing) {
+        if (node.isEditing) {
           return
         }
 
-        if (opts.editing && node.editable()) {
+        if (node.editable()) {
           return this.startEditing()
         }
 
-        if (opts.checkbox && opts.checkOnSelect) {
-          if (!opts.parentSelect && this.hasChildren()) {
-            return this.toggleExpand()
-          }
-
-          return this.check(ctrlKey)
-        }
-
-        // 'parentSelect' behaviour.
         // For nodes which has a children list we have to expand/collapse
-        if (!opts.parentSelect && this.hasChildren()) {
+        if (this.hasChildren()) {
           this.toggleExpand()
         }
 
-        if (opts.multiple) {
-          if (!node.selected()) {
-            node.select(ctrlKey)
-          } else {
-            if (ctrlKey) {
-              node.unselect()
-            } else {
-              if (this.tree.selectedNodes.length != 1) {
-                tree.unselectAll()
-                node.select()
-              }
-            }
-          }
+        if (!node.selected()) {
+          node.select(ctrlKey)
         } else {
-          if (node.selected() && ctrlKey) {
+          if (ctrlKey) {
             node.unselect()
           } else {
-            node.select()
+            if (this.tree.selectedNodes.length != 1) {
+              tree.unselectAll()
+              node.select()
+            }
           }
         }
       },
@@ -222,10 +196,6 @@
       },
 
       handleMouseDown(event) {
-        if (!this.options.dnd) {
-          return
-        }
-
         this.tree.vm.startDragging(this.node, event)
       }
     }

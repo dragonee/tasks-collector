@@ -6,9 +6,7 @@ import objectToNode from '../utils/objectToNode'
 import { List } from '../utils/stack'
 import { TreeParser } from '../utils/treeParser'
 import { recurseDown } from '../utils/recurse'
-import { get, createTemplate } from '../utils/request'
 import sort from '../utils/sort'
-import fetchDelay from '../utils/fetchDelay'
 
 export default class Tree {
   constructor (vm) {
@@ -16,19 +14,6 @@ export default class Tree {
     this.options = vm.opts
 
     this.activeElement = null
-
-    // We have to convert 'fetchData' to function. It must return Promise always
-    const fetchData = this.options.fetchData
-
-    if (typeof fetchData === 'string') {
-      this.options.fetchData = ((template) => {
-        const urlTemplate = createTemplate(template)
-
-        return node => {
-          return get(urlTemplate(node)).catch(this.options.onFetchError)
-        }
-      })(fetchData)
-    }
   }
 
   $on (name, ...args) {
@@ -49,10 +34,7 @@ export default class Tree {
     }
 
     this.vm.$emit(name, ...args)
-
-    if (this.options.store) {
-      this.vm.$emit('LIQUOR_NOISE')
-    }
+    this.vm.$emit('LIQUOR_NOISE')
   }
 
   _sort (source, compareFn, deep) {
@@ -83,160 +65,16 @@ export default class Tree {
     })
   }
 
-  clearFilter () {
-    this.recurseDown(node => {
-      node.state('matched', false)
-      node.state('visible', true)
-      node.state('expanded', node.__expanded)
-
-      node.__expanded = undefined
-      node.showChildren = true
-    })
-
-    this.vm.matches.length = 0
-    this.vm.$emit('tree:filtered', [], '')
-  }
-
-  filter (query) {
-    if (!query) {
-      return this.clearFilter()
-    }
-
-    const matches = []
-    const predicate = this.options.filter.matcher
-    const { showChildren, plainList } = this.options.filter
-
-    // collect nodes
-    this.recurseDown(node => {
-      if (predicate(query, node)) {
-        matches.push(node)
-      }
-
-      node.showChildren = true
-
-      // save prev `expanded` state
-      if (undefined === node.__expanded) {
-        node.__expanded = node.state('expanded')
-      }
-
-      node.state('visible', false)
-      node.state('matched', false)
-      node.state('expanded', true)
-    })
-
-    matches.reverse().forEach(node => {
-      node.state('matched', true)
-      node.state('visible', true)
-
-      node.showChildren = !plainList
-
-      if (node.hasChildren()) {
-        node.recurseDown(n => {
-          n.state('visible', !!showChildren)
-        }, true)
-      }
-
-      node.recurseUp(parent => {
-        parent.state('visible', true)
-        parent.state('expanded', true)
-      })
-
-      if (node.hasChildren()) {
-        node.state('expanded', false)
-      }
-    })
-
-    this.vm.matches = matches
-
-    this.vm.$emit('tree:filtered', matches, query)
-
-    return matches
-  }
-
   selected () {
     return new Selection(this, ...this.selectedNodes)
   }
 
   checked () {
-    if (!this.options.checkbox) {
-      return null
-    }
-
     return new Selection(this, ...this.checkedNodes)
   }
 
-  loadChildren (node) {
-    if (!node) {
-      return
-    }
-
-    this.$emit('tree:data:fetch', node)
-
-    if (this.options.minFetchDelay > 0 && node.vm) {
-      node.vm.loading = true
-    }
-
-    const result = this.fetch(node)
-      .then(children => {
-        node.append(children)
-        node.isBatch = false
-
-        if (this.options.autoCheckChildren) {
-          if (node.checked()) {
-            node.recurseDown(child => {
-              child.state('checked', true)
-            })
-          }
-
-          node.refreshIndeterminateState()
-        }
-
-        this.$emit('tree:data:received', node)
-      })
-
-    return Promise.all([
-      fetchDelay(this.options.minFetchDelay),
-      result
-    ]).then(_ => {
-      if (node.vm) {
-        node.vm.loading = false
-      }
-
-      return result
-    })
-  }
-
-  fetch (node, parseData) {
-    let result = this.options.fetchData(node)
-
-    if (!result.then) {
-      result = get(result)
-        .catch(this.options.onFetchError)
-    }
-
-    if (parseData === false) {
-      return result
-    }
-
-    return result
-      .then(data => {
-        return this.parse(data, this.options.modelParse)
-      })
-      .catch(this.options.onFetchError)
-  }
-
-  fetchInitData () {
-    // simulate root node
-    const node = {
-      id: 'root',
-      name: 'root'
-    }
-
-    return this.fetch(node, false)
-  }
-
   setModel (data) {
-    this.model = this.parse(data, this.options.modelParse)
+    this.model = this.parse(data)
 
     /* eslint-disable */
     requestAnimationFrame(_ => {
@@ -266,31 +104,12 @@ export default class Tree {
         }
       }
 
-      if (this.options.autoDisableChildren && node.disabled()) {
+      if (node.disabled()) {
         node.recurseDown(child => {
           child.state('disabled', true)
         })
       }
     })
-
-    if (!this.options.multiple && this.selectedNodes.length) {
-      const top = this.selectedNodes.top()
-
-      this.selectedNodes.forEach(node => {
-        if (top !== node) {
-          node.state('selected', false)
-        }
-      })
-
-      this.selectedNodes
-        .empty()
-        .add(top)
-    }
-
-    // Nodes can't be selected on init. By it's possible to select through API
-    if (this.options.checkOnSelect && this.options.checkbox) {
-      this.unselectAll()
-    }
   }
 
   recurseDown (node, fn) {
@@ -313,7 +132,7 @@ export default class Tree {
       return false
     }
 
-    if (this.options.multiple && extendList) {
+    if (extendList) {
       this.selectedNodes.add(treeNode)
     } else {
       this.unselectAll()
@@ -326,10 +145,6 @@ export default class Tree {
   }
 
   selectAll () {
-    if (!this.options.multiple) {
-      return false
-    }
-
     this.selectedNodes.empty()
 
     this.recurseDown(node => {
@@ -651,17 +466,6 @@ export default class Tree {
     this.selectedNodes.remove(node)
     this.checkedNodes.remove(node)
 
-    const matches = this.vm.matches
-
-    if (matches && matches.length) {
-      if (matches.includes(node)) {
-        matches.splice(
-          matches.indexOf(node),
-          1
-        )
-      }
-    }
-
     return node
   }
 
@@ -712,13 +516,9 @@ export default class Tree {
     return objectToNode(this, obj)
   }
 
-  parse (data, options) {
-    if (!options) {
-      options = this.options.propertyNames
-    }
-
+  parse (data) {
     try {
-      return TreeParser.parse(data, this, options)
+      return TreeParser.parse(data, this)
     } catch (e) {
       console.error(e)
       return []

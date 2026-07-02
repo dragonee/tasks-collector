@@ -41,10 +41,6 @@ function focusdDown (tree, node) {
 }
 
 function checkNode (tree, node) {
-  if (!tree.options.checkbox) {
-    return
-  }
-
   if (node.checked()) {
     node.uncheck()
   } else {
@@ -77,17 +73,7 @@ function rightArrow (tree, node) {
 }
 
 function deleteNode (tree, node) {
-  const deletion = tree.options.deletion
-
-  if (deletion) {
-    if (typeof deletion === 'function') {
-      if (deletion(node) === true) {
-        node.remove()
-      }
-    } else if (deletion === true) {
-      node.remove()
-    }
-  }
+  node.remove()
 }
 
 export default function (tree) {

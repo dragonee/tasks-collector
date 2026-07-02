@@ -4,7 +4,6 @@
 
         <tree
             v-show="!listViewMode"
-            :data="currentBoard.state"
             :options="options"
             ref="tree"
         >
@@ -65,12 +64,6 @@ export default {
 
         options() {
             return {
-                checkbox: true,
-                editing: true,
-                dnd: true,
-                deletion: true,
-                keyboardNavigation: true,
-
                 store: {
                     store: this.$store,
                     getter: () => this.$store.getters.currentBoard.state,

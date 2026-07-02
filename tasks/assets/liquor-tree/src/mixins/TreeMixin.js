@@ -3,42 +3,30 @@ import initKeyboardNavigation from '../utils/keyboardNavigation'
 import assert from '../utils/assert'
 
 function initEvents (vm) {
-  const { multiple, checkbox } = vm.opts
   const tree = vm.tree
 
   const emitter = (obj) => {
-    const selected = vm.selected()
-
-    if (!checkbox) {
-      vm.$emit('input', multiple ? selected : (selected[0] || null))
-    } else {
-      vm.$emit('input', {
-        selected: multiple ? selected : (selected[0] || null),
-        checked: vm.checked()
-      })
-    }
+    vm.$emit('input', {
+      selected: vm.selected(),
+      checked: vm.checked()
+    })
   }
 
   emitter()
 
   tree.$on('node:selected', emitter)
   tree.$on('node:unselected', emitter)
-
-  if (checkbox) {
-    tree.$on('node:checked', emitter)
-    tree.$on('node:unchecked', emitter)
-  }
+  tree.$on('node:checked', emitter)
+  tree.$on('node:unchecked', emitter)
 
   tree.$on('node:added', (targetNode, newNode) => {
     const node = newNode || targetNode
 
-    if (checkbox) {
-      if (node.state('checked') && !tree.checkedNodes.has(node)) {
-        tree.checkedNodes.add(node)
-      }
-
-      node.refreshIndeterminateState()
+    if (node.state('checked') && !tree.checkedNodes.has(node)) {
+      tree.checkedNodes.add(node)
     }
+
+    node.refreshIndeterminateState()
 
     if (node.state('selected') && !tree.selectedNodes.has(node)) {
       tree.select(node)
@@ -51,46 +39,17 @@ function initEvents (vm) {
 export default {
   mounted () {
     const tree = new Tree(this)
-    let dataProvider
 
     this.tree = tree
     this._provided.tree = tree
 
-    if (!this.data && this.opts.fetchData) {
-      // Get initial data if we don't have a data directly
-      // In this case we call 'fetcher' with node.id == 'root' && node.name == 'root'
-      dataProvider = tree.fetchInitData()
-    } else if (this.data && this.data.then) {
-      // Yeah... nice check!
-      dataProvider = this.data
-      this.loading = true
-    } else {
-      dataProvider = Promise.resolve(this.data)
-    }
+    this.connectStore(this.opts.store)
 
-    dataProvider.then(data => {
-      if (!data) {
-        data = []
-      }
+    this.$emit('tree:mounted', this)
 
-      if (this.opts.store) {
-        this.connectStore(this.opts.store)
-      } else {
-        this.tree.setModel(data)
-      }
+    initEvents(this)
 
-      if (this.loading) {
-        this.loading = false
-      }
-
-      this.$emit('tree:mounted', this)
-
-      initEvents(this)
-    })
-
-    if (this.opts.keyboardNavigation !== false) {
-      initKeyboardNavigation(tree)
-    }
+    initKeyboardNavigation(tree)
   },
 
   methods: {
