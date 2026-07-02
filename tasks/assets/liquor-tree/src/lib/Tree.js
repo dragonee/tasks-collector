@@ -52,6 +52,14 @@ export default class Tree {
     recurseDown(this.model, node => {
       node.tree = this
 
+      // Store-driven rebuilds replace every Node instance; carry an
+      // in-progress edit over to the node's replacement, matched by id.
+      if (this._editingNode && node.id === this._editingNode.id) {
+        node.isEditing = true
+        this._editingNode = node
+        this.activeElement = node
+      }
+
       if (node.selected()) {
         this.selectedNodes.add(node)
       }

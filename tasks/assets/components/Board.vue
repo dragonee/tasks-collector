@@ -87,7 +87,10 @@ export default {
         this.$refs.tree.$on('node:editing:stop', (node) => {
             this.editingContext = false
 
-            //this.$store.dispatch('save', this.$refs.tree.toJSON())
+            // an item added with `i` and left blank is a cancelled insert
+            if (!node.text) {
+                node.remove()
+            }
         })
 
         this.unwatch = this.$store.watch(
@@ -120,7 +123,9 @@ export default {
 
     methods: {
         async addItem() {
-            const node = this.$refs.tree.append(createTreeItem('Hi'))
+            const node = this.$refs.tree.append(createTreeItem())
+
+            node.startEditing()
         },
 
         ...mapActions([
