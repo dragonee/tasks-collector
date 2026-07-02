@@ -6,7 +6,6 @@ import objectToNode from '../utils/objectToNode'
 import { List } from '../utils/stack'
 import { TreeParser } from '../utils/treeParser'
 import { recurseDown } from '../utils/recurse'
-import sort from '../utils/sort'
 
 export default class Tree {
   constructor (vm) {
@@ -35,42 +34,6 @@ export default class Tree {
 
     this.vm.$emit(name, ...args)
     this.vm.$emit('LIQUOR_NOISE')
-  }
-
-  _sort (source, compareFn, deep) {
-    if (deep !== false) {
-      this.recurseDown(source, node => {
-        if (node.hasChildren()) {
-          sort(node.children, compareFn)
-        }
-      })
-    }
-
-    sort(source, compareFn)
-  }
-
-  sortTree (compareFn, deep) {
-    this._sort(this.model, compareFn, deep)
-  }
-
-  sort (query, compareFn, deep) {
-    const targetNode = this.find(query, true)
-
-    if (!targetNode || !compareFn) {
-      return
-    }
-
-    targetNode.forEach(node => {
-      this._sort(node.children, compareFn, deep)
-    })
-  }
-
-  selected () {
-    return new Selection(this, ...this.selectedNodes)
-  }
-
-  checked () {
-    return new Selection(this, ...this.checkedNodes)
   }
 
   setModel (data) {
@@ -144,18 +107,6 @@ export default class Tree {
     return true
   }
 
-  selectAll () {
-    this.selectedNodes.empty()
-
-    this.recurseDown(node => {
-      this.selectedNodes.add(
-        node.select(true)
-      )
-    })
-
-    return true
-  }
-
   unselect (node) {
     const treeNode = this.getNode(node)
 
@@ -184,84 +135,6 @@ export default class Tree {
 
   uncheck (node) {
     this.checkedNodes.remove(node)
-  }
-
-  checkAll () {
-    this.recurseDown(node => {
-      if (node.depth === 0) {
-        if (node.indeterminate()) {
-          node.state('indeterminate', false)
-        }
-
-        node.check()
-      }
-    })
-  }
-
-  uncheckAll () {
-    let node
-
-    while (node = this.checkedNodes.pop()) {
-      node.uncheck()
-    }
-
-    return true
-  }
-
-  expand (node) {
-    if (node.expanded()) {
-      return false
-    }
-
-    node.expand()
-
-    return true
-  }
-
-  collapse (node) {
-    if (node.collapsed()) {
-      return false
-    }
-
-    node.collapse()
-
-    return true
-  }
-
-  toggleExpand (node) {
-    if (!node.hasChildren()) {
-      return false
-    }
-
-    node.toggleExpand()
-
-    return true
-  }
-
-  toggleCollapse (node) {
-    if (!node.hasChildren()) {
-      return false
-    }
-
-    node.toggleCollapse()
-
-    return true
-  }
-
-  expandAll () {
-    this.recurseDown(node => {
-      if (node.hasChildren() && node.collapsed()) {
-        node.expand()
-      }
-    })
-  }
-
-  collapseAll () {
-    this.recurseDown(node => {
-      if (node.hasChildren() && node.expanded()) {
-        node.collapse()
-      }
-    })
   }
 
   index (node, verbose) {
@@ -398,17 +271,6 @@ export default class Tree {
     )
 
     node.parent = targetNode.parent
-    this.$emit('node:added', node)
-
-    return node
-  }
-
-  addNode (node) {
-    const index = this.model.length
-
-    node = objectToNode(node)
-
-    this.model.splice(index, 0, node)
     this.$emit('node:added', node)
 
     return node
