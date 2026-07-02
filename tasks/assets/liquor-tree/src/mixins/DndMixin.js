@@ -67,6 +67,20 @@ function getDropDestination (e) {
   return selectedNode
 }
 
+function getLastRootNodeElement ($el) {
+  const nodes = $el.querySelectorAll('.tree-root > .tree-node')
+
+  return nodes.length ? nodes[nodes.length - 1] : null
+}
+
+function isBelowElement (e, element) {
+  const coords = element.getBoundingClientRect()
+
+  return e.clientY > coords.bottom &&
+    e.clientX >= coords.left &&
+    e.clientX <= coords.right
+}
+
 function updateHelperClasses (target, classes) {
   if (!target) {
     return
@@ -220,6 +234,24 @@ export default {
           }
 
           updateHelperClasses(dropDestination, dropPosition)
+        } else {
+          // No node under the cursor. Below the last root node this means
+          // dragging past the end of the board — treat it as a drop after
+          // that node at root level, so an item can leave the last subtree.
+          const lastRootElement = getLastRootNodeElement(this.$el)
+
+          if (lastRootElement && isBelowElement(e, lastRootElement)) {
+            const lastRootId = lastRootElement.getAttribute('data-id')
+
+            if (this.draggableNode.node.id === lastRootId) {
+              return
+            }
+
+            this.$$dropDestination = this.tree.getNodeById(lastRootId)
+            dropPosition = DropPosition.BELOW
+
+            updateHelperClasses(lastRootElement, dropPosition)
+          }
         }
       }
 
