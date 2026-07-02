@@ -5,20 +5,6 @@ import assert from '../utils/assert'
 function initEvents (vm) {
   const tree = vm.tree
 
-  const emitter = (obj) => {
-    vm.$emit('input', {
-      selected: vm.selected(),
-      checked: vm.checked()
-    })
-  }
-
-  emitter()
-
-  tree.$on('node:selected', emitter)
-  tree.$on('node:unselected', emitter)
-  tree.$on('node:checked', emitter)
-  tree.$on('node:unchecked', emitter)
-
   tree.$on('node:added', (targetNode, newNode) => {
     const node = newNode || targetNode
 
@@ -31,8 +17,6 @@ function initEvents (vm) {
     if (node.state('selected') && !tree.selectedNodes.has(node)) {
       tree.select(node)
     }
-
-    emitter()
   })
 }
 
@@ -80,18 +64,6 @@ export default {
       })
     },
 
-    recurseDown (fn) {
-      this.tree.recurseDown(fn)
-    },
-
-    selected () {
-      return this.tree.selected()
-    },
-
-    checked () {
-      return this.tree.checked()
-    },
-
     append (criteria, node) {
       // append to model
       if (!node) {
@@ -135,36 +107,6 @@ export default {
 
     find (criteria, multiple) {
       return this.tree.find(criteria, multiple)
-    },
-
-    findAll (criteria) {
-      return this.tree.find(criteria, true)
-    },
-
-    expandAll () {
-      return this.tree.expandAll()
-    },
-
-    collapseAll () {
-      return this.tree.collapseAll()
-    },
-
-    sortTree (compareFn, deep) {
-      return this.tree.sortTree(compareFn, deep)
-    },
-
-    sort (...args) {
-      return this.tree.sort(...args)
-    },
-
-    setModel (data) {
-      return this.tree.setModel(data)
-    },
-
-    getRootNode () {
-      return this.tree.model.length === 1
-        ? this.tree.model[0]
-        : this.tree.model
     },
 
     toJSON () {
