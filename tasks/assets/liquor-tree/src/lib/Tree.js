@@ -1,4 +1,7 @@
+import { markRaw, reactive } from 'vue'
+
 import Node from './Node'
+import Emitter from './Emitter'
 
 import objectToNode, { parse } from '../utils/objectToNode'
 import { List } from '../utils/stack'
@@ -10,18 +13,23 @@ export default class Tree {
     this.options = vm.opts
 
     this.activeElement = null
+    this.emitter = new Emitter()
+
+    // Nodes hold a back-reference to the tree; keep the tree itself out of
+    // Vue's reactivity so reading node.tree always yields this raw instance.
+    markRaw(this)
   }
 
   $on (name, ...args) {
-    this.vm.$on(name, ...args)
+    this.emitter.$on(name, ...args)
   }
 
   $once (name, ...args) {
-    this.vm.$once(name, ...args)
+    this.emitter.$once(name, ...args)
   }
 
   $off (name, ...args) {
-    this.vm.$off(name, ...args)
+    this.emitter.$off(name, ...args)
   }
 
   $emit (name, ...args) {
@@ -29,12 +37,18 @@ export default class Tree {
       return
     }
 
-    this.vm.$emit(name, ...args)
-    this.vm.$emit('LIQUOR_NOISE')
+    this.emitter.$emit(name, ...args)
+
+    if (name !== 'LIQUOR_NOISE') {
+      this.emitter.$emit('LIQUOR_NOISE')
+    }
   }
 
   setModel (data) {
-    this.model = this.parse(data)
+    // The tree and the component must share one identity for the model: nodes
+    // are already reactive proxies (see objectToNode), and the array is made
+    // reactive here so splices done through the tree re-render the component.
+    this.model = reactive(this.parse(data))
 
     /* eslint-disable */
     requestAnimationFrame(_ => {
@@ -42,10 +56,6 @@ export default class Tree {
     })
     /* eslint-enable */
 
-    /**
-    * VueJS transform properties to reactives when constructor is running
-    * And we lose List object (extended from Array)
-    */
     this.selectedNodes = new List()
     this.checkedNodes = new List()
 

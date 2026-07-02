@@ -6,11 +6,13 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
+import { mapState } from 'pinia'
+
+import { useBoardStore } from '../store'
 
 export default {
     computed: {
-        ...mapGetters(['currentBoard']),
+        ...mapState(useBoardStore, ['currentBoard']),
 
         formattedList() {
             const renderNodes = (nodes, depth) => {

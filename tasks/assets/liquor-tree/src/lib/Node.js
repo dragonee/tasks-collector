@@ -10,12 +10,18 @@ export default class Node {
     this.id = item.id || uuidV4()
     this.states = item.state || {}
 
-    this.children = item.children || []
+    // Copy, never adopt: `item` may come straight from the Pinia store, and a
+    // node holding the store's own children array would splice tree Nodes
+    // into store state on insert — the store's deep $subscribe watcher then
+    // re-triggers setModel for every node relink, rebuilding forever.
+    this.children = item.children ? item.children.slice() : []
     this.parent = item.parent || null
 
     this.isEditing = false
 
-    this.data = Object.assign({}, item.data || {}, {
+    // Legacy board items may lack meaningfulMarkers; nodeClass and
+    // NodeContent read it unconditionally, so normalize it here.
+    this.data = Object.assign({ meaningfulMarkers: {} }, item.data || {}, {
       text: item.text
     })
 
@@ -436,11 +442,11 @@ export default class Node {
       tree.selectedNodes.remove(this)
       tree.selectedNodes.add(clone)
 
-      tree.vm.$set(this.state, 'selected', false)
-      tree.vm.$set(clone.state, 'selected', true)
+      this.states.selected = false
+      clone.states.selected = true
     }
 
-    this.tree.vm.$emit('LIQUOR_NOISE')
+    this.tree.$emit('LIQUOR_NOISE')
   }
 
   startEditing () {

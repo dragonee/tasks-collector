@@ -1,12 +1,10 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
-import VueRouter from 'vue-router'
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import HelloWorldComponent from './hello_world.vue'
 import Board from './Board.vue'
 import Eisenhower from './Eisenhower.vue'
 import Moscow from './Moscow.vue'
-
-import store from '../store'
 
 import TreeRoot from '../liquor-tree/src/components/TreeRoot.vue'
 
@@ -14,32 +12,6 @@ import { autosizeDirective } from '../autosize.js'
 
 import "../app.scss";
 import "../scripts/shared.js";
-
-Vue.component(TreeRoot.name, TreeRoot)
-Vue.use(Vuex)
-Vue.use(VueRouter)
-Vue.directive('autosize', autosizeDirective)
-
-// Helper function to get CSRF token and make fetch requests
-const apiRequest = async (url, options = {}) => {
-    const token = document.body.querySelector('[name=csrfmiddlewaretoken]');
-    const defaultHeaders = {
-        'X-CSRFToken': token ? token.value : '',
-        'Content-Type': 'application/json',
-        ...options.headers
-    };
-
-    const response = await fetch(url, {
-        ...options,
-        headers: defaultHeaders
-    });
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return response.json();
-};
 
 const routes = [
     { path: '/', component: Board },
@@ -50,17 +22,16 @@ const routes = [
     { path: '/moscow/:slug', component: Moscow },
 ]
 
-const router = new VueRouter({
-    routes
+const router = createRouter({
+    history: createWebHashHistory(),
+    routes,
 })
 
-new Vue({
-    render: h => h(HelloWorldComponent),
-    store: new Vuex.Store(store),
+const app = createApp(HelloWorldComponent)
 
-    router,
+app.component(TreeRoot.name, TreeRoot)
+app.use(createPinia())
+app.use(router)
+app.directive('autosize', autosizeDirective)
 
-    created() {
-       // CSRF token is now handled in the apiRequest helper function
-    }
-}).$mount('#app')
+app.mount('#app')

@@ -92,21 +92,20 @@ if (typeof document !== "undefined" && document.fonts) {
     document.fonts.ready.then(() => tracked.forEach(measure));
 }
 
-// Vue 2 directive: <textarea v-autosize>. componentUpdated re-fits when the
-// bound value changes from outside an input event (e.g. a form reset clearing
-// v-model).
+// Vue directive: <textarea v-autosize>. updated re-fits when the bound value
+// changes from outside an input event (e.g. a form reset clearing v-model).
 export const autosizeDirective = {
-    inserted(el) {
+    mounted(el) {
         const ta = el.tagName === "TEXTAREA" ? el : el.querySelector("textarea");
         el._autosizeTarget = ta;
         attach(ta);
     },
-    componentUpdated(el) {
+    updated(el) {
         if (el._autosizeTarget) {
             measure(el._autosizeTarget);
         }
     },
-    unbind(el) {
+    unmounted(el) {
         detach(el._autosizeTarget);
     },
 };

@@ -23,8 +23,9 @@ export default {
   mounted () {
     const tree = new Tree(this)
 
+    // TreeRoot provides `tree` as a computed over this data property, so
+    // setting it here late-binds the injection in every TreeNode.
     this.tree = tree
-    this._provided.tree = tree
 
     this.connectStore(this.opts.store)
 
@@ -37,19 +38,15 @@ export default {
 
   methods: {
     connectStore (store) {
-      const { store: Store, mutations, getter, dispatcher } = store
+      const { store: Store, getter, dispatcher } = store
 
-      Store.subscribe((action, state) => {
-        if (!mutations) {
-          this.tree.setModel(getter())
-        } else if (mutations.includes(action.type)) {
-          this.tree.setModel(getter())
-        }
+      Store.$subscribe(() => {
+        this.tree.setModel(getter())
       })
 
       this.tree.setModel(getter())
 
-      this.$on('LIQUOR_NOISE', () => {
+      this.tree.$on('LIQUOR_NOISE', () => {
         this.$nextTick(_ => {
           dispatcher(this.toJSON())
         })

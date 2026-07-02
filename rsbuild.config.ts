@@ -1,10 +1,10 @@
 import { defineConfig } from '@rsbuild/core';
 import HtmlRspackPlugin from 'html-rspack-plugin';
-import { pluginVue2 } from '@rsbuild/plugin-vue2';
+import { pluginVue } from '@rsbuild/plugin-vue';
 import { pluginSass } from '@rsbuild/plugin-sass';
 
 export default defineConfig({
-  plugins: [pluginVue2(), pluginSass()],
+  plugins: [pluginVue(), pluginSass()],
 
   source: {
     entry: {
@@ -12,6 +12,12 @@ export default defineConfig({
       hello_world_mount: './tasks/assets/components/hello_world_mount.js',
       enfp_mount: './tasks/assets/components/enfp_mount.js',
     },
+  },
+
+  // output.assetPrefix only applies to production mode; the local environment
+  // builds in development mode and takes the prefix from here
+  dev: {
+    assetPrefix: '/static/',
   },
 
   output: {
@@ -77,9 +83,17 @@ export default defineConfig({
 
   environments: {
     local: {
+      // a real development build: unminified output, Vue runtime warnings
+      // (build-dist passes --mode production explicitly)
+      mode: 'development',
       output: {
         distPath: {
           root: 'tasks/static/local',
+        },
+        // full source maps for debugging the dev build in the browser
+        sourceMap: {
+          js: 'source-map',
+          css: true,
         },
       },
     },

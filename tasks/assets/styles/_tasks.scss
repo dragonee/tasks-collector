@@ -296,7 +296,7 @@
     transform: translateX(0);
 }
 
-.l-fade-enter, .l-fade-leave-to {
+.l-fade-enter-from, .l-fade-leave-to {
     opacity: 0;
     transform: translateX(-2em);
 }

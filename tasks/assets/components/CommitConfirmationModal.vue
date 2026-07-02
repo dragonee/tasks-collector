@@ -44,6 +44,8 @@ export default {
         }
     },
 
+    emits: ['confirm', 'cancel'],
+
     methods: {
         confirm() {
             this.$emit('confirm')
