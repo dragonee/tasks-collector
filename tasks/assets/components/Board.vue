@@ -6,6 +6,8 @@
             v-show="!listViewMode"
             :options="options"
             ref="tree"
+            @node:editing:start="onNodeEditingStart"
+            @node:editing:stop="onNodeEditingStop"
         ></tree>
 
         <TreeListView v-show="listViewMode" />
@@ -88,27 +90,6 @@ export default {
     },
 
     mounted() {
-        // events come from the Tree instance (data property `tree` on the
-        // tree component), which owns the emitter since Vue 3 removed $on
-        const tree = this.$refs.tree.tree
-
-        tree.$on('node:text:changed', (node, text, old) => {
-            // console.log('changed text', node, text, old)
-        })
-
-        tree.$on('node:editing:start', (node) => {
-            this.editingContext = true
-        })
-
-        tree.$on('node:editing:stop', (node) => {
-            this.editingContext = false
-
-            // an item added with `i` and left blank is a cancelled insert
-            if (!node.text) {
-                node.remove()
-            }
-        })
-
         if (this.$route.params.slug) {
             this.boardStore.initBoard(this.$route.params.slug);
         } else {
@@ -127,6 +108,19 @@ export default {
             const node = this.$refs.tree.append(createTreeItem())
 
             node.startEditing()
+        },
+
+        onNodeEditingStart(node) {
+            this.editingContext = true
+        },
+
+        onNodeEditingStop(node) {
+            this.editingContext = false
+
+            // an item added with `i` and left blank is a cancelled insert
+            if (!node.text) {
+                node.remove()
+            }
         },
 
         ...mapActions(useBoardStore, [
