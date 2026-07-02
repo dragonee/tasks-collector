@@ -70,14 +70,18 @@
         this.node.vm = this
       },
 
-      'node.isEditing'(isEditing) {
-        if (isEditing) {
-          this.editText = this.node.text
+      'node.isEditing': {
+        handler(isEditing) {
+          if (isEditing) {
+            this.editText = this.node.text
 
-          this.$nextTick(() => {
-            this.$refs.editCtrl && this.$refs.editCtrl.focus()
-          })
-        }
+            this.$nextTick(() => {
+              this.$refs.editCtrl && this.$refs.editCtrl.focus()
+            })
+          }
+        },
+        // a freshly appended node can already be in editing state
+        immediate: true
       }
     },
 
