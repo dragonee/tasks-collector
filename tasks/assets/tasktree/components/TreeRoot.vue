@@ -106,8 +106,8 @@
   import useTree from '../composables/useTree'
   import useDnd from '../composables/useDnd'
 
-  import { Notifier } from '../../../notifier';
-  import { MEANINGFUL_MARKER_KEYS } from '../../../utils.js';
+  import { Notifier } from '../../notifier';
+  import { MEANINGFUL_MARKER_KEYS } from '../../utils.js';
 
   const UNSET = '__UNSET';
 

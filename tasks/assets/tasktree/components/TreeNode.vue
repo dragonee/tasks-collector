@@ -54,8 +54,8 @@
 <script setup>
   import { computed, inject, nextTick, ref, watch } from 'vue'
 
-  import NodeContent from '../../../components/NodeContent.vue'
-  import { MEANINGFUL_MARKER_KEYS } from '../../../utils.js'
+  import NodeContent from '../../components/NodeContent.vue'
+  import { MEANINGFUL_MARKER_KEYS } from '../../utils.js'
 
   const props = defineProps(['node', 'options'])
 
