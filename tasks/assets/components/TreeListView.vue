@@ -1,57 +1,53 @@
 <template>
     <div class="tree-list-view">
-        <pre class="tree-list-content" ref="content">{{ formattedList }}</pre>
+        <pre class="tree-list-content">{{ formattedList }}</pre>
         <button class="copy-btn" @click="copyToClipboard">Copy</button>
     </div>
 </template>
 
-<script>
-import { mapState } from 'pinia'
+<script setup>
+import { computed } from 'vue'
+
+import { storeToRefs } from 'pinia'
 
 import { useBoardStore } from '../store'
 
-export default {
-    computed: {
-        ...mapState(useBoardStore, ['currentBoard']),
+const { currentBoard } = storeToRefs(useBoardStore())
 
-        formattedList() {
-            const renderNodes = (nodes, depth) => {
-                if (!nodes || nodes.length === 0) return ''
+const formattedList = computed(() => {
+    const renderNodes = (nodes, depth) => {
+        if (!nodes || nodes.length === 0) return ''
 
-                const indent = '  '.repeat(depth)
-                let result = []
+        const indent = '  '.repeat(depth)
+        let result = []
 
-                for (const node of nodes) {
-                    const text = node.text || ''
-                    const isChecked = node.state?.checked
+        for (const node of nodes) {
+            const text = node.text || ''
+            const isChecked = node.state?.checked
 
-                    let line = `${indent}- ${text}`
-                    if (isChecked) {
-                        line = `${indent}- ~~${text}~~`
-                    }
-
-                    result.push(line)
-
-                    if (node.children && node.children.length > 0) {
-                        const childrenText = renderNodes(node.children, depth + 1)
-                        if (childrenText) {
-                            result.push(childrenText)
-                        }
-                    }
-                }
-
-                return result.join('\n')
+            let line = `${indent}- ${text}`
+            if (isChecked) {
+                line = `${indent}- ~~${text}~~`
             }
 
-            return renderNodes(this.currentBoard.state, 0)
-        }
-    },
+            result.push(line)
 
-    methods: {
-        copyToClipboard() {
-            navigator.clipboard.writeText(this.formattedList)
+            if (node.children && node.children.length > 0) {
+                const childrenText = renderNodes(node.children, depth + 1)
+                if (childrenText) {
+                    result.push(childrenText)
+                }
+            }
         }
+
+        return result.join('\n')
     }
+
+    return renderNodes(currentBoard.value.state, 0)
+})
+
+function copyToClipboard() {
+    navigator.clipboard.writeText(formattedList.value)
 }
 </script>
 

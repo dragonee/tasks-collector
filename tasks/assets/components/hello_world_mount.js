@@ -6,8 +6,6 @@ import Board from './Board.vue'
 import Eisenhower from './Eisenhower.vue'
 import Moscow from './Moscow.vue'
 
-import TreeRoot from '../liquor-tree/src/components/TreeRoot.vue'
-
 import { autosizeDirective } from '../autosize.js'
 
 import "../app.scss";
@@ -29,7 +27,6 @@ const router = createRouter({
 
 const app = createApp(HelloWorldComponent)
 
-app.component(TreeRoot.name, TreeRoot)
 app.use(createPinia())
 app.use(router)
 app.directive('autosize', autosizeDirective)

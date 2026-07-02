@@ -4,18 +4,16 @@
   </div>
 </template>
 
-<script>
-  export default {
-    name: 'DragNode',
-    props: ['target'],
-    computed: {
-      style() {
-        if (undefined === this.target.top) {
-          return 'display: none'
-        }
+<script setup>
+  import { computed } from 'vue'
 
-        return `top: ${this.target.top}px; left: ${this.target.left}px`
-      }
+  const props = defineProps(['target'])
+
+  const style = computed(() => {
+    if (undefined === props.target.top) {
+      return 'display: none'
     }
-  }
+
+    return `top: ${props.target.top}px; left: ${props.target.left}px`
+  })
 </script>

@@ -65,8 +65,12 @@
     </div>
 </template>
 
-<script>
-import { mapStores, mapState } from 'pinia'
+<script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+
+import { useRoute } from 'vue-router'
+
+import { storeToRefs } from 'pinia'
 
 import { useBoardStore } from '../store'
 
@@ -91,134 +95,121 @@ function getNodeByPath(state, path) {
     return cur
 }
 
-export default {
-    components: {
-        BoardTopbar,
-    },
+const boardStore = useBoardStore()
 
-    data: () => ({
-        contextMenu: { visible: false, x: 0, y: 0, item: null },
-        draggedItem: null,
-    }),
+const { currentBoard } = storeToRefs(boardStore)
 
-    computed: {
-        ...mapStores(useBoardStore),
-        ...mapState(useBoardStore, ['currentBoard']),
+const route = useRoute()
 
-        buckets() {
-            return BUCKETS
-        },
+const contextMenu = ref({ visible: false, x: 0, y: 0, item: null })
+const draggedItem = ref(null)
 
-        flatItems() {
-            const items = []
-            const traverse = (nodes, parentPath, depth) => {
-                nodes.forEach((node, idx) => {
-                    const path = [...parentPath, idx]
-                    items.push({
-                        text: node.text,
-                        path,
-                        pathKey: path.join('/'),
-                        depth,
-                        moscow: node.data && node.data.meaningfulMarkers && node.data.meaningfulMarkers.moscow
-                            ? node.data.meaningfulMarkers.moscow
-                            : null,
-                        checked: node.state && node.state.checked,
-                    })
-                    if (node.children && node.children.length > 0) {
-                        traverse(node.children, path, depth + 1)
-                    }
-                })
-            }
-            traverse(this.currentBoard.state || [], [], 0)
-            return items
-        },
+const buckets = BUCKETS
 
-        bucketTitleById() {
-            return Object.fromEntries(BUCKETS.map(b => [b.id, b.title]))
-        },
+const bucketTitleById = Object.fromEntries(BUCKETS.map(b => [b.id, b.title]))
 
-        itemsByBucket() {
-            const groups = Object.fromEntries(BUCKETS.map(b => [b.id, []]))
-            for (const item of this.flatItems) {
-                if (item.moscow && groups[item.moscow]) {
-                    groups[item.moscow].push(item)
-                }
-            }
-            return groups
-        },
-    },
-
-    mounted() {
-        if (this.$route.params.slug) {
-            this.boardStore.initBoard(this.$route.params.slug)
-        } else {
-            const appElement = document.getElementById('app-meta')
-            const defaultThread = appElement
-                ? appElement.dataset.defaultThread
-                : this.boardStore.currentThreadPtr.value
-            this.boardStore.initBoard(defaultThread)
-        }
-
-        document.addEventListener('click', this.hideContextMenu)
-    },
-
-    beforeUnmount() {
-        document.removeEventListener('click', this.hideContextMenu)
-    },
-
-    methods: {
-        onDragStart(ev, item) {
-            this.draggedItem = item
-            ev.dataTransfer.effectAllowed = 'move'
-            ev.dataTransfer.setData('text/plain', item.pathKey)
-        },
-
-        onDragOver(ev) {
-            ev.dataTransfer.dropEffect = 'move'
-        },
-
-        onDrop(ev, bucketId) {
-            if (!this.draggedItem) return
-            this.setMoscow(this.draggedItem.path, bucketId)
-            this.draggedItem = null
-        },
-
-        setMoscow(path, value) {
-            const newState = deepClone(this.currentBoard.state)
-            const node = getNodeByPath(newState, path)
-            if (!node.data) node.data = {}
-            if (!node.data.meaningfulMarkers) node.data.meaningfulMarkers = {}
-            if (value === null) {
-                delete node.data.meaningfulMarkers.moscow
-            } else {
-                node.data.meaningfulMarkers.moscow = value
-            }
-            this.boardStore.save({
-                state: newState,
-                focus: this.currentBoard.focus,
+const flatItems = computed(() => {
+    const items = []
+    const traverse = (nodes, parentPath, depth) => {
+        nodes.forEach((node, idx) => {
+            const path = [...parentPath, idx]
+            items.push({
+                text: node.text,
+                path,
+                pathKey: path.join('/'),
+                depth,
+                moscow: node.data && node.data.meaningfulMarkers && node.data.meaningfulMarkers.moscow
+                    ? node.data.meaningfulMarkers.moscow
+                    : null,
+                checked: node.state && node.state.checked,
             })
-        },
-
-        showContextMenu(ev, item) {
-            this.contextMenu = {
-                visible: true,
-                x: ev.clientX,
-                y: ev.clientY,
-                item,
+            if (node.children && node.children.length > 0) {
+                traverse(node.children, path, depth + 1)
             }
-        },
+        })
+    }
+    traverse(currentBoard.value.state || [], [], 0)
+    return items
+})
 
-        hideContextMenu() {
-            this.contextMenu.visible = false
-        },
+const itemsByBucket = computed(() => {
+    const groups = Object.fromEntries(BUCKETS.map(b => [b.id, []]))
+    for (const item of flatItems.value) {
+        if (item.moscow && groups[item.moscow]) {
+            groups[item.moscow].push(item)
+        }
+    }
+    return groups
+})
 
-        removeStatus() {
-            if (this.contextMenu.item) {
-                this.setMoscow(this.contextMenu.item.path, null)
-            }
-            this.hideContextMenu()
-        },
-    },
+onMounted(() => {
+    if (route.params.slug) {
+        boardStore.initBoard(route.params.slug)
+    } else {
+        const appElement = document.getElementById('app-meta')
+        const defaultThread = appElement
+            ? appElement.dataset.defaultThread
+            : boardStore.currentThreadPtr.value
+        boardStore.initBoard(defaultThread)
+    }
+
+    document.addEventListener('click', hideContextMenu)
+})
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', hideContextMenu)
+})
+
+function onDragStart(ev, item) {
+    draggedItem.value = item
+    ev.dataTransfer.effectAllowed = 'move'
+    ev.dataTransfer.setData('text/plain', item.pathKey)
+}
+
+function onDragOver(ev) {
+    ev.dataTransfer.dropEffect = 'move'
+}
+
+function onDrop(ev, bucketId) {
+    if (!draggedItem.value) return
+    setMoscow(draggedItem.value.path, bucketId)
+    draggedItem.value = null
+}
+
+function setMoscow(path, value) {
+    const newState = deepClone(currentBoard.value.state)
+    const node = getNodeByPath(newState, path)
+    if (!node.data) node.data = {}
+    if (!node.data.meaningfulMarkers) node.data.meaningfulMarkers = {}
+    if (value === null) {
+        delete node.data.meaningfulMarkers.moscow
+    } else {
+        node.data.meaningfulMarkers.moscow = value
+    }
+    boardStore.save({
+        state: newState,
+        focus: currentBoard.value.focus,
+    })
+}
+
+function showContextMenu(ev, item) {
+    contextMenu.value = {
+        visible: true,
+        x: ev.clientX,
+        y: ev.clientY,
+        item,
+    }
+}
+
+function hideContextMenu() {
+    contextMenu.value.visible = false
+}
+
+function removeStatus() {
+    if (contextMenu.value.item) {
+        setMoscow(contextMenu.value.item.path, null)
+    }
+    hideContextMenu()
 }
 </script>
 
