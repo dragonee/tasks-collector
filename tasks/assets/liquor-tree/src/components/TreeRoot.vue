@@ -145,11 +145,26 @@
 
     mixins: [TreeMixin, TreeDnd],
 
-    // node events are emitted through Tree.$emit -> vm.$emit; only the ones
-    // listeners actually bind need declaring (undeclared ones with a bound
-    // listener would warn and fall through as attrs)
+    // every event Tree.$emit forwards to vm.$emit; Vue warns on any
+    // emitted event that is not declared here
     emits: [
         'tree:mounted',
+        'node:added',
+        'node:removed',
+        'node:clicked',
+        'node:dblclick',
+        'node:selected',
+        'node:unselected',
+        'node:checked',
+        'node:unchecked',
+        'node:expanded',
+        'node:collapsed',
+        'node:shown',
+        'node:hidden',
+        'node:enabled',
+        'node:disabled',
+        'node:dragging:start',
+        'node:dragging:finish',
         'node:editing:start',
         'node:editing:stop',
         'node:text:changed',
