@@ -1,24 +1,6 @@
 import Tree from '../lib/Tree'
 import initKeyboardNavigation from '../utils/keyboardNavigation'
 
-function initEvents (vm) {
-  const tree = vm.tree
-
-  tree.$on('node:added', (targetNode, newNode) => {
-    const node = newNode || targetNode
-
-    if (node.state('checked') && !tree.checkedNodes.has(node)) {
-      tree.checkedNodes.add(node)
-    }
-
-    node.refreshIndeterminateState()
-
-    if (node.state('selected') && !tree.selectedNodes.has(node)) {
-      tree.select(node)
-    }
-  })
-}
-
 export default {
   mounted () {
     const tree = new Tree(this)
@@ -30,8 +12,6 @@ export default {
     this.connectStore(this.opts.store)
 
     this.$emit('tree:mounted', this)
-
-    initEvents(this)
 
     initKeyboardNavigation(tree)
   },
@@ -46,11 +26,13 @@ export default {
 
       this.tree.setModel(getter())
 
-      this.tree.$on('LIQUOR_NOISE', () => {
+      // assigned after the initial setModel so parsing the current store
+      // state never dispatches it straight back
+      this.tree._syncStore = () => {
         this.$nextTick(_ => {
           dispatcher(this.toJSON())
         })
-      })
+      }
     },
 
     append (criteria, node) {

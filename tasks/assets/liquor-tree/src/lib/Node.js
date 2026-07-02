@@ -446,7 +446,7 @@ export default class Node {
       clone.states.selected = true
     }
 
-    this.tree.$emit('LIQUOR_NOISE')
+    this.tree.syncStore()
   }
 
   startEditing () {
@@ -524,6 +524,7 @@ export default class Node {
     }
 
     this.$emit('added', node)
+    this.tree.onNodeAdded(node)
 
     return node
   }

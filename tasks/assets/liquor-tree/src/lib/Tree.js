@@ -1,7 +1,6 @@
 import { markRaw, reactive } from 'vue'
 
 import Node from './Node'
-import Emitter from './Emitter'
 
 import objectToNode, { parse } from '../utils/objectToNode'
 import { List } from '../utils/stack'
@@ -13,23 +12,13 @@ export default class Tree {
     this.options = vm.opts
 
     this.activeElement = null
-    this.emitter = new Emitter()
+
+    // set by connectStore; pushes the current model into the store
+    this._syncStore = null
 
     // Nodes hold a back-reference to the tree; keep the tree itself out of
     // Vue's reactivity so reading node.tree always yields this raw instance.
     markRaw(this)
-  }
-
-  $on (name, ...args) {
-    this.emitter.$on(name, ...args)
-  }
-
-  $once (name, ...args) {
-    this.emitter.$once(name, ...args)
-  }
-
-  $off (name, ...args) {
-    this.emitter.$off(name, ...args)
   }
 
   $emit (name, ...args) {
@@ -37,10 +26,29 @@ export default class Tree {
       return
     }
 
-    this.emitter.$emit(name, ...args)
+    this.vm.$emit(name, ...args)
+    this.syncStore()
+  }
 
-    if (name !== 'LIQUOR_NOISE') {
-      this.emitter.$emit('LIQUOR_NOISE')
+  syncStore () {
+    if (this._syncStore) {
+      this._syncStore()
+    }
+  }
+
+  onNodeAdded (node) {
+    if (this.__silence) {
+      return
+    }
+
+    if (node.state('checked') && !this.checkedNodes.has(node)) {
+      this.checkedNodes.add(node)
+    }
+
+    node.refreshIndeterminateState()
+
+    if (node.state('selected') && !this.selectedNodes.has(node)) {
+      this.select(node)
     }
   }
 
@@ -211,6 +219,7 @@ export default class Tree {
     })
 
     this.$emit('node:added', node)
+    this.onNodeAdded(node)
 
     return node
   }
@@ -239,6 +248,7 @@ export default class Tree {
 
     node.parent = targetNode.parent
     this.$emit('node:added', node)
+    this.onNodeAdded(node)
 
     return node
   }
@@ -259,6 +269,7 @@ export default class Tree {
 
     node.parent = targetNode.parent
     this.$emit('node:added', node)
+    this.onNodeAdded(node)
 
     return node
   }

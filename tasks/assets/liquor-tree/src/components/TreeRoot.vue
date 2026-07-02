@@ -145,6 +145,16 @@
 
     mixins: [TreeMixin, TreeDnd],
 
+    // node events are emitted through Tree.$emit -> vm.$emit; only the ones
+    // listeners actually bind need declaring (undeclared ones with a bound
+    // listener would warn and fall through as attrs)
+    emits: [
+        'tree:mounted',
+        'node:editing:start',
+        'node:editing:stop',
+        'node:text:changed',
+    ],
+
     provide() {
         return {
             // the Tree instance only exists after mounted; a computed ref
@@ -182,7 +192,7 @@
                     node.hide()
                 }
 
-                this.tree.$emit('LIQUOR_NOISE')
+                this.tree.syncStore()
             } else if (method === 'addToPlan') {
                 const taskText = node.data.text
                 const timeframe = value  // 'today', 'tomorrow', 'this_week'
