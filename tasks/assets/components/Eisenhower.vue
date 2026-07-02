@@ -66,7 +66,9 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
+import { mapStores, mapState } from 'pinia'
+
+import { useBoardStore } from '../store'
 
 import BoardTopbar from './BoardTopbar.vue'
 
@@ -100,7 +102,8 @@ export default {
     }),
 
     computed: {
-        ...mapGetters(['currentBoard']),
+        ...mapStores(useBoardStore),
+        ...mapState(useBoardStore, ['currentBoard']),
 
         quadrants() {
             return QUADRANTS
@@ -147,19 +150,19 @@ export default {
 
     mounted() {
         if (this.$route.params.slug) {
-            this.$store.dispatch('initBoard', this.$route.params.slug)
+            this.boardStore.initBoard(this.$route.params.slug)
         } else {
             const appElement = document.getElementById('app-meta')
             const defaultThread = appElement
                 ? appElement.dataset.defaultThread
-                : this.$store.state.currentThreadPtr.value
-            this.$store.dispatch('initBoard', defaultThread)
+                : this.boardStore.currentThreadPtr.value
+            this.boardStore.initBoard(defaultThread)
         }
 
         document.addEventListener('click', this.hideContextMenu)
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
         document.removeEventListener('click', this.hideContextMenu)
     },
 
@@ -190,7 +193,7 @@ export default {
             } else {
                 node.data.meaningfulMarkers.eisenhower = value
             }
-            this.$store.dispatch('save', {
+            this.boardStore.save({
                 state: newState,
                 focus: this.currentBoard.focus,
             })

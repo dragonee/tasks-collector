@@ -1,3 +1,5 @@
+import { defineStore } from 'pinia'
+
 // Helper function to get CSRF token and make fetch requests
 const apiRequest = async (url, options = {}) => {
     const token = document.body.querySelector('[name=csrfmiddlewaretoken]');
@@ -47,14 +49,16 @@ const id_ptr = (id) => ({
 });
 
 
-export default {
-    state: {
+export const useBoardStore = defineStore('board', {
+    state: () => ({
         listResponse: null,
-        threads: null,
+        // named threadsResponse (not threads) so the `threads` getter can keep
+        // the name the components use
+        threadsResponse: null,
         currentThreadPtr: name_ptr(DEFAULT_NAME),
         filterMode: 'all',
         listViewMode: false,
-    },
+    }),
 
     getters: {
         currentBoard(state) {
@@ -65,22 +69,22 @@ export default {
 
         // empty?
         currentThread(state) {
-            return state.threads && state.threads.count
-                ? state.threads.results.find(state.currentThreadPtr.finder)
+            return state.threadsResponse && state.threadsResponse.count
+                ? state.threadsResponse.results.find(state.currentThreadPtr.finder)
                 : null;
         },
 
-        currentThreadId(state, getters) {
-            return getters.currentThread?.id;
+        currentThreadId() {
+            return this.currentThread?.id;
         },
 
         threads(state) {
-            return  state.threads && state.threads.count
-                ? state.threads.results
+            return state.threadsResponse && state.threadsResponse.count
+                ? state.threadsResponse.results
                 : [];
         },
 
-        nodeFilterMatches(state, getters) {
+        nodeFilterMatches() {
             const result = new Map()
             const walk = (node) => {
                 const self = new Set()
@@ -100,128 +104,122 @@ export default {
 
                 result.set(node.id, { self, descendants })
             }
-            for (const root of (getters.currentBoard.state || [])) {
+            for (const root of (this.currentBoard.state || [])) {
                 walk(root)
             }
             return result
         }
     },
 
-    mutations: {
-        setListResponse(state, payload) {
+    actions: {
+        setListResponse(payload) {
             for (const board of payload?.results || []) {
                 ensureItemIds(board.state)
             }
-            state.listResponse = payload
+            this.listResponse = payload
         },
 
-        updateBoardInListResponse(state, payload) {
+        updateBoardInListResponse(payload) {
             ensureItemIds(payload.state)
 
-            const index = state.listResponse.results.findIndex((item) => {
-                item.id === payload.id
-            })
+            const index = this.listResponse.results.findIndex(
+                (item) => item.id === payload.id
+            )
 
             if (index === -1) {
-                state.listResponse.results.splice(0, 0, payload)
+                this.listResponse.results.splice(0, 0, payload)
             } else {
-                state.listResponse.results.splice(index, 1, payload)
+                this.listResponse.results.splice(index, 1, payload)
             }
 
-            state.listResponse.count = state.listResponse.results.length
+            this.listResponse.count = this.listResponse.results.length
         },
 
-        setThreads(state, threads) {
-            state.threads = threads;
+        setCurrentThreadId(threadId) {
+            this.currentThreadPtr = id_ptr(threadId);
         },
 
-        setCurrentThreadId(state, threadId) {
-            state.currentThreadPtr = id_ptr(threadId);
+        setCurrentThreadName(threadName) {
+            this.currentThreadPtr = name_ptr(threadName);
         },
 
-        setCurrentThreadName(state, threadName) {
-            state.currentThreadPtr = name_ptr(threadName);
+        setFilterMode(mode) {
+            this.filterMode = mode;
         },
 
-        setFilterMode(state, mode) {
-            state.filterMode = mode;
+        setListViewMode(listViewMode) {
+            this.listViewMode = listViewMode;
         },
 
-        setListViewMode(state, listViewMode) {
-            state.listViewMode = listViewMode;
-        }
-    },
-
-    actions: {
-        async initThreads({ commit, dispatch, getters }) {
+        async initThreads() {
             const threadResponse = await apiRequest('/threads/')
 
-            commit('setThreads', threadResponse);
-        },
-        
-        async initBoard({ commit, dispatch, getters }, threadName) {
-            await dispatch('initThreads')
-
-            commit('setCurrentThreadName', threadName);
-
-            await dispatch('loadBoardsForThread', getters.currentThread.id)
+            this.threadsResponse = threadResponse;
         },
 
-        async loadBoardsForThread({ commit, getters }, threadId) {
+        async initBoard(threadName) {
+            await this.initThreads()
+
+            this.setCurrentThreadName(threadName);
+
+            await this.loadBoardsForThread(this.currentThread.id)
+        },
+
+        async loadBoardsForThread(threadId) {
             if (!threadId) {
                 return;
             }
 
             const listResponse = await apiRequest(`/boards/?thread=${threadId}`)
 
-            commit('setListResponse', listResponse)
+            this.setListResponse(listResponse)
         },
 
-        async reloadBoards({ dispatch, getters }) {
-            await dispatch('loadBoardsForThread', getters.currentThreadId);
+        async reloadBoards() {
+            await this.loadBoardsForThread(this.currentThreadId);
         },
 
-        async changeThread({ dispatch, commit }, threadId) {
-            commit('setCurrentThreadId', threadId)
+        async changeThread(threadId) {
+            this.setCurrentThreadId(threadId)
 
-            await dispatch('loadBoardsForThread', threadId)
+            await this.loadBoardsForThread(threadId)
         },
 
-        async saveFocus({ getters, dispatch }, focus) {
-            await dispatch('save', {
-                state: getters.currentBoard.state,
+        async saveFocus(focus) {
+            await this.save({
+                state: this.currentBoard.state,
                 focus,
             })
         },
 
-        async save({ commit, getters }, payload) {
+        async save(payload) {
             const newBoard = {
-                ...getters.currentBoard,
+                ...this.currentBoard,
                 ...payload
             }
 
-            if (equal(payload.state, getters.currentBoard.state) && payload.focus === getters.currentBoard.focus) {
+            if (equal(payload.state, this.currentBoard.state) && payload.focus === this.currentBoard.focus) {
                 return;
             }
 
-            commit('updateBoardInListResponse', newBoard)
+            this.updateBoardInListResponse(newBoard)
 
             const board = await apiRequest(`/boards/${newBoard.id}/`, {
                 method: 'PUT',
                 body: JSON.stringify(newBoard)
             })
 
-            commit('updateBoardInListResponse', board)
+            this.updateBoardInListResponse(board)
         },
 
-        async close({ commit, getters }, payload) {
-            const oldBoard = getters.currentBoard
+        async close() {
+            const oldBoard = this.currentBoard
 
             const board = await apiRequest(`/boards/${oldBoard.id}/commit/`, {
                 method: 'POST'
             })
 
-            commit('updateBoardInListResponse', board)
+            this.updateBoardInListResponse(board)
         }
     }
-}
+})

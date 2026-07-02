@@ -1,9 +1,8 @@
 <template>
-  <div role="tree" :class="{'tree': true, 'tree--draggable' : !!this.draggableNode}">
+  <div role="tree" :class="{'tree': true, 'tree--draggable' : !!draggableNode}">
     <ul class="tree-root" @dragstart="onDragStart">
       <TreeNode
-        v-for="node in model"
-        v-if="node && node.visible()"
+        v-for="node in visibleNodes"
 
         :key="node.id"
         :node="node"
@@ -11,8 +10,8 @@
       />
     </ul>
 
-    <vue-context ref="menu">
-        <template slot-scope="child">
+    <ContextMenu ref="menu">
+        <template #default="child">
            <li class="v-context__sub">
                 <a>Importance</a>
                 <ul class="v-context v-context-inline">
@@ -92,22 +91,22 @@
             </li>
 
        </template>
-   </vue-context>
+   </ContextMenu>
 
     <DraggableNode v-if="draggableNode" :target="draggableNode" />
   </div>
 </template>
 
 <script>
+  import { computed } from 'vue'
+
   import TreeNode from './TreeNode'
   import DraggableNode from './DraggableNode'
+  import ContextMenu from './ContextMenu'
   import TreeMixin from '../mixins/TreeMixin'
   import TreeDnd from '../mixins/DndMixin'
   import Tree from '../lib/Tree'
 
-  import { VueContext }from 'vue-context';
-
-  import { mapGetters } from 'vuex';
   import { Notifier } from '../../../notifier';
   import { MEANINGFUL_MARKER_KEYS } from '../../../utils.js';
 
@@ -141,14 +140,16 @@
     components: {
       TreeNode,
       DraggableNode,
-      VueContext
+      ContextMenu
     },
 
     mixins: [TreeMixin, TreeDnd],
 
     provide() {
         return {
-            tree: null,
+            // the Tree instance only exists after mounted; a computed ref
+            // late-binds it for the injecting TreeNodes
+            tree: computed(() => this.tree),
             menu: () => this.$refs.menu,
         }
     },
@@ -181,7 +182,7 @@
                     node.hide()
                 }
 
-                this.$emit('LIQUOR_NOISE')
+                this.tree.$emit('LIQUOR_NOISE')
             } else if (method === 'addToPlan') {
                 const taskText = node.data.text
                 const timeframe = value  // 'today', 'tomorrow', 'this_week'
@@ -222,7 +223,13 @@
     },
 
     computed: {
-        ...mapGetters(['currentThread']),
+        currentThread() {
+            return this.opts.store?.store?.currentThread ?? null
+        },
+
+        visibleNodes() {
+            return (this.model || []).filter(node => node && node.visible())
+        },
     },
 
     data () {

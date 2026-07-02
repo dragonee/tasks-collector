@@ -39,8 +39,7 @@
         v-if="hasChildren() && node.states.expanded"
         class="tree-children">
           <node
-            v-for="child in node.children"
-            v-if="child && child.visible()"
+            v-for="child in visibleChildren"
 
             :key="child.id"
             :node="child"
@@ -58,6 +57,8 @@
 
   const TreeNode = {
     name: 'Node',
+    // `tree` is provided as a computed ref (the Tree is created in TreeRoot's
+    // mounted hook); options-API inject auto-unwraps it since Vue 3.3
     inject: ['tree', 'menu'],
     props: ['node', 'options'],
 
@@ -86,14 +87,20 @@
     },
 
     data() {
-      this.node.vm = this
-
       return {
         editText: ''
       }
     },
 
+    created() {
+      this.node.vm = this
+    },
+
     computed: {
+      visibleChildren() {
+        return this.node.children.filter(child => child && child.visible())
+      },
+
       padding() {
         return this.node.depth * this.options.nodeIndent + 'px'
       },
@@ -116,14 +123,14 @@
             classes[name] = !!this.node.data.meaningfulMarkers[name]
         })
 
-        const store = this.tree?.vm?.$store
+        const store = this.options.store?.store
         if (store) {
-          const matches = store.getters.nodeFilterMatches.get(this.node.id)
+          const matches = store.nodeFilterMatches.get(this.node.id)
           if (matches) {
             for (const mode of matches.descendants) {
               classes[`has-children-${mode}`] = true
             }
-            const active = store.state.filterMode
+            const active = store.filterMode
             if (active !== 'all') {
               classes['filter-hidden'] = !matches.self.has(active) && !matches.descendants.has(active)
             }

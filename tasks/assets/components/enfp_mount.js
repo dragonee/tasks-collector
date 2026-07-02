@@ -1,11 +1,11 @@
-import Vue from 'vue'
+import { createApp } from 'vue'
 import EnfpDashboard from './EnfpDashboard.vue'
 import { autosizeDirective } from '../autosize.js'
 
 import "../app.scss";
 
-Vue.directive('autosize', autosizeDirective)
+const app = createApp(EnfpDashboard)
 
-new Vue({
-  render: h => h(EnfpDashboard),
-}).$mount('#enfp-app')
+app.directive('autosize', autosizeDirective)
+
+app.mount('#enfp-app')

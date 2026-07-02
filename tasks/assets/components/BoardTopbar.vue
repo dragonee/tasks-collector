@@ -66,7 +66,9 @@
 
 <script>
 
-import { mapGetters, mapActions } from 'vuex'
+import { mapStores, mapState, mapActions } from 'pinia'
+
+import { useBoardStore } from '../store'
 
 import moment from 'moment'
 
@@ -81,15 +83,17 @@ export default {
     data: () => ({
         focus: "",
         showCommitModal: false,
-        unwatch: null,
     }),
 
     computed: {
-        ...mapGetters([
+        ...mapStores(useBoardStore),
+
+        ...mapState(useBoardStore, [
             'currentBoard',
             'threads',
             'currentThread',
             'currentThreadId',
+            'listViewMode',
         ]),
 
         currentMode() {
@@ -100,13 +104,13 @@ export default {
         },
 
         filterMode: {
-            get() { return this.$store.state.filterMode },
-            set(value) { this.$store.commit('setFilterMode', value) }
+            get() { return this.boardStore.filterMode },
+            set(value) { this.boardStore.setFilterMode(value) }
         },
 
         displayMode: {
-            get() { return this.$store.state.listViewMode ? 'list' : 'tree' },
-            set(value) { this.$store.commit('setListViewMode', value === 'list') }
+            get() { return this.boardStore.listViewMode ? 'list' : 'tree' },
+            set(value) { this.boardStore.setListViewMode(value === 'list') }
         },
 
         startDate() {
@@ -118,32 +122,27 @@ export default {
         },
     },
 
-    mounted() {
-        this.focus = this.currentBoard.focus
-
-        this.unwatch = this.$store.watch(
-            (state, getters) => getters.currentBoard,
-            () => {
-                this.focus = this.currentBoard.focus
-            }
-        )
+    watch: {
+        currentBoard() {
+            this.focus = this.currentBoard.focus
+        }
     },
 
-    beforeDestroy() {
-        this.unwatch()
+    mounted() {
+        this.focus = this.currentBoard.focus
     },
 
     methods: {
-        ...mapActions([
+        ...mapActions(useBoardStore, [
             'close',
         ]),
 
         onFocusBlur() {
-            this.$store.dispatch('saveFocus', this.focus)
+            this.boardStore.saveFocus(this.focus)
         },
 
         onThreadChange(ev) {
-            this.$store.dispatch('changeThread', Number(ev.target.value))
+            this.boardStore.changeThread(Number(ev.target.value))
         },
 
         onModeChange(ev) {

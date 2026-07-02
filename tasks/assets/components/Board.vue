@@ -23,11 +23,13 @@
 </template>
 <script>
 
-import { mapGetters, mapActions } from 'vuex'
+import { mapStores, mapState, mapActions } from 'pinia'
+
+import { useBoardStore } from '../store'
 
 import { createTreeItem } from '../utils'
 
-import GlobalEvents from 'vue-global-events'
+import { GlobalEvents } from 'vue-global-events'
 
 import BoardTopbar from './BoardTopbar.vue'
 
@@ -42,27 +44,28 @@ export default {
     },
 
     computed: {
-        ...mapGetters([
-            'currentBoard',
-        ]),
+        ...mapStores(useBoardStore),
 
-        listViewMode() {
-            return this.$store.state.listViewMode
-        },
+        ...mapState(useBoardStore, [
+            'currentBoard',
+            'listViewMode',
+        ]),
 
         normalContext() {
             return !this.editingContext
         },
 
         options() {
+            const store = this.boardStore
+
             return {
                 store: {
-                    store: this.$store,
-                    getter: () => this.$store.getters.currentBoard.state,
+                    store,
+                    getter: () => store.currentBoard.state,
                     dispatcher: (tree) => {
-                        return this.$store.dispatch('save', {
+                        return store.save({
                             state: tree,
-                            focus: this.$store.getters.currentBoard.focus,
+                            focus: store.currentBoard.focus,
                         })
                     }
                 }
@@ -72,19 +75,32 @@ export default {
 
     data: () => ({
         editingContext: false,
-        unwatch: null,
     }),
 
+    watch: {
+        currentBoard() {
+            const path = `/board/${this.currentBoard.thread.name}`;
+
+            if (this.$route.path !== path) {
+                this.$router.push(path);
+            }
+        }
+    },
+
     mounted() {
-        this.$refs.tree.$on('node:text:changed', (node, text, old) => {
+        // events come from the Tree instance (data property `tree` on the
+        // tree component), which owns the emitter since Vue 3 removed $on
+        const tree = this.$refs.tree.tree
+
+        tree.$on('node:text:changed', (node, text, old) => {
             // console.log('changed text', node, text, old)
         })
 
-        this.$refs.tree.$on('node:editing:start', (node) => {
+        tree.$on('node:editing:start', (node) => {
             this.editingContext = true
         })
 
-        this.$refs.tree.$on('node:editing:stop', (node) => {
+        tree.$on('node:editing:stop', (node) => {
             this.editingContext = false
 
             // an item added with `i` and left blank is a cancelled insert
@@ -93,32 +109,17 @@ export default {
             }
         })
 
-        this.unwatch = this.$store.watch(
-            (state, getters) => getters.currentBoard,
-            () => {
-                const path = `/board/${this.currentBoard.thread.name}`;
-
-                if (this.$route.path !== path) {
-                    this.$router.push(path);
-                }
-            }
-        )
-
         if (this.$route.params.slug) {
-            this.$store.dispatch('initBoard', this.$route.params.slug);
+            this.boardStore.initBoard(this.$route.params.slug);
         } else {
             const appElement = document.getElementById('app-meta');
 
             const defaultThread = appElement
                 ? appElement.dataset.defaultThread
-                : this.$store.state.currentThreadPtr.Name;
+                : this.boardStore.currentThreadPtr.value;
 
-            this.$store.dispatch('initBoard', defaultThread);
+            this.boardStore.initBoard(defaultThread);
         }
-    },
-
-    beforeDestroy() {
-        this.unwatch()
     },
 
     methods: {
@@ -128,7 +129,7 @@ export default {
             node.startEditing()
         },
 
-        ...mapActions([
+        ...mapActions(useBoardStore, [
             'reloadBoards',
         ]),
     }

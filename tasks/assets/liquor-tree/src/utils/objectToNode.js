@@ -1,3 +1,5 @@
+import { reactive } from 'vue'
+
 import Node from '../lib/Node'
 import uuidV4 from './uuidV4'
 
@@ -52,16 +54,20 @@ export default function objectToNode (tree, obj) {
     return obj
   }
 
+  // Every Node is born as a reactive proxy so it has a single identity
+  // everywhere: in the rendered model, in selected/checked lists, and in
+  // indexOf/includes lookups done by the tree. Mixing raw instances with the
+  // proxies Vue 3 hands to components would break those identity checks.
   if (typeof obj === 'string') {
-    node = new Node(tree, {
+    node = reactive(new Node(tree, {
       text: obj,
       state: merge(),
       id: uuidV4()
-    })
+    }))
   } else if (Array.isArray(obj)) {
     return obj.map(o => objectToNode(tree, o))
   } else {
-    node = new Node(tree, obj)
+    node = reactive(new Node(tree, obj))
     node.states = merge(node.states)
 
     if (!node.id) {
