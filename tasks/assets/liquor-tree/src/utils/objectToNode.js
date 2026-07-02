@@ -12,7 +12,6 @@ const nodeStates = {
   disabled: false,
   visible: true,
   indeterminate: false,
-  matched: false,
   editable: true,
   dragging: false,
   draggable: true,

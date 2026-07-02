@@ -13,28 +13,8 @@ import objectToNode from './objectToNode'
   }
 */
 
-const defaultPropertyNames = {
-  id: 'id',
-  text: 'text',
-  children: 'children',
-  state: 'state',
-  data: 'data',
-  isBatch: 'isBatch'
-}
-
-function convertNames (obj, names) {
-  return {
-    id: obj[names.id],
-    text: obj[names.text],
-    children: obj[names.children],
-    state: obj[names.state],
-    data: obj[names.data],
-    isBatch: obj[names.isBatch]
-  }
-}
-
 const TreeParser = {
-  parse (data, tree, options = {}) {
+  parse (data, tree) {
     if (typeof data === 'string') {
       data = JSON.parse(data)
     }
@@ -43,14 +23,8 @@ const TreeParser = {
       data = [data]
     }
 
-    const p = Object.assign(
-      {},
-      defaultPropertyNames,
-      options
-    )
-
     const preparedItems = data.map(function converter (item) {
-      const convertedItem = convertNames(item, p)
+      const convertedItem = Object.assign({}, item)
 
       // Possible to receive 1 child like a simple object. It must be converted to an array
       // We do not have checks on the correctness of the format. A developer should pass correct format

@@ -12,11 +12,9 @@ export default class Node {
     this.id = item.id || uuidV4()
     this.states = item.state || {}
 
-    this.showChildren = true
     this.children = item.children || []
     this.parent = item.parent || null
 
-    this.isBatch = item.isBatch || false
     this.isEditing = false
 
     this.data = Object.assign({}, item.data || {}, {
@@ -57,7 +55,7 @@ export default class Node {
     let depth = 0
     let parent = this.parent
 
-    if (!parent || this.showChildren === false) {
+    if (!parent) {
       return depth
     }
 
@@ -114,10 +112,6 @@ export default class Node {
   }
 
   refreshIndeterminateState () {
-    if (!this.tree.options.autoCheckChildren) {
-      return this
-    }
-
     this.state('indeterminate', false)
 
     if (this.hasChildren()) {
@@ -222,32 +216,19 @@ export default class Node {
       return this.uncheck()
     }
 
-    const checkDisabledChildren = this.tree.options.checkDisabledChildren
+    this.recurseDown(node => {
+      node.state('indeterminate', false)
 
-    if (this.tree.options.autoCheckChildren) {
-      this.recurseDown(node => {
-        node.state('indeterminate', false)
+      if (!node.checked()) {
+        this.tree.check(node)
 
-        if (node.disabled() && !checkDisabledChildren) {
-          return
-        }
-
-        if (!node.checked()) {
-          this.tree.check(node)
-
-          node.state('checked', true)
-          node.$emit('checked')
-        }
-      })
-
-      if (this.parent) {
-        this.parent.refreshIndeterminateState()
+        node.state('checked', true)
+        node.$emit('checked')
       }
-    } else {
-      this.tree.check(this)
+    })
 
-      this.state('checked', true)
-      this.$emit('checked')
+    if (this.parent) {
+      this.parent.refreshIndeterminateState()
     }
 
     return this
@@ -258,26 +239,19 @@ export default class Node {
       return this
     }
 
-    if (this.tree.options.autoCheckChildren) {
-      this.recurseDown(node => {
-        node.state('indeterminate', false)
+    this.recurseDown(node => {
+      node.state('indeterminate', false)
 
-        if (node.checked()) {
-          this.tree.uncheck(node)
+      if (node.checked()) {
+        this.tree.uncheck(node)
 
-          node.state('checked', false)
-          node.$emit('unchecked')
-        }
-      })
-
-      if (this.parent) {
-        this.parent.refreshIndeterminateState()
+        node.state('checked', false)
+        node.$emit('unchecked')
       }
-    } else {
-      this.tree.uncheck(this)
+    })
 
-      this.state('checked', false)
-      this.$emit('unchecked')
+    if (this.parent) {
+      this.parent.refreshIndeterminateState()
     }
 
     return this
@@ -318,17 +292,12 @@ export default class Node {
       return this
     }
 
-    if (this.tree.options.autoDisableChildren) {
-      this.recurseDown(node => {
-        if (node.disabled()) {
-          node.state('disabled', false)
-          node.$emit('enabled')
-        }
-      })
-    } else {
-      this.state('disabled', false)
-      this.$emit('enabled')
-    }
+    this.recurseDown(node => {
+      if (node.disabled()) {
+        node.state('disabled', false)
+        node.$emit('enabled')
+      }
+    })
 
     return this
   }
@@ -342,17 +311,12 @@ export default class Node {
       return this
     }
 
-    if (this.tree.options.autoDisableChildren) {
-      this.recurseDown(node => {
-        if (node.enabled()) {
-          node.state('disabled', true)
-          node.$emit('disabled')
-        }
-      })
-    } else {
-      this.state('disabled', true)
-      this.$emit('disabled')
-    }
+    this.recurseDown(node => {
+      if (node.enabled()) {
+        node.state('disabled', true)
+        node.$emit('disabled')
+      }
+    })
 
     return this
   }
@@ -376,15 +340,8 @@ export default class Node {
       return this
     }
 
-    if (this.isBatch) {
-      this.tree.loadChildren(this).then(_ => {
-        this.state('expanded', true)
-        this.$emit('expanded')
-      })
-    } else {
-      this.state('expanded', true)
-      this.$emit('expanded')
-    }
+    this.state('expanded', true)
+    this.$emit('expanded')
 
     return this
   }
@@ -394,8 +351,7 @@ export default class Node {
       return false
     }
 
-    return this.collapsed() &&
-      (!this.tree.autoDisableChildren || this.disabled())
+    return this.collapsed()
   }
 
   canCollapse () {
@@ -403,8 +359,7 @@ export default class Node {
       return false
     }
 
-    return this.expanded() &&
-      (!this.tree.autoDisableChildren || this.disabled())
+    return this.expanded()
   }
 
   expanded () {
@@ -460,9 +415,7 @@ export default class Node {
       return false
     }
 
-    if (this.tree.options.store) {
-      this.tree.__silence = true
-    }
+    this.tree.__silence = true
 
     this.select()
     this.state('dragging', true)
@@ -513,9 +466,7 @@ export default class Node {
       tree.vm.$set(clone.state, 'selected', true)
     }
 
-    if (this.tree.options.store) {
-      this.tree.vm.$emit('LIQUOR_NOISE')
-    }
+    this.tree.vm.$emit('LIQUOR_NOISE')
   }
 
   startEditing () {
@@ -604,9 +555,7 @@ export default class Node {
       })
     }
 
-    if (!this.isBatch) {
-      this.$emit('added', node)
-    }
+    this.$emit('added', node)
 
     return node
   }
@@ -670,7 +619,7 @@ export default class Node {
   }
 
   hasChildren () {
-    return this.showChildren && this.isBatch || this.children.length > 0
+    return this.children.length > 0
   }
 
   /**
