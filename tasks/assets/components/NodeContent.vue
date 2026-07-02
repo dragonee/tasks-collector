@@ -73,75 +73,68 @@
 
     </div>
 </template>
-<script>
+<script setup>
 
-export default {
+import { computed } from 'vue'
 
-    props: {
-        node: Object,
-    },
+const props = defineProps({
+    node: Object,
+})
 
-    computed: {
-        markers() {
-            return this.node.data.meaningfulMarkers
-        },
+const markers = computed(() => props.node.data.meaningfulMarkers)
 
-        cappedWeeksInList() {
-            // Show blue dots only for weeks 1-3
-            if (this.markers.weeksInList >= 4) return 0
-            return this.markers.weeksInList
-        },
-        
-        violetDotsCount() {
-            if (this.markers.weeksInList === 4) return 2
-            if (this.markers.weeksInList >= 5) return 1
-            return 0
-        },
+const cappedWeeksInList = computed(() => {
+    // Show blue dots only for weeks 1-3
+    if (markers.value.weeksInList >= 4) return 0
+    return markers.value.weeksInList
+})
 
-        cappedImportant() {
-            return Math.min(this.markers.important, 3)
-        },
+const violetDotsCount = computed(() => {
+    if (markers.value.weeksInList === 4) return 2
+    if (markers.value.weeksInList >= 5) return 1
+    return 0
+})
 
-        eisenhowerTitle() {
-            const titles = {
-                'urgent-important': 'Urgent & Important',
-                'not-urgent-important': 'Not Urgent & Important',
-                'urgent-not-important': 'Urgent & Not Important',
-                'not-urgent-not-important': 'Not Urgent & Not Important',
-            }
-            return titles[this.markers.eisenhower] || ''
-        },
+const cappedImportant = computed(() => Math.min(markers.value.important, 3))
 
-        eisenhowerLabel() {
-            const labels = {
-                'urgent-important': 'UI',
-                'not-urgent-important': '.I',
-                'urgent-not-important': 'U.',
-                'not-urgent-not-important': '..',
-            }
-            return labels[this.markers.eisenhower] || ''
-        },
+const eisenhowerTitle = computed(() => {
+    const titles = {
+        'urgent-important': 'Urgent & Important',
+        'not-urgent-important': 'Not Urgent & Important',
+        'urgent-not-important': 'Urgent & Not Important',
+        'not-urgent-not-important': 'Not Urgent & Not Important',
+    }
+    return titles[markers.value.eisenhower] || ''
+})
 
-        moscowTitle() {
-            const titles = {
-                'must': 'Must have',
-                'should': 'Should have',
-                'could': 'Could have',
-                'wont': "Won't have",
-            }
-            return titles[this.markers.moscow] || ''
-        },
+const eisenhowerLabel = computed(() => {
+    const labels = {
+        'urgent-important': 'UI',
+        'not-urgent-important': '.I',
+        'urgent-not-important': 'U.',
+        'not-urgent-not-important': '..',
+    }
+    return labels[markers.value.eisenhower] || ''
+})
 
-        moscowLabel() {
-            const labels = {
-                'must': 'Mu',
-                'should': 'Sh',
-                'could': 'Co',
-                'wont': 'Wh',
-            }
-            return labels[this.markers.moscow] || ''
-        }
-    },
-}
+const moscowTitle = computed(() => {
+    const titles = {
+        'must': 'Must have',
+        'should': 'Should have',
+        'could': 'Could have',
+        'wont': "Won't have",
+    }
+    return titles[markers.value.moscow] || ''
+})
+
+const moscowLabel = computed(() => {
+    const labels = {
+        'must': 'Mu',
+        'should': 'Sh',
+        'could': 'Co',
+        'wont': 'Wh',
+    }
+    return labels[markers.value.moscow] || ''
+})
 </script>
 

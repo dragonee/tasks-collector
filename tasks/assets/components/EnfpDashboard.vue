@@ -159,7 +159,9 @@
     </div>
 </template>
 
-<script>
+<script setup>
+import { computed, onMounted, reactive, ref } from 'vue';
+
 // CSRF-aware fetch helper (same pattern as store.js / hello_world_mount.js).
 const apiRequest = async (url, options = {}) => {
     const token = document.body.querySelector('[name=csrfmiddlewaretoken]');
@@ -181,99 +183,82 @@ const apiRequest = async (url, options = {}) => {
     return response.json();
 };
 
-export default {
-    data() {
-        return {
-            loading: true,
-            saving: false,
-            totals: { ne: 0, fi: 0, te: 0, si: 0 },
-            challenges: [],
-            functions: [
-                { code: 'Ne', key: 'ne', label: 'Extraverted Intuition' },
-                { code: 'Fi', key: 'fi', label: 'Introverted Feeling' },
-                { code: 'Te', key: 'te', label: 'Extraverted Thinking' },
-                { code: 'Si', key: 'si', label: 'Introverted Sensing' },
-            ],
-            form: { function: 'Ne', description: '' },
-        };
-    },
+const loading = ref(true);
+const saving = ref(false);
+const totals = ref({ ne: 0, fi: 0, te: 0, si: 0 });
+const challenges = ref([]);
+const functions = [
+    { code: 'Ne', key: 'ne', label: 'Extraverted Intuition' },
+    { code: 'Fi', key: 'fi', label: 'Introverted Feeling' },
+    { code: 'Te', key: 'te', label: 'Extraverted Thinking' },
+    { code: 'Si', key: 'si', label: 'Introverted Sensing' },
+];
+const form = reactive({ function: 'Ne', description: '' });
 
-    computed: {
-        // Progress tracks the first active challenge.
-        primaryChallenge() {
-            return this.challenges.length ? this.challenges[0] : null;
-        },
-        usingChallengeTally() {
-            return !!this.primaryChallenge;
-        },
-        currentTally() {
-            return this.primaryChallenge ? this.primaryChallenge.current : this.totals;
-        },
-        nextStage() {
-            return this.primaryChallenge ? this.primaryChallenge.next_stage : null;
-        },
-        // Counts shown inside the circle: the active challenge's tally if a
-        // challenge is running, otherwise lifetime totals.
-        displayCounts() {
-            return this.usingChallengeTally ? this.currentTally : this.totals;
-        },
-        // Overall progress toward the next stage: sum across the four functions.
-        overallProgress() {
-            if (!this.nextStage) {
-                return { current: 0, target: 0, percent: 0 };
-            }
-            let current = 0;
-            let target = 0;
-            for (const fn of this.functions) {
-                const t = this.nextStage.target[fn.key] || 0;
-                target += t;
-                // cap each function's contribution at its target so an
-                // over-achieved function doesn't inflate the overall bar
-                current += Math.min(this.currentTally[fn.key] || 0, t);
-            }
-            const percent = target ? Math.min(100, Math.round((current / target) * 100)) : 100;
-            return { current, target, percent };
-        },
-    },
+// Progress tracks the first active challenge.
+const primaryChallenge = computed(() => challenges.value.length ? challenges.value[0] : null);
 
-    methods: {
-        async load() {
-            const data = await apiRequest('/enfp/summary/');
-            this.totals = data.totals;
-            this.challenges = data.challenges;
-            this.loading = false;
-        },
+const usingChallengeTally = computed(() => !!primaryChallenge.value);
 
-        progressPercent(key) {
-            if (!this.nextStage) return 0;
-            const target = this.nextStage.target[key];
-            if (!target) return 100;
-            const current = this.currentTally[key] || 0;
-            return Math.min(100, Math.round((current / target) * 100));
-        },
+const currentTally = computed(() => primaryChallenge.value ? primaryChallenge.value.current : totals.value);
 
-        async logElement() {
-            this.saving = true;
-            try {
-                await apiRequest('/enfp/api/elements/', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        function: this.form.function,
-                        description: this.form.description,
-                    }),
-                });
-                this.form.description = '';
-                await this.load();
-            } finally {
-                this.saving = false;
-            }
-        },
-    },
+const nextStage = computed(() => primaryChallenge.value ? primaryChallenge.value.next_stage : null);
 
-    mounted() {
-        this.load();
-    },
-};
+// Counts shown inside the circle: the active challenge's tally if a
+// challenge is running, otherwise lifetime totals.
+const displayCounts = computed(() => usingChallengeTally.value ? currentTally.value : totals.value);
+
+// Overall progress toward the next stage: sum across the four functions.
+const overallProgress = computed(() => {
+    if (!nextStage.value) {
+        return { current: 0, target: 0, percent: 0 };
+    }
+    let current = 0;
+    let target = 0;
+    for (const fn of functions) {
+        const t = nextStage.value.target[fn.key] || 0;
+        target += t;
+        // cap each function's contribution at its target so an
+        // over-achieved function doesn't inflate the overall bar
+        current += Math.min(currentTally.value[fn.key] || 0, t);
+    }
+    const percent = target ? Math.min(100, Math.round((current / target) * 100)) : 100;
+    return { current, target, percent };
+});
+
+async function load() {
+    const data = await apiRequest('/enfp/summary/');
+    totals.value = data.totals;
+    challenges.value = data.challenges;
+    loading.value = false;
+}
+
+function progressPercent(key) {
+    if (!nextStage.value) return 0;
+    const target = nextStage.value.target[key];
+    if (!target) return 100;
+    const current = currentTally.value[key] || 0;
+    return Math.min(100, Math.round((current / target) * 100));
+}
+
+async function logElement() {
+    saving.value = true;
+    try {
+        await apiRequest('/enfp/api/elements/', {
+            method: 'POST',
+            body: JSON.stringify({
+                function: form.function,
+                description: form.description,
+            }),
+        });
+        form.description = '';
+        await load();
+    } finally {
+        saving.value = false;
+    }
+}
+
+onMounted(load);
 </script>
 
 <!-- Styles live in tasks/assets/styles/_enfp.scss (imported via app.scss). -->

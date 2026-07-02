@@ -1,5 +1,5 @@
 <template>
-  <div role="tree" :class="{'tree': true, 'tree--draggable' : !!draggableNode}">
+  <div role="tree" ref="el" :class="{'tree': true, 'tree--draggable' : !!draggableNode}">
     <ul class="tree-root" @dragstart="onDragStart">
       <TreeNode
         v-for="node in visibleNodes"
@@ -97,15 +97,14 @@
   </div>
 </template>
 
-<script>
-  import { computed } from 'vue'
+<script setup>
+  import { computed, provide, ref } from 'vue'
 
-  import TreeNode from './TreeNode'
-  import DraggableNode from './DraggableNode'
-  import ContextMenu from './ContextMenu'
-  import TreeMixin from '../mixins/TreeMixin'
-  import TreeDnd from '../mixins/DndMixin'
-  import Tree from '../lib/Tree'
+  import TreeNode from './TreeNode.vue'
+  import DraggableNode from './DraggableNode.vue'
+  import ContextMenu from './ContextMenu.vue'
+  import useTree from '../composables/useTree'
+  import useDnd from '../composables/useDnd'
 
   import { Notifier } from '../../../notifier';
   import { MEANINGFUL_MARKER_KEYS } from '../../../utils.js';
@@ -135,142 +134,123 @@
       };
   };
 
-  export default {
-    name: 'Tree',
-    components: {
-      TreeNode,
-      DraggableNode,
-      ContextMenu
-    },
-
-    mixins: [TreeMixin, TreeDnd],
-
-    // every event Tree.$emit forwards to vm.$emit; Vue warns on any
-    // emitted event that is not declared here
-    emits: [
-        'tree:mounted',
-        'node:added',
-        'node:removed',
-        'node:clicked',
-        'node:dblclick',
-        'node:selected',
-        'node:unselected',
-        'node:checked',
-        'node:unchecked',
-        'node:expanded',
-        'node:collapsed',
-        'node:shown',
-        'node:hidden',
-        'node:enabled',
-        'node:disabled',
-        'node:dragging:start',
-        'node:dragging:finish',
-        'node:editing:start',
-        'node:editing:stop',
-        'node:text:changed',
-    ],
-
-    provide() {
-        return {
-            // the Tree instance only exists after mounted; a computed ref
-            // late-binds it for the injecting TreeNodes
-            tree: computed(() => this.tree),
-            menu: () => this.$refs.menu,
-        }
-    },
-
-    props: {
-      options: {
-        type: Object,
-        default: _ => ({})
-      }
-    },
-
-    methods: {
-        async onClick(method, { node, value }) {
-            const markerMethods = [...MEANINGFUL_MARKER_KEYS, 'transition'];
-
-            if (markerMethods.includes(method)) {
-                if (value === undefined) {
-                    value = !node.data.meaningfulMarkers[method]
-                }
-
-                if (value === UNSET) {
-                    node.data = clearMeaningfulMarker(node.data, method)
-                } else {
-                    node.data = changeMeaningfulMarker(node.data, {
-                        [method]: value
-                    })
-                }
-
-                if (method === 'postponedFor') {
-                    node.hide()
-                }
-
-                this.tree.syncStore()
-            } else if (method === 'addToPlan') {
-                const taskText = node.data.text
-                const timeframe = value  // 'today', 'tomorrow', 'this_week'
-                const notifier = Notifier({ time: 3000 })
-
-                try {
-                    const response = await fetch('/plans/add-task/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': this.getCsrfToken(),
-                        },
-                        body: JSON.stringify({
-                            text: taskText,
-                            timeframe: timeframe
-                        })
-                    })
-
-                    if (!response.ok) {
-                        const errorData = await response.json()
-                        notifier.error(errorData.error || 'Failed to add task to plan')
-                        return
-                    }
-
-                    const timeframeLabel = timeframe === 'this_week' ? 'this week' : timeframe
-                    notifier.success(`Task added to ${timeframeLabel}'s plan`)
-                } catch (error) {
-                    notifier.error(`Error: ${error.message}`)
-                }
-            } else if (method === 'remove') {
-                node.remove()
-            }
-        },
-        getCsrfToken() {
-            const token = document.body.querySelector('[name=csrfmiddlewaretoken]')
-            return token ? token.value : ''
-        }
-    },
-
-    computed: {
-        currentThread() {
-            return this.opts.store?.store?.currentThread ?? null
-        },
-
-        visibleNodes() {
-            return (this.model || []).filter(node => node && node.visible())
-        },
-    },
-
-    data () {
-      // we should not mutating a prop directly...
-      // that's why we have to create a new object
-      // TODO: add method for changing options
-      let opts = Object.assign({}, defaults, this.options)
-
-      return {
-        model: null,
-        tree: null,
-        opts,
-        draggableNode: null,
-        UNSET,
-      }
+  const props = defineProps({
+    options: {
+      type: Object,
+      default: _ => ({})
     }
-  }
-</script>
+  })
 
+  // every event Tree.$emit forwards to the component emit; Vue warns on any
+  // emitted event that is not declared here
+  const emit = defineEmits([
+      'tree:mounted',
+      'node:added',
+      'node:removed',
+      'node:clicked',
+      'node:dblclick',
+      'node:selected',
+      'node:unselected',
+      'node:checked',
+      'node:unchecked',
+      'node:expanded',
+      'node:collapsed',
+      'node:shown',
+      'node:hidden',
+      'node:enabled',
+      'node:disabled',
+      'node:dragging:start',
+      'node:dragging:finish',
+      'node:editing:start',
+      'node:editing:stop',
+      'node:text:changed',
+  ])
+
+  // we should not mutate the options prop directly, so merge it once
+  // into a local object
+  const opts = { ...defaults, ...props.options }
+
+  const el = ref(null)
+  const menu = ref(null)
+
+  const { tree, model, append, prepend, addChild, remove, before, after, toJSON } = useTree({
+    opts,
+    emit,
+    el,
+    // late-bound: the dnd wiring happens right below
+    startDragging: (node, event) => startDragging(node, event),
+  })
+
+  const { draggableNode, onDragStart, startDragging } = useDnd({ tree, el })
+
+  // the Tree instance only exists after mounted; the shallowRef late-binds
+  // it for the injecting TreeNodes
+  provide('tree', tree)
+  provide('menu', () => menu.value)
+
+  const currentThread = computed(() => opts.store?.store?.currentThread ?? null)
+
+  const visibleNodes = computed(() => (model.value || []).filter(node => node && node.visible()))
+
+  async function onClick(method, { node, value }) {
+      const markerMethods = [...MEANINGFUL_MARKER_KEYS, 'transition'];
+
+      if (markerMethods.includes(method)) {
+          if (value === undefined) {
+              value = !node.data.meaningfulMarkers[method]
+          }
+
+          if (value === UNSET) {
+              node.data = clearMeaningfulMarker(node.data, method)
+          } else {
+              node.data = changeMeaningfulMarker(node.data, {
+                  [method]: value
+              })
+          }
+
+          if (method === 'postponedFor') {
+              node.hide()
+          }
+
+          tree.value.syncStore()
+      } else if (method === 'addToPlan') {
+          const taskText = node.data.text
+          const timeframe = value  // 'today', 'tomorrow', 'this_week'
+          const notifier = Notifier({ time: 3000 })
+
+          try {
+              const response = await fetch('/plans/add-task/', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'X-CSRFToken': getCsrfToken(),
+                  },
+                  body: JSON.stringify({
+                      text: taskText,
+                      timeframe: timeframe
+                  })
+              })
+
+              if (!response.ok) {
+                  const errorData = await response.json()
+                  notifier.error(errorData.error || 'Failed to add task to plan')
+                  return
+              }
+
+              const timeframeLabel = timeframe === 'this_week' ? 'this week' : timeframe
+              notifier.success(`Task added to ${timeframeLabel}'s plan`)
+          } catch (error) {
+              notifier.error(`Error: ${error.message}`)
+          }
+      } else if (method === 'remove') {
+          node.remove()
+      }
+  }
+
+  function getCsrfToken() {
+      const token = document.body.querySelector('[name=csrfmiddlewaretoken]')
+      return token ? token.value : ''
+  }
+
+  defineExpose({ tree, append, prepend, addChild, remove, before, after, toJSON })
+</script>

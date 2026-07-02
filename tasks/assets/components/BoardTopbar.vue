@@ -64,9 +64,13 @@
     </div>
 </template>
 
-<script>
+<script setup>
 
-import { mapStores, mapState, mapActions } from 'pinia'
+import { computed, onMounted, ref, watch } from 'vue'
+
+import { useRoute, useRouter } from 'vue-router'
+
+import { storeToRefs } from 'pinia'
 
 import { useBoardStore } from '../store'
 
@@ -74,153 +78,127 @@ import moment from 'moment'
 
 import CommitConfirmationModal from './CommitConfirmationModal.vue'
 
-export default {
+const boardStore = useBoardStore()
 
-    components: {
-        CommitConfirmationModal,
-    },
+const { currentBoard, threads, currentThread, currentThreadId, listViewMode } = storeToRefs(boardStore)
 
-    data: () => ({
-        focus: "",
-        showCommitModal: false,
-    }),
+const route = useRoute()
+const router = useRouter()
 
-    computed: {
-        ...mapStores(useBoardStore),
+const focus = ref("")
+const showCommitModal = ref(false)
 
-        ...mapState(useBoardStore, [
-            'currentBoard',
-            'threads',
-            'currentThread',
-            'currentThreadId',
-            'listViewMode',
-        ]),
+const currentMode = computed(() => {
+    const path = route.path
+    if (path.startsWith('/eisenhower')) return 'eisenhower'
+    if (path.startsWith('/moscow')) return 'moscow'
+    return 'board'
+})
 
-        currentMode() {
-            const path = this.$route.path
-            if (path.startsWith('/eisenhower')) return 'eisenhower'
-            if (path.startsWith('/moscow')) return 'moscow'
-            return 'board'
-        },
+const filterMode = computed({
+    get() { return boardStore.filterMode },
+    set(value) { boardStore.setFilterMode(value) }
+})
 
-        filterMode: {
-            get() { return this.boardStore.filterMode },
-            set(value) { this.boardStore.setFilterMode(value) }
-        },
+const displayMode = computed({
+    get() { return boardStore.listViewMode ? 'list' : 'tree' },
+    set(value) { boardStore.setListViewMode(value === 'list') }
+})
 
-        displayMode: {
-            get() { return this.boardStore.listViewMode ? 'list' : 'tree' },
-            set(value) { this.boardStore.setListViewMode(value === 'list') }
-        },
+const startDate = computed(() => moment(currentBoard.value.date_started).format('YYYY-MM-DD'))
 
-        startDate() {
-            return moment(this.currentBoard.date_started).format('YYYY-MM-DD')
-        },
+const itemsToRemove = computed(() => findItemsToBeRemoved(currentBoard.value.state))
 
-        itemsToRemove() {
-            return this.findItemsToBeRemoved(this.currentBoard.state)
-        },
-    },
+watch(currentBoard, () => {
+    focus.value = currentBoard.value.focus
+})
 
-    watch: {
-        currentBoard() {
-            this.focus = this.currentBoard.focus
+onMounted(() => {
+    focus.value = currentBoard.value.focus
+})
+
+function onFocusBlur() {
+    boardStore.saveFocus(focus.value)
+}
+
+function onThreadChange(ev) {
+    boardStore.changeThread(Number(ev.target.value))
+}
+
+function onModeChange(ev) {
+    const mode = ev.target.value
+    const name = currentThread.value?.name
+
+    const base = mode === 'board' ? '/board' : `/${mode}`
+    const path = name
+        ? `${base}/${name}`
+        : (mode === 'board' ? '/' : base)
+
+    if (route.path !== path) {
+        router.push(path)
+    }
+}
+
+function isItemDeprecated(item) {
+    const markers = item.data?.meaningfulMarkers || {}
+
+    if ((markers.weeksInList || 0) < 5) {
+        return false
+    }
+
+    if (item.children && item.children.length > 0) {
+        return false
+    }
+
+    if (markers.canBePostponed) {
+        return false
+    }
+
+    if ((markers.postponedFor || 0) > 0) {
+        return false
+    }
+
+    if (markers.madeProgress) {
+        return false
+    }
+
+    if (item.state?.checked) {
+        return false
+    }
+
+    return true
+}
+
+function findItemsToBeRemoved(items) {
+    let result = []
+
+    const traverse = (node) => {
+        if (isItemDeprecated(node)) {
+            result.push({
+                text: node.text,
+                weeksInList: node.data?.meaningfulMarkers?.weeksInList || 0
+            })
         }
-    },
 
-    mounted() {
-        this.focus = this.currentBoard.focus
-    },
-
-    methods: {
-        ...mapActions(useBoardStore, [
-            'close',
-        ]),
-
-        onFocusBlur() {
-            this.boardStore.saveFocus(this.focus)
-        },
-
-        onThreadChange(ev) {
-            this.boardStore.changeThread(Number(ev.target.value))
-        },
-
-        onModeChange(ev) {
-            const mode = ev.target.value
-            const name = this.currentThread?.name
-
-            const base = mode === 'board' ? '/board' : `/${mode}`
-            const path = name
-                ? `${base}/${name}`
-                : (mode === 'board' ? '/' : base)
-
-            if (this.$route.path !== path) {
-                this.$router.push(path)
-            }
-        },
-
-        isItemDeprecated(item) {
-            const markers = item.data?.meaningfulMarkers || {}
-
-            if ((markers.weeksInList || 0) < 5) {
-                return false
-            }
-
-            if (item.children && item.children.length > 0) {
-                return false
-            }
-
-            if (markers.canBePostponed) {
-                return false
-            }
-
-            if ((markers.postponedFor || 0) > 0) {
-                return false
-            }
-
-            if (markers.madeProgress) {
-                return false
-            }
-
-            if (item.state?.checked) {
-                return false
-            }
-
-            return true
-        },
-
-        findItemsToBeRemoved(items) {
-            let result = []
-
-            const traverse = (node) => {
-                if (this.isItemDeprecated(node)) {
-                    result.push({
-                        text: node.text,
-                        weeksInList: node.data?.meaningfulMarkers?.weeksInList || 0
-                    })
-                }
-
-                if (node.children && node.children.length > 0) {
-                    node.children.forEach(child => traverse(child))
-                }
-            }
-
-            items.forEach(item => traverse(item))
-            return result
-        },
-
-        prepareCommit() {
-            this.showCommitModal = true
-        },
-
-        confirmCommit() {
-            this.showCommitModal = false
-            this.close()
-        },
-
-        cancelCommit() {
-            this.showCommitModal = false
+        if (node.children && node.children.length > 0) {
+            node.children.forEach(child => traverse(child))
         }
     }
+
+    items.forEach(item => traverse(item))
+    return result
+}
+
+function prepareCommit() {
+    showCommitModal.value = true
+}
+
+function confirmCommit() {
+    showCommitModal.value = false
+    boardStore.close()
+}
+
+function cancelCommit() {
+    showCommitModal.value = false
 }
 </script>

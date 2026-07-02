@@ -2,13 +2,13 @@
     <div class="board">
         <BoardTopbar />
 
-        <tree
+        <Tree
             v-show="!listViewMode"
             :options="options"
             ref="tree"
             @node:editing:start="onNodeEditingStart"
             @node:editing:stop="onNodeEditingStop"
-        ></tree>
+        ></Tree>
 
         <TreeListView v-show="listViewMode" />
 
@@ -23,9 +23,13 @@
         />
     </div>
 </template>
-<script>
+<script setup>
 
-import { mapStores, mapState, mapActions } from 'pinia'
+import { computed, onMounted, ref, watch } from 'vue'
+
+import { useRoute, useRouter } from 'vue-router'
+
+import { storeToRefs } from 'pinia'
 
 import { useBoardStore } from '../store'
 
@@ -33,99 +37,78 @@ import { createTreeItem } from '../utils'
 
 import { GlobalEvents } from 'vue-global-events'
 
+import Tree from '../liquor-tree/src/components/TreeRoot.vue'
+
 import BoardTopbar from './BoardTopbar.vue'
 
 import TreeListView from './TreeListView.vue'
 
-export default {
+const boardStore = useBoardStore()
 
-    components: {
-        GlobalEvents,
-        BoardTopbar,
-        TreeListView
-    },
+const { currentBoard, listViewMode } = storeToRefs(boardStore)
 
-    computed: {
-        ...mapStores(useBoardStore),
+const route = useRoute()
+const router = useRouter()
 
-        ...mapState(useBoardStore, [
-            'currentBoard',
-            'listViewMode',
-        ]),
+const tree = ref(null)
 
-        normalContext() {
-            return !this.editingContext
-        },
+const editingContext = ref(false)
 
-        options() {
-            const store = this.boardStore
+const normalContext = computed(() => !editingContext.value)
 
-            return {
-                store: {
-                    store,
-                    getter: () => store.currentBoard.state,
-                    dispatcher: (tree) => {
-                        return store.save({
-                            state: tree,
-                            focus: store.currentBoard.focus,
-                        })
-                    }
-                }
-            }
+const options = {
+    store: {
+        store: boardStore,
+        getter: () => boardStore.currentBoard.state,
+        dispatcher: (state) => {
+            return boardStore.save({
+                state,
+                focus: boardStore.currentBoard.focus,
+            })
         }
-    },
+    }
+}
 
-    data: () => ({
-        editingContext: false,
-    }),
+const reloadBoards = () => boardStore.reloadBoards()
 
-    watch: {
-        currentBoard() {
-            const path = `/board/${this.currentBoard.thread.name}`;
+watch(currentBoard, () => {
+    const path = `/board/${currentBoard.value.thread.name}`;
 
-            if (this.$route.path !== path) {
-                this.$router.push(path);
-            }
-        }
-    },
+    if (route.path !== path) {
+        router.push(path);
+    }
+})
 
-    mounted() {
-        if (this.$route.params.slug) {
-            this.boardStore.initBoard(this.$route.params.slug);
-        } else {
-            const appElement = document.getElementById('app-meta');
+onMounted(() => {
+    if (route.params.slug) {
+        boardStore.initBoard(route.params.slug);
+    } else {
+        const appElement = document.getElementById('app-meta');
 
-            const defaultThread = appElement
-                ? appElement.dataset.defaultThread
-                : this.boardStore.currentThreadPtr.value;
+        const defaultThread = appElement
+            ? appElement.dataset.defaultThread
+            : boardStore.currentThreadPtr.value;
 
-            this.boardStore.initBoard(defaultThread);
-        }
-    },
+        boardStore.initBoard(defaultThread);
+    }
+})
 
-    methods: {
-        async addItem() {
-            const node = this.$refs.tree.append(createTreeItem())
+async function addItem() {
+    const node = tree.value.append(createTreeItem())
 
-            node.startEditing()
-        },
+    node.startEditing()
+}
 
-        onNodeEditingStart(node) {
-            this.editingContext = true
-        },
+function onNodeEditingStart(node) {
+    editingContext.value = true
+}
 
-        onNodeEditingStop(node) {
-            this.editingContext = false
+function onNodeEditingStop(node) {
+    editingContext.value = false
 
-            // an item added with `i` and left blank is a cancelled insert
-            if (!node.text) {
-                node.remove()
-            }
-        },
-
-        ...mapActions(useBoardStore, [
-            'reloadBoards',
-        ]),
+    // an item added with `i` and left blank is a cancelled insert
+    if (!node.text) {
+        node.remove()
     }
 }
 </script>

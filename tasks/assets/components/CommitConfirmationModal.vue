@@ -31,30 +31,26 @@
     </div>
 </template>
 
-<script>
-export default {
-    props: {
-        show: {
-            type: Boolean,
-            default: false
-        },
-        itemsToRemove: {
-            type: Array,
-            default: () => []
-        }
+<script setup>
+defineProps({
+    show: {
+        type: Boolean,
+        default: false
     },
-
-    emits: ['confirm', 'cancel'],
-
-    methods: {
-        confirm() {
-            this.$emit('confirm')
-        },
-
-        cancel() {
-            this.$emit('cancel')
-        }
+    itemsToRemove: {
+        type: Array,
+        default: () => []
     }
+})
+
+const emit = defineEmits(['confirm', 'cancel'])
+
+function confirm() {
+    emit('confirm')
+}
+
+function cancel() {
+    emit('cancel')
 }
 </script>
 
