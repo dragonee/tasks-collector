@@ -1,7 +1,7 @@
 // Context-menu base styles, vendored from vue-context 5.2.0
 // (src/sass/vue-context.scss + _config.scss). The vue-context package has no
 // Vue 3 release; the markup contract (.v-context, .v-context__sub) is kept by
-// liquor-tree/src/components/ContextMenu.vue so the rules in _tasks.scss that
+// tasktree/components/ContextMenu.vue so the rules in _tasks.scss that
 // extend these classes keep applying. Submenus open on :hover here instead of
 // via vue-context's JS.
 

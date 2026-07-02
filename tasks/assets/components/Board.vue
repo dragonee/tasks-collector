@@ -37,7 +37,7 @@ import { createTreeItem } from '../utils'
 
 import { GlobalEvents } from 'vue-global-events'
 
-import Tree from '../liquor-tree/src/components/TreeRoot.vue'
+import Tree from '../tasktree/components/TreeRoot.vue'
 
 import BoardTopbar from './BoardTopbar.vue'
 
