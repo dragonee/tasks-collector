@@ -8,14 +8,14 @@ import Moscow from './Moscow.vue'
 
 import store from '../store'
 
-import LiquorTree from '../liquor-tree/src/main.js'
+import TreeRoot from '../liquor-tree/src/components/TreeRoot.vue'
 
 import { autosizeDirective } from '../autosize.js'
 
 import "../app.scss";
 import "../scripts/shared.js";
 
-Vue.use(LiquorTree)
+Vue.component(TreeRoot.name, TreeRoot)
 Vue.use(Vuex)
 Vue.use(VueRouter)
 Vue.directive('autosize', autosizeDirective)

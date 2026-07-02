@@ -1,6 +1,5 @@
 import Tree from '../lib/Tree'
 import initKeyboardNavigation from '../utils/keyboardNavigation'
-import assert from '../utils/assert'
 
 function initEvents (vm) {
   const tree = vm.tree
@@ -40,13 +39,6 @@ export default {
     connectStore (store) {
       const { store: Store, mutations, getter, dispatcher } = store
 
-      assert(typeof getter === 'function', '`getter` must be a function')
-      assert(typeof dispatcher === 'function', '`dispatcher` must be a function')
-
-      if (undefined !== mutations) {
-        assert(Array.isArray(mutations), '`mutations` must be an array')
-      }
-
       Store.subscribe((action, state) => {
         if (!mutations) {
           this.tree.setModel(getter())
@@ -85,8 +77,8 @@ export default {
       return this.append(criteria, node)
     },
 
-    remove (criteria, multiple) {
-      return this.tree.remove(criteria, multiple)
+    remove (node) {
+      return this.tree.removeNode(node)
     },
 
     before (criteria, node) {
@@ -103,10 +95,6 @@ export default {
       }
 
       return this.tree.after(criteria, node)
-    },
-
-    find (criteria, multiple) {
-      return this.tree.find(criteria, multiple)
     },
 
     toJSON () {

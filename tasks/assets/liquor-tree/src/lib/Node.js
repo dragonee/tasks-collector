@@ -1,7 +1,5 @@
 import { recurseDown } from '../utils/recurse'
-import find from '../utils/find'
 import uuidV4 from '../utils/uuidV4'
-import Selection from '../lib/Selection'
 
 export default class Node {
   constructor (tree, item) {
@@ -47,10 +45,6 @@ export default class Node {
     return path
   }
 
-  get key () {
-    return this.id + this.text
-  }
-
   get depth () {
     let depth = 0
     let parent = this.parent
@@ -89,16 +83,6 @@ export default class Node {
     this.states[name] = value
 
     return this
-  }
-
-  recurseUp (fn, node = this) {
-    if (!node.parent) {
-      return
-    }
-
-    if (fn(node.parent) !== false) {
-      return this.recurseUp(fn, node.parent)
-    }
   }
 
   recurseDown (fn, ignoreThis) {
@@ -325,16 +309,6 @@ export default class Node {
     return this.state('disabled')
   }
 
-  expandTop (ignoreEvent) {
-    this.recurseUp(parent => {
-      parent.state('expanded', true)
-
-      if (ignoreEvent !== true) {
-        this.$emit('expanded', parent)
-      }
-    })
-  }
-
   expand () {
     if (!this.canExpand()) {
       return this
@@ -500,10 +474,6 @@ export default class Node {
     this.$emit('editing:stop', prevText)
   }
 
-  index (verbose) {
-    return this.tree.index(this, verbose)
-  }
-
   first () {
     if (!this.hasChildren()) {
       return null
@@ -535,14 +505,6 @@ export default class Node {
 
     node = this.tree.objectToNode(node)
 
-    if (Array.isArray(node)) {
-      node
-        .reverse()
-        .map(n => this.insertAt(n, index))
-
-      return new Selection(this.tree, [...node])
-    }
-
     node.parent = this
 
     this.children.splice(
@@ -560,12 +522,8 @@ export default class Node {
     return node
   }
 
-  addChild (node) {
-    return this.insertAt(node)
-  }
-
   append (node) {
-    return this.addChild(node)
+    return this.insertAt(node)
   }
 
   prepend (node) {
@@ -580,36 +538,8 @@ export default class Node {
     return this.tree.after(this, node)
   }
 
-  empty () {
-    let node
-
-    while (node = this.children.pop()) {
-      node.remove()
-    }
-
-    return this
-  }
-
   remove () {
     return this.tree.removeNode(this)
-  }
-
-  removeChild (criteria) {
-    const node = this.find(criteria)
-
-    if (node) {
-      return this.tree.removeNode(node)
-    }
-
-    return null
-  }
-
-  find (criteria, deep) {
-    if (this.tree.isNode(criteria)) {
-      return criteria
-    }
-
-    return find(this.children, criteria, deep)
   }
 
   focus () {

@@ -60,6 +60,17 @@ export function createBoard() {
     }
 }
 
+// Marker keys settable from the board tree UI (context menu / node classes).
+export const MEANINGFUL_MARKER_KEYS = [
+    'weeksInList',
+    'important',
+    'finalizing',
+    'canBeDoneOutsideOfWork',
+    'canBePostponed',
+    'postponedFor',
+    'madeProgress',
+]
+
 export const FILTER_MODES = [
     'important',
     'deprecated',

@@ -6,12 +6,7 @@
             v-show="!listViewMode"
             :options="options"
             ref="tree"
-        >
-            <template slot-scope="{ node }">
-                <node-content :node="node" class="tree-text">
-                </node-content>
-            </template>
-        </tree>
+        ></tree>
 
         <TreeListView v-show="listViewMode" />
 
@@ -34,8 +29,6 @@ import { createTreeItem } from '../utils'
 
 import GlobalEvents from 'vue-global-events'
 
-import NodeContent from './NodeContent.vue'
-
 import BoardTopbar from './BoardTopbar.vue'
 
 import TreeListView from './TreeListView.vue'
@@ -44,7 +37,6 @@ export default {
 
     components: {
         GlobalEvents,
-        NodeContent,
         BoardTopbar,
         TreeListView
     },

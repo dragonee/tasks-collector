@@ -72,10 +72,6 @@ function rightArrow (tree, node) {
   }
 }
 
-function deleteNode (tree, node) {
-  node.remove()
-}
-
 export default function (tree) {
   const vm = tree.vm
   const $el = vm.$el
@@ -105,7 +101,7 @@ export default function (tree) {
         case keyCodes.ARROW_BOTTOM: return focusdDown(tree, node)
         case keyCodes.SPACE:
         case keyCodes.ENTER: return checkNode(tree, node)
-        case keyCodes.DELETE: return deleteNode(tree, node)
+        case keyCodes.DELETE: return node.remove()
       }
     }
   }, true)

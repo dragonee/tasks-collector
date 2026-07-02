@@ -22,6 +22,29 @@ function merge (state = {}) {
   return Object.assign({}, nodeStates, state)
 }
 
+/**
+  Every Node has certain format:
+  {
+    id,           // Unique Node id. By default it generates using uuidV4
+    text,         // Node text
+    children,     // List of children. Each children has the same format
+    parent,       // Parent Node or null. The tree is able to have more than 1 root node
+    state,        // States of Node. Ex.: selected, checked and so on
+    data          // Any types of data. Ex.: data: {myAwesomeProperty: 10}
+  }
+*/
+export function parse (data, tree) {
+  if (typeof data === 'string') {
+    data = JSON.parse(data)
+  }
+
+  if (!Array.isArray(data)) {
+    data = [data]
+  }
+
+  return data.map(item => objectToNode(tree, item))
+}
+
 export default function objectToNode (tree, obj) {
   let node = null
 

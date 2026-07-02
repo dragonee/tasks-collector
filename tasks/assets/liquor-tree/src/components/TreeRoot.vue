@@ -109,6 +109,7 @@
 
   import { mapGetters } from 'vuex';
   import { Notifier } from '../../../notifier';
+  import { MEANINGFUL_MARKER_KEYS } from '../../../utils.js';
 
   const UNSET = '__UNSET';
 
@@ -161,16 +162,7 @@
 
     methods: {
         async onClick(method, { node, value }) {
-            const markerMethods = [
-                'weeksInList',
-                'important',
-                'finalizing',
-                'canBeDoneOutsideOfWork',
-                'canBePostponed',
-                'postponedFor',
-                'madeProgress',
-                'transition',
-            ];
+            const markerMethods = [...MEANINGFUL_MARKER_KEYS, 'transition'];
 
             if (markerMethods.includes(method)) {
                 if (value === undefined) {

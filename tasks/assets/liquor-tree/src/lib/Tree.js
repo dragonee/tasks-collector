@@ -1,10 +1,7 @@
 import Node from './Node'
-import Selection from './Selection'
 
-import find from '../utils/find'
-import objectToNode from '../utils/objectToNode'
+import objectToNode, { parse } from '../utils/objectToNode'
 import { List } from '../utils/stack'
-import { TreeParser } from '../utils/treeParser'
 import { recurseDown } from '../utils/recurse'
 
 export default class Tree {
@@ -89,32 +86,20 @@ export default class Tree {
   }
 
   select (node, extendList) {
-    const treeNode = this.getNode(node)
-
-    if (!treeNode) {
-      return false
-    }
-
     if (extendList) {
-      this.selectedNodes.add(treeNode)
+      this.selectedNodes.add(node)
     } else {
       this.unselectAll()
       this.selectedNodes
         .empty()
-        .add(treeNode)
+        .add(node)
     }
 
     return true
   }
 
   unselect (node) {
-    const treeNode = this.getNode(node)
-
-    if (!treeNode) {
-      return false
-    }
-
-    this.selectedNodes.remove(treeNode)
+    this.selectedNodes.remove(node)
 
     return true
   }
@@ -212,29 +197,15 @@ export default class Tree {
     return node
   }
 
-  append (criteria, node) {
-    const targetNode = this.find(criteria)
-
-    if (targetNode) {
-      return targetNode.append(node)
-    }
-
-    return false
+  append (targetNode, node) {
+    return targetNode.append(node)
   }
 
-  prepend (criteria, node) {
-    const targetNode = this.find(criteria)
-
-    if (targetNode) {
-      return targetNode.prepend(node)
-    }
-
-    return false
+  prepend (targetNode, node) {
+    return targetNode.prepend(node)
   }
 
   before (targetNode, sourceNode) {
-    targetNode = this.find(targetNode)
-
     const position = this.index(targetNode, true)
     const node = this.objectToNode(sourceNode)
 
@@ -255,8 +226,6 @@ export default class Tree {
   }
 
   after (targetNode, sourceNode) {
-    targetNode = this.find(targetNode)
-
     const position = this.index(targetNode, true)
     const node = this.objectToNode(sourceNode)
 
@@ -276,17 +245,7 @@ export default class Tree {
     return node
   }
 
-  remove (criteria, multiple) {
-    return this.removeNode(
-      this.find(criteria, multiple)
-    )
-  }
-
   removeNode (node) {
-    if (node instanceof Selection) {
-      return node.remove()
-    }
-
     if (!node) {
       return false
     }
@@ -335,24 +294,6 @@ export default class Tree {
     return node instanceof Node
   }
 
-  find (criteria, multiple) {
-    if (this.isNode(criteria)) {
-      return criteria
-    }
-
-    const result = find(this.model, criteria)
-
-    if (!result || !result.length) {
-      return new Selection(this, [])
-    }
-
-    if (multiple === true) {
-      return new Selection(this, result)
-    }
-
-    return new Selection(this, [result[0]])
-  }
-
   getNodeById (id) {
     let targetNode = null
 
@@ -366,21 +307,13 @@ export default class Tree {
     return targetNode
   }
 
-  getNode (node) {
-    if (this.isNode(node)) {
-      return node
-    }
-
-    return null
-  }
-
   objectToNode (obj) {
     return objectToNode(this, obj)
   }
 
   parse (data) {
     try {
-      return TreeParser.parse(data, this)
+      return parse(data, this)
     } catch (e) {
       console.error(e)
       return []

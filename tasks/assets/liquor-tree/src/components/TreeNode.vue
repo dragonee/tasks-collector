@@ -19,7 +19,18 @@
         ref="anchor"
         @focus="onNodeFocus"
         @dblclick="tree.$emit('node:dblclick', node)">
-          <node-content :node="node" />
+          <input
+            v-if="node.isEditing"
+            ref="editCtrl"
+            class="tree-input"
+            type="text"
+            :value="node.text"
+            @input="editText = $event.target.value"
+            @blur="node.stopEditing(editText)"
+            @keyup.enter="node.stopEditing(editText)"
+            @mouseup.stop
+          >
+          <node-content v-else :node="node" class="tree-text" />
       </span>
     </div>
 
@@ -42,7 +53,8 @@
 </template>
 
 <script>
-  import NodeContent from './NodeContent'
+  import NodeContent from '../../../components/NodeContent.vue'
+  import { MEANINGFUL_MARKER_KEYS } from '../../../utils.js'
 
   const TreeNode = {
     name: 'Node',
@@ -56,13 +68,25 @@
     watch: {
       node() {
         this.node.vm = this
+      },
+
+      'node.isEditing'(isEditing) {
+        if (isEditing) {
+          this.editText = this.node.text
+
+          this.$nextTick(() => {
+            this.$refs.editCtrl && this.$refs.editCtrl.focus()
+          })
+        }
       }
     },
 
     data() {
       this.node.vm = this
 
-      return {}
+      return {
+        editText: ''
+      }
     },
 
     computed: {
@@ -84,17 +108,7 @@
           'indeterminate': state.indeterminate
         }
 
-        const markerMethods = [
-            'weeksInList',
-            'important',
-            'finalizing',
-            'canBeDoneOutsideOfWork',
-            'canBePostponed',
-            'postponedFor',
-            'madeProgress',
-        ];
-
-        markerMethods.forEach(name => {
+        MEANINGFUL_MARKER_KEYS.forEach(name => {
             classes[name] = !!this.node.data.meaningfulMarkers[name]
         })
 
