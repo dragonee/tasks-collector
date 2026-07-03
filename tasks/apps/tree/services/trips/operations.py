@@ -182,7 +182,14 @@ def presign_photo_upload(user, story_id, content_type, web=False):
 
 @transaction.atomic
 def add_trip_photo(
-    user, story_id, key, comment, content_type, published=None, idempotency_key=None
+    user,
+    story_id,
+    key,
+    comment,
+    content_type,
+    published=None,
+    idempotency_key=None,
+    content_hash=None,
 ):
     """Confirm an uploaded photo: create a PhotoAdded linked to ``story`` and
     run it through the journalling pipeline (so a ``#poi`` line in ``comment``
@@ -195,12 +202,27 @@ def add_trip_photo(
     that already produced a photo returns that same photo (checked before the
     stopped/object existence guards, so a re-delivered confirm succeeds even
     after the trip stopped or the S3 object was swept).
+
+    ``content_hash`` (hex SHA-256 of the original bytes) dedups by *content*
+    within this trip: re-picking the same image — a fresh ``idempotency_key``
+    each time — returns the photo already in the story instead of creating a
+    duplicate. Scoped to the story (never global) so the same image can still
+    be added to a different trip, and so it can't match another user's photo.
+    Checked before the stopped/object guards for the same reason as the
+    idempotency lookup, which also short-circuits the EXIF download + S3 HEAD.
     """
     story = _get_owned_story(user, story_id)
 
     existing = existing_event(PhotoAdded, idempotency_key)
     if existing is not None:
         return existing
+
+    if content_hash:
+        dup = PhotoAdded.objects.filter(
+            story_entry__story=story, content_hash=content_hash
+        ).first()
+        if dup is not None:
+            return dup
 
     if story.stopped is not None:
         raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add photos.")
@@ -226,6 +248,7 @@ def add_trip_photo(
                 content_type=content_type,
                 published=captured or published or timezone.now(),
                 idempotency_key=idempotency_key,
+                content_hash=content_hash,
             )
             process_journal_entry(photo, story=story)
     except IntegrityError:

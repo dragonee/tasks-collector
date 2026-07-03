@@ -49,6 +49,7 @@ class PhotoAPITestCase(APITestCase):
         content_type="image/jpeg",
         published=PUB_AT,
         idempotency_key=None,
+        content_hash=None,
     ):
         payload = {
             "story_id": story_id,
@@ -59,6 +60,8 @@ class PhotoAPITestCase(APITestCase):
         }
         if idempotency_key is not None:
             payload["idempotency_key"] = idempotency_key
+        if content_hash is not None:
+            payload["content_hash"] = content_hash
         return self.client.post(
             reverse("android-trip-photo-confirm"), payload, format="json"
         )
@@ -129,6 +132,34 @@ class PhotoAPITestCase(APITestCase):
         self.assertEqual(first.data["photo_id"], second.data["photo_id"])
         self.assertEqual(PhotoAdded.objects.filter(idempotency_key="ph-123").count(), 1)
         self.assertEqual(StoryEvent.objects.filter(story=self.story).count(), 1)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_confirm_content_hash_dedupes_within_trip(self, _exists):
+        # Re-picking the same image (same content_hash) with a fresh key and
+        # idempotency_key returns the existing photo — one PhotoAdded + link.
+        first = self._confirm(
+            self.story.pk,
+            f"trips/{self.user.pk}/{self.story.pk}/one.jpg",
+            idempotency_key="k1",
+            content_hash="deadbeef",
+        )
+        second = self._confirm(
+            self.story.pk,
+            f"trips/{self.user.pk}/{self.story.pk}/two.jpg",
+            idempotency_key="k2",
+            content_hash="deadbeef",
+        )
+        self.assertEqual(first.data["photo_id"], second.data["photo_id"])
+        self.assertEqual(PhotoAdded.objects.filter(content_hash="deadbeef").count(), 1)
+        self.assertEqual(StoryEvent.objects.filter(story=self.story).count(), 1)
+
+    def test_confirm_rejects_non_string_content_hash(self):
+        r = self._confirm(
+            self.story.pk,
+            f"trips/{self.user.pk}/{self.story.pk}/abc.jpg",
+            content_hash=123,
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=False)
     def test_confirm_missing_object_409(self, _exists):

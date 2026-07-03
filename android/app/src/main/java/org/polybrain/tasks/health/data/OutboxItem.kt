@@ -30,6 +30,10 @@ data class OutboxItem(
     // Photos only:
     val contentType: String? = null,
     val photoFile: String? = null,
+    // Hex SHA-256 of the photo bytes. Sent to the trip confirm endpoint as
+    // `content_hash` so the server dedups the same image within a trip, and
+    // used locally to skip enqueuing a photo already queued (see Outbox).
+    val contentHash: String? = null,
     // Photo resume guards: set together only after a successful S3 PUT, so a
     // confirm-failure retry skips straight to confirm and never re-uploads.
     val presignedKey: String? = null,

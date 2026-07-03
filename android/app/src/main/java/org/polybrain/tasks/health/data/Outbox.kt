@@ -4,6 +4,7 @@ import android.content.Context
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.serialization.json.Json
 
@@ -45,13 +46,25 @@ class Outbox(private val dir: File) {
         return item
     }
 
+    /**
+     * Queue a photo. Returns null (and writes nothing) when the same image is
+     * already queued for this scope — the content hash dedups a rapid
+     * double-pick or an overlapping bulk selection *before* any S3 upload. A
+     * copy that already failed permanently is ignored for this check, so
+     * re-picking it gives a fresh attempt.
+     */
     fun enqueuePhoto(
         storyId: Long?,
         comment: String,
         published: String,
         contentType: String,
         bytes: ByteArray,
-    ): OutboxItem {
+    ): OutboxItem? {
+        val contentHash = sha256Hex(bytes)
+        val scope = if (storyId != null) forStory(storyId) else standalone()
+        if (scope.any { it.isPhoto && !it.failedPermanently && it.contentHash == contentHash }) {
+            return null
+        }
         val id = UUID.randomUUID().toString()
         val createdAt = System.currentTimeMillis()
         val photoName = baseName(createdAt, id) + "." + extFor(contentType)
@@ -65,6 +78,7 @@ class Outbox(private val dir: File) {
             createdAt = createdAt,
             contentType = contentType,
             photoFile = photoName,
+            contentHash = contentHash,
         )
         write(item)
         return item
@@ -114,6 +128,11 @@ class Outbox(private val dir: File) {
     private fun jsonName(item: OutboxItem) = baseName(item.createdAt, item.id) + ".json"
 
     private companion object {
+        fun sha256Hex(bytes: ByteArray): String =
+            MessageDigest.getInstance("SHA-256")
+                .digest(bytes)
+                .joinToString("") { "%02x".format(it) }
+
         fun baseName(createdAt: Long, id: String) =
             "%016d-%s".format(createdAt, id.take(8))
 

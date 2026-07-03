@@ -11,9 +11,13 @@ import org.polybrain.tasks.health.data.Settings
 /**
  * Drives [TripLocationService]'s lifecycle off the set of locally-tracked
  * trips ([Settings.trackedStoryIds]) — the analogue of `SyncScheduler` for the
- * outbox. The service runs whenever that set is non-empty; when it empties
- * (the last active trip stopped) the service is stopped and the breadcrumb log
- * is cleared.
+ * outbox. The service runs whenever that set is non-empty *and* tracking isn't
+ * paused ([Settings.trackingPaused]); when the set empties (the last active
+ * trip stopped) the service is stopped and the breadcrumb log is cleared.
+ *
+ * Pause/resume is decoupled from the trip lifecycle: pausing stops sampling but
+ * keeps the trail, so resuming continues the same log. The trail is dropped
+ * *only* on finish (the set going empty), never on pause.
  *
  * All entry points are `suspend` because they touch DataStore; call them from
  * a coroutine (the trip ViewModels already do).
@@ -31,6 +35,20 @@ object TripTracker {
     suspend fun stop(context: Context, storyId: Long) {
         val settings = Settings(context.applicationContext)
         settings.removeTrackedStoryId(storyId)
+        ensureService(context.applicationContext, settings)
+    }
+
+    /** Pause breadcrumb sampling without ending the trip or dropping the trail. */
+    suspend fun pause(context: Context) {
+        val settings = Settings(context.applicationContext)
+        settings.setTrackingPaused(true)
+        ensureService(context.applicationContext, settings)
+    }
+
+    /** Resume breadcrumb sampling, continuing the existing trail. */
+    suspend fun resume(context: Context) {
+        val settings = Settings(context.applicationContext)
+        settings.setTrackingPaused(false)
         ensureService(context.applicationContext, settings)
     }
 
@@ -52,21 +70,32 @@ object TripTracker {
 
     private suspend fun ensureService(appContext: Context, settings: Settings) {
         val intent = Intent(appContext, TripLocationService::class.java)
-        if (settings.trackedStoryIds().isNotEmpty()) {
-            // Without the fine-location grant the service could never promote
-            // itself to a location-type FGS (Android 14+ throws), and bailing
-            // out inside onStartCommand still trips the startForeground
-            // deadline (ForegroundServiceDidNotStartInTimeException) — so the
-            // service must not be started at all. The tracked ids are kept:
-            // the next ensureService call after the user grants location
-            // brings the service up.
-            if (!hasFineLocation(appContext)) return
-            ContextCompat.startForegroundService(appContext, intent)
-        } else {
+        if (settings.trackedStoryIds().isEmpty()) {
+            // No active trip owns the trail anymore — stop and drop it. Clearing
+            // the trail happens ONLY here (finish), never on pause. Reset the
+            // pause flag so the next trip starts sampling unpaused.
             appContext.stopService(intent)
-            // No active trip owns the trail anymore — drop it.
             BreadcrumbStore(appContext).clear()
+            if (settings.trackingPaused()) settings.setTrackingPaused(false)
+            return
         }
+        if (settings.trackingPaused()) {
+            // Trip still active, but the user paused sampling: stop the service
+            // (the notification clears; stopService cancels the START_STICKY
+            // restart) but keep the trail so resume continues it.
+            appContext.stopService(intent)
+            return
+        }
+        // Without the fine-location grant the service could never promote
+        // itself to a location-type FGS (Android 14+ throws), and bailing out
+        // inside onStartCommand still trips the startForeground deadline
+        // (ForegroundServiceDidNotStartInTimeException) — so the service must
+        // not be started at all. The tracked ids are kept: the next
+        // ensureService call after the user grants location brings it up. Note
+        // we don't stop a possibly-running service here — a permission-read
+        // race shouldn't tear down active tracking.
+        if (!hasFineLocation(appContext)) return
+        ContextCompat.startForegroundService(appContext, intent)
     }
 
     private fun hasFineLocation(context: Context): Boolean =

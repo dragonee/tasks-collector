@@ -115,6 +115,15 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
     private val _shareBusy = MutableStateFlow(false)
     val shareBusy: StateFlow<Boolean> = _shareBusy.asStateFlow()
 
+    /**
+     * Whether location tracking is paused (global — see [Settings.trackingPaused]).
+     * The header toggle reads this to show "Pause"/"Resume".
+     */
+    val trackingPaused: StateFlow<Boolean> =
+        settings.trackingPausedFlow.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5_000), false
+        )
+
     private var storyId: Long = -1
 
     init {
@@ -275,6 +284,56 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                 _error.value = t.message ?: t.javaClass.simpleName
             }
         }
+    }
+
+    /**
+     * Enqueue several picked photos at once with no dialog (the multi-pick
+     * path). Each photo's location is resolved from the trip's recorded track
+     * at its capture time — the same source as the single-photo "Save with
+     * location" — and attached when a trusted fix exists, otherwise the photo
+     * is sent without a `#poi` line.
+     */
+    fun sendPhotosDirect(uris: List<Uri>) {
+        val story = _story.value ?: return
+        if (story.stopped != null) return
+        viewModelScope.launch {
+            val resolver = getApplication<Application>().contentResolver
+            // Read the trail once — all() re-parses the whole NDJSON file per call.
+            val crumbs = withContext(Dispatchers.IO) { breadcrumbStore.all() }
+            // Sequential on purpose: Outbox's content-hash skip dedups a batch
+            // only if each item is written before the next is checked, and a
+            // serial loop avoids holding every image in memory at once.
+            for (uri in uris) {
+                try {
+                    val contentType = resolver.getType(uri) ?: "image/jpeg"
+                    val bytes = withContext(Dispatchers.IO) {
+                        resolver.openInputStream(uri)?.use { it.readBytes() }
+                    } ?: continue
+                    val captureMs = withContext(Dispatchers.IO) {
+                        captureMillisFor(resolver, uri) ?: System.currentTimeMillis()
+                    }
+                    val fix = PhotoLocationResolver.resolve(crumbs, captureMs)
+                    val comment = composeComment(fix, "")
+                    val published = withContext(Dispatchers.IO) { captureTimeFor(resolver, uri) }
+                    withContext(Dispatchers.IO) {
+                        outbox.enqueuePhoto(story.id, comment, published, contentType, bytes)
+                    }
+                } catch (t: Throwable) {
+                    _error.value = t.message ?: t.javaClass.simpleName
+                }
+            }
+            refreshPending()
+            SyncScheduler.drainOutbox(getApplication())
+        }
+    }
+
+    /** Pause/resume the global breadcrumb tracking (independent of the trip). */
+    fun pauseTracking() {
+        viewModelScope.launch { TripTracker.pause(getApplication()) }
+    }
+
+    fun resumeTracking() {
+        viewModelScope.launch { TripTracker.resume(getApplication()) }
     }
 
     /** Re-queue a permanently-failed item for another delivery attempt. */

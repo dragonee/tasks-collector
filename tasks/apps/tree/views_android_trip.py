@@ -353,6 +353,9 @@ class AndroidTripPhotoConfirmView(APIView):
         idempotency_key = request.data.get("idempotency_key")
         if idempotency_key is not None and not isinstance(idempotency_key, str):
             return _bad_request("idempotency_key must be a string")
+        content_hash = request.data.get("content_hash")
+        if content_hash is not None and not isinstance(content_hash, str):
+            return _bad_request("content_hash must be a string")
         try:
             photo = add_trip_photo(
                 request.user,
@@ -362,6 +365,7 @@ class AndroidTripPhotoConfirmView(APIView):
                 content_type=content_type,
                 published=published,
                 idempotency_key=idempotency_key,
+                content_hash=content_hash,
             )
         except StoryNotFoundError:
             return _not_found()

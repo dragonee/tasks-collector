@@ -599,6 +599,13 @@ class PhotoAdded(JournalAdded):
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
 
+    # Hex SHA-256 of the original bytes, supplied by the client. Drives
+    # per-trip dedup (see services.trips.add_trip_photo) so re-picking the same
+    # image doesn't create a second photo. Plain (non-unique) index on purpose:
+    # dedup is scoped to a Story, so the same image may legitimately appear in
+    # more than one trip. Null on legacy rows and standalone photos.
+    content_hash = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+
     template = "tree/events/journal_added.html"
 
     is_photo = True

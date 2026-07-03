@@ -130,6 +130,7 @@ object OutboxDrainer {
                     contentType = contentType,
                     published = current.published,
                     idempotencyKey = current.id,
+                    contentHash = current.contentHash,
                 )
             )
         } else {

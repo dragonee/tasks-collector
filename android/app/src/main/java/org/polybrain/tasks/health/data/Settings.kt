@@ -3,6 +3,7 @@ package org.polybrain.tasks.health.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -106,6 +107,22 @@ class Settings(private val context: Context) {
         }
     }
 
+    /**
+     * Whether location tracking is paused. Global (a single [TripLocationService]
+     * records one shared trail), decoupled from a trip being active: pausing
+     * stops sampling without dropping the trail; only finishing the last trip
+     * clears it. Reset to false when the last trip finishes.
+     */
+    suspend fun trackingPaused(): Boolean =
+        context.dataStore.data.first()[TRACKING_PAUSED] ?: false
+
+    suspend fun setTrackingPaused(paused: Boolean) {
+        context.dataStore.edit { prefs -> prefs[TRACKING_PAUSED] = paused }
+    }
+
+    val trackingPausedFlow: Flow<Boolean> =
+        context.dataStore.data.map { it[TRACKING_PAUSED] ?: false }
+
     private companion object {
         val SERVER_URL = stringPreferencesKey("server_url")
         val API_TOKEN = stringPreferencesKey("api_token")
@@ -113,5 +130,6 @@ class Settings(private val context: Context) {
         val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
         val SYNCED_BIKE_SESSION_IDS = stringSetPreferencesKey("synced_bike_session_ids")
         val TRACKED_STORY_IDS = stringSetPreferencesKey("tracked_story_ids")
+        val TRACKING_PAUSED = booleanPreferencesKey("tracking_paused")
     }
 }
