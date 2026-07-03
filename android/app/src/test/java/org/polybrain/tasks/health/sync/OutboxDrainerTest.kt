@@ -11,6 +11,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.polybrain.tasks.health.data.BoardAppendRequest
+import org.polybrain.tasks.health.data.BoardAppendResponse
 import org.polybrain.tasks.health.data.BoardItemsResponse
 import org.polybrain.tasks.health.data.HabitKeyword
 import org.polybrain.tasks.health.data.HealthDataResponse
@@ -223,6 +225,7 @@ class OutboxDrainerTest {
         override suspend fun healthData(): HealthDataResponse = nope()
         override suspend fun listTodayTasks(date: String): TodayTasksResponse = nope()
         override suspend fun listBoardItems(): BoardItemsResponse = nope()
+        override suspend fun appendBoardTask(body: BoardAppendRequest): BoardAppendResponse = nope()
         override suspend fun addTodayTask(body: TaskTextRequest): OkResponse = nope()
         override suspend fun completeTodayTask(body: TaskCompleteRequest): OkResponse = nope()
         override suspend fun deleteTodayTask(body: TaskTextRequest): OkResponse = nope()
