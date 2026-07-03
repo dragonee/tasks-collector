@@ -4,11 +4,25 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'docker/**'
-      - '**.md'
-      - 'android/**'
-      - 'cli/**'
+    # Whitelist (paths) rather than blacklist (paths-ignore) so that frontend
+    # asset changes under tasks/assets/** never trigger a backend test run.
+    paths:
+      # Backend Python: apps, settings, templates, fixtures, migrations
+      - 'tasks/**'
+      # ...but not the frontend asset sources built by the "Build assets" step
+      - '!tasks/assets/**'
+      # Python dependencies and project config
+      - 'requirements/**'
+      - 'manage.py'
+      - 'manage.dist.py'
+      - 'pytest.ini'
+      - 'pyproject.toml'
+      # Frontend build inputs the test job's "Build assets" step depends on
+      - 'package.json'
+      - 'package-lock.json'
+      - 'rsbuild.config.ts'
+      # The workflow definition itself
+      - '.github/workflows/test.yml'
 
 jobs:
   test:
