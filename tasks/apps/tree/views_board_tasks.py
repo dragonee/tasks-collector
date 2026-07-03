@@ -8,7 +8,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response as RestResponse
 
-from .board_operations import add_task_to_board
+from .board_operations import add_task_to_board, current_board_thread_name
 from .commit import calculate_changes_per_board, merge
 from .models import Board, BoardCommitted, Thread, default_state
 from .serializers import BoardSerializer, BoardSummary
@@ -86,13 +86,22 @@ def commit_board(request, id=None):
 def add_task(request):
     item = request.data
 
-    # XXX hackish
-    if "text" not in item or "thread-name" not in item:
-        return RestResponse(
-            {"errors": "no thread-name and text"}, status=status.HTTP_400_BAD_REQUEST
-        )
+    text = item.get("text")
+    if not text:
+        return RestResponse({"errors": "no text"}, status=status.HTTP_400_BAD_REQUEST)
 
-    board = add_task_to_board(item["text"], item["thread-name"])
+    # thread-name is optional: when omitted, append to the caller's current
+    # board — Profile.default_board_thread, or Daily as a fallback — which is
+    # the same board the Android picker shows. Explicit callers (e.g. the CLI's
+    # "text > Thread" syntax) keep naming the thread directly.
+    thread_name = item.get("thread-name") or current_board_thread_name(request.user)
+
+    board = add_task_to_board(text, thread_name)
+    if board is None:
+        return RestResponse(
+            {"errors": f"no board for thread {thread_name!r}"},
+            status=status.HTTP_409_CONFLICT,
+        )
     return RestResponse(BoardSerializer(board).data)
 
 
