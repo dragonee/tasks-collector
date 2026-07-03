@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.polybrain.tasks.health.data.BoardAppendRequest
 import org.polybrain.tasks.health.data.BoardItem
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
@@ -126,6 +127,35 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
             } else {
                 _error.value = "Failed to add ${failures.size} of ${texts.size} item(s)."
                 _selected.value = failures.toSet()
+            }
+        }
+    }
+
+    /**
+     * Append a free-typed task to the board the picker is showing, via the
+     * shared /boards/append/ endpoint. Unlike [addSelected] (which schedules
+     * existing board items onto a given day's Plan), this only adds the line to
+     * the board's backlog — for capturing something to tackle later rather than
+     * pinning it to a day. The server resolves which board from the user's
+     * profile, so no thread or date is sent. On success the board list is
+     * reloaded so the new line appears; failures surface via [error].
+     */
+    fun addTask(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            val snapshot = settings.snapshot()
+            _configured.value = snapshot.isConfigured
+            if (!snapshot.isConfigured) {
+                _error.value = "Configure server URL and API token first."
+                return@launch
+            }
+            try {
+                buildApi(snapshot).appendBoardTask(BoardAppendRequest(trimmed))
+                _error.value = null
+                reload()
+            } catch (t: Throwable) {
+                _error.value = t.message ?: t.javaClass.simpleName
             }
         }
     }

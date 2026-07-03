@@ -21,12 +21,16 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,6 +101,11 @@ fun BoardPickerScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+        // Append a new task straight onto this board's backlog — for capturing
+        // something to do later, distinct from the checkbox selection below
+        // (which schedules existing board items onto the chosen day).
+        AddTaskRow(onAdd = vm::addTask, enabled = configured)
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 !configured -> CenteredMessage(stringResource(R.string.today_not_configured))
@@ -140,6 +149,37 @@ fun BoardPickerScreen(
             ) {
                 Text(stringResource(R.string.board_picker_cancel))
             }
+        }
+    }
+}
+
+// Quick-add row mirroring TodayScreen's AddTaskRow: a text field plus an Add
+// button. The draft is cleared as soon as Add is tapped (the ViewModel reloads
+// the board on success, or surfaces an error banner on failure).
+@Composable
+private fun AddTaskRow(onAdd: (String) -> Unit, enabled: Boolean) {
+    var draft by remember { mutableStateOf("") }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            placeholder = { Text(stringResource(R.string.today_add_hint)) },
+            singleLine = true,
+            enabled = enabled,
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = {
+                onAdd(draft)
+                draft = ""
+            },
+            enabled = enabled && draft.isNotBlank(),
+        ) {
+            Text(stringResource(R.string.today_add_button))
         }
     }
 }

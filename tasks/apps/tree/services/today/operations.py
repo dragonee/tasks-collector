@@ -12,16 +12,8 @@ from typing import Optional
 from django.db import transaction
 from django.utils import timezone
 
-from ...models import (
-    Board,
-    JournalAdded,
-    Plan,
-    Profile,
-    Reflection,
-    Story,
-    StoryEvent,
-    Thread,
-)
+from ...board_operations import board_thread_for
+from ...models import Board, JournalAdded, Plan, Reflection, Story, StoryEvent, Thread
 from ..trips.operations import StoryNotFoundError, StoryStoppedError
 from . import board_tree, text_lines
 from .progress import parse_progress, render_progress
@@ -103,24 +95,8 @@ def _daily_thread():
     return Thread.objects.get(name="Daily")
 
 
-def _board_thread_for(user):
-    """The thread whose latest board acts as the user's 'current board'.
-
-    Uses Profile.default_board_thread when set; otherwise falls back to the
-    Daily thread so the operation never silently no-ops on users without a
-    configured default.
-    """
-    try:
-        profile = Profile.objects.select_related("default_board_thread").get(user=user)
-    except Profile.DoesNotExist:
-        return _daily_thread()
-    if profile.default_board_thread is not None:
-        return profile.default_board_thread
-    return _daily_thread()
-
-
 def _current_board(user):
-    thread = _board_thread_for(user)
+    thread = board_thread_for(user)
     board = Board.objects.filter(thread=thread).order_by("-date_started").first()
     if board is None:
         raise NoBoardError(
