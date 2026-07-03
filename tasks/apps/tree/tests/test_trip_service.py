@@ -409,6 +409,88 @@ class TripPhotoServiceTestCase(TestCase):
         self.assertEqual(StoryEvent.objects.filter(story=story, event=first).count(), 1)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_content_hash_dedups_within_trip(self, _exists):
+        # Re-picking the same image (same content_hash) — a fresh key and
+        # idempotency_key each time — returns the photo already in the trip
+        # instead of creating a second one.
+        story = start_trip(self.alice)
+        first = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=f"trips/{self.alice.pk}/{story.pk}/one.jpg",
+            comment="sunset",
+            content_type="image/jpeg",
+            published=timezone.now(),
+            idempotency_key="key-1",
+            content_hash="abc123",
+        )
+        second = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=f"trips/{self.alice.pk}/{story.pk}/two.jpg",
+            comment="sunset again",
+            content_type="image/jpeg",
+            published=timezone.now(),
+            idempotency_key="key-2",
+            content_hash="abc123",
+        )
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(PhotoAdded.objects.filter(content_hash="abc123").count(), 1)
+        self.assertEqual(StoryEvent.objects.filter(story=story, event=first).count(), 1)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_same_content_hash_different_trip_creates_distinct(
+        self, _exists
+    ):
+        # Dedup is scoped to a trip: the same image in a *different* trip is a
+        # new photo (and can't match another user's row either).
+        story_a = start_trip(self.alice)
+        story_b = start_trip(self.alice)
+        first = add_trip_photo(
+            self.alice,
+            story_a.pk,
+            key=f"trips/{self.alice.pk}/{story_a.pk}/a.jpg",
+            comment="x",
+            content_type="image/jpeg",
+            published=timezone.now(),
+            content_hash="dup",
+        )
+        second = add_trip_photo(
+            self.alice,
+            story_b.pk,
+            key=f"trips/{self.alice.pk}/{story_b.pk}/b.jpg",
+            comment="x",
+            content_type="image/jpeg",
+            published=timezone.now(),
+            content_hash="dup",
+        )
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(PhotoAdded.objects.filter(content_hash="dup").count(), 2)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_without_content_hash_allows_duplicates(self, _exists):
+        # A null content_hash must never collapse distinct photos (the filter
+        # would otherwise match every legacy null-hash row).
+        story = start_trip(self.alice)
+        first = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=f"trips/{self.alice.pk}/{story.pk}/one.jpg",
+            comment="x",
+            content_type="image/jpeg",
+            published=timezone.now(),
+        )
+        second = add_trip_photo(
+            self.alice,
+            story.pk,
+            key=f"trips/{self.alice.pk}/{story.pk}/two.jpg",
+            comment="y",
+            content_type="image/jpeg",
+            published=timezone.now(),
+        )
+        self.assertNotEqual(first.pk, second.pk)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_add_trip_photo_with_poi_creates_habittracked(self, _exists):
         story = start_trip(self.alice)
         key = f"trips/{self.alice.pk}/{story.pk}/abc.jpg"

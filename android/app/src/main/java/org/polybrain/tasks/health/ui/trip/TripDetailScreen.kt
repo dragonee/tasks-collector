@@ -85,11 +85,21 @@ fun TripDetailScreen(
     val shareOpen by vm.shareDialogOpen.collectAsState()
     val shareBusy by vm.shareBusy.collectAsState()
 
+    val trackingPaused by vm.trackingPaused.collectAsState()
+
     LaunchedEffect(storyId) { vm.load(storyId) }
 
+    // Multi-select: one photo opens the note dialog (unchanged); two or more
+    // upload directly with no dialog, each getting its location from the track.
     val photoPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia(),
-    ) { uri -> if (uri != null) vm.openAddPhoto(uri) }
+        ActivityResultContracts.PickMultipleVisualMedia(),
+    ) { uris ->
+        when {
+            uris.isEmpty() -> Unit
+            uris.size == 1 -> vm.openAddPhoto(uris.first())
+            else -> vm.sendPhotosDirect(uris)
+        }
+    }
 
     val s = story
     // Pick "HH:mm" vs "yyyy-MM-dd HH:mm" once for this render, based on
@@ -109,8 +119,12 @@ fun TripDetailScreen(
                     title = s.title,
                     startedIso = s.started,
                     stoppedIso = s.stopped,
+                    trackingPaused = trackingPaused,
                     onRename = vm::openRename,
                     onShare = vm::openShare,
+                    onTogglePause = {
+                        if (trackingPaused) vm.resumeTracking() else vm.pauseTracking()
+                    },
                     onStop = vm::stop,
                 )
             }
@@ -321,8 +335,10 @@ private fun TripHeader(
     title: String,
     startedIso: String,
     stoppedIso: String?,
+    trackingPaused: Boolean,
     onRename: () -> Unit,
     onShare: () -> Unit,
+    onTogglePause: () -> Unit,
     onStop: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -362,6 +378,20 @@ private fun TripHeader(
                         },
                     )
                     if (stoppedIso == null) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(
+                                        if (trackingPaused) R.string.trip_detail_resume_tracking
+                                        else R.string.trip_detail_pause_tracking
+                                    )
+                                )
+                            },
+                            onClick = {
+                                menuOpen = false
+                                onTogglePause()
+                            },
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.trip_detail_stop)) },
                             onClick = {

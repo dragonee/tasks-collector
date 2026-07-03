@@ -40,7 +40,7 @@ class OutboxTest {
     @Test
     fun `enqueuePhoto writes the photo bytes alongside the item`() {
         val bytes = byteArrayOf(1, 2, 3, 4, 5)
-        val item = outbox.enqueuePhoto(3L, "caption", "2026-06-06T10:00:00Z", "image/jpeg", bytes)
+        val item = outbox.enqueuePhoto(3L, "caption", "2026-06-06T10:00:00Z", "image/jpeg", bytes)!!
         assertTrue(item.isPhoto)
         assertEquals("image/jpeg", item.contentType)
         assertTrue(outbox.photoFile(item)!!.name.endsWith(".jpg"))
@@ -68,7 +68,7 @@ class OutboxTest {
     @Test
     fun `enqueuePhoto with null story is a standalone photo`() {
         val bytes = byteArrayOf(4, 2)
-        val item = outbox.enqueuePhoto(null, "cap", "2026-06-06T10:00:00Z", "image/jpeg", bytes)
+        val item = outbox.enqueuePhoto(null, "cap", "2026-06-06T10:00:00Z", "image/jpeg", bytes)!!
         assertNull(item.storyId)
         val reloaded = outbox.all().single()
         assertNull(reloaded.storyId)
@@ -82,7 +82,7 @@ class OutboxTest {
     fun `standalone returns only storyless items`() {
         outbox.enqueueNote(1L, "trip note", "t")
         outbox.enqueuePhoto(1L, "trip photo", "t", "image/jpeg", byteArrayOf(1))
-        val solo = outbox.enqueuePhoto(null, "standalone", "t", "image/jpeg", byteArrayOf(2))
+        val solo = outbox.enqueuePhoto(null, "standalone", "t", "image/jpeg", byteArrayOf(2))!!
         assertEquals(listOf(solo.id), outbox.standalone().map { it.id })
     }
 
@@ -99,7 +99,7 @@ class OutboxTest {
 
     @Test
     fun `remove deletes the json and the photo file`() {
-        val item = outbox.enqueuePhoto(1L, "c", "t", "image/png", byteArrayOf(9))
+        val item = outbox.enqueuePhoto(1L, "c", "t", "image/png", byteArrayOf(9))!!
         val photo = outbox.photoFile(item)!!
         assertTrue(photo.exists())
         outbox.remove(item)
@@ -111,5 +111,36 @@ class OutboxTest {
     fun `photoBytes is null for a note`() {
         val item = outbox.enqueueNote(1L, "x", "t")
         assertNull(outbox.photoBytes(item))
+    }
+
+    @Test
+    fun `enqueuePhoto skips an identical image already queued for the story`() {
+        val bytes = byteArrayOf(1, 2, 3)
+        val first = outbox.enqueuePhoto(1L, "a", "t1", "image/jpeg", bytes)
+        // Same bytes -> same content hash -> deduped (returns null, writes nothing).
+        val second = outbox.enqueuePhoto(1L, "b", "t2", "image/jpeg", bytes)
+        assertTrue(first != null)
+        assertNull(second)
+        assertEquals(1, outbox.forStory(1L).size)
+    }
+
+    @Test
+    fun `enqueuePhoto dedups per scope, not across stories`() {
+        val bytes = byteArrayOf(7, 8, 9)
+        assertTrue(outbox.enqueuePhoto(1L, "a", "t", "image/jpeg", bytes) != null)
+        // Same image, different trip -> allowed.
+        assertTrue(outbox.enqueuePhoto(2L, "a", "t", "image/jpeg", bytes) != null)
+        assertEquals(1, outbox.forStory(1L).size)
+        assertEquals(1, outbox.forStory(2L).size)
+    }
+
+    @Test
+    fun `enqueuePhoto re-enqueues an image whose prior copy failed permanently`() {
+        val bytes = byteArrayOf(5, 5, 5)
+        val first = outbox.enqueuePhoto(1L, "a", "t", "image/jpeg", bytes)!!
+        outbox.update(first.copy(failedPermanently = true))
+        // A permanently-failed copy must not block a fresh attempt.
+        val retry = outbox.enqueuePhoto(1L, "a", "t", "image/jpeg", bytes)
+        assertTrue(retry != null)
     }
 }

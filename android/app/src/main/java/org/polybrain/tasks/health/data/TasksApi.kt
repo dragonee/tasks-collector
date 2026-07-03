@@ -228,6 +228,9 @@ data class PhotoConfirmRequest(
     @SerialName("published") val published: String,
     // Client-generated UUID for exactly-once delivery (see TripNoteRequest).
     @SerialName("idempotency_key") val idempotencyKey: String,
+    // Hex SHA-256 of the bytes; lets the server dedup the same image within a
+    // trip even across distinct idempotency keys (re-picks). Null if unknown.
+    @SerialName("content_hash") val contentHash: String? = null,
 )
 
 @Serializable

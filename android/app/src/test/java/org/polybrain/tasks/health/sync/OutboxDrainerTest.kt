@@ -77,7 +77,7 @@ class OutboxDrainerTest {
 
     @Test
     fun `photo first send presigns puts confirms and marks uploaded`() = runTest {
-        val item = outbox.enqueuePhoto(2L, "cap", "t", "image/jpeg", byteArrayOf(1, 2, 3))
+        val item = outbox.enqueuePhoto(2L, "cap", "t", "image/jpeg", byteArrayOf(1, 2, 3))!!
         val api = FakeApi(presignKey = "trips/2/k.jpg", presignUrl = "https://put/x")
         var putCalls = 0
         val put = OutboxDrainer.PhotoPutter { url, _, _ ->
@@ -97,7 +97,7 @@ class OutboxDrainerTest {
 
     @Test
     fun `photo retry skips re-upload when already uploaded`() = runTest {
-        val base = outbox.enqueuePhoto(2L, "cap", "t", "image/jpeg", byteArrayOf(1, 2, 3))
+        val base = outbox.enqueuePhoto(2L, "cap", "t", "image/jpeg", byteArrayOf(1, 2, 3))!!
         // Simulate a previous run that uploaded but failed at confirm.
         val resumed = base.copy(uploaded = true, presignedKey = "trips/2/already.jpg")
         outbox.update(resumed)
@@ -114,7 +114,7 @@ class OutboxDrainerTest {
     @Test
     fun `standalone photo presigns and confirms via storyless endpoints`() = runTest {
         // storyId = null marks a standalone photo (a PhotoTaken with no trip).
-        val item = outbox.enqueuePhoto(null, "cap", "t", "image/jpeg", byteArrayOf(9))
+        val item = outbox.enqueuePhoto(null, "cap", "t", "image/jpeg", byteArrayOf(9))!!
         val api = FakeApi(presignKey = "photos/7/k.jpg", presignUrl = "https://put/s")
         var putCalls = 0
         val put = OutboxDrainer.PhotoPutter { url, _, _ ->
@@ -159,7 +159,7 @@ class OutboxDrainerTest {
 
     @Test
     fun `missing photo bytes is permanent not an endless retry`() = runTest {
-        val item = outbox.enqueuePhoto(1L, "c", "t", "image/jpeg", byteArrayOf(7))
+        val item = outbox.enqueuePhoto(1L, "c", "t", "image/jpeg", byteArrayOf(7))!!
         // Delete the bytes file but keep the item (simulates corruption).
         outbox.photoFile(item)!!.delete()
         val api = FakeApi()

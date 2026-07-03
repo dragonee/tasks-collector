@@ -180,8 +180,13 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                     // storyId = null -> delivered through the storyless endpoints.
                     outbox.enqueuePhoto(null, comment, published, contentType, bytes)
                 }
-                watched = watched + item.id
-                SyncScheduler.drainOutbox(getApplication())
+                // Null means an identical image is already queued (deduped by
+                // content hash) — the existing copy is already watched, so
+                // there's nothing new to deliver.
+                if (item != null) {
+                    watched = watched + item.id
+                    SyncScheduler.drainOutbox(getApplication())
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
