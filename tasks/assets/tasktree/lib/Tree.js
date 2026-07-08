@@ -53,49 +53,58 @@ export default class Tree {
   }
 
   setModel (data) {
-    // The tree and the component must share one identity for the model: nodes
-    // are already reactive proxies (see objectToNode), and the array is made
-    // reactive here so splices done through the tree re-render the component.
-    this.model = reactive(this.parse(data))
+    // Rebuilding from the store must never write back to the store:
+    // refreshIndeterminateState below can flip a parent's checked state and
+    // $emit, and an emit here would dispatch a save while `vm.model` still
+    // holds the PREVIOUS model — persisting a stale (possibly empty) board.
+    this.__silence = true
 
-    /* eslint-disable */
-    requestAnimationFrame(_ => {
+    try {
+      // The tree and the component must share one identity for the model: nodes
+      // are already reactive proxies (see objectToNode), and the array is made
+      // reactive here so splices done through the tree re-render the component.
+      this.model = reactive(this.parse(data))
+
+      // Assigned synchronously: toJSON() serializes vm.model, so any deferral
+      // (this used to wait for a requestAnimationFrame) opens a window where a
+      // dispatched save writes the previous model over the current board.
       this.vm.model = this.model
-    })
-    /* eslint-enable */
 
-    this.selectedNodes = new List()
-    this.checkedNodes = new List()
+      this.selectedNodes = new List()
+      this.checkedNodes = new List()
 
-    recurseDown(this.model, node => {
-      node.tree = this
+      recurseDown(this.model, node => {
+        node.tree = this
 
-      // Store-driven rebuilds replace every Node instance; carry an
-      // in-progress edit over to the node's replacement, matched by id.
-      if (this._editingNode && node.id === this._editingNode.id) {
-        node.isEditing = true
-        this._editingNode = node
-        this.activeElement = node
-      }
-
-      if (node.selected()) {
-        this.selectedNodes.add(node)
-      }
-
-      if (node.checked()) {
-        this.checkedNodes.add(node)
-
-        if (node.parent) {
-          node.parent.refreshIndeterminateState()
+        // Store-driven rebuilds replace every Node instance; carry an
+        // in-progress edit over to the node's replacement, matched by id.
+        if (this._editingNode && node.id === this._editingNode.id) {
+          node.isEditing = true
+          this._editingNode = node
+          this.activeElement = node
         }
-      }
 
-      if (node.disabled()) {
-        node.recurseDown(child => {
-          child.state('disabled', true)
-        })
-      }
-    })
+        if (node.selected()) {
+          this.selectedNodes.add(node)
+        }
+
+        if (node.checked()) {
+          this.checkedNodes.add(node)
+
+          if (node.parent) {
+            node.parent.refreshIndeterminateState()
+          }
+        }
+
+        if (node.disabled()) {
+          node.recurseDown(child => {
+            child.state('disabled', true)
+          })
+        }
+      })
+    } finally {
+      this.__silence = false
+    }
   }
 
   recurseDown (node, fn) {
