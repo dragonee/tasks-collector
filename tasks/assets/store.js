@@ -204,10 +204,20 @@ export const useBoardStore = defineStore('board', {
 
             this.updateBoardInListResponse(newBoard)
 
-            const board = await apiRequest(`/boards/${newBoard.id}/`, {
-                method: 'PUT',
-                body: JSON.stringify(newBoard)
-            })
+            let board
+
+            try {
+                board = await apiRequest(`/boards/${newBoard.id}/`, {
+                    method: 'PUT',
+                    body: JSON.stringify(newBoard)
+                })
+            } catch (error) {
+                // The optimistic update above is now a lie (e.g. the server
+                // refused a board-erasing state) — resync from the server so
+                // the view snaps back to what is actually stored.
+                await this.reloadBoards()
+                throw error
+            }
 
             this.updateBoardInListResponse(board)
         },

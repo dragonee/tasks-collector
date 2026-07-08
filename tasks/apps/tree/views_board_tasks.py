@@ -30,6 +30,26 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     serializer_class = BoardSerializer
 
+    def update(self, request, *args, **kwargs):
+        # A stale or broken client (e.g. a tree view that serialized an empty
+        # model) can PUT `state: []` and silently erase the whole board. An
+        # empty state is only plausible when the board is already down to its
+        # last item — reject the rest as wipes. Clearing a board on purpose
+        # goes through /boards/<id>/commit/, which bypasses this endpoint.
+        new_state = request.data.get("state")
+        current_state = self.get_object().state or []
+
+        if new_state == [] and len(current_state) > 1:
+            return RestResponse(
+                {
+                    "errors": "refusing to erase a non-empty board; "
+                    "use the commit endpoint to clear it"
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return super().update(request, *args, **kwargs)
+
 
 def make_board(thread_name):
     thread = Thread.objects.get(name=thread_name)
