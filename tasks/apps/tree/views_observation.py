@@ -144,15 +144,67 @@ class ObservationEventViewSet(viewsets.ModelViewSet):
         return Event.objects.instance_of(*observation_event_types)
 
 
-class ObservationListView(LoginRequiredMixin, ListView):
-    model = Observation
-    queryset = (
-        Observation.objects.with_attached_count()
-        .select_related("thread", "type")
-        .prefetch_related("observationupdated_set")
-    )
+# Keep in sync with SORT_CHOICES in templatetags/observation_menu.py.
+SORT_ADDED = "added"
+SORT_MODIFIED = "modified"
+DEFAULT_SORT = SORT_ADDED
 
+
+class ObservationListFilterMixin:
+    """Shared lower-pane filtering for the observation folder list views.
+
+    Reads two query-string controls rendered by ``_observation_menu.html``:
+
+    - ``?type=<slug>`` — ephemeral filter by :class:`ObservationType`. Every
+      folder model (Observation / ObservationClosed / InsightRefined) exposes a
+      ``type`` FK, so the same ``type__slug`` filter works across all of them.
+    - ``?sort=added|modified`` — ordering, persisted client-side to localStorage.
+      ``added`` sorts by primary key (creation order); ``modified`` sorts by the
+      most recent activity. Subclasses map each choice to an ORDER BY tuple via
+      ``sort_orderings`` and opt into the last-event annotation as needed.
+    """
+
+    # "modified" defaults to the row's own timestamp; the Observation views
+    # override it with the last-event annotation (see below).
+    sort_orderings = {
+        SORT_ADDED: ("-pk",),
+        SORT_MODIFIED: ("-published", "-pk"),
+    }
+    annotate_last_event = False
+
+    def get_current_sort(self):
+        sort = self.request.GET.get("sort")
+        return sort if sort in self.sort_orderings else DEFAULT_SORT
+
+    def apply_observation_filters(self, queryset):
+        type_slug = self.request.GET.get("type")
+        if type_slug:
+            queryset = queryset.filter(type__slug=type_slug)
+
+        sort = self.get_current_sort()
+        if self.annotate_last_event and sort == SORT_MODIFIED:
+            queryset = queryset.with_last_event_published()
+
+        return queryset.order_by(*self.sort_orderings[sort])
+
+
+class ObservationListView(ObservationListFilterMixin, LoginRequiredMixin, ListView):
+    model = Observation
     paginate_by = 200
+
+    sort_orderings = {
+        SORT_ADDED: ("-pk",),
+        SORT_MODIFIED: ("-last_event_published", "-pk"),
+    }
+    annotate_last_event = True
+
+    def get_queryset(self):
+        queryset = (
+            Observation.objects.with_attached_count()
+            .select_related("thread", "type")
+            .prefetch_related("observationupdated_set")
+        )
+        return self.apply_observation_filters(queryset)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -163,28 +215,36 @@ class ObservationListView(LoginRequiredMixin, ListView):
         return context
 
 
-class ObservationClosedListView(LoginRequiredMixin, ListView):
+class ObservationClosedListView(
+    ObservationListFilterMixin, LoginRequiredMixin, ListView
+):
     model = ObservationClosed
-    queryset = ObservationClosed.objects.select_related("thread", "type").order_by(
-        "-published"
-    )
-
     paginate_by = 100
 
+    def get_queryset(self):
+        queryset = ObservationClosed.objects.select_related("thread", "type")
+        return self.apply_observation_filters(queryset)
 
-class ObservationMineListView(LoginRequiredMixin, ListView):
+
+class ObservationMineListView(ObservationListFilterMixin, LoginRequiredMixin, ListView):
     model = Observation
     template_name = "tree/observation_list.html"
     paginate_by = 200
 
+    sort_orderings = {
+        SORT_ADDED: ("-pk",),
+        SORT_MODIFIED: ("-last_event_published", "-pk"),
+    }
+    annotate_last_event = True
+
     def get_queryset(self):
-        return (
+        queryset = (
             Observation.objects.with_attached_count()
             .filter(user=self.request.user)
             .select_related("thread", "type")
             .prefetch_related("observationupdated_set")
-            .order_by("-pub_date", "-pk")
         )
+        return self.apply_observation_filters(queryset)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -195,7 +255,7 @@ class ObservationMineListView(LoginRequiredMixin, ListView):
         return context
 
 
-class InsightsListView(LoginRequiredMixin, ListView):
+class InsightsListView(ObservationListFilterMixin, LoginRequiredMixin, ListView):
     model = InsightRefined
     template_name = "tree/insights_list.html"
     paginate_by = 100
@@ -206,11 +266,10 @@ class InsightsListView(LoginRequiredMixin, ListView):
             .order_by("-published")
             .values("pk")[:1]
         )
-        return (
-            InsightRefined.objects.filter(pk__in=Subquery(latest_ids))
-            .select_related("thread", "type")
-            .order_by("-published")
-        )
+        queryset = InsightRefined.objects.filter(
+            pk__in=Subquery(latest_ids)
+        ).select_related("thread", "type")
+        return self.apply_observation_filters(queryset)
 
 
 @login_required

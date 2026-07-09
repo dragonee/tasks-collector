@@ -7,6 +7,7 @@ import "./scripts/shared.js";
 import "./app.scss";
 import "./observation_search.js";
 import "./observation_master_detail.js";
+import "./observation_menu.js";
 import "./observation_edit.js";
 import { autosizeAll, resizeTextarea } from "./autosize.js";
 
