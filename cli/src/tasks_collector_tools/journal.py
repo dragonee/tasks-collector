@@ -6,8 +6,6 @@ Usage:
 Options:
     -d, --date DATE  Use this date for the journal entry.
     -T TAGS, --tags TAGS  Add these tags to the journal entry.
-    -s               Also save a copy as new observation, filling Situation field.
-    -o               Alias for -s.
     -Y, --yesterday  Use yesterday's date for the journal entry.
     -t THREAD, --thread THREAD  Use this thread [default: Daily]
     -S ID, --story ID  Attach this journal entry to story ID.
@@ -45,7 +43,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -314,28 +312,6 @@ def main(argv=None):
         r = requests.post(
             url, json=payload, auth=HTTPBasicAuth(config.user, config.password)
         )
-
-        if arguments["-s"] or arguments["-o"]:
-            url = "{}/observation-api/".format(config.url)
-
-            new_payload = {
-                "situation": payload["comment"],
-                "thread": arguments["--thread"],
-                "pub_date": str(date.today()),
-                "type": "observation",
-            }
-
-            r2 = requests.post(
-                url, json=new_payload, auth=HTTPBasicAuth(config.user, config.password)
-            )
-
-            if r2.ok:
-                print("Saved observation under id {}".format(r2.json()["id"]))
-            else:
-                try:
-                    print(json.dumps(r2.json(), indent=4, sort_keys=True))
-                except json.decoder.JSONDecodeError:
-                    print("HTTP {}\n{}".format(r2.status_code, r2.text))
 
     except ConnectionError:
         name = queue_failed_request(
