@@ -45,23 +45,22 @@ def _today(today, published=None):
     return date_cls.today()
 
 
-def _maybe_add_journal(text_for_marker, note, published, daily, done, story=None):
+def _maybe_add_journal(text_for_marker, note, published, daily, story=None):
     """Record a JournalAdded with ``- [x] <text_for_marker>`` followed by
     the user's free-form note, linked to ``story`` when one is given.
 
-    Skipped when:
-    - ``done`` is False (the [x] semantics don't fit reversal); or
-    - ``note`` is falsy (None or empty string) and there is no ``story`` —
-      confirming a check without any text counts as "just tick the task",
-      not journal-worthy. "Save to trip" with an empty note is an explicit
-      choice, so the marker-only entry is kept and linked.
+    Skipped when ``note`` is falsy (None or empty string) and there is no
+    ``story`` — confirming a check without any text counts as "just tick the
+    task", not journal-worthy. "Save to trip" with an empty note is an
+    explicit choice, so the marker-only entry is kept and linked.
 
-    Deliberately bypasses ``services.journalling.process_journal_entry``:
-    the ``[x]`` prefix would otherwise re-trigger reflection extraction
-    and duplicate the line that ``_set_task_done_*`` already wrote to
-    ``Reflection.good``.
+    Only reached for ``done=True`` completions; the caller (``complete_task``)
+    owns the done-state guard. Deliberately bypasses
+    ``services.journalling.process_journal_entry``: the ``[x]`` prefix would
+    otherwise re-trigger reflection extraction and duplicate the line that
+    ``set_task_done`` already wrote to ``Reflection.good``.
     """
-    if not done or (not note and story is None):
+    if not note and story is None:
         return
     marker = f"- [x] {text_for_marker}"
     comment = f"{marker}\n{note}" if note else marker
@@ -186,33 +185,47 @@ def add_task(user, text, today=None):
 
 
 @transaction.atomic
-def set_task_done(
-    user, text, done, today=None, note=None, published=None, story_id=None
-):
-    """Mark the task as done / not-done.
+def set_task_done(user, text, done, today=None, published=None):
+    """Mark the task as done / not-done and sync ``Reflection.good``.
 
     For plain tasks this flips the board node's ``data.state`` and adds /
     removes the line in ``Reflection.good``. For tasks whose text contains
     a progress marker (e.g. ``Do tasks (3)``, ``(2/4) Walk 1km``), this
     advances or rewinds the marker — see ``_set_task_done_progress``.
 
-    When ``note is not None`` and ``done is True`` (and the operation
-    isn't a no-op), a ``JournalAdded`` is recorded too — see
-    ``_maybe_add_journal``. ``story_id`` links that journal entry to an
-    active trip ("Save to trip"); raises ``StoryNotFoundError`` /
-    ``StoryStoppedError`` like the trip endpoints.
+    Returns the marker text a journal entry should use — the input ``text``
+    for plain tasks, or the rendered progress text (e.g. ``Do tasks (3/3)``)
+    for progress tasks — or ``None`` when the request is a no-op (unticking a
+    partially-progressed task). Journal creation itself lives in
+    ``complete_task``; ``process_journal_entry`` calls this directly and
+    ignores the return.
     """
-    story = _owned_active_story(user, story_id) if story_id is not None else None
     progress = parse_progress(text)
     if progress is None:
-        _set_task_done_boolean(user, text, done, today, note, published, story)
-    else:
-        _set_task_done_progress(
-            user, text, done, progress, today, note, published, story
-        )
+        return _set_task_done_boolean(user, text, done, today, published)
+    return _set_task_done_progress(user, text, done, progress, today, published)
 
 
-def _set_task_done_boolean(user, text, done, today, note, published, story=None):
+@transaction.atomic
+def complete_task(
+    user, text, done, today=None, note=None, published=None, story_id=None
+):
+    """Android-edge orchestration: mark the task done / not-done and, for a
+    ``done=True`` completion carrying a ``note`` (or a "Save to trip"
+    ``story_id``), record a ``JournalAdded`` linked to the optional trip.
+
+    ``story_id`` links that journal entry to an active trip; raises
+    ``StoryNotFoundError`` / ``StoryStoppedError`` like the trip endpoints.
+    The whole operation is atomic, so a story error rolls back the board and
+    reflection writes too.
+    """
+    marker_text = set_task_done(user, text, done, today=today, published=published)
+    if done and marker_text is not None:
+        story = _owned_active_story(user, story_id) if story_id is not None else None
+        _maybe_add_journal(marker_text, note, published, _daily_thread(), story)
+
+
+def _set_task_done_boolean(user, text, done, today, published):
     pub_date = _today(today, published)
     board = _current_board(user)
 
@@ -240,7 +253,7 @@ def _set_task_done_boolean(user, text, done, today, note, published, story=None)
         reflection.good = new_good
         reflection.save()
 
-    _maybe_add_journal(text, note, published, daily, done, story)
+    return text
 
 
 def _next_progress_step(progress, done):
@@ -261,12 +274,10 @@ def _next_progress_step(progress, done):
     return 0
 
 
-def _set_task_done_progress(
-    user, text, done, progress, today, note, published, story=None
-):
+def _set_task_done_progress(user, text, done, progress, today, published):
     next_current = _next_progress_step(progress, done)
     if next_current is None:
-        return
+        return None
 
     pub_date = _today(today, published)
     new_text = render_progress(text, progress, next_current)
@@ -318,7 +329,7 @@ def _set_task_done_progress(
         reflection.good = new_good
         reflection.save()
 
-    _maybe_add_journal(new_text, note, published, daily, done, story)
+    return new_text
 
 
 @transaction.atomic

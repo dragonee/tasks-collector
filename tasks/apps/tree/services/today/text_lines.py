@@ -28,6 +28,17 @@ def add_unique_line(value, line):
     return "\n".join(lines + [line])
 
 
+def add_unique_lines(value, lines):
+    """Append each line in order, skipping any already present (in ``value``
+    or earlier in ``lines``). CRLF/CR normalization is inherited from
+    ``add_unique_line``.
+    """
+    result = value
+    for line in lines:
+        result = add_unique_line(result, line)
+    return result
+
+
 def remove_line(value, line):
     return "\n".join(l for l in split_lines(value) if l != line)
 

@@ -13,6 +13,7 @@ from ..services.today import (
     NoBoardError,
     add_task,
     board_tree,
+    complete_task,
     delete_task,
     list_today_tasks,
     set_task_done,
@@ -249,7 +250,7 @@ class TodayServiceTestCase(TestCase):
     def test_check_with_note_creates_journal_entry(self):
         add_task(self.user, "buy bread", today=TODAY)
 
-        set_task_done(
+        complete_task(
             self.user,
             "buy bread",
             True,
@@ -267,7 +268,7 @@ class TodayServiceTestCase(TestCase):
     def test_check_with_empty_note_creates_no_journal_entry(self):
         add_task(self.user, "buy bread", today=TODAY)
 
-        set_task_done(self.user, "buy bread", True, published=PUBLISHED_AT, note="")
+        complete_task(self.user, "buy bread", True, published=PUBLISHED_AT, note="")
 
         # Confirming a check with no text isn't journal-worthy — only
         # actual content gets a JournalAdded.
@@ -276,17 +277,17 @@ class TodayServiceTestCase(TestCase):
     def test_check_without_note_creates_no_journal_entry(self):
         add_task(self.user, "buy bread", today=TODAY)
 
-        set_task_done(self.user, "buy bread", True, published=PUBLISHED_AT)
+        complete_task(self.user, "buy bread", True, published=PUBLISHED_AT)
 
         self.assertFalse(JournalAdded.objects.exists())
 
     def test_uncheck_does_not_create_journal_entry(self):
         add_task(self.user, "buy bread", today=TODAY)
-        set_task_done(self.user, "buy bread", True, today=TODAY)
+        complete_task(self.user, "buy bread", True, today=TODAY)
         # The first tick was without a note, so no entry exists yet.
         self.assertFalse(JournalAdded.objects.exists())
 
-        set_task_done(
+        complete_task(
             self.user,
             "buy bread",
             False,
@@ -299,7 +300,7 @@ class TodayServiceTestCase(TestCase):
     def test_progress_partial_journal_uses_post_tick_text(self):
         add_task(self.user, "Do tasks (3)", today=TODAY)
 
-        set_task_done(
+        complete_task(
             self.user,
             "Do tasks (3)",
             True,
@@ -313,12 +314,12 @@ class TodayServiceTestCase(TestCase):
     def test_progress_completion_journal_matches_reflection_line(self):
         add_task(self.user, "Do tasks (3)", today=TODAY)
         # Advance to (2/3) without notes.
-        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
-        set_task_done(self.user, "Do tasks (1/3)", True, today=TODAY)
+        complete_task(self.user, "Do tasks (3)", True, today=TODAY)
+        complete_task(self.user, "Do tasks (1/3)", True, today=TODAY)
         self.assertFalse(JournalAdded.objects.exists())
 
         # Final tick with a note.
-        set_task_done(
+        complete_task(
             self.user,
             "Do tasks (2/3)",
             True,
@@ -337,11 +338,11 @@ class TodayServiceTestCase(TestCase):
         with the over-quota text."""
         add_task(self.user, "Do tasks (3)", today=TODAY)
         for old in ("Do tasks (3)", "Do tasks (1/3)", "Do tasks (2/3)"):
-            set_task_done(self.user, old, True, today=TODAY)
+            complete_task(self.user, old, True, today=TODAY)
         # Now at (3/3). The above ticks carried no note → no journal yet.
         self.assertFalse(JournalAdded.objects.exists())
 
-        set_task_done(
+        complete_task(
             self.user,
             "Do tasks (3/3)",
             True,
@@ -363,7 +364,7 @@ class TodayServiceTestCase(TestCase):
             side_effect=DatabaseError("boom"),
         ):
             with self.assertRaises(DatabaseError):
-                set_task_done(
+                complete_task(
                     self.user,
                     "buy bread",
                     True,

@@ -40,26 +40,6 @@ def extract_reflection_lines(note):
     ]
 
 
-def append_lines_to_value(value, lines):
-    """
-    Append lines to an existing value, handling empty cases.
-
-    Args:
-        value: The existing field value (may be None or empty).
-        lines: Iterable of lines to append.
-
-    Returns:
-        The combined value with lines appended.
-    """
-    if not value:
-        return "\n".join(lines)
-
-    if not lines:
-        return value
-
-    return (value + "\n" + "\n".join(lines)).strip()
-
-
 def add_reflection_items(journal_added, comment=None):
     """
     Extract reflection items from a journal entry and add them to the Reflection.
@@ -75,8 +55,12 @@ def add_reflection_items(journal_added, comment=None):
         comment: Optional pre-processed comment text. Defaults to
             ``journal_added.comment``.
     """
-    # Import here to avoid circular imports
+    # Imports here to avoid circular imports. ``text_lines`` lives under
+    # ``services/today``; importing it at module scope would run
+    # ``today/__init__`` -> ``operations`` -> ``trips`` -> back into
+    # ``journalling`` (a cycle), so it is imported lazily.
     from ...models import Reflection
+    from ..today import text_lines
 
     if comment is None:
         comment = journal_added.comment
@@ -105,7 +89,7 @@ def add_reflection_items(journal_added, comment=None):
     for field_name in ("good", "better", "best"):
         items = [line for field, line in reflection_lines if field == field_name]
 
-        new_value = append_lines_to_value(getattr(reflection, field_name), items)
+        new_value = text_lines.add_unique_lines(getattr(reflection, field_name), items)
 
         setattr(reflection, field_name, new_value)
 
