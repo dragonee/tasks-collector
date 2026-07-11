@@ -6,6 +6,7 @@ and ``data`` (which holds a ``state`` string and ``meaningfulMarkers``). See
 """
 
 from ...board_operations import create_task_item
+from .progress import base_of
 
 
 def _node_text(node):
@@ -30,6 +31,28 @@ def find_task_by_text(state, text):
             continue
         node = parent_list[i]
         if _node_text(node) == text:
+            return parent_list, i, node
+        stack.append((parent_list, i + 1))
+        children = node.get("children") or []
+        if children:
+            stack.append((children, 0))
+    return None
+
+
+def find_task_by_base(state, base):
+    """Depth-first search for a node whose marker-stripped text (``base_of``)
+    equals ``base`` — so `New task (3)` on the board is found by the base
+    `New task` regardless of the marker form journaled/ticked. First match wins.
+
+    Returns ``(parent_list, index, node)`` on a hit, ``None`` otherwise.
+    """
+    stack = [(state, 0)]
+    while stack:
+        parent_list, i = stack.pop()
+        if i >= len(parent_list):
+            continue
+        node = parent_list[i]
+        if base_of(_node_text(node)) == base:
             return parent_list, i, node
         stack.append((parent_list, i + 1))
         children = node.get("children") or []

@@ -35,18 +35,31 @@ def extract_reflection_lines(note):
     whitespace are stripped first, so ``- [x] foo`` yields ``foo`` — matching
     the board task's text rather than ``- foo``.
 
+    CRLF / CR line endings are normalized to LF before splitting (the CLI's
+    ``sanitize_string`` stores ``\\r\\n``), so a stray ``\\r`` never trails the
+    extracted content — otherwise ``foo\\r`` would neither dedupe nor match the
+    board task ``foo``.
+
+    A progress marker is coerced to single-number ``(K)`` form (``coerce_to_count``),
+    so a client may send either ``New task (1)`` or the displayed ``New task (1/3)``
+    and both store/match as ``New task (1)``.
+
     Args:
         note: The journal note text to parse.
 
     Returns:
         List of (field_name, line_content) tuples.
     """
+    # Lazy: ``today`` at module scope would cycle back through journalling.
+    from ..today.progress import coerce_to_count
+
+    normalized = note.replace("\r\n", "\n").replace("\r", "\n")
     result = []
-    for raw_line in note.split("\n"):
+    for raw_line in normalized.split("\n"):
         line = _LEADING_LIST_MARKER_RE.sub("", raw_line, count=1)
         for prefix, field in REFLECTION_LINE_PREFIXES:
             if line.startswith(prefix):
-                result.append((field, line[len(prefix) :]))
+                result.append((field, coerce_to_count(line[len(prefix) :])))
                 break
     return result
 

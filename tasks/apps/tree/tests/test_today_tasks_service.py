@@ -308,17 +308,19 @@ class TodayServiceTestCase(TestCase):
             note="step one done",
         )
 
+        # Journal records the post-tick display (N=1 -> (2/3)); the count is
+        # stored separately in Reflection.good.
         entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "- [x] Do tasks (1/3)\nstep one done")
+        self.assertEqual(entry.comment, "- [x] Do tasks (2/3)\nstep one done")
 
     def test_progress_completion_journal_matches_reflection_line(self):
         add_task(self.user, "Do tasks (3)", today=TODAY)
-        # Advance to (2/3) without notes.
+        # Advance to N=2 without notes.
         complete_task(self.user, "Do tasks (3)", True, today=TODAY)
         complete_task(self.user, "Do tasks (1/3)", True, today=TODAY)
         self.assertFalse(JournalAdded.objects.exists())
 
-        # Final tick with a note.
+        # Final tick with a note completes the task (N=3).
         complete_task(
             self.user,
             "Do tasks (2/3)",
@@ -330,16 +332,16 @@ class TodayServiceTestCase(TestCase):
         entry = JournalAdded.objects.get(thread=self.daily)
         self.assertEqual(entry.comment, "- [x] Do tasks (3/3)\nfinished")
         reflection = Reflection.objects.get(thread=self.daily)
-        self.assertEqual(reflection.good, "Do tasks (3/3)")
+        self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)\nDo tasks (3)")
 
     def test_add_another_from_complete_journals_with_overquota_text(self):
-        """Tick on a fully-completed progress task is the Add another
-        action — it advances to (N+1/N) and records a new journal entry
-        with the over-quota text."""
+        """Ticking a fully-completed progress task keeps advancing the count
+        (over-quota) and records another journal entry; the display caps at
+        (M/M)."""
         add_task(self.user, "Do tasks (3)", today=TODAY)
         for old in ("Do tasks (3)", "Do tasks (1/3)", "Do tasks (2/3)"):
             complete_task(self.user, old, True, today=TODAY)
-        # Now at (3/3). The above ticks carried no note → no journal yet.
+        # Now at N=3 (crossed). The above ticks carried no note → no journal yet.
         self.assertFalse(JournalAdded.objects.exists())
 
         complete_task(
@@ -350,11 +352,14 @@ class TodayServiceTestCase(TestCase):
             note="one more",
         )
 
+        # Display caps at (3/3); the count 4 is logged in the Reflection.
         entry = JournalAdded.objects.get(thread=self.daily)
-        self.assertEqual(entry.comment, "- [x] Do tasks (4/3)\none more")
-        # Reflection line is renamed in place — not duplicated.
+        self.assertEqual(entry.comment, "- [x] Do tasks (3/3)\none more")
         reflection = Reflection.objects.get(thread=self.daily)
-        self.assertEqual(reflection.good, "Do tasks (4/3)")
+        self.assertEqual(
+            reflection.good,
+            "Do tasks (1)\nDo tasks (2)\nDo tasks (3)\nDo tasks (4)",
+        )
 
     def test_journal_failure_rolls_back_reflection_and_board(self):
         add_task(self.user, "buy bread", today=TODAY)

@@ -175,7 +175,8 @@ def _serialize_plan(pub_date, thread_name):
         "thread": thread_name,
         "pub_date": pub_date.isoformat(),
         "tasks": [
-            {"text": t.text, "done": t.done} for t in plan_tasks(pub_date, thread_name)
+            {"text": t.text, "done": t.done, "mark": t.mark}
+            for t in plan_tasks(pub_date, thread_name)
         ],
     }
 

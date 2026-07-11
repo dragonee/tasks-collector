@@ -97,7 +97,11 @@ class AndroidTaskListView(APIView):
         except NoBoardError:
             return _no_board_response()
         return Response(
-            {"items": [{"text": it.text, "done": it.done} for it in items]},
+            {
+                "items": [
+                    {"text": it.text, "done": it.done, "mark": it.mark} for it in items
+                ]
+            },
             status=status.HTTP_200_OK,
         )
 
