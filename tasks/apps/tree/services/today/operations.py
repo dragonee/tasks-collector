@@ -16,7 +16,13 @@ from ...board_operations import board_thread_for
 from ...models import Board, JournalAdded, Plan, Reflection, Story, StoryEvent, Thread
 from ..trips.operations import StoryNotFoundError, StoryStoppedError
 from . import board_tree, text_lines
-from .progress import parse_progress, render_progress
+from .progress import (
+    base_of,
+    marker_value,
+    parse_progress,
+    render_count,
+    render_progress,
+)
 
 
 class NoBoardError(Exception):
@@ -27,6 +33,7 @@ class NoBoardError(Exception):
 class TodayTask:
     text: str
     done: bool
+    mark: Optional[str] = None  # "~" (better) / "^" (best) for boolean tasks
 
 
 @dataclass(frozen=True)
@@ -105,14 +112,46 @@ def _current_board(user):
     return board
 
 
-def plan_tasks(pub_date, thread_name):
-    """Return the Plan.focus lines for ``pub_date`` / ``thread_name``, each
-    flagged done if it also appears verbatim in that day's Reflection.good.
+def _progress_count(reflection, base):
+    """The task's completed-step count ``N`` = the largest marker value among
+    Reflection good/better/best lines whose base matches ``base`` (0 if none)."""
+    if reflection is None:
+        return 0
+    values = []
+    for field in ("good", "better", "best"):
+        for line in text_lines.split_lines(getattr(reflection, field)):
+            if base_of(line) == base:
+                value = marker_value(line)
+                if value is not None:
+                    values.append(value)
+    return max(values, default=0)
 
-    This is the single source of truth for "is a task crossed off": a plan
-    line is done iff it's an exact-match line in the reflection's ``good``
-    field. Order follows the Plan; empty lines are dropped. Returns an empty
-    list when the thread doesn't exist or there's no plan for the date.
+
+def _boolean_mark(reflection, line):
+    """``(done, mark)`` for a marker-less task line: done if it appears in any
+    Reflection field; ``mark`` is ``~`` (better) / ``^`` (best), None for good."""
+    if reflection is None:
+        return (False, None)
+    if text_lines.has_line(reflection.good, line):
+        return (True, None)
+    if text_lines.has_line(reflection.better, line):
+        return (True, "~")
+    if text_lines.has_line(reflection.best, line):
+        return (True, "^")
+    return (False, None)
+
+
+def plan_tasks(pub_date, thread_name):
+    """Return the day's Plan.focus lines as display tasks, deriving state from
+    the Reflection (Plan/Board text is never rewritten by progress).
+
+    - Marker-less line: done if it appears in any Reflection field
+      (good/better/best), with a ``~``/`^`` mark for better/best.
+    - Counted line ``Base (M)``: ``N`` = the largest count logged for ``Base``
+      across the fields; display ``(min(N+1, M)/M)``; done when ``N >= M``.
+
+    Order follows the Plan; empty lines are dropped. Returns an empty list when
+    the thread doesn't exist or there's no plan for the date.
     """
     thread = Thread.objects.filter(name=thread_name).first()
     if thread is None:
@@ -122,9 +161,23 @@ def plan_tasks(pub_date, thread_name):
     reflection = Reflection.objects.filter(pub_date=pub_date, thread=thread).first()
 
     plan_lines = [l for l in text_lines.split_lines(plan.focus if plan else None) if l]
-    good = set(text_lines.split_lines(reflection.good if reflection else None))
 
-    return [TodayTask(text=line, done=line in good) for line in plan_lines]
+    tasks = []
+    for line in plan_lines:
+        progress = parse_progress(line)
+        if progress is None:
+            done, mark = _boolean_mark(reflection, line)
+            tasks.append(TodayTask(text=line, done=done, mark=mark))
+        else:
+            n = _progress_count(reflection, base_of(line))
+            step = min(n + 1, progress.total)
+            tasks.append(
+                TodayTask(
+                    text=render_progress(line, progress, step),
+                    done=n >= progress.total,
+                )
+            )
+    return tasks
 
 
 @transaction.atomic
@@ -256,80 +309,62 @@ def _set_task_done_boolean(user, text, done, today, published):
     return text
 
 
-def _next_progress_step(progress, done):
-    """Compute the next ``current`` value, or None if the request is a no-op.
-
-    Per the agreed semantics:
-    - ``done=True`` always advances by 1 — including past full completion
-      (e.g. ``(3/3) → (4/3)`` via the "Add another" action on the
-      completed-task dialog).
-    - ``done=False`` resets to pristine ``(N)`` if the task was at or
-      past full completion, otherwise it's a no-op (unticking a
-      partially-progressed task is not meaningful).
-    """
-    if done:
-        return progress.current + 1
-    if progress.current < progress.total:
-        return None
-    return 0
+def _cross_if_complete(board, base, n):
+    """Cross / un-cross the board node matching ``base`` based on whether its
+    completed count ``n`` reached the node's own total. No text edits. Returns
+    True if the node state changed (caller saves the board)."""
+    hit = board_tree.find_task_by_base(board.state, base)
+    if hit is None:
+        return False
+    _, _, node = hit
+    node_progress = parse_progress(board_tree._node_text(node))
+    total = node_progress.total if node_progress else 1
+    new_state = "done" if n >= total else "open"
+    if board_tree.get_state(node) != new_state:
+        board_tree.set_state(node, new_state)
+        return True
+    return False
 
 
 def _set_task_done_progress(user, text, done, progress, today, published):
-    next_current = _next_progress_step(progress, done)
-    if next_current is None:
-        return None
+    """Android-tick progression under the reflection-count model: read the
+    task's current count ``N`` from the Reflection, log the next count line
+    ``Base (N±1)`` (increment on tick, decrement on untick), and cross the
+    matching board node when the count reaches its total. Plan/Board text is
+    never rewritten.
 
+    Returns the display marker text for an optional journal entry, or None on a
+    no-op (untick at zero).
+    """
     pub_date = _today(today, published)
-    new_text = render_progress(text, progress, next_current)
-    # A task is "done" whenever its current step is at or past its total —
-    # this includes over-quota states like (4/3) reached via "Add another".
-    done_before = progress.current >= progress.total
-    done_after = next_current >= progress.total
-
-    board = _current_board(user)
-    hit = board_tree.find_task_by_text(board.state, text)
-    if hit is None:
-        node = board_tree.append_task_at_root(board.state, new_text)
-    else:
-        _, _, node = hit
-        board_tree.rename(node, new_text)
-    board_tree.set_state(node, "done" if done_after else "open")
-    board.save()
-
+    base = base_of(text)
     daily = _daily_thread()
-    plan, _created = Plan.objects.get_or_create(pub_date=pub_date, thread=daily)
-    if text_lines.has_line(plan.focus, text):
-        new_focus = text_lines.replace_line(plan.focus, text, new_text)
-    elif not text_lines.has_line(plan.focus, new_text):
-        new_focus = text_lines.add_unique_line(plan.focus, new_text)
-    else:
-        new_focus = plan.focus
-    if new_focus != (plan.focus or ""):
-        plan.focus = new_focus
-        plan.save()
-
     reflection, _created = Reflection.objects.get_or_create(
         pub_date=pub_date, thread=daily
     )
-    if not done_before and done_after:
-        # Transition into completion: drop any stale marker (defensive)
-        # and add the new fully-complete text.
-        cleaned = text_lines.remove_line(reflection.good, text)
-        new_good = text_lines.add_unique_line(cleaned, new_text)
-    elif done_before and not done_after:
-        # Transition out of completion (Reset): remove the old line.
-        new_good = text_lines.remove_line(reflection.good, text)
-    elif done_before and done_after:
-        # Rename in place — (3/3) → (4/3) via "Add another", or any
-        # other over-quota advance.
-        new_good = text_lines.replace_line(reflection.good, text, new_text)
+    n = _progress_count(reflection, base)
+
+    if done:
+        new_n = n + 1
+        new_good = text_lines.add_unique_line(
+            reflection.good, render_count(text, progress, new_n)
+        )
     else:
-        new_good = reflection.good or ""
+        if n <= 0:
+            return None
+        new_n = n - 1
+        new_good = text_lines.remove_line(
+            reflection.good, render_count(text, progress, n)
+        )
     if new_good != (reflection.good or ""):
         reflection.good = new_good
         reflection.save()
 
-    return new_text
+    board = _current_board(user)
+    if _cross_if_complete(board, base, new_n):
+        board.save()
+
+    return render_progress(text, progress, min(new_n + 1, progress.total))
 
 
 @transaction.atomic

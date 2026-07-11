@@ -88,19 +88,20 @@ class JournalBoardCheckEndpointTestCase(APITestCase):
     def setUp(self):
         self.client.force_authenticate(user=self.user)
         self.board = Board.objects.create(
-            thread=self.daily, state=[create_task_item("Do tasks (2/3)")]
+            thread=self.daily, state=[create_task_item("Do tasks (3)")]
         )
 
-    def test_journal_post_advances_matching_progress_task(self):
+    def test_journal_post_crosses_matching_progress_task_at_total(self):
         resp = self.client.post(
             reverse("journaladded-list"),
-            {"comment": "[x] Do tasks (2/3)", "thread": "Daily", "tags": []},
+            {"comment": "[x] Do tasks (3)", "thread": "Daily", "tags": []},
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
         self.board.refresh_from_db()
-        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3/3)")
+        # Board text is never rewritten; count 3 reaches the total -> crossed.
+        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3)")
         self.assertEqual(self.board.state[0]["data"]["state"], "done")
         reflection = Reflection.objects.get(thread=self.daily)
-        self.assertEqual(reflection.good, "Do tasks (3/3)")
+        self.assertEqual(reflection.good, "Do tasks (3)")

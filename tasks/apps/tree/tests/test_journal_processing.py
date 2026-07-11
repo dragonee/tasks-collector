@@ -118,6 +118,15 @@ class JournalProcessingTestCase(TestCase):
         reflection = Reflection.objects.get()
         self.assertEqual(reflection.good, "did a thing")
 
+    def test_crlf_line_endings_do_not_leave_trailing_cr(self):
+        """CLI comments use CRLF; the stored line must not keep a stray \\r."""
+        process_journal_entry(
+            self._create_journal("- [x] New task (3)\r\n\r\nWill it work?")
+        )
+
+        reflection = Reflection.objects.get()
+        self.assertEqual(reflection.good, "New task (3)")
+
     def test_entry_with_valid_habit_creates_habit_tracked(self):
         """An entry with a valid #habit creates a HabitTracked entry."""
         journal = self._create_journal("#food pizza for lunch")
@@ -231,16 +240,53 @@ class JournalBoardCheckTestCase(TestCase):
         reflection = Reflection.objects.get(thread=self.daily)
         self.assertEqual(reflection.good, "buy bread")
 
-    def test_matching_progress_task_is_advanced(self):
-        self._add_board_task("Do tasks (2/3)")
+    def test_matching_progress_task_partial_logs_count_no_cross(self):
+        self._add_board_task("Do tasks (3)")
 
-        process_journal_entry(self._journal("[x] Do tasks (2/3)"), user=self.user)
+        process_journal_entry(self._journal("[x] Do tasks (1)"), user=self.user)
 
         self.board.refresh_from_db()
-        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        # Board text is never rewritten; not crossed until the count reaches 3.
+        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "open")
         reflection = Reflection.objects.get(thread=self.daily)
-        self.assertEqual(reflection.good, "Do tasks (3/3)")
+        self.assertEqual(reflection.good, "Do tasks (1)")
+
+    def test_matching_progress_task_crosses_when_count_reaches_total(self):
+        self._add_board_task("Do tasks (3)")
+
+        process_journal_entry(self._journal("[x] Do tasks (3)"), user=self.user)
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "done")  # 3 >= 3
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Do tasks (3)")
+
+    def test_multiple_counts_in_one_entry_cross_at_total(self):
+        self._add_board_task("New task (3)")
+
+        process_journal_entry(
+            self._journal("[x] New task (2)\n[x] New task (3)"), user=self.user
+        )
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["state"], "done")  # max=3 >= 3
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "New task (2)\nNew task (3)")
+
+    def test_better_marker_progresses_via_its_field(self):
+        self._add_board_task("New task (3)")
+
+        process_journal_entry(self._journal("[~] New task (3)"), user=self.user)
+
+        self.board.refresh_from_db()
+        self.assertEqual(
+            self.board.state[0]["data"]["state"], "done"
+        )  # count in better
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.better, "New task (3)")
+        self.assertFalse(reflection.good)
 
     def test_unmatched_line_creates_no_board_task(self):
         process_journal_entry(self._journal("[x] not on the board"), user=self.user)
@@ -257,15 +303,30 @@ class JournalBoardCheckTestCase(TestCase):
 
         self.assertEqual(self._board_node("buy bread")["data"]["state"], "open")
 
-    def test_bullet_prefixed_line_matches_and_advances_progress_task(self):
-        # ``- [x] <task>`` (markdown-checkbox style) must strip the leading
-        # bullet so it matches the board task text and progresses it.
+    def test_bullet_prefixed_progress_line_matches_by_base_and_coerces(self):
+        # ``- [x] <task>`` (markdown-checkbox style): strip the bullet, match by
+        # base, and coerce the displayed ``(1/3)`` form to the stored count (1).
         self._add_board_task("Pyszne posiłki (3)")
 
-        process_journal_entry(self._journal("- [x] Pyszne posiłki (3)"), user=self.user)
+        process_journal_entry(
+            self._journal("- [x] Pyszne posiłki (1/3)"), user=self.user
+        )
 
         self.board.refresh_from_db()
-        self.assertEqual(self.board.state[0]["data"]["text"], "Pyszne posiłki (1/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
+        self.assertEqual(self.board.state[0]["data"]["text"], "Pyszne posiłki (3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "open")  # 1 < 3
         reflection = Reflection.objects.get(thread=self.daily)
-        self.assertEqual(reflection.good, "Pyszne posiłki (3)")
+        self.assertEqual(reflection.good, "Pyszne posiłki (1)")
+
+    def test_crlf_bullet_line_matches_and_crosses(self):
+        # The real CLI scenario: a CRLF comment must still match the board.
+        self._add_board_task("New task (3)")
+
+        process_journal_entry(
+            self._journal("- [x] New task (3)\r\n\r\nWill it work?"), user=self.user
+        )
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["state"], "done")  # 3 >= 3
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "New task (3)")

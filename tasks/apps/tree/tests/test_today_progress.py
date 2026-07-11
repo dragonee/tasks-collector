@@ -6,7 +6,7 @@ from django.db import DatabaseError
 from django.test import TestCase
 
 from ..models import Board, Plan, Profile, Reflection, Thread
-from ..services.today import board_tree, set_task_done, text_lines
+from ..services.today import board_tree, plan_tasks, set_task_done, text_lines
 from ..services.today.progress import parse_progress, render_progress
 
 TODAY = date_cls(2026, 5, 21)
@@ -117,7 +117,8 @@ class ProgressLifecycleTestCase(TestCase):
         Reflection.objects.filter(thread=self.daily).delete()
 
     def _seed(self, text):
-        """Put text into Plan and on the board at root level."""
+        """Put the total-form task into Plan and on the board at root level.
+        Under the reflection-count model this text is never rewritten."""
         Plan.objects.create(pub_date=TODAY, thread=self.daily, focus=text)
         self.board.state = [board_tree.append_task_at_root([], text)]
         self.board.save()
@@ -130,61 +131,46 @@ class ProgressLifecycleTestCase(TestCase):
         ).first()
         return plan, reflection
 
-    # --- forward progression -----------------------------------------------
+    def _node(self):
+        self.board.refresh_from_db()
+        return self.board.state[0]
 
-    def test_first_tick_promotes_pristine_to_partial(self):
+    def _display(self):
+        return [(t.text, t.done) for t in plan_tasks(TODAY, "Daily")]
+
+    # --- forward progression: Plan/Board text fixed, count logged ----------
+
+    def test_first_tick_logs_count_and_derives_partial(self):
         self._seed("Do tasks (3)")
 
         set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
 
         plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Do tasks (1/3)")
-        self.assertEqual(self.board.state[0]["text"], "Do tasks (1/3)")
-        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (1/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
-        # Reflection.good must NOT contain the partial form.
-        self.assertTrue(reflection is None or "Do tasks" not in (reflection.good or ""))
+        # Plan and Board text are never rewritten.
+        self.assertEqual(plan.focus, "Do tasks (3)")
+        self.assertEqual(self._node()["data"]["text"], "Do tasks (3)")
+        self.assertEqual(self._node()["data"]["state"], "open")  # 1 < 3
+        # The count is logged in the Reflection.
+        self.assertEqual(reflection.good, "Do tasks (1)")
+        # Display derives (2/3) from N=1.
+        self.assertEqual(self._display(), [("Do tasks (2/3)", False)])
 
-    def test_tick_partial_to_partial(self):
-        self._seed("Do tasks (1/3)")
-
-        set_task_done(self.user, "Do tasks (1/3)", True, today=TODAY)
-
-        plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Do tasks (2/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
-        self.assertTrue(reflection is None or "Do tasks" not in (reflection.good or ""))
-
-    def test_final_tick_marks_complete_and_adds_to_reflection(self):
-        self._seed("Do tasks (2/3)")
-
-        set_task_done(self.user, "Do tasks (2/3)", True, today=TODAY)
-
-        plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Do tasks (3/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "done")
-        # The Vue Board view shows the strikethrough only when this flag
-        # is set — regression for the bug where progressed tasks fully
-        # completed via Android stayed visually unchecked on the web board.
-        self.assertTrue(self.board.state[0]["state"]["checked"])
-        self.assertEqual(reflection.good, "Do tasks (3/3)")
-
-    def test_full_cycle_3_to_complete(self):
+    def test_full_cycle_accumulates_counts_and_crosses_at_total(self):
         self._seed("Do tasks (3)")
 
         set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
-        plan, _ = self._reload()
-        self.assertEqual(plan.focus, "Do tasks (1/3)")
+        self.assertEqual(self._display(), [("Do tasks (2/3)", False)])
 
-        set_task_done(self.user, "Do tasks (1/3)", True, today=TODAY)
-        plan, _ = self._reload()
-        self.assertEqual(plan.focus, "Do tasks (2/3)")
+        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self.assertEqual(self._display(), [("Do tasks (3/3)", False)])
 
-        set_task_done(self.user, "Do tasks (2/3)", True, today=TODAY)
+        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
         plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Do tasks (3/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "done")
-        self.assertEqual(reflection.good, "Do tasks (3/3)")
+        self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)\nDo tasks (3)")
+        self.assertEqual(plan.focus, "Do tasks (3)")  # unchanged
+        self.assertEqual(self._node()["data"]["state"], "done")  # crossed at N>=3
+        self.assertTrue(self._node()["state"]["checked"])
+        self.assertEqual(self._display(), [("Do tasks (3/3)", True)])
 
     def test_single_step_task_completes_on_first_tick(self):
         self._seed("Quick (1)")
@@ -192,118 +178,79 @@ class ProgressLifecycleTestCase(TestCase):
         set_task_done(self.user, "Quick (1)", True, today=TODAY)
 
         plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Quick (1/1)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "done")
-        self.assertEqual(reflection.good, "Quick (1/1)")
+        self.assertEqual(reflection.good, "Quick (1)")
+        self.assertEqual(self._node()["data"]["state"], "done")  # 1 >= 1
+        self.assertEqual(self._display(), [("Quick (1/1)", True)])
 
-    # --- "Add another" past full completion -------------------------------
+    # --- "Add another" past full: over-quota counts, stays crossed --------
 
-    def test_add_another_from_full_advances_overquota(self):
-        """Tick on a fully-completed (N/N) task is no longer a no-op —
-        it advances to (N+1/N) and keeps the task marked done. This is the
-        backend half of the Add another button on the completed-task
-        dialog."""
-        self._seed("Done (3/3)")
-        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="Done (3/3)")
-        self.board.state[0]["data"]["state"] = "done"
-        self.board.state[0]["state"] = {"checked": True}
-        self.board.save()
+    def test_add_another_past_full_keeps_advancing_and_crossed(self):
+        self._seed("Do tasks (3)")
+        for _ in range(3):
+            set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self.assertEqual(self._node()["data"]["state"], "done")
 
-        set_task_done(self.user, "Done (3/3)", True, today=TODAY)
+        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)  # 4th
 
-        plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Done (4/3)")
-        # Still marked done — Add another bumps the count, doesn't reset.
-        self.assertEqual(self.board.state[0]["data"]["state"], "done")
-        self.assertTrue(self.board.state[0]["state"]["checked"])
-        # Reflection line renamed in place — no duplicate, no removal.
-        self.assertEqual(reflection.good, "Done (4/3)")
+        _plan, reflection = self._reload()
+        self.assertIn("Do tasks (4)", reflection.good)
+        self.assertEqual(self._node()["data"]["state"], "done")  # 4 >= 3
+        self.assertEqual(self._display(), [("Do tasks (3/3)", True)])  # step capped
 
-    def test_add_another_from_overquota_keeps_advancing(self):
-        self._seed("Done (4/3)")
-        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="Done (4/3)")
-        self.board.state[0]["data"]["state"] = "done"
-        self.board.state[0]["state"] = {"checked": True}
-        self.board.save()
+    # --- untick: decrement the count, un-cross ----------------------------
 
-        set_task_done(self.user, "Done (4/3)", True, today=TODAY)
+    def test_untick_from_complete_decrements_and_uncrosses(self):
+        self._seed("Do tasks (3)")
+        for _ in range(3):
+            set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self.assertEqual(self._node()["data"]["state"], "done")
 
-        plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Done (5/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "done")
-        self.assertEqual(reflection.good, "Done (5/3)")
+        set_task_done(self.user, "Do tasks (3)", False, today=TODAY)
 
-    def test_reset_from_overquota_returns_to_pristine(self):
-        """Reset on (4/3) — or any over-quota state — goes straight back
-        to the pristine (N) form and clears Reflection.good."""
-        self._seed("Done (4/3)")
-        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="Done (4/3)")
-        self.board.state[0]["data"]["state"] = "done"
-        self.board.state[0]["state"] = {"checked": True}
-        self.board.save()
+        _plan, reflection = self._reload()
+        self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)")  # (3) removed
+        self.assertEqual(self._node()["data"]["state"], "open")  # 2 < 3
+        self.assertEqual(self._display(), [("Do tasks (3/3)", False)])  # N=2 -> step 3
 
-        set_task_done(self.user, "Done (4/3)", False, today=TODAY)
-
-        plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Done (3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
-        self.assertFalse(self.board.state[0]["state"]["checked"])
-        self.assertEqual(reflection.good, "")
-
-    # --- no-ops ------------------------------------------------------------
-
-    def test_untick_on_pristine_is_noop(self):
+    def test_untick_at_zero_is_noop(self):
         self._seed("Fresh (3)")
 
-        set_task_done(self.user, "Fresh (3)", False, today=TODAY)
+        result = set_task_done(self.user, "Fresh (3)", False, today=TODAY)
 
-        plan, _reflection = self._reload()
-        self.assertEqual(plan.focus, "Fresh (3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
+        self.assertIsNone(result)
+        _plan, reflection = self._reload()
+        self.assertEqual(self._node()["data"]["state"], "open")
+        self.assertTrue(reflection is None or not reflection.good)
 
-    def test_untick_on_partial_is_noop(self):
-        self._seed("Mid (2/3)")
+    def test_untick_on_partial_decrements(self):
+        self._seed("Mid (3)")
+        set_task_done(self.user, "Mid (3)", True, today=TODAY)  # N=1
 
-        set_task_done(self.user, "Mid (2/3)", False, today=TODAY)
+        set_task_done(self.user, "Mid (3)", False, today=TODAY)  # back to 0
 
-        plan, _reflection = self._reload()
-        self.assertEqual(plan.focus, "Mid (2/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
-
-    # --- backward (only from full) ----------------------------------------
-
-    def test_untick_from_complete_resets_to_pristine(self):
-        self._seed("Done (3/3)")
-        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="Done (3/3)")
-        self.board.state[0]["data"]["state"] = "done"
-        self.board.save()
-
-        set_task_done(self.user, "Done (3/3)", False, today=TODAY)
-
-        plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Done (3)")
-        self.assertEqual(self.board.state[0]["text"], "Done (3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
+        _plan, reflection = self._reload()
         self.assertEqual(reflection.good, "")
+        self.assertEqual(self._node()["data"]["state"], "open")
 
     # --- marker placement variations --------------------------------------
 
-    def test_mid_text_marker(self):
+    def test_mid_text_marker_logs_count_base(self):
         self._seed("Buy (5) apples")
 
         set_task_done(self.user, "Buy (5) apples", True, today=TODAY)
 
-        plan, _ = self._reload()
-        self.assertEqual(plan.focus, "Buy (1/5) apples")
-        self.assertEqual(self.board.state[0]["text"], "Buy (1/5) apples")
+        _plan, reflection = self._reload()
+        self.assertEqual(reflection.good, "Buy (1) apples")
+        self.assertEqual(self._display(), [("Buy (2/5) apples", False)])
 
-    def test_leading_marker(self):
-        self._seed("(2/4) Walk 1km")
+    def test_leading_marker_logs_count_base(self):
+        self._seed("(4) Walk 1km")
 
-        set_task_done(self.user, "(2/4) Walk 1km", True, today=TODAY)
+        set_task_done(self.user, "(4) Walk 1km", True, today=TODAY)
 
-        plan, _ = self._reload()
-        self.assertEqual(plan.focus, "(3/4) Walk 1km")
+        _plan, reflection = self._reload()
+        self.assertEqual(reflection.good, "(1) Walk 1km")
+        self.assertEqual(self._display(), [("(2/4) Walk 1km", False)])
 
     # --- fallthrough to boolean -------------------------------------------
 
@@ -314,39 +261,40 @@ class ProgressLifecycleTestCase(TestCase):
 
         plan, reflection = self._reload()
         self.assertEqual(plan.focus, "pay bills")  # text unchanged
-        self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        self.assertEqual(self._node()["data"]["state"], "done")
         self.assertEqual(reflection.good, "pay bills")
 
     # --- co-existence with other tasks ------------------------------------
 
-    def test_only_target_line_in_plan_renames(self):
+    def test_only_target_task_progresses(self):
         Plan.objects.create(
             pub_date=TODAY, thread=self.daily, focus="Do tasks (3)\nother task"
         )
-        self.board.state = [
-            board_tree.append_task_at_root([], "Do tasks (3)"),
-        ]
+        self.board.state = [board_tree.append_task_at_root([], "Do tasks (3)")]
         self.board.save()
 
         set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
 
-        plan, _ = self._reload()
-        self.assertEqual(plan.focus, "Do tasks (1/3)\nother task")
+        plan, reflection = self._reload()
+        self.assertEqual(plan.focus, "Do tasks (3)\nother task")  # unchanged
+        self.assertEqual(reflection.good, "Do tasks (1)")
+        self.assertEqual(
+            self._display(),
+            [("Do tasks (2/3)", False), ("other task", False)],
+        )
 
     # --- atomicity --------------------------------------------------------
 
-    def test_reflection_failure_rolls_back_board_and_plan(self):
-        self._seed("Done (2/3)")
+    def test_reflection_failure_rolls_back_board(self):
+        self._seed("Do tasks (3)")
 
         with mock.patch(
             "tasks.apps.tree.services.today.operations.Reflection.save",
             side_effect=DatabaseError("boom"),
         ):
             with self.assertRaises(DatabaseError):
-                set_task_done(self.user, "Done (2/3)", True, today=TODAY)
+                set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
 
-        plan, reflection = self._reload()
-        self.assertEqual(plan.focus, "Done (2/3)")
-        self.assertEqual(self.board.state[0]["text"], "Done (2/3)")
-        self.assertEqual(self.board.state[0]["data"]["state"], "open")
-        self.assertIsNone(reflection)
+        _plan, reflection = self._reload()
+        self.assertEqual(self._node()["data"]["state"], "open")
+        self.assertTrue(reflection is None or not reflection.good)

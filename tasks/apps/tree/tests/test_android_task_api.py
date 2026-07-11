@@ -141,8 +141,8 @@ class AndroidTaskAPITestCase(APITestCase):
             response.json(),
             {
                 "items": [
-                    {"text": "bravo", "done": False},
-                    {"text": "alpha", "done": True},
+                    {"text": "bravo", "done": False, "mark": None},
+                    {"text": "alpha", "done": True, "mark": None},
                 ]
             },
         )
@@ -163,7 +163,7 @@ class AndroidTaskAPITestCase(APITestCase):
         response = self._list(date=yesterday)
         self.assertEqual(
             response.json(),
-            {"items": [{"text": "buy bread", "done": False}]},
+            {"items": [{"text": "buy bread", "done": False, "mark": None}]},
         )
 
     def test_missing_token_returns_401(self):
@@ -283,44 +283,51 @@ class AndroidTaskAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_progress_task_advances_via_repeated_complete(self):
-        """Three POSTs to /complete on a (3) task should advance it to (3/3)
-        and flip the list's done flag."""
+        """A (3) task starts displaying (1/3); each /complete logs the next
+        count and advances the display, crossing the board node at the total.
+        Board/Plan text is never rewritten."""
         self._auth()
         self._add("Do tasks (3)")
 
-        self._complete("Do tasks (3)", True)
+        # Fresh counted task already displays (1/3) (N=0).
         self.assertEqual(
             self._list().json(),
-            {"items": [{"text": "Do tasks (1/3)", "done": False}]},
+            {"items": [{"text": "Do tasks (1/3)", "done": False, "mark": None}]},
         )
 
         self._complete("Do tasks (1/3)", True)
         self.assertEqual(
             self._list().json(),
-            {"items": [{"text": "Do tasks (2/3)", "done": False}]},
+            {"items": [{"text": "Do tasks (2/3)", "done": False, "mark": None}]},
         )
 
         self._complete("Do tasks (2/3)", True)
         self.assertEqual(
             self._list().json(),
-            {"items": [{"text": "Do tasks (3/3)", "done": True}]},
+            {"items": [{"text": "Do tasks (3/3)", "done": False, "mark": None}]},
         )
 
-        # Reflection.good and board state should both reflect completion.
+        self._complete("Do tasks (3/3)", True)
+        self.assertEqual(
+            self._list().json(),
+            {"items": [{"text": "Do tasks (3/3)", "done": True, "mark": None}]},
+        )
+
+        # Counts logged in the Reflection; board text unchanged; node crossed.
         reflection = Reflection.objects.get(thread=self.daily)
-        self.assertEqual(reflection.good, "Do tasks (3/3)")
+        self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)\nDo tasks (3)")
         self.board.refresh_from_db()
-        self.assertEqual(self.board.state[0]["text"], "Do tasks (3/3)")
+        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3)")
         self.assertEqual(self.board.state[0]["data"]["state"], "done")
 
-        # Untick resets to pristine.
+        # Untick decrements the count by one and un-crosses.
         self._complete("Do tasks (3/3)", False)
         self.assertEqual(
             self._list().json(),
-            {"items": [{"text": "Do tasks (3)", "done": False}]},
+            {"items": [{"text": "Do tasks (3/3)", "done": False, "mark": None}]},
         )
         reflection.refresh_from_db()
-        self.assertEqual(reflection.good, "")
+        self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)")
         self.board.refresh_from_db()
         self.assertEqual(self.board.state[0]["data"]["state"], "open")
 
@@ -389,41 +396,39 @@ class AndroidTaskAPITestCase(APITestCase):
         self._complete("Do tasks (3)", True, note="step one done")
 
         entry = JournalAdded.objects.get(thread=self.daily)
-        # Post-tick text in the [x] line, then the user's note.
-        self.assertEqual(entry.comment, "- [x] Do tasks (1/3)\nstep one done")
+        # Post-tick display (N=1 -> (2/3)) in the [x] line, then the note.
+        self.assertEqual(entry.comment, "- [x] Do tasks (2/3)\nstep one done")
 
     def test_add_another_advances_past_full(self):
-        """End-to-end Add another flow: a /complete on a fully-completed
-        progress task bumps it to (N+1/N), keeps the row checked, and
-        records a journal entry with the new over-quota text."""
+        """Ticking past completion keeps logging counts (over-quota) while the
+        display caps at (M/M) and the row stays checked."""
         self._auth()
         self._add("Do tasks (1)")
-        # First tick: (1) → (1/1), done.
+        # First tick completes it: N=1 >= 1 -> display (1/1), done.
         self._complete("Do tasks (1)", True, note="first")
         self.assertEqual(
             self._list().json(),
-            {"items": [{"text": "Do tasks (1/1)", "done": True}]},
+            {"items": [{"text": "Do tasks (1/1)", "done": True, "mark": None}]},
         )
-        # "Add another" tick on the already-done task → (2/1), still done.
+        # "Add another" tick on the already-done task keeps counting.
         self._complete("Do tasks (1/1)", True, note="another one")
 
         self.assertEqual(
             self._list().json(),
-            {"items": [{"text": "Do tasks (2/1)", "done": True}]},
+            {"items": [{"text": "Do tasks (1/1)", "done": True, "mark": None}]},
         )
-        # Reflection.good renamed in place — single line, new text.
+        # Counts accumulate (over-quota); board row stays checked.
         reflection = Reflection.objects.get(thread=self.daily)
-        self.assertEqual(reflection.good, "Do tasks (2/1)")
-        # Board row stays checked.
+        self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)")
         self.board.refresh_from_db()
         self.assertTrue(self.board.state[0]["state"]["checked"])
-        # Two journal entries, one per tick.
+        # Two journal entries, both showing the capped (1/1) display.
         self.assertEqual(
             sorted(JournalAdded.objects.values_list("comment", flat=True)),
             sorted(
                 [
                     "- [x] Do tasks (1/1)\nfirst",
-                    "- [x] Do tasks (2/1)\nanother one",
+                    "- [x] Do tasks (1/1)\nanother one",
                 ]
             ),
         )

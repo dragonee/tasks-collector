@@ -53,9 +53,9 @@ class TodayPlansAPITestCase(APITestCase):
         self.assertEqual(
             daily["tasks"],
             [
-                {"text": "alpha", "done": False},
-                {"text": "bravo", "done": True},
-                {"text": "charlie", "done": False},
+                {"text": "alpha", "done": False, "mark": None},
+                {"text": "bravo", "done": True, "mark": None},
+                {"text": "charlie", "done": False, "mark": None},
             ],
         )
 
@@ -71,13 +71,15 @@ class TodayPlansAPITestCase(APITestCase):
         self.assertEqual(body["weekly"]["thread"], "Weekly")
         self.assertEqual(body["weekly"]["pub_date"], eow.isoformat())
         self.assertEqual(
-            body["weekly"]["tasks"], [{"text": "week task", "done": False}]
+            body["weekly"]["tasks"],
+            [{"text": "week task", "done": False, "mark": None}],
         )
 
         self.assertEqual(body["monthly"]["thread"], "Big-picture")
         self.assertEqual(body["monthly"]["pub_date"], eom.isoformat())
         self.assertEqual(
-            body["monthly"]["tasks"], [{"text": "month task", "done": True}]
+            body["monthly"]["tasks"],
+            [{"text": "month task", "done": True, "mark": None}],
         )
 
     def test_crlf_stored_focus_returns_clean_task_text(self):
@@ -90,8 +92,8 @@ class TodayPlansAPITestCase(APITestCase):
         self.assertEqual(
             tasks,
             [
-                {"text": "alpha", "done": False},
-                {"text": "bravo", "done": True},
+                {"text": "alpha", "done": False, "mark": None},
+                {"text": "bravo", "done": True, "mark": None},
             ],
         )
 

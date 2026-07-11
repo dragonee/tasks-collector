@@ -27,10 +27,10 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
         story: Optional Story instance. When provided, the JournalAdded itself
             and every HabitTracked extracted from hashtags get linked to the
             story via a StoryEvent row.
-        user: Optional user. When given, every ``[x]`` (good) line whose text
-            matches a task on the user's current board also ticks that task
-            via ``set_task_done`` — advancing progress markers just like the
-            Android tick. Passed only by the console/web journal callers.
+        user: Optional user. When given, any reflection line whose base matches
+            a task on the user's current board crosses that task once its
+            progress (derived from the Reflection) reaches the total. Passed
+            only by the console/web journal callers.
     """
     # Import here to avoid circular imports
     from ...models import HabitTracked, StoryEvent, Thread
@@ -63,28 +63,51 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
 
 
 def _check_matching_board_tasks(user, comment, published):
-    """Tick each board task whose text matches a ``[x]`` (good) reflection line.
-
-    ``set_task_done`` handles progress markers, so ``[x] Do tasks (2/3)``
-    advances the matching task the same way the Android tick does. Runs after
-    ``add_reflection_items`` so a completing progress transition self-corrects
-    the reflection line; matching is exact, so an unmatched line never creates
-    a phantom board task.
+    """Cross board tasks based on the Reflection ``add_reflection_items`` just
+    wrote. Runs after it, so counts are current. For each reflection line (any
+    of good/better/best), base-match against the board: a counted task is
+    crossed once its derived count reaches the total; a marker-less task is
+    crossed because the line was recorded. Writes only the board — the
+    Reflection is owned by ``add_reflection_items``.
 
     The ``services.today`` imports are function-local: importing them at module
     scope would run ``today/__init__`` -> ``operations`` -> ``trips`` -> back
     into ``journalling`` (a cycle).
     """
+    from ...models import Reflection, Thread
     from ..today import board_tree
-    from ..today.operations import NoBoardError, _current_board, set_task_done
+    from ..today.operations import (
+        NoBoardError,
+        _cross_if_complete,
+        _current_board,
+        _progress_count,
+    )
+    from ..today.progress import base_of, parse_progress
 
     try:
         board = _current_board(user)
     except NoBoardError:
         return
 
-    for field, line in extract_reflection_lines(comment):
-        if field != "good":
+    daily = Thread.objects.filter(name="Daily").first()
+    reflection = (
+        Reflection.objects.filter(pub_date=published.date(), thread=daily).first()
+        if daily is not None
+        else None
+    )
+
+    changed = False
+    for _field, line in extract_reflection_lines(comment):
+        base = base_of(line)
+        hit = board_tree.find_task_by_base(board.state, base)
+        if hit is None:
             continue
-        if board_tree.find_task_by_text(board.state, line) is not None:
-            set_task_done(user, line, done=True, published=published)
+        _, _, node = hit
+        if parse_progress(board_tree._node_text(node)) is None:
+            if board_tree.get_state(node) != "done":
+                board_tree.set_state(node, "done")
+                changed = True
+        elif _cross_if_complete(board, base, _progress_count(reflection, base)):
+            changed = True
+    if changed:
+        board.save()
