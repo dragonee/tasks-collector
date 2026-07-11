@@ -110,6 +110,14 @@ class JournalProcessingTestCase(TestCase):
         reflection = Reflection.objects.get()
         self.assertEqual(reflection.good, "same good thing")
 
+    def test_leading_list_bullet_is_stripped(self):
+        """A markdown list bullet before the marker is stripped from the
+        stored line, so ``- [x] foo`` yields ``foo`` (not ``- foo``)."""
+        process_journal_entry(self._create_journal("- [x] did a thing"))
+
+        reflection = Reflection.objects.get()
+        self.assertEqual(reflection.good, "did a thing")
+
     def test_entry_with_valid_habit_creates_habit_tracked(self):
         """An entry with a valid #habit creates a HabitTracked entry."""
         journal = self._create_journal("#food pizza for lunch")
@@ -248,3 +256,16 @@ class JournalBoardCheckTestCase(TestCase):
         process_journal_entry(self._journal("[x] buy bread"))
 
         self.assertEqual(self._board_node("buy bread")["data"]["state"], "open")
+
+    def test_bullet_prefixed_line_matches_and_advances_progress_task(self):
+        # ``- [x] <task>`` (markdown-checkbox style) must strip the leading
+        # bullet so it matches the board task text and progresses it.
+        self._add_board_task("Pyszne posiłki (3)")
+
+        process_journal_entry(self._journal("- [x] Pyszne posiłki (3)"), user=self.user)
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["text"], "Pyszne posiłki (1/3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "open")
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Pyszne posiłki (3)")

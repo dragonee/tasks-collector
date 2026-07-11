@@ -5,6 +5,7 @@ This module contains logic for parsing journal entries and extracting
 reflection items (good/better/best) to add to the appropriate Reflection.
 """
 
+import re
 from calendar import monthrange
 from datetime import timedelta
 
@@ -13,6 +14,12 @@ REFLECTION_LINE_PREFIXES = (
     ("[~] ", "better"),
     ("[^] ", "best"),
 )
+
+# Optional leading whitespace and an optional markdown list bullet (``-``,
+# ``*`` or ``+``) before the marker, so both ``[x] foo`` and the
+# markdown-checkbox style ``- [x] foo`` are accepted and strip to ``foo``.
+# This mirrors the ``- [x] <text>`` format the Android tick itself records.
+_LEADING_LIST_MARKER_RE = re.compile(r"^\s*(?:[-*+]\s+)?")
 
 
 def extract_reflection_lines(note):
@@ -24,20 +31,24 @@ def extract_reflection_lines(note):
     - [~] for "better" items
     - [^] for "best" items
 
+    A leading markdown list bullet (``- ``, ``* `` or ``+ ``) and surrounding
+    whitespace are stripped first, so ``- [x] foo`` yields ``foo`` — matching
+    the board task's text rather than ``- foo``.
+
     Args:
         note: The journal note text to parse.
 
     Returns:
         List of (field_name, line_content) tuples.
     """
-    lines = note.split("\n")
-
-    return [
-        (field, line.replace(prefix, "", 1))
-        for line in lines
-        for prefix, field in REFLECTION_LINE_PREFIXES
-        if prefix in line[:12]
-    ]
+    result = []
+    for raw_line in note.split("\n"):
+        line = _LEADING_LIST_MARKER_RE.sub("", raw_line, count=1)
+        for prefix, field in REFLECTION_LINE_PREFIXES:
+            if line.startswith(prefix):
+                result.append((field, line[len(prefix) :]))
+                break
+    return result
 
 
 def add_reflection_items(journal_added, comment=None):
