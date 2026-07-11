@@ -5,7 +5,17 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import HabitTracked, JournalAdded, Story, StoryEvent, Thread
+from ..board_operations import create_task_item
+from ..models import (
+    Board,
+    HabitTracked,
+    JournalAdded,
+    Profile,
+    Reflection,
+    Story,
+    StoryEvent,
+    Thread,
+)
 
 
 class JournalStoryAPITestCase(APITestCase):
@@ -62,3 +72,35 @@ class JournalStoryAPITestCase(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         ids = [s["id"] for s in resp.data["results"]]
         self.assertEqual(ids, [active.pk])
+
+
+class JournalBoardCheckEndpointTestCase(APITestCase):
+    """POSTing an [x] line to the journal endpoint ticks the matching task on
+    the authenticated user's current board (the CLI/console path)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="u", password="x")
+        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
+        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
+
+    def setUp(self):
+        self.client.force_authenticate(user=self.user)
+        self.board = Board.objects.create(
+            thread=self.daily, state=[create_task_item("Do tasks (2/3)")]
+        )
+
+    def test_journal_post_advances_matching_progress_task(self):
+        resp = self.client.post(
+            reverse("journaladded-list"),
+            {"comment": "[x] Do tasks (2/3)", "thread": "Daily", "tags": []},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3/3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Do tasks (3/3)")

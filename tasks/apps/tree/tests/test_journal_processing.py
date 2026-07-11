@@ -1,7 +1,18 @@
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from ..models import Habit, HabitKeyword, HabitTracked, JournalAdded, Reflection, Thread
+from ..board_operations import create_task_item
+from ..models import (
+    Board,
+    Habit,
+    HabitKeyword,
+    HabitTracked,
+    JournalAdded,
+    Profile,
+    Reflection,
+    Thread,
+)
 from ..services.journalling.journal_processing import process_journal_entry
 
 
@@ -91,6 +102,14 @@ class JournalProcessingTestCase(TestCase):
         reflection = Reflection.objects.get()
         self.assertEqual(reflection.good, "first good thing\nsecond good thing")
 
+    def test_reflection_items_are_deduplicated(self):
+        """The same [x] line from two entries is stored once (dedup)."""
+        process_journal_entry(self._create_journal("[x] same good thing"))
+        process_journal_entry(self._create_journal("[x] same good thing"))
+
+        reflection = Reflection.objects.get()
+        self.assertEqual(reflection.good, "same good thing")
+
     def test_entry_with_valid_habit_creates_habit_tracked(self):
         """An entry with a valid #habit creates a HabitTracked entry."""
         journal = self._create_journal("#food pizza for lunch")
@@ -150,9 +169,7 @@ class JournalProcessingTestCase(TestCase):
     def test_indented_and_nested_quoted_lines_are_ignored(self):
         """Indented (`  >`) and nested (`>>`) quote lines are also skipped."""
         journal = self._create_journal(
-            "  > [x] indented quote\n"
-            ">> #food nested quote\n"
-            "[x] kept"
+            "  > [x] indented quote\n" ">> #food nested quote\n" "[x] kept"
         )
 
         process_journal_entry(journal)
@@ -169,3 +186,65 @@ class JournalProcessingTestCase(TestCase):
 
         self.assertEqual(HabitTracked.objects.count(), 1)
         self.assertEqual(HabitTracked.objects.get().note, "#food eaten > a lot")
+
+
+class JournalBoardCheckTestCase(TestCase):
+    """process_journal_entry(user=...) ticks matching current-board tasks."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="phone", password="x")
+        self.daily = Thread.objects.create(name="Daily")
+        Profile.objects.create(user=self.user, default_board_thread=self.daily)
+        self.board = Board.objects.create(thread=self.daily, state=[])
+
+    def _add_board_task(self, text):
+        self.board.state.append(create_task_item(text))
+        self.board.save()
+
+    def _journal(self, comment):
+        return JournalAdded.objects.create(
+            comment=comment, thread=self.daily, published=timezone.now()
+        )
+
+    def _board_node(self, text):
+        self.board.refresh_from_db()
+        for node in self.board.state:
+            if node["data"]["text"] == text:
+                return node
+        return None
+
+    def test_matching_boolean_task_is_checked_and_reflection_deduped(self):
+        self._add_board_task("buy bread")
+
+        process_journal_entry(self._journal("[x] buy bread"), user=self.user)
+
+        self.assertEqual(self._board_node("buy bread")["data"]["state"], "done")
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "buy bread")
+
+    def test_matching_progress_task_is_advanced(self):
+        self._add_board_task("Do tasks (2/3)")
+
+        process_journal_entry(self._journal("[x] Do tasks (2/3)"), user=self.user)
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["data"]["text"], "Do tasks (3/3)")
+        self.assertEqual(self.board.state[0]["data"]["state"], "done")
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "Do tasks (3/3)")
+
+    def test_unmatched_line_creates_no_board_task(self):
+        process_journal_entry(self._journal("[x] not on the board"), user=self.user)
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state, [])
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "not on the board")
+
+    def test_without_user_board_is_untouched(self):
+        self._add_board_task("buy bread")
+
+        process_journal_entry(self._journal("[x] buy bread"))
+
+        self.assertEqual(self._board_node("buy bread")["data"]["state"], "open")

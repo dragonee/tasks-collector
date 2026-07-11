@@ -15,10 +15,10 @@ from .services.health import latest_weight
 from .services.today import (
     NoBoardError,
     add_task,
+    complete_task,
     delete_task,
     list_board_items,
     list_today_tasks,
-    set_task_done,
 )
 from .services.trips import StoryNotFoundError, StoryStoppedError
 
@@ -196,7 +196,7 @@ class AndroidTaskCompleteView(APIView):
                 return _bad_request("story_id must be an integer")
         done = bool(request.data.get("done"))
         try:
-            set_task_done(
+            complete_task(
                 request.user,
                 text,
                 done,

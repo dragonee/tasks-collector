@@ -57,7 +57,12 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
         journal_added = serializer.save()
         skip_habits = "reflection" in self.request.data
         story = serializer.validated_data.get("story")
-        process_journal_entry(journal_added, skip_habits=skip_habits, story=story)
+        process_journal_entry(
+            journal_added,
+            skip_habits=skip_habits,
+            story=story,
+            user=self.request.user,
+        )
 
 
 class ThreadPagination(PageNumberPagination):
@@ -447,7 +452,9 @@ def journal_add(request):
         if form.is_valid():
             journal_added = form.save()
             skip_habits = "reflection" in request.POST
-            process_journal_entry(journal_added, skip_habits=skip_habits)
+            process_journal_entry(
+                journal_added, skip_habits=skip_habits, user=request.user
+            )
 
             messages.success(request, "Journal entry added successfully!")
             today_str = timezone.now().date().isoformat()
