@@ -7,7 +7,12 @@ from django.test import TestCase
 
 from ..models import Board, Plan, Profile, Reflection, Thread
 from ..services.today import board_tree, plan_tasks, set_task_done, text_lines
-from ..services.today.progress import parse_progress, render_progress
+from ..services.today.progress import (
+    parse_progress,
+    remaining_after,
+    render_carried,
+    render_progress,
+)
 
 TODAY = date_cls(2026, 5, 21)
 
@@ -77,6 +82,52 @@ class ProgressRenderTestCase(TestCase):
             render_progress("(2/4) Walk 1km", p, 3),
             "(3/4) Walk 1km",
         )
+
+
+class RemainingAfterTestCase(TestCase):
+    def test_nothing_done_carries_full_total(self):
+        # (1/3) means nothing done yet -> all 3 remain.
+        self.assertEqual(remaining_after("New task (1/3)"), 3)
+
+    def test_partway_carries_remaining(self):
+        # (2/3) means one done -> two remain.
+        self.assertEqual(remaining_after("New task (2/3)"), 2)
+
+    def test_last_step_carries_one(self):
+        # (3/3) means two done -> one remains.
+        self.assertEqual(remaining_after("New task (3/3)"), 1)
+
+    def test_bare_count_is_already_canonical(self):
+        # A single-number (K) form is the stored/canonical shape already.
+        self.assertIsNone(remaining_after("New task (3)"))
+
+    def test_no_marker(self):
+        self.assertIsNone(remaining_after("pay bills"))
+        self.assertIsNone(remaining_after(""))
+        self.assertIsNone(remaining_after(None))
+
+    def test_overshoot_leaves_nothing_to_carry(self):
+        # Over-quota display never reaches the client (it caps at (K/K)), but
+        # a hand-typed (4/3) has -1 remaining -> nothing to carry.
+        self.assertIsNone(remaining_after("New task (4/3)"))
+
+    def test_uses_first_marker(self):
+        self.assertEqual(remaining_after("Do (2/3) the (5) thing"), 2)
+
+
+class RenderCarriedTestCase(TestCase):
+    def test_multiple_remaining_keeps_counter(self):
+        self.assertEqual(render_carried("New task (2/3)", 2), "New task (2)")
+
+    def test_one_remaining_drops_marker(self):
+        # Last item / finished task -> plain, counter-less task.
+        self.assertEqual(render_carried("New task (3/3)", 1), "New task")
+
+    def test_one_remaining_drops_mid_text_marker(self):
+        self.assertEqual(render_carried("Buy (2/2) apples", 1), "Buy apples")
+
+    def test_no_marker_unchanged(self):
+        self.assertEqual(render_carried("pay bills", 1), "pay bills")
 
 
 class ReplaceLineTestCase(TestCase):
