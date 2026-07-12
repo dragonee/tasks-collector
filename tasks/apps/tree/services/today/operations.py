@@ -20,6 +20,8 @@ from .progress import (
     base_of,
     marker_value,
     parse_progress,
+    remaining_after,
+    render_carried,
     render_count,
     render_progress,
 )
@@ -221,8 +223,21 @@ def list_board_items(user):
 def add_task(user, text, today=None):
     """Ensure the task exists on the board (root-level append if missing)
     and that today's Plan.focus contains the line.
+
+    An in-progress display marker ``(N/K)`` — the form the Android list shows
+    for a partly-counted task, carried in verbatim by "Copy to today" / "Move
+    to tomorrow" — is canonically rewritten to the count of the work that still
+    *remains* (``New task (2/3)`` → ``New task (2)``); see
+    ``_add_carried_progress_task``. Plain and already-canonical ``(K)`` tasks
+    take the straight path below.
     """
     pub_date = _today(today)
+
+    remaining = remaining_after(text)
+    if remaining is not None:
+        _add_carried_progress_task(user, text, remaining, pub_date)
+        return
+
     board = _current_board(user)
 
     if board_tree.find_task_by_text(board.state, text) is None:
@@ -232,6 +247,48 @@ def add_task(user, text, today=None):
     daily = _daily_thread()
     plan, _created = Plan.objects.get_or_create(pub_date=pub_date, thread=daily)
     new_focus = text_lines.add_unique_line(plan.focus, text)
+    if new_focus != (plan.focus or ""):
+        plan.focus = new_focus
+        plan.save()
+
+
+def _add_carried_progress_task(user, text, remaining, pub_date):
+    """Carry an in-progress ``(N/K)`` task forward as a fresh ``(remaining)``
+    counter: rename the matching board node's marker to ``(remaining)`` and put
+    the canonical single-number line on the day's Plan.focus.
+
+    When only one step remains (``remaining == 1`` — the last item, or a
+    finished task whose display capped at ``(K/K)``) the marker is dropped
+    altogether and the task carries forward as a plain, counter-less one.
+
+    The board node is matched by base (marker-insensitive) so ``New task (K)`` is
+    found regardless of the display marker; its own text layout is preserved and
+    only the marker value is rewritten. When the task isn't on the board yet, the
+    canonical line is appended at the root.
+    """
+    board = _current_board(user)
+    canonical = render_carried(text, remaining)
+    base = base_of(text)
+
+    hit = board_tree.find_task_by_base(board.state, base)
+    if hit is None:
+        board_tree.append_task_at_root(board.state, canonical)
+        board.save()
+    else:
+        _, _, node = hit
+        node_text = board_tree._node_text(node)
+        new_node_text = (
+            render_carried(node_text, remaining)
+            if parse_progress(node_text) is not None
+            else canonical
+        )
+        if node_text != new_node_text:
+            board_tree.rename(node, new_node_text)
+            board.save()
+
+    daily = _daily_thread()
+    plan, _created = Plan.objects.get_or_create(pub_date=pub_date, thread=daily)
+    new_focus = text_lines.add_unique_line(plan.focus, canonical)
     if new_focus != (plan.focus or ""):
         plan.focus = new_focus
         plan.save()
@@ -371,6 +428,13 @@ def _set_task_done_progress(user, text, done, progress, today, published):
 def delete_task(user, text, today=None):
     """Remove the task from the board (only if leaf) and from today's
     Plan.focus. Reflection.good is intentionally left untouched.
+
+    Board removal matches the exact text, so a carried progress task whose node
+    was already renamed to its remaining count survives (that node is the work
+    moved forward, not deleted). The Plan.focus line is matched by base for
+    progress tasks, because the plan stores the canonical ``(K)`` form while the
+    caller passes the display ``(N/K)`` form — matching by base finds it either
+    way. This is what lets "Move to tomorrow" drop the task off today's plan.
     """
     pub_date = _today(today)
     board = _current_board(user)
@@ -385,7 +449,23 @@ def delete_task(user, text, today=None):
     daily = _daily_thread()
     plan = Plan.objects.filter(pub_date=pub_date, thread=daily).first()
     if plan and plan.focus:
-        new_focus = text_lines.remove_line(plan.focus, text)
+        new_focus = _remove_plan_line(plan.focus, text)
         if new_focus != plan.focus:
             plan.focus = new_focus
             plan.save()
+
+
+def _remove_plan_line(focus, text):
+    """Drop ``text`` from a Plan.focus. Plain lines are removed by exact match;
+    a progress-marked ``text`` removes the counted line whose base matches
+    (marker-insensitive), so the stored ``(K)`` form is found when the caller
+    passes the display ``(N/K)`` form."""
+    if parse_progress(text) is None:
+        return text_lines.remove_line(focus, text)
+    base = base_of(text)
+    kept = [
+        line
+        for line in text_lines.split_lines(focus)
+        if not (parse_progress(line) is not None and base_of(line) == base)
+    ]
+    return "\n".join(kept)

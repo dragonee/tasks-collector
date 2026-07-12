@@ -117,6 +117,143 @@ class TodayServiceTestCase(TestCase):
         plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
         self.assertEqual(plan.focus, "nested")
 
+    # --- add_task: carried progress tasks (Copy to today / Move to tomorrow) -
+
+    def test_add_progress_display_form_canonicalises_to_remaining(self):
+        # "Copy to today" hands the display form (1/3) back to /add; nothing is
+        # done yet, so the whole task (3) is carried onto the new plan.
+        add_task(self.user, "New task (1/3)", today=TODAY)
+
+        plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(plan.focus, "New task (3)")
+
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+        self.assertEqual(self.board.state[0]["text"], "New task (3)")
+
+    def test_add_progress_partway_carries_only_remaining(self):
+        add_task(self.user, "New task (2/3)", today=TODAY)
+
+        plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(plan.focus, "New task (2)")
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["text"], "New task (2)")
+
+    def test_add_progress_renames_existing_board_node_in_place(self):
+        # A board node already carries the original total; carrying (2/3)
+        # forward rewrites that node's marker to the remaining count, keeping
+        # its identity/children rather than appending a duplicate.
+        node = create_task_item("New task (3)")
+        node["children"] = [create_task_item("subtask")]
+        self.board.state = [node]
+        self.board.save()
+
+        add_task(self.user, "New task (2/3)", today=TODAY)
+
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+        self.assertEqual(self.board.state[0]["text"], "New task (2)")
+        self.assertEqual(self.board.state[0]["data"]["text"], "New task (2)")
+        # The node kept its subtree — it was renamed, not replaced.
+        self.assertEqual(self.board.state[0]["children"][0]["text"], "subtask")
+
+    def test_add_progress_preserves_mid_text_marker_on_board(self):
+        self.board.state = [create_task_item("Buy (5) apples")]
+        self.board.save()
+
+        add_task(self.user, "Buy (2/5) apples", today=TODAY)
+
+        plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(plan.focus, "Buy (4) apples")
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["text"], "Buy (4) apples")
+
+    def test_add_progress_carry_is_idempotent(self):
+        add_task(self.user, "New task (2/3)", today=TODAY)
+        add_task(self.user, "New task (2/3)", today=TODAY)
+
+        plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(plan.focus, "New task (2)")
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+
+    def test_add_last_step_carries_as_plain_task(self):
+        # (3/3) means two of three done -> one remains; the last item drops the
+        # counter and carries forward as a plain task.
+        self.board.state = [create_task_item("New task (3)")]
+        self.board.save()
+
+        add_task(self.user, "New task (3/3)", today=TODAY)
+
+        plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(plan.focus, "New task")
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+        self.assertEqual(self.board.state[0]["text"], "New task")
+        self.assertEqual(self.board.state[0]["data"]["text"], "New task")
+
+    def test_copy_finished_task_carries_as_plain_task(self):
+        # A finished counted task on another day (display capped at (K/K));
+        # "Copy to today" drops the counter entirely rather than leaving a "(1)".
+        YESTERDAY = date_cls(2026, 5, 20)
+        add_task(self.user, "New task (2)", today=YESTERDAY)
+        set_task_done(self.user, "New task (2)", True, today=YESTERDAY)
+        set_task_done(self.user, "New task (1/2)", True, today=YESTERDAY)  # (2/2)
+
+        add_task(self.user, "New task (2/2)", today=TODAY)
+
+        today_plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(today_plan.focus, "New task")
+        # Yesterday's counted line is untouched; the shared board node is stripped.
+        yesterday_plan = Plan.objects.get(pub_date=YESTERDAY, thread=self.daily)
+        self.assertEqual(yesterday_plan.focus, "New task (2)")
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+        self.assertEqual(self.board.state[0]["text"], "New task")
+
+    def test_move_last_step_to_tomorrow_as_plain_task(self):
+        TOMORROW = date_cls(2026, 5, 22)
+        add_task(self.user, "New task (2)", today=TODAY)
+        set_task_done(self.user, "New task (2)", True, today=TODAY)  # display (2/2)
+
+        add_task(self.user, "New task (2/2)", today=TOMORROW)
+        delete_task(self.user, "New task (2/2)", today=TODAY)
+
+        tomorrow_plan = Plan.objects.get(pub_date=TOMORROW, thread=self.daily)
+        self.assertEqual(tomorrow_plan.focus, "New task")
+        today_plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(today_plan.focus, "")
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+        self.assertEqual(self.board.state[0]["text"], "New task")
+
+    def test_move_progress_task_to_tomorrow(self):
+        # Full "Move to tomorrow": the task was added and one step ticked, so
+        # today's list shows it as (2/3). Moving hands that display form to
+        # /add (for tomorrow) then /delete (for today).
+        TOMORROW = date_cls(2026, 5, 22)
+        add_task(self.user, "New task (3)", today=TODAY)
+        set_task_done(self.user, "New task (3)", True, today=TODAY)
+
+        add_task(self.user, "New task (2/3)", today=TOMORROW)
+        delete_task(self.user, "New task (2/3)", today=TODAY)
+
+        # Tomorrow carries the two remaining steps; today's plan line is gone.
+        tomorrow_plan = Plan.objects.get(pub_date=TOMORROW, thread=self.daily)
+        self.assertEqual(tomorrow_plan.focus, "New task (2)")
+        today_plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(today_plan.focus, "")
+
+        # The single shared board node now reflects the remaining count and is
+        # still present (it's the carried work, not a deletion).
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+        self.assertEqual(self.board.state[0]["text"], "New task (2)")
+
+        # Today keeps its record of the step done that day.
+        reflection = Reflection.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(reflection.good, "New task (1)")
+
     # --- set_task_done ------------------------------------------------------
 
     def test_set_task_done_true_marks_board_and_appends_reflection(self):

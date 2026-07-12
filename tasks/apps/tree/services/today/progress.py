@@ -100,6 +100,47 @@ def coerce_to_count(text):
     return render_count(text, progress, marker_value(text))
 
 
+def remaining_after(text):
+    """For an in-progress display marker ``(N/K)``, the count of steps that
+    still *remain* if the task is carried forward as a fresh counter:
+    ``K + 1 - N``.
+
+    The display form ``(N/K)`` means "on step N of K", so ``N - 1`` steps are
+    already done and ``K - (N - 1) = K + 1 - N`` remain. Carrying ``New task
+    (1/3)`` (nothing done) forward yields ``3``; ``(2/3)`` (one done) yields
+    ``2``; ``(3/3)`` (two done) yields ``1``.
+
+    Returns ``None`` when ``text`` has no two-number in-progress marker (a bare
+    ``(K)`` is already canonical, marker-less text has nothing to carry) or when
+    the remaining count would drop below 1 (nothing left to carry forward).
+    """
+    match = PROGRESS_RE.search(text or "")
+    if match is None or match.group(2) is None:
+        return None
+    n, k = int(match.group(1)), int(match.group(2))
+    remaining = k + 1 - n
+    return remaining if remaining >= 1 else None
+
+
+def render_carried(text, remaining):
+    """Render ``text``'s first marker for a task carried forward with
+    ``remaining`` steps left.
+
+    - ``remaining > 1`` → ``(remaining)`` (a fresh counter for the rest).
+    - ``remaining <= 1`` → the bare base with the marker dropped, so a task
+      down to its last step — or a finished one, whose display caps at
+      ``(K/K)`` → ``remaining == 1`` — becomes a plain, counter-less task.
+
+    Text without a valid marker is returned unchanged.
+    """
+    progress = parse_progress(text)
+    if progress is None:
+        return text
+    if remaining <= 1:
+        return base_of(text)
+    return render_count(text, progress, remaining)
+
+
 def base_of(text):
     """Return ``text`` with its first progress marker removed, for
     marker-insensitive matching: ``New task (3)`` / ``New task (2/3)`` /
