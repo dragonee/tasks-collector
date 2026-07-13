@@ -217,3 +217,9 @@
     - Each Area has own journal entry then, tagged accordignly
   - [ ] >Thread Task this and that
   - [ ] observation -u should search lastest work on the repo
+
+
+- focus mode
+  - [x] add t) task mode for later - allows to enter a task and go back to focus mode
+  - [x] add r) record #focus but don't complete the task. you can just record habit and stop
+  - [x] add R) record #focus but don't complete the task. open journal with just the #focus line

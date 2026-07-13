@@ -275,11 +275,14 @@ def read_key_with_timeout(timeout):
     return os.read(sys.stdin.fileno(), 1).decode(errors="ignore")
 
 
-def run_focus_clock(task_text):
+def run_focus_clock(task_text, config):
     """Show the live focus screen and block until the user closes it.
 
-    The last line ticks once a second in place. Returns ``"journal"`` when the
-    user presses j/c and ``"exit"`` on x/Esc, along with the elapsed seconds.
+    The last line ticks once a second in place. Returns one of ``"journal"``
+    (j/c, close and journal), ``"record"`` (r, track the habit and stop),
+    ``"record_journal"`` (R, seed a journal with just the ``#focus`` line) or
+    ``"exit"`` (x/Esc), along with the elapsed seconds. Pressing t drops out
+    to capture a task for later and then resumes the same session.
     """
     grey = fg("dark_gray")
     bold = attr("bold")
@@ -288,7 +291,10 @@ def run_focus_clock(task_text):
     start = datetime.now()
 
     print(f"\nFocus mode: {task_text}")
-    print(f"{grey}j/c) to close and journal, x/esc) to exit{reset}")
+    print(
+        f"{grey}j/c) close and journal, r) record habit, R) record and journal, "
+        f"t) task for later, x/esc) exit{reset}"
+    )
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -310,6 +316,16 @@ def run_focus_clock(task_text):
             if key in ("j", "c", "J", "C"):
                 result = "journal"
                 break
+            if key == "r":
+                result = "record"
+                break
+            if key == "R":
+                result = "record_journal"
+                break
+            if key in ("t", "T"):
+                add_focus_task(config, fd, old_settings)
+                print(f"{grey}Resuming focus: {task_text}{reset}")
+                continue
             if key in ("x", "X", "\x1b"):
                 result = "exit"
                 break
@@ -321,10 +337,19 @@ def run_focus_clock(task_text):
     return result, elapsed
 
 
-def run_focus_journal(task_text, elapsed):
-    """Open the journal pre-filled with the focus session for ``task_text``."""
+def run_focus_journal(task_text, elapsed, complete=True):
+    """Open the journal pre-filled with the focus session for ``task_text``.
+
+    When ``complete`` is true the entry crosses the task off (``- [x] TASK``)
+    on top of the ``#focus`` line; otherwise only the ``#focus`` line is
+    seeded, leaving the task open.
+    """
     timer = format_focus_elapsed(elapsed)
-    content = f"- [x] {task_text}\n#focus time={timer} {task_text}\n"
+    focus_line = f"#focus time={timer} {task_text}\n"
+    if complete:
+        content = f"- [x] {task_text}\n{focus_line}"
+    else:
+        content = focus_line
 
     tmpfile = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".md")
     with tmpfile:
@@ -339,12 +364,37 @@ def run_focus_journal(task_text, elapsed):
             pass
 
 
+def record_focus_habit(task_text, elapsed, config):
+    """Track the ``#focus`` habit for this session without crossing the task
+    off or opening the journal."""
+    timer = format_focus_elapsed(elapsed)
+    add_habit(config, f"#focus time={timer} {task_text}")
+
+
+def add_focus_task(config, fd, old_settings):
+    """Temporarily leave the focus screen to capture a task for later, then
+    return so the timer can keep running. Empty input cancels."""
+    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    print()
+    try:
+        text = input("Task for later (empty to cancel): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        text = ""
+
+    if text:
+        add_task(config, config.current_thread, text)
+
+    tty.setcbreak(fd)
+
+
 def focus_mode(args, config):
     """Focus timer over a task from today's Daily plan.
 
     Lists the plan's tasks, lets you pick one, then shows a live-ticking timer.
-    Press j/c to close the session and open a pre-filled journal entry, or
-    x/Esc to exit back to the normal prompt without journaling.
+    Press j/c to close the session and open a pre-filled journal entry, r to
+    just track the ``#focus`` habit (task stays open), R to seed a journal with
+    only the ``#focus`` line, t to capture a task for later and keep focusing,
+    or x/Esc to exit back to the normal prompt without recording anything.
     """
     if not sys.stdin.isatty():
         print("Focus mode requires an interactive terminal.")
@@ -365,10 +415,14 @@ def focus_mode(args, config):
     )
     task_text = plan.tasks[int(choice) - 1]["text"]
 
-    result, elapsed = run_focus_clock(task_text)
+    result, elapsed = run_focus_clock(task_text, config)
 
     if result == "journal":
         run_focus_journal(task_text, elapsed)
+    elif result == "record":
+        record_focus_habit(task_text, elapsed, config)
+    elif result == "record_journal":
+        run_focus_journal(task_text, elapsed, complete=False)
 
 
 commands = {
