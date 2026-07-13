@@ -18,13 +18,19 @@ See more:
 """
 
 import json
+import select
 import shlex
 import subprocess
 import sys
+import tempfile
+import termios
+import tty
 from collections.abc import Iterable
+from datetime import datetime
 from difflib import SequenceMatcher
 
 import requests
+from colored import attr, fg
 from docopt import docopt
 from more_itertools import consume, repeatfunc
 from requests.auth import HTTPBasicAuth
@@ -254,6 +260,117 @@ def select_trip(args, config):
     print(f"Current trip set to #{story['id']} {story.get('title') or ''}".rstrip())
 
 
+def format_focus_elapsed(seconds):
+    """Render an elapsed duration as ``XmXs`` (e.g. ``35m20s``)."""
+    minutes, secs = divmod(int(seconds), 60)
+    return f"{minutes}m{secs}s"
+
+
+def read_key_with_timeout(timeout):
+    """Return a single keypress from stdin, or None if ``timeout`` seconds
+    elapse first. Assumes stdin is already in cbreak mode."""
+    ready, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not ready:
+        return None
+    return os.read(sys.stdin.fileno(), 1).decode(errors="ignore")
+
+
+def run_focus_clock(task_text):
+    """Show the live focus screen and block until the user closes it.
+
+    The last line ticks once a second in place. Returns ``"journal"`` when the
+    user presses j/c and ``"exit"`` on x/Esc, along with the elapsed seconds.
+    """
+    grey = fg("dark_gray")
+    bold = attr("bold")
+    reset = attr("reset")
+
+    start = datetime.now()
+
+    print(f"\nFocus mode: {task_text}")
+    print(f"{grey}j/c) to close and journal, x/esc) to exit{reset}")
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+
+    result = "exit"
+    try:
+        tty.setcbreak(fd)
+
+        while True:
+            elapsed = (datetime.now() - start).total_seconds()
+            timer = format_focus_elapsed(elapsed)
+            line = f"{bold}From {start.strftime('%H:%M')}, {timer}{reset}"
+            sys.stdout.write(f"\r\033[K{line}")
+            sys.stdout.flush()
+
+            key = read_key_with_timeout(1.0)
+            if key is None:
+                continue
+            if key in ("j", "c", "J", "C"):
+                result = "journal"
+                break
+            if key in ("x", "X", "\x1b"):
+                result = "exit"
+                break
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        print()
+
+    elapsed = (datetime.now() - start).total_seconds()
+    return result, elapsed
+
+
+def run_focus_journal(task_text, elapsed):
+    """Open the journal pre-filled with the focus session for ``task_text``."""
+    timer = format_focus_elapsed(elapsed)
+    content = f"- [x] {task_text}\n#focus time={timer} {task_text}\n"
+
+    tmpfile = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".md")
+    with tmpfile:
+        tmpfile.write(content)
+
+    try:
+        subprocess.call(["journal", "-f", tmpfile.name, "-F"])
+    finally:
+        try:
+            os.unlink(tmpfile.name)
+        except OSError:
+            pass
+
+
+def focus_mode(args, config):
+    """Focus timer over a task from today's Daily plan.
+
+    Lists the plan's tasks, lets you pick one, then shows a live-ticking timer.
+    Press j/c to close the session and open a pre-filled journal entry, or
+    x/Esc to exit back to the normal prompt without journaling.
+    """
+    if not sys.stdin.isatty():
+        print("Focus mode requires an interactive terminal.")
+        return
+
+    plan = get_plan_for_today(config)
+
+    if not plan.tasks:
+        print("No tasks in today's plan to focus on.")
+        return
+
+    for i, task in enumerate(plan.tasks, 1):
+        print(f"  {i}) {task['text']}")
+
+    choice = get_input_until(
+        lambda t: t.isdigit() and 1 <= int(t) <= len(plan.tasks),
+        prompt=f"Pick a task to focus on (1-{len(plan.tasks)}): ",
+    )
+    task_text = plan.tasks[int(choice) - 1]["text"]
+
+    result, elapsed = run_focus_clock(task_text)
+
+    if result == "journal":
+        run_focus_journal(task_text, elapsed)
+
+
 commands = {
     "observation": "observation",
     "olist": ["observation", "-l"],
@@ -276,6 +393,7 @@ commands = {
     "reflect": "reflect",
     "thread": change_thread,
     "stats": show_stats,
+    "focus": focus_mode,
 }
 
 
