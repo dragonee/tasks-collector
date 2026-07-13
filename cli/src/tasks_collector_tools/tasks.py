@@ -391,29 +391,34 @@ def focus_mode(args, config):
     """Focus timer over a task from today's Daily plan.
 
     Lists the plan's tasks, lets you pick one, then shows a live-ticking timer.
-    Press j/c to close the session and open a pre-filled journal entry, r to
-    just track the ``#focus`` habit (task stays open), R to seed a journal with
-    only the ``#focus`` line, t to capture a task for later and keep focusing,
-    or x/Esc to exit back to the normal prompt without recording anything.
+    Passing text directly (``focus Some task``) skips the picker and focuses on
+    that text instead. Press j/c to close the session and open a pre-filled
+    journal entry, r to just track the ``#focus`` habit (task stays open), R to
+    seed a journal with only the ``#focus`` line, t to capture a task for later
+    and keep focusing, or x/Esc to exit back to the normal prompt without
+    recording anything.
     """
     if not sys.stdin.isatty():
         print("Focus mode requires an interactive terminal.")
         return
 
-    plan = get_plan_for_today(config)
+    if args:
+        task_text = " ".join(args)
+    else:
+        plan = get_plan_for_today(config)
 
-    if not plan.tasks:
-        print("No tasks in today's plan to focus on.")
-        return
+        if not plan.tasks:
+            print("No tasks in today's plan to focus on.")
+            return
 
-    for i, task in enumerate(plan.tasks, 1):
-        print(f"  {i}) {task['text']}")
+        for i, task in enumerate(plan.tasks, 1):
+            print(f"  {i}) {task['text']}")
 
-    choice = get_input_until(
-        lambda t: t.isdigit() and 1 <= int(t) <= len(plan.tasks),
-        prompt=f"Pick a task to focus on (1-{len(plan.tasks)}): ",
-    )
-    task_text = plan.tasks[int(choice) - 1]["text"]
+        choice = get_input_until(
+            lambda t: t.isdigit() and 1 <= int(t) <= len(plan.tasks),
+            prompt=f"Pick a task to focus on (1-{len(plan.tasks)}): ",
+        )
+        task_text = plan.tasks[int(choice) - 1]["text"]
 
     result, elapsed = run_focus_clock(task_text, config)
 
