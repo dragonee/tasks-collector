@@ -68,7 +68,7 @@ class ObservationAdmin(admin.ModelAdmin):
 class EventAdmin(PolymorphicParentModelAdmin):
     base_model = Event
 
-    list_display = ("__str__", "published", "thread", "event_stream_id")
+    list_display = ("event_name", "published", "thread", "event_stream_id")
 
     child_models = [
         HabitTracked,
@@ -89,6 +89,12 @@ class EventAdmin(PolymorphicParentModelAdmin):
     ]
 
     ordering = ["-published", "-pk"]
+
+    def event_name(self, obj):
+        return str(obj)
+
+    event_name.short_description = "Event"
+    event_name.admin_order_field = "pk"
 
 
 class HabitTrackedAdmin(PolymorphicChildModelAdmin):
