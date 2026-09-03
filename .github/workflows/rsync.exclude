@@ -3,6 +3,7 @@
 /docker
 /docs
 /cli
+/agent
 /manage.py
 /package.json
 /package-lock.json

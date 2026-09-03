@@ -1,0 +1,14 @@
+# uv pins the interpreter here; commit it even though the repo root ignores
+# .python-version globally.
+!.python-version
+
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# Local, machine-specific agent config (keep the .example committed)
+tasks-agent.toml
