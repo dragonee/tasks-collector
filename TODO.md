@@ -223,3 +223,8 @@
   - [x] add t) task mode for later - allows to enter a task and go back to focus mode
   - [x] add r) record #focus but don't complete the task. you can just record habit and stop
   - [x] add R) record #focus but don't complete the task. open journal with just the #focus line
+
+- Focus mode wrap up
+  - I was thinking of making this an usage of the AI Agent
+  - But it might be just that I need to load habits, count minutes, calculate score and assign that against some goal or gamification mechanism
+  - I don't have any gamification mechanisms yet, so there might be some capabilities lacking here

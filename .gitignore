@@ -346,3 +346,6 @@ pbtasks-*.sql
 
 .pyscn/
 REVISION
+.codegraph/
+.codeignore
+knowledge.sqlite*
