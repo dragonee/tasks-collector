@@ -20,7 +20,8 @@ from .services.photos import (
     add_standalone_photo,
     presign_standalone_photo,
 )
-from .views_android_trip import _bad_request, _conflict, _parse_datetime
+from .utils.datetime import parse_aware_datetime
+from .views_android_trip import _bad_request, _conflict
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -66,7 +67,7 @@ class AndroidPhotoConfirmView(APIView):
         comment = request.data.get("comment")
         if not isinstance(comment, str):
             return _bad_request("comment is required")
-        published = _parse_datetime(request.data.get("published"))
+        published = parse_aware_datetime(request.data.get("published"))
         if published is None:
             return _bad_request("published is required (full ISO 8601 timestamp)")
         idempotency_key = request.data.get("idempotency_key")

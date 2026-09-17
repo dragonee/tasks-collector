@@ -230,10 +230,84 @@
     }
 }
 
-// Owner-only "add to trip" affordances (trip_add.js): a grayed "+ add" pill in
-// the lower pane, a modal with one note+photo form, and a drag-and-drop overlay
-// on the map/history column. Only rendered for an active trip the user owns —
-// absent on stopped trips and the public shared page.
+// Owner-only affordances on an active trip: the ⋮ actions menu next to the
+// title (trip_actions.js), a grayed "+ add" pill in the lower pane, the modal
+// chrome both features share, and a drag-and-drop overlay on the map/history
+// column (trip_add.js). All absent on stopped trips and the public page.
+
+// ⋮ menu in the topbar, opening a small dropdown of trip-level actions.
+// Nested under .upper-pane so it outranks the prominent blue primary-action
+// styling _general.scss gives every button in a topbar — plain dark-grey dots
+// on the page background, no box of their own.
+.upper-pane .trip-actions {
+    position: relative;
+    flex: 0 0 auto;
+    line-height: 0;
+
+    .trip-actions-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.8rem;
+        height: 1.8rem;
+        padding: 0;
+
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        color: #555;
+        cursor: pointer;
+
+        &:hover, &:active, &[aria-expanded="true"] {
+            background: transparent;
+            color: #111;
+        }
+    }
+
+    .trip-actions-menu {
+        position: absolute;
+        top: calc(100% + 0.2rem);
+        left: 0;
+        z-index: 900;
+
+        min-width: 10rem;
+        margin: 0;
+        padding: 0.3rem 0;
+        list-style: none;
+
+        background: #fff;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+
+        &[hidden] {
+            display: none;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 0.4rem 1rem;
+
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            color: #212529;
+
+            font-size: 0.9rem;
+            line-height: 1.5;
+            text-align: left;
+            white-space: nowrap;
+            cursor: pointer;
+
+            &:hover, &:active {
+                background: #f8f9fa;
+                color: #212529;
+            }
+        }
+    }
+}
+
 .trip-add-trigger {
     display: inline-flex;
     align-items: center;
@@ -260,7 +334,9 @@
     }
 }
 
-.trip-add-modal {
+// Shared modal chrome: full-screen overlay + centered dialog. Worn by both the
+// add-note/photo modal and the stop-trip one; each keeps its own form styles.
+.trip-modal {
     position: fixed;
     inset: 0;
     z-index: 1000;
@@ -274,13 +350,13 @@
     }
 }
 
-.trip-add-backdrop {
+.trip-modal-backdrop {
     position: absolute;
     inset: 0;
     background: rgba(17, 24, 39, 0.45);
 }
 
-.trip-add-dialog {
+.trip-modal-dialog {
     position: relative;
     width: min(28rem, calc(100vw - 2rem));
     padding: 1.1rem;
@@ -384,12 +460,43 @@
     }
 }
 
-.trip-add-actions {
+// Stop a trip: one datetime-local defaulting to now, for the "I got home
+// yesterday and forgot to stop it" case.
+.trip-stop-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #343434;
+    }
+
+    label {
+        margin: 0;
+        color: #777;
+        font-size: 0.85rem;
+    }
+
+    input[type=datetime-local] {
+        width: 100%;
+        padding: 0.4rem 0.6rem;
+
+        border: 1px solid #c7d8f5;
+        border-radius: 6px;
+
+        font-size: 0.95rem;
+    }
+}
+
+.trip-modal-actions {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 
-    .trip-add-status {
+    .trip-modal-status {
         flex: 1;
         font-size: 0.8rem;
         color: #777;
@@ -406,7 +513,7 @@
         cursor: pointer;
     }
 
-    .trip-add-cancel {
+    .trip-modal-cancel {
         background: #fff;
         border: 1px solid #dadada;
         color: #555;
@@ -416,7 +523,7 @@
         }
     }
 
-    .trip-add-submit {
+    .trip-modal-submit {
         background: #3367d6;
         border: 1px solid #3367d6;
         color: #fff;
@@ -464,7 +571,7 @@
     }
 }
 
-body.trip-add-open {
+body.trip-modal-open {
     overflow: hidden;
 }
 

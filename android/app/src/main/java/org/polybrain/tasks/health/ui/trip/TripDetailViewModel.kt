@@ -29,6 +29,7 @@ import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TripDetailResponse
 import org.polybrain.tasks.health.data.TripEvent
 import org.polybrain.tasks.health.data.TripShare
+import org.polybrain.tasks.health.data.TripStopRequest
 import org.polybrain.tasks.health.data.TripStoryIdRequest
 import org.polybrain.tasks.health.data.TripSummary
 import org.polybrain.tasks.health.data.TripUpdateRequest
@@ -103,6 +104,10 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _renameOpen = MutableStateFlow(false)
     val renameOpen: StateFlow<Boolean> = _renameOpen.asStateFlow()
+
+    /** Open/closed state for the stop-trip dialog (which picks the end time). */
+    private val _stopOpen = MutableStateFlow(false)
+    val stopOpen: StateFlow<Boolean> = _stopOpen.asStateFlow()
 
     /** The trip's public share link (null = not shared). */
     private val _share = MutableStateFlow<TripShare?>(null)
@@ -375,14 +380,30 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         _viewerUrl.value = null
     }
 
-    fun stop() {
+    fun openStop() {
+        _stopOpen.value = true
+    }
+
+    fun closeStop() {
+        _stopOpen.value = false
+    }
+
+    /**
+     * End the trip at [stoppedAt], the moment the user picked in the stop
+     * dialog (defaulted to now). Tracking stops either way — the breadcrumb
+     * trail follows the trip being over, not when it is said to have ended.
+     */
+    fun stop(stoppedAt: OffsetDateTime) {
         val story = _story.value ?: return
         if (story.stopped != null) return
+        _stopOpen.value = false
         viewModelScope.launch {
             val snapshot = ensureConfigured() ?: return@launch
             try {
                 val api = buildApi(snapshot)
-                api.stopTrip(TripStoryIdRequest(storyId = story.id))
+                api.stopTrip(
+                    TripStopRequest(storyId = story.id, stopped = stoppedAt.toString())
+                )
                 // Stop recording the breadcrumb trail for this trip.
                 TripTracker.stop(getApplication(), story.id)
                 reload()

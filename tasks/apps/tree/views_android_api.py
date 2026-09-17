@@ -1,7 +1,5 @@
 from datetime import date as date_cls
-from datetime import datetime as datetime_cls
 
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
@@ -21,6 +19,7 @@ from .services.today import (
     list_today_tasks,
 )
 from .services.trips import StoryNotFoundError, StoryStoppedError
+from .utils.datetime import parse_aware_datetime
 
 
 def _text_from(request):
@@ -38,29 +37,6 @@ def _parse_date(value):
         return date_cls.fromisoformat(str(value))
     except (TypeError, ValueError):
         return None
-
-
-def _parse_datetime(value):
-    """Parse an ISO 8601 timestamp (e.g. ``2026-05-21T15:42:33+02:00``).
-
-    Returns a timezone-aware datetime, or None on any failure. Date-only
-    inputs are rejected so callers can require the full timestamp on
-    ``/complete``. Naive datetimes are made aware in the server's default
-    timezone.
-    """
-    if not value:
-        return None
-    text = str(value)
-    if "T" not in text and " " not in text:
-        # Reject date-only strings — the contract here is a full timestamp.
-        return None
-    try:
-        parsed = datetime_cls.fromisoformat(text)
-    except (TypeError, ValueError):
-        return None
-    if timezone.is_naive(parsed):
-        parsed = timezone.make_aware(parsed)
-    return parsed
 
 
 def _bad_request(message):
@@ -186,7 +162,7 @@ class AndroidTaskCompleteView(APIView):
             return _bad_request("text is required")
         if "done" not in request.data:
             return _bad_request("done is required")
-        published = _parse_datetime(request.data.get("date"))
+        published = parse_aware_datetime(request.data.get("date"))
         if published is None:
             return _bad_request("date is required (full ISO 8601 timestamp)")
         note = request.data.get("note")

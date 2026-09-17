@@ -80,6 +80,7 @@ fun TripDetailScreen(
     val noteOpen by vm.noteDialogOpen.collectAsState()
     val photoOpen by vm.photoDialogOpen.collectAsState()
     val renameOpen by vm.renameOpen.collectAsState()
+    val stopOpen by vm.stopOpen.collectAsState()
     val viewerUrl by vm.viewerUrl.collectAsState()
     val share by vm.share.collectAsState()
     val shareOpen by vm.shareDialogOpen.collectAsState()
@@ -125,7 +126,7 @@ fun TripDetailScreen(
                     onTogglePause = {
                         if (trackingPaused) vm.resumeTracking() else vm.pauseTracking()
                     },
-                    onStop = vm::stop,
+                    onStop = vm::openStop,
                 )
             }
 
@@ -207,6 +208,13 @@ fun TripDetailScreen(
             currentTitle = s.title,
             onConfirm = vm::rename,
             onCancel = vm::closeRename,
+        )
+    }
+    if (stopOpen && s != null) {
+        StopTripDialog(
+            startedIso = s.started,
+            onConfirm = vm::stop,
+            onDismiss = vm::closeStop,
         )
     }
     if (shareOpen) {

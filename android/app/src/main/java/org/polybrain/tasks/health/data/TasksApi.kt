@@ -166,6 +166,16 @@ data class TripStoryIdRequest(
 )
 
 @Serializable
+data class TripStopRequest(
+    @SerialName("story_id") val storyId: Long,
+    // Full ISO 8601 timestamp for when the trip actually ended — the
+    // "I got home yesterday and forgot to stop it" case. null stops it now.
+    // The server clamps a future value to its own now and rejects anything
+    // before the trip started.
+    @SerialName("stopped") val stopped: String? = null,
+)
+
+@Serializable
 data class TripUpdateRequest(
     @SerialName("story_id") val storyId: Long,
     @SerialName("title") val title: String,
@@ -357,7 +367,7 @@ interface TasksApi {
     suspend fun startTrip(@Body body: TripStartRequest): TripResponse
 
     @POST("api/v1/android/trip/stop/")
-    suspend fun stopTrip(@Body body: TripStoryIdRequest): TripResponse
+    suspend fun stopTrip(@Body body: TripStopRequest): TripResponse
 
     @POST("api/v1/android/trip/update/")
     suspend fun updateTrip(@Body body: TripUpdateRequest): TripResponse

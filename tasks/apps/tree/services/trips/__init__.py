@@ -1,4 +1,5 @@
 from .operations import (
+    InvalidStopTimeError,
     PhotoObjectMissingError,
     StoryNotFoundError,
     StoryStoppedError,
@@ -18,6 +19,7 @@ from .operations import (
 )
 
 __all__ = [
+    "InvalidStopTimeError",
     "PhotoObjectMissingError",
     "StoryNotFoundError",
     "StoryStoppedError",

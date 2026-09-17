@@ -3,6 +3,16 @@
 <div class="topbar">
     <div class="upper-pane">
         <h1>{{ story }}</h1>
+        {% if show_share_control and not story.stopped %}
+            <div class="trip-actions" data-trip-actions>
+                <button type="button" class="trip-actions-toggle" aria-haspopup="true" aria-expanded="false" aria-label="Trip actions">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                </button>
+                <ul class="trip-actions-menu" hidden>
+                    <li><button type="button" data-trip-stop-open>Stop trip&hellip;</button></li>
+                </ul>
+            </div>
+        {% endif %}
         {% if show_share_control %}
             {% include "tree/trips/_share_control.html" %}
         {% endif %}
@@ -48,9 +58,9 @@
 </div>
 
 {% if can_add %}
-<div class="trip-add-modal" id="trip-add-modal" data-story-id="{{ story.id }}" hidden>
-    <div class="trip-add-backdrop" data-trip-add-close></div>
-    <div class="trip-add-dialog" role="dialog" aria-modal="true" aria-label="Add to trip">
+<div class="trip-modal" id="trip-add-modal" data-story-id="{{ story.id }}" hidden>
+    <div class="trip-modal-backdrop" data-trip-add-close></div>
+    <div class="trip-modal-dialog" role="dialog" aria-modal="true" aria-label="Add to trip">
         <form class="trip-add-form">
             {% csrf_token %}
             <textarea name="comment" rows="5" placeholder="Note…"></textarea>
@@ -63,10 +73,30 @@
                 <img alt="Selected photo preview">
                 <button type="button" class="trip-add-preview-remove" aria-label="Remove photo">&times;</button>
             </div>
-            <div class="trip-add-actions">
-                <span class="trip-add-status" role="status"></span>
-                <button type="button" class="trip-add-cancel" data-trip-add-close>Cancel</button>
-                <button type="submit" class="trip-add-submit">Add</button>
+            <div class="trip-modal-actions">
+                <span class="trip-modal-status" role="status"></span>
+                <button type="button" class="trip-modal-cancel" data-trip-add-close>Cancel</button>
+                <button type="submit" class="trip-modal-submit">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if show_share_control and not story.stopped %}
+<div class="trip-modal" id="trip-stop-modal" data-story-id="{{ story.id }}"
+     data-started="{{ story.started|date:"Y-m-d" }}T{{ story.started|date:"H:i" }}" hidden>
+    <div class="trip-modal-backdrop" data-trip-stop-close></div>
+    <div class="trip-modal-dialog" role="dialog" aria-modal="true" aria-label="Stop trip">
+        <form class="trip-stop-form">
+            {% csrf_token %}
+            <h2>Stop trip</h2>
+            <label for="trip-stop-when">Ended at</label>
+            <input type="datetime-local" id="trip-stop-when" name="stopped" required>
+            <div class="trip-modal-actions">
+                <span class="trip-modal-status" role="status"></span>
+                <button type="button" class="trip-modal-cancel" data-trip-stop-close>Cancel</button>
+                <button type="submit" class="trip-modal-submit">Stop trip</button>
             </div>
         </form>
     </div>

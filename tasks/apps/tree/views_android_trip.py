@@ -1,7 +1,4 @@
-from datetime import datetime as datetime_cls
-
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
@@ -12,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .services.trips import (
+    InvalidStopTimeError,
     PhotoObjectMissingError,
     StoryNotFoundError,
     StoryStoppedError,
@@ -28,6 +26,7 @@ from .services.trips import (
     unshare_trip,
     update_trip,
 )
+from .utils.datetime import parse_aware_datetime
 
 
 def _bad_request(message):
@@ -40,24 +39,6 @@ def _not_found():
 
 def _conflict(message):
     return Response({"error": message}, status=status.HTTP_409_CONFLICT)
-
-
-def _parse_datetime(value):
-    """Parse an ISO 8601 timestamp. Naive values are made tz-aware in the
-    server's default timezone. Returns None on any failure.
-    """
-    if not value:
-        return None
-    text = str(value)
-    if "T" not in text and " " not in text:
-        return None
-    try:
-        parsed = datetime_cls.fromisoformat(text)
-    except (TypeError, ValueError):
-        return None
-    if timezone.is_naive(parsed):
-        parsed = timezone.make_aware(parsed)
-    return parsed
 
 
 def _serialize_story(story):
@@ -131,6 +112,12 @@ class AndroidTripStartView(APIView):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AndroidTripStopView(APIView):
+    """Stop a trip, optionally backdating its end.
+
+    ``stopped`` is an optional full ISO 8601 timestamp for when the trip
+    actually ended; omitting it stops the trip now.
+    """
+
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
@@ -138,10 +125,18 @@ class AndroidTripStopView(APIView):
         story_id = _story_id_from(request)
         if story_id is None:
             return _bad_request("story_id is required")
+        raw_stopped = request.data.get("stopped")
+        stopped = None
+        if raw_stopped is not None:
+            stopped = parse_aware_datetime(raw_stopped)
+            if stopped is None:
+                return _bad_request("stopped must be a full ISO 8601 timestamp")
         try:
-            story = stop_trip(request.user, story_id)
+            story = stop_trip(request.user, story_id, stopped=stopped)
         except StoryNotFoundError:
             return _not_found()
+        except InvalidStopTimeError as e:
+            return _bad_request(str(e))
         return Response({"story": _serialize_story(story)}, status=status.HTTP_200_OK)
 
 
@@ -224,7 +219,7 @@ class AndroidTripNoteView(APIView):
         comment = request.data.get("comment")
         if not isinstance(comment, str) or not comment.strip():
             return _bad_request("comment is required")
-        published = _parse_datetime(request.data.get("published"))
+        published = parse_aware_datetime(request.data.get("published"))
         if published is None:
             return _bad_request("published is required (full ISO 8601 timestamp)")
         idempotency_key = request.data.get("idempotency_key")
@@ -347,7 +342,7 @@ class AndroidTripPhotoConfirmView(APIView):
         comment = request.data.get("comment")
         if not isinstance(comment, str):
             return _bad_request("comment is required")
-        published = _parse_datetime(request.data.get("published"))
+        published = parse_aware_datetime(request.data.get("published"))
         if published is None:
             return _bad_request("published is required (full ISO 8601 timestamp)")
         idempotency_key = request.data.get("idempotency_key")

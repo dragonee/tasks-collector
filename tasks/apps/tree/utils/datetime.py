@@ -9,6 +9,28 @@ def aware_from_date(d):
     return timezone.make_aware(datetime.combine(d, datetime.min.time()))
 
 
+def parse_aware_datetime(value):
+    """Parse an ISO 8601 timestamp (e.g. ``2026-05-21T15:42:33+02:00``).
+
+    Returns a timezone-aware datetime, or None on any failure. Date-only
+    inputs are rejected so callers can require a full timestamp. Naive
+    datetimes are made aware in the server's default timezone.
+    """
+    if not value:
+        return None
+    text = str(value)
+    if "T" not in text and " " not in text:
+        # Reject date-only strings — the contract here is a full timestamp.
+        return None
+    try:
+        parsed = datetime.fromisoformat(text)
+    except (TypeError, ValueError):
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed)
+    return parsed
+
+
 DayCount = namedtuple("DayCount", ["date", "count"])
 
 

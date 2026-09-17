@@ -1,8 +1,10 @@
 from datetime import datetime as datetime_cls
+from datetime import timedelta
 from datetime import timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -34,10 +36,11 @@ class TripAPITestCase(APITestCase):
             payload["title"] = title
         return self.client.post(reverse("android-trip-start"), payload, format="json")
 
-    def _stop(self, story_id):
-        return self.client.post(
-            reverse("android-trip-stop"), {"story_id": story_id}, format="json"
-        )
+    def _stop(self, story_id, stopped=None):
+        payload = {"story_id": story_id}
+        if stopped is not None:
+            payload["stopped"] = stopped
+        return self.client.post(reverse("android-trip-stop"), payload, format="json")
 
     def _update(self, story_id, title):
         return self.client.post(
@@ -86,6 +89,35 @@ class TripAPITestCase(APITestCase):
         r = self._stop(sid)
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIsNotNone(r.json()["story"]["stopped"])
+
+    def test_stop_accepts_a_backdated_timestamp(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        story = Story.objects.get(pk=sid)
+        story.started = timezone.now() - timedelta(days=2)
+        story.save(update_fields=["started"])
+
+        ended = timezone.now() - timedelta(days=1)
+        r = self._stop(sid, stopped=ended.isoformat())
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        story.refresh_from_db()
+        self.assertEqual(story.stopped, ended)
+
+    def test_stop_before_the_trip_started_returns_400(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        story = Story.objects.get(pk=sid)
+        r = self._stop(sid, stopped=(story.started - timedelta(hours=1)).isoformat())
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        story.refresh_from_db()
+        self.assertIsNone(story.stopped)
+
+    def test_stop_with_a_malformed_timestamp_returns_400(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        r = self._stop(sid, stopped="2026-05-25")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIsNone(Story.objects.get(pk=sid).stopped)
 
     def test_stop_other_user_returns_404(self):
         self._auth()
