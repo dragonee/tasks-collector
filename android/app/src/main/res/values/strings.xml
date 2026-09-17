@@ -28,6 +28,14 @@
     <string name="trip_detail_add_actions">Add note or photo</string>
     <string name="trip_detail_open_in_maps">Open location in Maps</string>
 
+    <string name="trip_stop_dialog_title">Stop trip</string>
+    <string name="trip_stop_time_title">Ended at</string>
+    <string name="trip_stop_hint">The trip ends at this moment. Change it if you got back earlier and forgot to stop it.</string>
+    <string name="trip_stop_change_date">Change date</string>
+    <string name="trip_stop_change_time">Change time</string>
+    <string name="trip_stop_set">Set</string>
+    <string name="trip_stop_out_of_range">Pick a moment between the start of the trip and now.</string>
+
     <string name="trip_note_dialog_title">Add a note</string>
     <string name="trip_note_hint">What\'s going on?</string>
     <string name="trip_send">Send</string>

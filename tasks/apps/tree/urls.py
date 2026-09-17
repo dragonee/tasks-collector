@@ -314,6 +314,7 @@ urlpatterns = [
     path("trips/<int:story_id>/", views_trip.trip_detail, name="trip-detail"),
     path("trips/<int:story_id>/share/", views_trip.trip_share, name="trip-share"),
     path("trips/<int:story_id>/unshare/", views_trip.trip_unshare, name="trip-unshare"),
+    path("trips/<int:story_id>/stop/", views_trip.trip_stop, name="trip-stop"),
     path("trips/<int:story_id>/note/", views_trip.trip_add_note, name="trip-add-note"),
     path(
         "trips/<int:story_id>/photo/presign/",

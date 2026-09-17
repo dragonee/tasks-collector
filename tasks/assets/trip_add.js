@@ -11,6 +11,8 @@
 //
 // Loaded only for the owner of an active trip (see trip_detail.html).
 
+import { bindTripModal } from './trip_modal.js';
+
 // Mirror the server-side allow-list (services/photos/keys.py); the server
 // validates too, this is just a friendly message before any upload.
 const SUPPORTED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
@@ -26,8 +28,8 @@ if (modal) {
     const preview = form.querySelector('.trip-add-preview');
     const previewImg = preview ? preview.querySelector('img') : null;
     const removeBtn = preview ? preview.querySelector('.trip-add-preview-remove') : null;
-    const status = form.querySelector('.trip-add-status');
-    const submit = form.querySelector('.trip-add-submit');
+    const status = form.querySelector('.trip-modal-status');
+    const submit = form.querySelector('.trip-modal-submit');
     const defaultName = nameLabel ? nameLabel.textContent : '';
     let previewUrl = null;
 
@@ -71,17 +73,6 @@ if (modal) {
         }
     }
 
-    function openModal() {
-        modal.hidden = false;
-        document.body.classList.add('trip-add-open');
-        comment.focus();
-    }
-
-    function closeModal() {
-        modal.hidden = true;
-        document.body.classList.remove('trip-add-open');
-    }
-
     function resetForm() {
         form.reset();
         syncFile();
@@ -90,20 +81,14 @@ if (modal) {
 
     // --- open / close ---
 
+    const { open: openModal, close: closeModal } = bindTripModal(modal, {
+        closeSelector: '[data-trip-add-close]',
+        onOpen: () => comment.focus(),
+        onClose: resetForm,
+    });
+
     document.querySelectorAll('[data-trip-add-open]').forEach((btn) => {
         btn.addEventListener('click', openModal);
-    });
-    modal.querySelectorAll('[data-trip-add-close]').forEach((el) => {
-        el.addEventListener('click', () => {
-            closeModal();
-            resetForm();
-        });
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !modal.hidden) {
-            closeModal();
-            resetForm();
-        }
     });
 
     fileInput.addEventListener('change', () => {
@@ -200,7 +185,6 @@ if (modal) {
                 : await addNote(comment.value);
             swapEntries(html);
             closeModal();
-            resetForm();
         } catch (err) {
             setStatus(err.message || 'Something went wrong.', true);
         } finally {

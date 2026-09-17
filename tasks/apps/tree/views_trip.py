@@ -27,6 +27,7 @@ from django.views.decorators.http import require_POST
 from .models import PhotoAdded, Story, StoryEvent
 from .services.photos import storage as photo_storage
 from .services.trips import operations as trip_ops
+from .utils.datetime import parse_aware_datetime
 
 # Trip notes/photos prepend a machine line like "#poi lat=.. lng=..". This is
 # the server-side twin of POI_LINE_RE in tasks/assets/app.js — keep the two in
@@ -260,6 +261,33 @@ def trip_unshare(request, story_id):
         "tree/trips/_share_control.html",
         _share_context(request, story),
     )
+
+
+@login_required
+@require_POST
+def trip_stop(request, story_id):
+    """Stop a trip, optionally backdating its end to a moment in the past.
+
+    Session-auth web twin of ``AndroidTripStopView``. ``stopped`` carries the
+    value of the modal's ``<input type="datetime-local">`` — a naive local
+    timestamp, made aware in the server's timezone; a blank value stops the
+    trip now. Answers 204: the page state changes far beyond the timeline
+    (the add affordances go away), so the client reloads rather than swapping
+    a partial.
+    """
+    raw_stopped = (request.POST.get("stopped") or "").strip()
+    stopped = None
+    if raw_stopped:
+        stopped = parse_aware_datetime(raw_stopped)
+        if stopped is None:
+            return HttpResponseBadRequest("stopped must be a full timestamp")
+    try:
+        trip_ops.stop_trip(request.user, story_id, stopped=stopped)
+    except trip_ops.StoryNotFoundError:
+        raise Http404("Trip not found")
+    except trip_ops.InvalidStopTimeError as e:
+        return HttpResponseBadRequest(str(e))
+    return HttpResponse(status=204)
 
 
 @login_required

@@ -1,6 +1,7 @@
 import io
 import uuid
 from datetime import datetime as datetime_cls
+from datetime import timedelta
 from datetime import timezone as dt_timezone
 from unittest import mock
 
@@ -21,6 +22,7 @@ from ..models import (
     Thread,
 )
 from ..services.trips import (
+    InvalidStopTimeError,
     PhotoObjectMissingError,
     StoryNotFoundError,
     StoryStoppedError,
@@ -76,6 +78,37 @@ class TripServiceTestCase(TestCase):
         story = start_trip(self.alice)
         with self.assertRaises(StoryNotFoundError):
             stop_trip(self.bob, story.pk)
+
+    def test_stop_trip_accepts_a_past_stop_time(self):
+        story = start_trip(self.alice, started=timezone.now() - timedelta(days=2))
+        yesterday = timezone.now() - timedelta(days=1)
+        stopped = stop_trip(self.alice, story.pk, stopped=yesterday)
+        self.assertEqual(stopped.stopped, yesterday)
+
+    def test_stop_trip_rejects_a_stop_before_the_start(self):
+        story = start_trip(self.alice)
+        with self.assertRaises(InvalidStopTimeError):
+            stop_trip(self.alice, story.pk, stopped=story.started - timedelta(hours=1))
+        story.refresh_from_db()
+        self.assertIsNone(story.stopped)
+
+    def test_stop_trip_clamps_a_future_stop_to_now(self):
+        """A device clock running ahead of the server must not fail an
+        ordinary "stop it now"."""
+        story = start_trip(self.alice)
+        before = timezone.now()
+        stopped = stop_trip(
+            self.alice, story.pk, stopped=timezone.now() + timedelta(hours=3)
+        )
+        self.assertLessEqual(before, stopped.stopped)
+        self.assertLessEqual(stopped.stopped, timezone.now())
+
+    def test_stop_trip_on_a_stopped_trip_keeps_the_original_time(self):
+        story = start_trip(self.alice, started=timezone.now() - timedelta(days=2))
+        first = stop_trip(self.alice, story.pk).stopped
+        stop_trip(self.alice, story.pk, stopped=timezone.now() - timedelta(days=1))
+        story.refresh_from_db()
+        self.assertEqual(story.stopped, first)
 
     def test_update_trip_renames(self):
         story = start_trip(self.alice, title="A")

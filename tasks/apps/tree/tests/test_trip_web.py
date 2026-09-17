@@ -299,6 +299,79 @@ class TripWebTestCase(TestCase):
         self.assertEqual(r.status_code, 404)
         self.assertTrue(SharedStory.objects.filter(story=theirs).exists())
 
+    # --- stop a trip ---
+
+    def test_active_trip_shows_stop_affordances(self):
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        # The ⋮ menu next to the title and the modal its item opens.
+        self.assertContains(r, "data-trip-actions")
+        self.assertContains(r, "data-trip-stop-open")
+        self.assertContains(r, 'id="trip-stop-modal"')
+
+    def test_stopped_trip_hides_stop_affordances(self):
+        self.story.stopped = timezone.now()
+        self.story.save(update_fields=["stopped"])
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "data-trip-actions")
+        self.assertNotContains(r, 'id="trip-stop-modal"')
+
+    def test_trip_stop_without_a_time_stops_now(self):
+        before = timezone.now()
+        r = self.client.post(reverse("trip-stop", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 204)
+        self.story.refresh_from_db()
+        self.assertIsNotNone(self.story.stopped)
+        self.assertLessEqual(before, self.story.stopped)
+
+    def test_trip_stop_backdates_to_the_posted_local_time(self):
+        self.story.started = timezone.now() - timedelta(days=2)
+        self.story.save(update_fields=["started"])
+        # What <input type="datetime-local"> submits: naive local wall-clock.
+        ended = timezone.localtime(timezone.now() - timedelta(days=1)).replace(
+            second=0, microsecond=0
+        )
+        r = self.client.post(
+            reverse("trip-stop", args=[self.story.pk]),
+            {"stopped": ended.strftime("%Y-%m-%dT%H:%M")},
+        )
+        self.assertEqual(r.status_code, 204)
+        self.story.refresh_from_db()
+        self.assertEqual(timezone.localtime(self.story.stopped), ended)
+
+    def test_trip_stop_before_the_start_400(self):
+        r = self.client.post(
+            reverse("trip-stop", args=[self.story.pk]),
+            {
+                "stopped": timezone.localtime(
+                    self.story.started - timedelta(hours=1)
+                ).strftime("%Y-%m-%dT%H:%M")
+            },
+        )
+        self.assertEqual(r.status_code, 400)
+        self.story.refresh_from_db()
+        self.assertIsNone(self.story.stopped)
+
+    def test_trip_stop_malformed_time_400(self):
+        r = self.client.post(
+            reverse("trip-stop", args=[self.story.pk]), {"stopped": "yesterday"}
+        )
+        self.assertEqual(r.status_code, 400)
+        self.story.refresh_from_db()
+        self.assertIsNone(self.story.stopped)
+
+    def test_trip_stop_requires_post(self):
+        r = self.client.get(reverse("trip-stop", args=[self.story.pk]))
+        self.assertEqual(r.status_code, 405)
+
+    def test_trip_stop_other_users_story_404(self):
+        theirs = Story.objects.create(user=self.other, title="Theirs")
+        r = self.client.post(reverse("trip-stop", args=[theirs.pk]))
+        self.assertEqual(r.status_code, 404)
+        theirs.refresh_from_db()
+        self.assertIsNone(theirs.stopped)
+
     # --- add to trip: affordance visibility ---
 
     def test_active_trip_shows_add_affordances(self):
@@ -538,9 +611,12 @@ class SharedTripWebTestCase(TestCase):
         self.assertNotContains(r, "trip-share-control")
         self.assertNotContains(r, "trip-badge")
         self.assertNotContains(r, "add-breakthrough")
-        # The owner-only add-to-trip affordances never appear on the public page.
+        # The owner-only add-to-trip and stop affordances never appear on the
+        # public page.
         self.assertNotContains(r, "trip-add-trigger")
         self.assertNotContains(r, "trip-add-modal")
+        self.assertNotContains(r, "data-trip-actions")
+        self.assertNotContains(r, "trip-stop-modal")
 
     def test_public_page_unknown_uuid_404(self):
         r = self.client.get(self._url(uuid_module.uuid4()))

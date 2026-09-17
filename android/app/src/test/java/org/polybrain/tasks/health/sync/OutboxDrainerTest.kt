@@ -40,6 +40,7 @@ import org.polybrain.tasks.health.data.TripNoteResponse
 import org.polybrain.tasks.health.data.TripResponse
 import org.polybrain.tasks.health.data.TripShareResponse
 import org.polybrain.tasks.health.data.TripStartRequest
+import org.polybrain.tasks.health.data.TripStopRequest
 import org.polybrain.tasks.health.data.TripStoryIdRequest
 import org.polybrain.tasks.health.data.TripUpdateRequest
 import retrofit2.HttpException
@@ -231,7 +232,7 @@ class OutboxDrainerTest {
         override suspend fun deleteTodayTask(body: TaskTextRequest): OkResponse = nope()
         override suspend fun listPlans(thread: String, pubDate: String): PlanListResponse = nope()
         override suspend fun startTrip(body: TripStartRequest): TripResponse = nope()
-        override suspend fun stopTrip(body: TripStoryIdRequest): TripResponse = nope()
+        override suspend fun stopTrip(body: TripStopRequest): TripResponse = nope()
         override suspend fun updateTrip(body: TripUpdateRequest): TripResponse = nope()
         override suspend fun shareTrip(body: TripStoryIdRequest): TripShareResponse = nope()
         override suspend fun revokeTripShare(body: TripStoryIdRequest): TripShareResponse = nope()

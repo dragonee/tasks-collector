@@ -35,6 +35,10 @@ class StoryStoppedError(Exception):
     """The Story is already stopped; no further events can be attached."""
 
 
+class InvalidStopTimeError(ValueError):
+    """The requested stop time does not fall inside the trip's lifetime."""
+
+
 def _journal_thread_for(user):
     """Resolve the Thread used for a trip note's/photo's JournalAdded.
 
@@ -69,12 +73,24 @@ def start_trip(user, title=None, type_=Story.Type.TRIP, started=None):
 
 
 @transaction.atomic
-def stop_trip(user, story_id):
-    """Set Story.stopped to now. Idempotent: re-stopping is a no-op."""
+def stop_trip(user, story_id, stopped=None):
+    """Set Story.stopped. Idempotent: re-stopping is a no-op.
+
+    ``stopped`` backdates the end of the trip — the "I got home yesterday and
+    forgot to stop it" case — and defaults to now. A time before the trip
+    started is rejected; a time in the future is clamped to now (a trip
+    cannot outlast the present, and a device clock running slightly ahead of
+    the server shouldn't turn an ordinary "stop now" into an error).
+    """
     story = _get_owned_story(user, story_id)
-    if story.stopped is None:
-        story.stopped = timezone.now()
-        story.save(update_fields=["stopped"])
+    if story.stopped is not None:
+        return story
+    now = timezone.now()
+    stopped = min(stopped or now, now)
+    if stopped < story.started:
+        raise InvalidStopTimeError("stop time is before the trip started")
+    story.stopped = stopped
+    story.save(update_fields=["stopped"])
     return story
 
 
