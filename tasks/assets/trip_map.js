@@ -39,8 +39,15 @@ if (mapEl && dataEl) {
 function initMap(points) {
     const map = L.map(mapEl, { scrollWheelZoom: true });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // OSM's tile policy requires the site to identify itself with a Referer,
+    // but Django defaults to Referrer-Policy: same-origin, which strips it from
+    // cross-origin requests -- so the tile servers answer with their "Access
+    // blocked" image. The per-image attribute overrides the document policy;
+    // 'origin' sends only the host, never the path (shared trips carry their
+    // secret in the URL). The a/b/c subdomains are deprecated, hence no {s}.
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
+        referrerPolicy: 'origin',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
