@@ -71,7 +71,9 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 ## Important Notes
 
 - Settings are environment-specific (local.py, dist.py)
-- Database and email configurations use separate .py files (db.py, email.py)
+- Outside Docker, local database and email configurations can use separate .py files (db.py, email.py)
+- Production (dist.py) reads its configuration from environment variables via django-environ; see `docker/production/.env.example`
+- Production runs as a Docker image (`docker/production/`) pushed to GHCR and deployed by `.github/workflows/deploy.yml`
 - All user activities are tracked through the event system
 - The system is designed around personal productivity and development workflows
 - Uses Django Polymorphic for event inheritance
