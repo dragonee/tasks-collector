@@ -69,18 +69,49 @@ Alternatively, copy the `tasks/settings/db.py.base` to
 `tasks/settings/db.py` and modify it to your needs,
 then run the rest of the commands.
 
-### Notes for deploy
+## Production deployment
 
-Provided that `editor` symlinks to actual editor:
+Every push to `main` (except Android, CLI and docs-only changes) runs
+`.github/workflows/deploy.yml`, which:
+
+1. Builds `docker/production/Dockerfile` and pushes it to
+   `ghcr.io/dragonee/tasks-collector`, tagged with the commit SHA and `latest`.
+2. SSHes into the server, pulls that image, runs `migrate` in a throwaway
+   container, and replaces two containers started from the same image:
+   `tasks-app` (gunicorn on `127.0.0.1:9422`, static files served by
+   WhiteNoise) and `tasks-celery` (the Celery worker).
+
+Both containers run with `--network host` and read their configuration from
+`$DEPLOY_PATH/.env` - see `docker/production/.env.example`. The workflow uses
+the `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_KEY` and
+`DEPLOY_PATH` repository secrets.
+
+Useful commands on the server:
+
 ```
-make deployconfig
+docker logs -f tasks-app
+docker exec -it tasks-app python manage.dist.py shell
 ```
 
-Alternatively, copy the `tasks/settings/email.py.base` to
-`tasks/settings/email.py` and modify it to your needs,
-then run the rest of the commands.
+### Moving the server over to Docker
 
-1. Ensure that `DJANGODIR` in `bin/gunicorn.base` is proper.
+One-time steps, in this order, so the site stays up throughout:
+
+1. Install Docker and add `DEPLOY_USER` to the `docker` group.
+2. Create `$DEPLOY_PATH/.env` from `docker/production/.env.example`, carrying
+   the values over from `tasks/settings/db.py`, `email.py` and `aws.py`. Use a
+   freshly generated `SECRET_KEY` rather than the one in `base.py`, which is
+   public. That logs web sessions out once; API tokens keep working.
+3. Make Postgres accept password logins over TCP on `127.0.0.1` for the
+   `DATABASE_URL` user (`pg_hba.conf`) - the container can't use peer auth.
+4. Run the deploy workflow. The containers start next to the supervisor
+   gunicorn, which keeps serving on its unix socket. Check
+   `curl http://127.0.0.1:9422/health/` on the server.
+5. Point nginx at the container - `proxy_pass http://127.0.0.1:9422;` in place
+   of the gunicorn socket - and remove any `location /static/` alias, since
+   the app now serves its own static files. Reload nginx.
+6. Stop and remove the `pbtasks` supervisor program, and the Celery one if
+   there is any.
 
 ## Docker
 

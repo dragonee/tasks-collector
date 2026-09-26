@@ -1,1 +1,49 @@
-docker/development/db/
+# Git
+.git
+.gitignore
+
+# CI/CD (not needed in image)
+.github/
+
+# Not part of the web app
+android/
+cli/
+agent/
+docs/
+
+# Docker development (includes the db/ and minio/ data volumes)
+docker/development/
+
+# Node modules (installed in the frontend build stage)
+node_modules
+
+# Local settings and secrets - production reads them from the environment
+.env
+.env.*
+tasks/settings/db.py
+tasks/settings/email.py
+tasks/settings/aws.py
+
+# Built in the image
+tasks/static/dist/
+tasks/static/local/
+tasks/REVISION
+
+# Runtime output
+tasks/logs/
+tasks/uploads/
+celerybeat-schedule
+*.log
+
+# Python artifacts
+**/__pycache__
+**/*.pyc
+.pytest_cache
+
+# Local tooling
+.claude/
+.codegraph/
+.mcp.json
+*.sqlite3
+.pre-commit-config.yaml
+pytest.ini

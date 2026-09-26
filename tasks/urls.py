@@ -6,7 +6,10 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, re_path, reverse_lazy
 from django.views.generic import RedirectView
 
+from tasks.apps.common.views import health_check
+
 urlpatterns = [
+    path("health/", health_check, name="health_check"),
     re_path(r"^admin/", admin.site.urls),
     # Authentication URLs
     path(

@@ -1,23 +1,31 @@
+import environ
+
 from .base import *
 
-try:
-    from .email import *
-except ImportError:
-    EMAIL_USE_TLS = False
-    EMAIL_HOST = "127.0.0.1"
-    EMAIL_PORT = 25
-    EMAIL_HOST_USER = "[host]"
-    EMAIL_HOST_PASSWORD = "[password]"
-
-    DEFAULT_FROM_EMAIL = "[default]"
-    SERVER_EMAIL = "[server]"
-
+# Production is configured from the environment (the container's --env-file,
+# see docker/production/.env.example), not from db.py/email.py modules.
+env = environ.Env()
 
 DEBUG = False
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+SECRET_KEY = env("SECRET_KEY")
 
-ALLOWED_HOSTS = ["tasks.polybrain.org", "localhost"]
+DATABASES = {"default": env.db()}
+
+# e.g. smtp+tls://user:password@smtp.example.com:587 (URL-encode the password)
+globals().update(env.email_url("EMAIL_URL", default="smtp://127.0.0.1:25"))
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
+SERVER_EMAIL = env("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
+
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["tasks.polybrain.org", "localhost"])
+
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://127.0.0.1:6379/0")
+
+# WhiteNoise serves the static files baked into the image
+MIDDLEWARE = (
+    MIDDLEWARE[:1] + ["whitenoise.middleware.WhiteNoiseMiddleware"] + MIDDLEWARE[1:]
+)
 
 # Admins
 ADMINS = (("Michał Moroz", "michal@makimo.pl"),)
@@ -40,32 +48,15 @@ LOGGING = {
             "include_html": True,
         },
         "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
-        "debug_file_handler": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "level": "DEBUG",
-            "formatter": "verbose",
-            "filename": os.path.join(BASE_DIR, "logs", "debug.log"),
-            "maxBytes": 10485760,
-            "backupCount": 20,
-            "encoding": "utf8",
-        },
-        "info_file_handler": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "level": "INFO",
-            "formatter": "verbose",
-            "filename": os.path.join(BASE_DIR, "logs", "info.log"),
-            "maxBytes": 10485760,
-            "backupCount": 20,
-            "encoding": "utf8",
-        },
     },
+    # Log to stdout for `docker logs`; the deploy caps the log size per container
     "loggers": {
         "apps": {
             "level": "DEBUG",
-            "handlers": ["debug_file_handler", "info_file_handler"],
+            "handlers": ["console"],
         },
         "django": {
-            "handlers": ["debug_file_handler", "info_file_handler"],
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
         },
