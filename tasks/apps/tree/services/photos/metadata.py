@@ -64,7 +64,7 @@ def read_capture_datetime(raw):
 
     try:
         naive = datetime.strptime(str(dt_str).strip(), "%Y:%m:%d %H:%M:%S")
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
     tz = _parse_offset((sub or {}).get(_OFFSET_TIME_ORIGINAL))

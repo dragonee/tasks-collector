@@ -29,7 +29,7 @@ def app_version(request):
     if revision_file.exists():
         try:
             _app_version_cache["version"] = revision_file.read_text().strip()
-        except (OSError, IOError):
+        except OSError, IOError:
             pass
 
     _app_version_cache["loaded"] = True

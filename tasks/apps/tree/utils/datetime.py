@@ -24,7 +24,7 @@ def parse_aware_datetime(value):
         return None
     try:
         parsed = datetime.fromisoformat(text)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if timezone.is_naive(parsed):
         parsed = timezone.make_aware(parsed)

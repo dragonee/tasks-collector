@@ -90,7 +90,7 @@ def _story_id_from(request):
         return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -251,7 +251,7 @@ class AndroidTripListView(APIView):
         try:
             page = int(request.query_params.get("page", "1"))
             page_size = int(request.query_params.get("page_size", "20"))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return _bad_request("page and page_size must be integers")
         active = list_active(request.user)
         history, total = list_history(request.user, page=page, page_size=page_size)
