@@ -20,7 +20,7 @@ on:
       # Frontend build inputs the test job's "Build assets" step depends on
       - 'package.json'
       - 'package-lock.json'
-      - 'rsbuild.config.ts'
+      - 'rsbuild.config.mts'
       # The workflow definition itself
       - '.github/workflows/test.yml'
 
