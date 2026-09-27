@@ -117,6 +117,15 @@ html.sidebar-collapsed {
     }
 }
 
+// Logout has to POST, so it's a form button: drop the native button look.
+button.nav-item {
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
 .nav-icon {
     flex: 0 0 auto;
     display: inline-flex;

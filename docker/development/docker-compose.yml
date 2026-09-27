@@ -53,7 +53,7 @@ services:
             mc mb -p local/trip-photos &&
             exit 0;"
     tasks-celery:
-        image: "python:3.10-alpine"
+        image: "python:3.14-alpine"
         volumes:
             - "../..:/app"
         networks:
@@ -70,7 +70,7 @@ services:
         command: "/app/docker/development/scripts/run-celery.sh"
         working_dir: /app
     tasks-backend:
-        image: "python:3.10-alpine"
+        image: "python:3.14-alpine"
         volumes:
             - "../..:/app"
         ports:
