@@ -116,7 +116,7 @@ A standalone Vue page (its own rsbuild entry `enfp_mount`, parallel to `hello_wo
   stage; the challenge stage ladder (claimed / ready badges); and a "log an element" form
   (function picker + description → `POST /enfp/api/elements/`, then refetch).
 - Uses the shared CSRF `apiRequest` fetch pattern; entry registered in both the `source.entry`
-  map and the `entryPoints` array in `rsbuild.config.ts`.
+  map and the `entryPoints` array in `rsbuild.config.mts`.
 
 ## Step-by-step guide
 

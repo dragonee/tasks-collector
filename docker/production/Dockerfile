@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY rsbuild.config.ts ./
+COPY rsbuild.config.mts ./
 COPY tasks/assets/ ./tasks/assets/
 
 # Build production assets (outputs to tasks/static/dist/)
