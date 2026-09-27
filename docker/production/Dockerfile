@@ -15,7 +15,7 @@ RUN npm run build-dist
 
 
 # Stage 2: Production Python image
-FROM python:3.10-slim-bookworm AS production
+FROM python:3.14-slim-bookworm AS production
 
 # tasks/celery.py defaults to the local settings, so the worker container
 # needs the production module set explicitly (wsgi.py already defaults to it).
