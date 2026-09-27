@@ -269,7 +269,7 @@ def get_period_from_request(request, thread):
     """Extract date from request and create appropriate period instance"""
     try:
         today = date.fromisoformat(request.GET["date"])
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         today = yesterday(date.today()) if is_before_noon() else date.today()
 
     period_cls = get_period_by_thread(thread)

@@ -59,7 +59,7 @@ class QuestJournalSerializer(serializers.HyperlinkedModelSerializer):
                     data["stage"],
                 )
             )
-        except (Quest.DoesNotExist, QuestJournal.DoesNotExist):
+        except Quest.DoesNotExist, QuestJournal.DoesNotExist:
             pass
 
         return data

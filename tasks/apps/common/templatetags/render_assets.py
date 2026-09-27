@@ -91,7 +91,7 @@ def read_cached_staticfile(entry_point, file_type, cache):
             "path": html_file_path,
         }
         return content
-    except (FileNotFoundError, OSError):
+    except FileNotFoundError, OSError:
         # Cache empty string to avoid repeated file lookups
         if entry_point not in cache:
             cache[entry_point] = _empty_cache_entry()

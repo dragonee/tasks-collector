@@ -35,7 +35,7 @@ def _parse_date(value):
         return None
     try:
         return date_cls.fromisoformat(str(value))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -172,7 +172,7 @@ class AndroidTaskCompleteView(APIView):
         if story_id is not None:
             try:
                 story_id = int(story_id)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 return _bad_request("story_id must be an integer")
         done = bool(request.data.get("done"))
         try:
