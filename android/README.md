@@ -49,22 +49,14 @@ expose them; see the ADR).
 
 ## Building and installing the app
 
-The Gradle wrapper jar (`gradle/wrapper/gradle-wrapper.jar`) is intentionally
-not committed. Choose one of:
-
-- **Open `android/` in Android Studio** — it will populate the wrapper for
-  you and let you run on a connected device with the green "Run" button.
-- Or, with a system Gradle (≥ 9.4.1, matching AGP 9.2.x) installed,
-  generate the wrapper once:
+- **Open `android/` in Android Studio** and use the green "Run" button to
+  install on a connected device.
+- Or use the committed Gradle wrapper (pinned to Gradle 9.4.1, matching
+  AGP 9.2.x). It needs JDK 17+; Android Studio's bundled one works:
 
   ```bash
   cd android
-  gradle wrapper --gradle-version 9.4.1
-  ```
-
-  Then build and install a debug APK on a connected device:
-
-  ```bash
+  export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
   ./gradlew :app:assembleDebug
   adb install -r app/build/outputs/apk/debug/app-debug.apk
   ```
