@@ -2,9 +2,11 @@ package org.polybrain.tasks.health.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -14,7 +16,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.polybrain.tasks.health.BuildConfig
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+// An unclean shutdown can leave the file zero-filled; without a handler every
+// read throws CorruptionException and the app crashes on launch. Start over
+// from empty prefs instead (debug builds then fall back to the DEV_* defaults).
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "settings",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+)
 
 data class SettingsSnapshot(
     val serverUrl: String,
