@@ -226,7 +226,11 @@ def params_from_arguments(arguments):
         if arguments["--from"]:
             return {
                 "published__gte": arguments["--from"] + " 00:00:00",
-                "published__lte": arguments["--to"] or datetime.now(),
+                "published__lte": (
+                    arguments["--to"] + " 23:59:59"
+                    if arguments["--to"]
+                    else datetime.now()
+                ),
             }
 
         return {}
