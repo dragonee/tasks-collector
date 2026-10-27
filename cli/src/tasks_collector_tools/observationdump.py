@@ -1,6 +1,6 @@
 """Dump observations to markdown files.
 
-Usage: 
+Usage:
     observationdump [options] PATH
 
 Options:
@@ -15,33 +15,27 @@ Options:
     --version        Show version information.
 """
 
-VERSION = '1.1'
+VERSION = "1.1"
 
-import json, os, re, sys, pprint
-
-from docopt import docopt
-
-from datetime import datetime
-
-import tempfile
-
+import json
+import os
+import pprint
+import re
 import subprocess
-
-import requests
-from requests.auth import HTTPBasicAuth
-
+import sys
+import tempfile
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from pathlib import Path
-
-from .config.tasks import TasksConfigFile
-
-from slugify import slugify
-
 from urllib.parse import urlencode
 
+import requests
 from dateutil.parser import parse
+from docopt import docopt
+from requests.auth import HTTPBasicAuth
+from slugify import slugify
 
-from dataclasses import dataclass, asdict, field
-
+from .config.tasks import TasksConfigFile
 
 TEMPLATE = """
 > Date: {published}
@@ -67,6 +61,7 @@ TEMPLATE = """
 
 """
 
+
 @dataclass
 class Observation:
     event_stream_id: str
@@ -81,9 +76,10 @@ class Observation:
     events: list[dict] = field(default_factory=list)
     closed: bool = False
 
+
 def transform_dict(dct, **kwargs):
     """
-    Transform dict with functions defined in kwargs. 
+    Transform dict with functions defined in kwargs.
     Leave other fields as is.
     """
 
@@ -91,8 +87,9 @@ def transform_dict(dct, **kwargs):
 
     for k, f in kwargs.items():
         dct_copy[k] = f(dct[k])
-    
+
     return dct_copy
+
 
 def template_from_payload(payload, template, **kwargs):
     new_payload = transform_dict(
@@ -105,7 +102,7 @@ def template_from_payload(payload, template, **kwargs):
 
 def strip_field(value):
     """Strip field from \r, leaving only \n"""
-    return value.replace('\r', '') if value is not None else ''
+    return value.replace("\r", "") if value is not None else ""
 
 
 UPDATE_TEMPLATE = """
@@ -137,36 +134,58 @@ REFLECTED_UPON_TEMPLATE = """
 
 """
 
+
 def datetime_to_string(datetime_obj):
-    return datetime_obj.strftime('%Y-%m-%d %H:%M:%S')
+    return datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
+
 
 def event_template_from_payload(event):
-    if event['resourcetype'] == 'ObservationClosed':
-        return "## Closed on {}\n".format(event['published'])
-    if event['resourcetype'] == 'ObservationUpdated':
-        return template_from_payload(event, UPDATE_TEMPLATE, comment=strip_field, published=datetime_to_string)
-    if event['resourcetype'] == 'ObservationMade':
-        return "## Opened on {}\n".format(event['published'])
-    if event['resourcetype'] == 'ObservationRecontextualized':
-        return template_from_payload(event, RECONTEXTUALIZED_TEMPLATE, situation=strip_field, old_situation=strip_field, published=datetime_to_string)
-    if event['resourcetype'] == 'ObservationReinterpreted':
-        return template_from_payload(event, REINTERPRETED_TEMPLATE, interpretation=strip_field, old_interpretation=strip_field, published=datetime_to_string)
-    if event['resourcetype'] == 'ObservationReflectedUpon':
-        return template_from_payload(event, REFLECTED_UPON_TEMPLATE, approach=strip_field, old_approach=strip_field, published=datetime_to_string)
+    if event["resourcetype"] == "ObservationClosed":
+        return "## Closed on {}\n".format(event["published"])
+    if event["resourcetype"] == "ObservationUpdated":
+        return template_from_payload(
+            event, UPDATE_TEMPLATE, comment=strip_field, published=datetime_to_string
+        )
+    if event["resourcetype"] == "ObservationMade":
+        return "## Opened on {}\n".format(event["published"])
+    if event["resourcetype"] == "ObservationRecontextualized":
+        return template_from_payload(
+            event,
+            RECONTEXTUALIZED_TEMPLATE,
+            situation=strip_field,
+            old_situation=strip_field,
+            published=datetime_to_string,
+        )
+    if event["resourcetype"] == "ObservationReinterpreted":
+        return template_from_payload(
+            event,
+            REINTERPRETED_TEMPLATE,
+            interpretation=strip_field,
+            old_interpretation=strip_field,
+            published=datetime_to_string,
+        )
+    if event["resourcetype"] == "ObservationReflectedUpon":
+        return template_from_payload(
+            event,
+            REFLECTED_UPON_TEMPLATE,
+            approach=strip_field,
+            old_approach=strip_field,
+            published=datetime_to_string,
+        )
 
 
 def events_template_from_payload(events):
-    return '\n'.join(event_template_from_payload(event) for event in events)
+    return "\n".join(event_template_from_payload(event) for event in events)
 
 
 def observation_template_from_payload(payload):
     return template_from_payload(
-        payload, 
+        payload,
         TEMPLATE,
         situation=strip_field,
         interpretation=strip_field,
         approach=strip_field,
-        closed=lambda x: 'Yes' if x else 'No',
+        closed=lambda x: "Yes" if x else "No",
         published=datetime_to_string,
         events=events_template_from_payload,
     )
@@ -175,9 +194,9 @@ def observation_template_from_payload(payload):
 def write_observation(observation: Observation, path, force=False):
     text = observation_template_from_payload(asdict(observation))
 
-    filename = '{}-{}.md'.format(
-        observation.published.strftime('%Y-%m-%d'),
-        slugify(observation.situation, max_length=32, word_boundary=True)
+    filename = "{}-{}.md".format(
+        observation.published.strftime("%Y-%m-%d"),
+        slugify(observation.situation, max_length=32, word_boundary=True),
     )
 
     new_file = path / filename
@@ -185,45 +204,45 @@ def write_observation(observation: Observation, path, force=False):
     if new_file.exists() and not force:
         return
 
-    with open(path / filename, 'w') as f:
+    with open(path / filename, "w") as f:
         f.write(text)
-    
+
     return filename
 
 
 def params_from_arguments(arguments):
     def _params_from_arguments(arguments):
 
-        if arguments['--stream']:
-            return {
-                'event_stream_id': arguments['--stream']
-            }
-        if arguments['--year']:
-            year = arguments['--year']
+        if arguments["--stream"]:
+            return {"event_stream_id": arguments["--stream"]}
+        if arguments["--year"]:
+            year = arguments["--year"]
 
             return {
-                'published__gte': f'{year}-01-01 00:00:00',
-                'published__lte': f'{year}-12-31 23:59:59',
+                "published__gte": f"{year}-01-01 00:00:00",
+                "published__lte": f"{year}-12-31 23:59:59",
             }
 
-        if arguments['--from']:
+        if arguments["--from"]:
             return {
-                'published__gte': arguments['--from'] + ' 00:00:00',
-                'published__lte': arguments['--to'] or datetime.now(),
+                "published__gte": arguments["--from"] + " 00:00:00",
+                "published__lte": arguments["--to"] or datetime.now(),
             }
-        
+
         return {}
-    
-    params = _params_from_arguments(arguments)
-    params.update({
-        'features': 'updates',
-    })
 
-    if arguments['--open']:
-        params['open'] = 'true'
-        
-    if arguments['--closed']:
-        params['open'] = 'false'
+    params = _params_from_arguments(arguments)
+    params.update(
+        {
+            "features": "updates",
+        }
+    )
+
+    if arguments["--open"]:
+        params["open"] = "true"
+
+    if arguments["--closed"]:
+        params["open"] = "false"
 
     return params
 
@@ -231,27 +250,30 @@ def params_from_arguments(arguments):
 def update_observation_with_event(observation: Observation, event: dict):
     event = transform_dict(event, published=parse)
 
-    if event['resourcetype'] in ('ObservationMade', 'ObservationClosed'):
-        observation.published = event['published']
+    if event["resourcetype"] in ("ObservationMade", "ObservationClosed"):
+        observation.published = event["published"]
 
     # Track the last event timestamp
-    if observation.last_event_published is None or event['published'] > observation.last_event_published:
-        observation.last_event_published = event['published']
+    if (
+        observation.last_event_published is None
+        or event["published"] > observation.last_event_published
+    ):
+        observation.last_event_published = event["published"]
 
-    if 'type' in event:
-        observation.type = event['type']
-    if 'thread' in event:
-        observation.thread = event['thread']
-    if 'situation' in event:
-        observation.situation = event['situation']
-    if 'interpretation' in event:
-        observation.interpretation = event['interpretation']
-    if 'approach' in event:
-        observation.approach = event['approach']
+    if "type" in event:
+        observation.type = event["type"]
+    if "thread" in event:
+        observation.thread = event["thread"]
+    if "situation" in event:
+        observation.situation = event["situation"]
+    if "interpretation" in event:
+        observation.interpretation = event["interpretation"]
+    if "approach" in event:
+        observation.approach = event["approach"]
 
-    if event['resourcetype'] == 'ObservationClosed':
+    if event["resourcetype"] == "ObservationClosed":
         observation.closed = True
-    if event['resourcetype'] == 'ObservationUpdated':
+    if event["resourcetype"] == "ObservationUpdated":
         observation.updates.append(event)
 
     observation.events.append(event)
@@ -260,12 +282,12 @@ def update_observation_with_event(observation: Observation, event: dict):
 def main():
     arguments = docopt(__doc__, version=VERSION)
 
-    directory = Path(arguments['PATH']).resolve(strict=True)
+    directory = Path(arguments["PATH"]).resolve(strict=True)
 
     config = TasksConfigFile()
 
-    url = '{}/observation-events/?{}'.format(
-        config.url, 
+    url = "{}/observation-events/?{}".format(
+        config.url,
         urlencode(params_from_arguments(arguments)),
     )
 
@@ -281,29 +303,29 @@ def main():
         if not r.ok:
             raise RuntimeError("{}: {}".format(r.status_code, str(out)))
 
-        if not 'results' in out:
-            out = {
-                'results': [out],
-                'next': None
-            }
+        if not "results" in out:
+            out = {"results": [out], "next": None}
 
-        for item in out['results']:
-            event_stream_id = item['event_stream_id']
+        for item in out["results"]:
+            event_stream_id = item["event_stream_id"]
 
             if event_stream_id not in observations:
-                observations[event_stream_id] = Observation(event_stream_id=event_stream_id)
-            
+                observations[event_stream_id] = Observation(
+                    event_stream_id=event_stream_id
+                )
+
             update_observation_with_event(observations[event_stream_id], item)
 
-        url = out['next']
+        url = out["next"]
 
     for observation in observations.values():
         # Skip observations that didn't start in a given time range
-        if not any(event['resourcetype'] == 'ObservationMade' for event in observation.events):
+        if not any(
+            event["resourcetype"] == "ObservationMade" for event in observation.events
+        ):
             continue
 
-        filename = write_observation(observation, directory, force=arguments['--force'])
+        filename = write_observation(observation, directory, force=arguments["--force"])
 
         if filename:
-            print('Create {}'.format(filename))
-
+            print("Create {}".format(filename))
