@@ -102,7 +102,7 @@ class ObservationViewSet(viewsets.ModelViewSet):
     queryset = Observation.objects.with_last_event_published()
 
     filter_backends = [DjangoFilterBackend]
-    filter_class = ObservationFilter
+    filterset_class = ObservationFilter
 
     pagination_class = ObservationPagination
 
@@ -138,7 +138,7 @@ class ObservationEventViewSet(viewsets.ModelViewSet):
     serializer_class = ObservationEventSerializer
 
     filter_backends = [DjangoFilterBackend]
-    filter_class = EventFilter
+    filterset_class = EventFilter
 
     def get_queryset(self):
         return Event.objects.instance_of(*observation_event_types)
