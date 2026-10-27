@@ -39,7 +39,7 @@ class PlanViewSet(viewsets.ModelViewSet):
     serializer_class = PlanSerializer
 
     filter_backends = [DjangoFilterBackend]
-    filter_class = PlanFilter
+    filterset_class = PlanFilter
 
 
 class ReflectionViewSet(viewsets.ModelViewSet):
