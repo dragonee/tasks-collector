@@ -122,20 +122,13 @@ def _map_points(events):
 
 
 def _story_events(story):
-    """All journal/photo entries of a trip as real model instances, newest
-    first, with presigned photo URLs attached.
+    """All journal/photo entries of a trip (``operations.story_entries``) with
+    presigned photo URLs attached.
 
-    Mirrors ``operations.get_detail`` (JournalAdded + PhotoAdded, no
-    side-effect HabitTracked rows). Shared by the private and public detail
-    views so both render through the same pipeline.
+    Shared by the private and public detail views so both render through the
+    same pipeline.
     """
-    entries = (
-        StoryEvent.objects.filter(story=story, event__journaladded__isnull=False)
-        .select_related("event")
-        .order_by("-event__published")
-    )
-    events = [entry.event.get_real_instance() for entry in entries]
-    return attach_photo_urls(events)
+    return attach_photo_urls(trip_ops.story_entries(story))
 
 
 def _share_context(request, story):
@@ -220,12 +213,7 @@ def _render_entries(request, story_id):
 
 @login_required
 def trip_detail(request, story_id):
-    """A single trip with all its journal/photo entries, newest first.
-
-    Mirrors ``operations.get_detail`` (JournalAdded + PhotoAdded, no
-    side-effect HabitTracked rows) but returns real model instances so the
-    journal partial can render them.
-    """
+    """A single trip with all its journal/photo entries, newest first."""
     story = _owned_story_or_404(request, story_id)
     return render(
         request, "tree/trips/trip_detail.html", _detail_context(request, story)

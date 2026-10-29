@@ -326,24 +326,31 @@ def list_history(user, page=1, page_size=20):
     return items, total
 
 
-def get_detail(user, story_id):
-    """Story + list of JournalAdded events linked to it, newest first.
+def story_entries(story):
+    """The JournalAdded/PhotoAdded entries linked to ``story``, newest first,
+    as real model instances.
 
     HabitTracked rows that were attached as a side-effect of journal
     processing (e.g. POI extraction from ``#poi`` hashtags) are
     intentionally *not* included here — the JournalAdded already carries
-    the same information in its comment, and the Android client prefers
-    to derive map pins from there.
+    the same information in its comment, and the clients derive map pins
+    from there.
+
+    Queried through the polymorphic JournalAdded manager so the subclass rows
+    load in one query per type rather than one ``get_real_instance()`` query
+    per entry. Shared by the Android detail endpoint and the web trip pages.
     """
-    story = _get_owned_story(user, story_id)
-    entries = (
-        StoryEvent.objects.filter(story=story, event__journaladded__isnull=False)
-        .select_related("event")
-        .order_by("-event__published")
+    return list(
+        JournalAdded.objects.filter(story_entry__story=story).order_by("-published")
     )
+
+
+def get_detail(user, story_id):
+    """Story + list of its journal/photo entries (see ``story_entries``) as
+    plain dicts, newest first."""
+    story = _get_owned_story(user, story_id)
     events = []
-    for entry in entries:
-        event = entry.event.get_real_instance()
+    for event in story_entries(story):
         # PhotoAdded is-a JournalAdded, so it must be checked first.
         if isinstance(event, PhotoAdded):
             events.append(

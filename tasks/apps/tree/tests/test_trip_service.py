@@ -6,7 +6,9 @@ from datetime import timezone as dt_timezone
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from PIL import Image
@@ -281,6 +283,32 @@ class TripServiceTestCase(TestCase):
         story = start_trip(self.alice)
         with self.assertRaises(StoryNotFoundError):
             get_detail(self.bob, story.pk)
+
+    def _link_note_and_photo(self, story):
+        note = JournalAdded.objects.create(thread=self.daily, comment="note")
+        StoryEvent.objects.create(story=story, event=note)
+        photo = PhotoAdded.objects.create(
+            thread=self.daily,
+            comment="photo",
+            original_key=f"trips/{self.alice.pk}/{story.pk}/x.jpg",
+            content_type="image/jpeg",
+        )
+        StoryEvent.objects.create(story=story, event=photo)
+
+    def test_get_detail_query_count_does_not_grow_with_entries(self):
+        story = start_trip(self.alice)
+        self._link_note_and_photo(story)
+        with CaptureQueriesContext(connection) as few:
+            _, events = get_detail(self.alice, story.pk)
+        self.assertEqual(len(events), 2)
+
+        for _ in range(5):
+            self._link_note_and_photo(story)
+        with CaptureQueriesContext(connection) as many:
+            _, events = get_detail(self.alice, story.pk)
+        self.assertEqual(len(events), 12)
+        self.assertEqual(len(many), len(few))
+        self.assertEqual({e["type"] for e in events}, {"journal", "photo"})
 
 
 class TripShareServiceTestCase(TestCase):

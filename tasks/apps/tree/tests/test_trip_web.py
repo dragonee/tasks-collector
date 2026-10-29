@@ -8,7 +8,9 @@ from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -222,6 +224,23 @@ class TripWebTestCase(TestCase):
         self.assertContains(r, "https://signed/trips/1/1/x_thumb.webp")
         # The full original is the link target.
         self.assertContains(r, "https://signed/trips/1/1/x.jpg")
+
+    @mock.patch(f"{STORAGE}.presign_get_web", return_value="https://signed/x")
+    def test_trip_detail_query_count_does_not_grow_with_entries(self, _get):
+        self._note("first")
+        self._photo(comment="first photo")
+        url = reverse("trip-detail", args=[self.story.pk])
+        with CaptureQueriesContext(connection) as few:
+            self.assertEqual(self.client.get(url).status_code, 200)
+
+        for i in range(5):
+            self._note(f"note {i}")
+            self._photo(comment=f"photo {i}")
+        with CaptureQueriesContext(connection) as many:
+            r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "photo 4")
+        self.assertEqual(len(many), len(few))
 
     # --- attach_photo_urls helper ---
 
