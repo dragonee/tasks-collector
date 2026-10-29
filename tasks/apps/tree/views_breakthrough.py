@@ -37,7 +37,9 @@ def breakthrough(request, year):
     )
     # The inline formset scopes this to the breakthrough itself, and to
     # nothing while the breakthrough is unsaved (a year not started yet).
-    projected_outcome_queryset = ProjectedOutcome.objects.order_by("resolved_by")
+    projected_outcome_queryset = ProjectedOutcome.objects.order_by(
+        "resolved_by"
+    ).prefetch_related("projectedoutcomeevolved_set")
 
     if request.method == "POST":
         form = BreakthroughForm(request.POST, instance=breakthrough)
