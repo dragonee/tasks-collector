@@ -7,6 +7,7 @@ from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Subquery
 from django.forms import inlineformset_factory
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -46,6 +47,7 @@ from .serializers import (
     ObservationUpdatedSerializer,
     ObservationWithUpdatesSerializer,
 )
+from .services.observations.closing import close_observation
 from .services.observations.event_creation import create_observation_change_events
 from .services.observations.insights import extract_insight
 
@@ -399,14 +401,10 @@ def observation_edit(request, observation_id=None):
 
 @api_view(["POST"])
 def observation_close(request, observation_id):
-    observation = get_object_or_404(Observation, pk=observation_id)
-
-    observation_closed = ObservationClosed.from_observation(observation)
-
-    with transaction.atomic():
-        observation_closed.save()
-
-        observation.delete()
+    try:
+        close_observation(observation_id)
+    except Observation.DoesNotExist:
+        raise Http404
 
     response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
     response["HX-Redirect"] = reverse("public-observation-list")
@@ -416,13 +414,11 @@ def observation_close(request, observation_id):
 
 @api_view(["POST"])
 def observation_close_and_extract(request, observation_id):
-    observation = get_object_or_404(Observation, pk=observation_id)
-
-    observation_closed = ObservationClosed.from_observation(observation)
-
     with transaction.atomic():
-        observation_closed.save()
-        observation.delete()
+        try:
+            observation_closed = close_observation(observation_id)
+        except Observation.DoesNotExist:
+            raise Http404
 
         insight = InsightRefined.from_observation_closed(observation_closed)
         insight.save()
