@@ -262,8 +262,8 @@ urlpatterns = [
     path(
         "breakthrough/<int:year>/", views_breakthrough.breakthrough, name="breakthrough"
     ),
-    re_path(
-        r"^projected-outcome/(?P<event_stream_id>[a-f0-9\-]+)/events/$",
+    path(
+        "projected-outcome/<uuid:event_stream_id>/events/",
         views_breakthrough.projected_outcome_events_history,
         name="projected-outcome-events-history",
     ),
