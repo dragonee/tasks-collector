@@ -18,10 +18,10 @@ from .forms import *
 from .models import *
 from .serializers import *
 from .services.journalling import process_journal_entry
+from .services.photos import attach_photo_urls
 from .services.today import plan_tasks
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
-from .views_trip import attach_photo_urls
 
 
 class PlanFilter(filters.FilterSet):

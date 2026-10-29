@@ -24,7 +24,7 @@ from ..models import (
     StoryEvent,
     Thread,
 )
-from ..views_trip import attach_photo_urls
+from ..services.photos import attach_photo_urls
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 

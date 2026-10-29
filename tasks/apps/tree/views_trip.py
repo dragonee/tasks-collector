@@ -25,7 +25,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import PhotoAdded, Story, StoryEvent
-from .services.photos import storage as photo_storage
+from .services.photos import attach_photo_urls
 from .services.trips import operations as trip_ops
 from .utils.datetime import parse_aware_datetime
 
@@ -39,30 +39,6 @@ POI_LINE_RE = re.compile(
     r"[^\n]*?\blng\s*=\s*(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
-
-
-def attach_photo_urls(events):
-    """Add presigned ``thumbnail_url``/``original_url`` to PhotoAdded events.
-
-    Mutates each photo event in place so the shared ``journal_added.html``
-    partial can render a miniature (thumbnail) linking to the full original.
-    Plain JournalAdded events are left untouched. Falls back to the original
-    when the WebP thumbnail has not been generated yet.
-
-    Uses the *web* presign so the signed host is reachable from a desktop
-    browser (the device-facing public endpoint targets the Android emulator
-    in dev).
-    """
-    for event in events:
-        if not getattr(event, "is_photo", False):
-            continue
-        event.original_url = photo_storage.presign_get_web(event.original_key)
-        event.thumbnail_url = (
-            photo_storage.presign_get_web(event.thumbnail_key)
-            if event.thumbnail_key
-            else None
-        )
-    return events
 
 
 def _cover_photos_by_story(user):
