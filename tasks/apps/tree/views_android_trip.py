@@ -106,7 +106,10 @@ class AndroidTripStartView(APIView):
         type_ = request.data.get("type") or "trip"
         if type_ not in {"trip"}:
             return _bad_request("invalid type")
-        story = start_trip(request.user, title=title, type_=type_)
+        try:
+            story = start_trip(request.user, title=title, type_=type_)
+        except ValueError as e:
+            return _bad_request(str(e))
         return Response({"story": _serialize_story(story)}, status=status.HTTP_200_OK)
 
 
@@ -156,6 +159,8 @@ class AndroidTripUpdateView(APIView):
             story = update_trip(request.user, story_id, title=title)
         except StoryNotFoundError:
             return _not_found()
+        except ValueError as e:
+            return _bad_request(str(e))
         return Response({"story": _serialize_story(story)}, status=status.HTTP_200_OK)
 
 
@@ -237,6 +242,8 @@ class AndroidTripNoteView(APIView):
             return _not_found()
         except StoryStoppedError:
             return _conflict("trip is stopped; cannot add notes")
+        except ValueError as e:
+            return _bad_request(str(e))
         return Response(
             {"ok": True, "journal_id": journal.pk}, status=status.HTTP_200_OK
         )
@@ -368,6 +375,8 @@ class AndroidTripPhotoConfirmView(APIView):
             return _conflict("trip is stopped; cannot add photos")
         except PhotoObjectMissingError:
             return _conflict("uploaded photo not found; re-upload and retry")
+        except ValueError as e:
+            return _bad_request(str(e))
         return Response({"ok": True, "photo_id": photo.pk}, status=status.HTTP_200_OK)
 
 

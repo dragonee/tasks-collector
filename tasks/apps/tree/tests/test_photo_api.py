@@ -161,6 +161,37 @@ class PhotoAPITestCase(APITestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Values that overflow their column, or a content_type other than the one
+    # the key was presigned for, are a 400 rather than a database error.
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_confirm_rejects_overlong_content_hash(self, _exists):
+        r = self._confirm(
+            self.story.pk,
+            f"trips/{self.user.pk}/{self.story.pk}/abc.jpg",
+            content_hash="f" * 65,
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(PhotoAdded.objects.exists())
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_confirm_rejects_overlong_idempotency_key(self, _exists):
+        r = self._confirm(
+            self.story.pk,
+            f"trips/{self.user.pk}/{self.story.pk}/abc.jpg",
+            idempotency_key="k" * 65,
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(PhotoAdded.objects.exists())
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_confirm_rejects_content_type_not_matching_the_key(self, _exists):
+        key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
+        for content_type in ("image/png", "x" * 101):
+            r = self._confirm(self.story.pk, key, content_type=content_type)
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(PhotoAdded.objects.exists())
+
     @mock.patch(f"{STORAGE}.object_exists", return_value=False)
     def test_confirm_missing_object_409(self, _exists):
         key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"

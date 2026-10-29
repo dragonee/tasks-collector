@@ -515,6 +515,17 @@ class TripWebTestCase(TestCase):
         self.assertEqual(r.status_code, 400)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_photo_confirm_content_type_not_matching_the_key_400(self, _exists):
+        key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
+        r = self.client.post(
+            reverse("trip-photo-confirm", args=[self.story.pk]),
+            data=json.dumps({"key": key, "content_type": "image/png"}),
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(PhotoAdded.objects.exists())
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_photo_confirm_stopped_story_409(self, _exists):
         self.story.stopped = timezone.now()
         self.story.save(update_fields=["stopped"])

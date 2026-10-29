@@ -84,4 +84,6 @@ class AndroidPhotoConfirmView(APIView):
             )
         except PhotoObjectMissingError:
             return _conflict("uploaded photo not found; re-upload and retry")
+        except ValueError as e:
+            return _bad_request(str(e))
         return Response({"ok": True, "photo_id": photo.pk}, status=status.HTTP_200_OK)

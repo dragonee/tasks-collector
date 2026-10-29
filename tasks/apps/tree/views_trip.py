@@ -375,6 +375,8 @@ def trip_photo_confirm(request, story_id):
         return HttpResponse(status=409)
     except trip_ops.PhotoObjectMissingError:
         return HttpResponseBadRequest("uploaded object not found")
+    except ValueError as e:
+        return HttpResponseBadRequest(str(e))
     return _render_entries(request, story_id)
 
 

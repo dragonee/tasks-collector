@@ -21,7 +21,7 @@ from ...models import PhotoAdded
 from ..journalling import process_journal_entry
 from . import storage as photo_storage
 from .events import PhotoObjectMissingError, daily_thread, existing_event
-from .keys import photo_key, photo_key_belongs_to
+from .keys import content_type_matches_key, photo_key, photo_key_belongs_to
 
 
 @transaction.atomic
@@ -46,7 +46,9 @@ def add_standalone_photo(
     commit. Creates no ``StoryEvent`` — the photo belongs to no trip.
 
     Raises ``PhotoObjectMissingError`` if the object isn't in the bucket (or the
-    key doesn't belong to this user's ``photos/{user}/`` prefix).
+    key doesn't belong to this user's ``photos/{user}/`` prefix), ``ValueError``
+    if ``content_type`` isn't the type the key was presigned for or
+    ``idempotency_key`` is too long.
 
     Unlike a trip photo, a standalone photo is timestamped with when it was
     *added* (the client-supplied ``published``, i.e. now), **not** the image's
@@ -61,6 +63,8 @@ def add_standalone_photo(
 
     if not photo_key_belongs_to(key, user.pk):
         raise PhotoObjectMissingError(f"key {key!r} not under this user's prefix")
+    if not content_type_matches_key(content_type, key):
+        raise ValueError(f"content_type {content_type!r} does not match the key")
     if not photo_storage.object_exists(key):
         raise PhotoObjectMissingError(f"no uploaded object at {key!r}")
 
