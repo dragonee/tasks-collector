@@ -36,8 +36,11 @@ def existing_event(model, idempotency_key):
     return model.objects.filter(idempotency_key=idempotency_key).first()
 
 
-def capture_datetime_from_storage(key):
+def capture_datetime_from_storage(key, default_tz=None):
     """Best-effort EXIF capture time of the just-uploaded original.
+
+    ``default_tz`` is the zone an offset-less EXIF time is read in (see
+    ``read_capture_datetime``).
 
     Returns None on any failure (download error, non-image, no EXIF date) so a
     missing or unreadable timestamp never blocks the confirm — the caller then
@@ -47,4 +50,4 @@ def capture_datetime_from_storage(key):
         raw = photo_storage.download_bytes(key)
     except Exception:  # noqa: BLE001 - storage hiccups must not fail confirm
         return None
-    return read_capture_datetime(raw)
+    return read_capture_datetime(raw, default_tz)
