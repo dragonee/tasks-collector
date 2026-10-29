@@ -148,15 +148,22 @@ def board_summary(request, id):
     )
 
 
-def period_from_request(request, days=7, start=None, end=None):
-    from_date = request.GET.get("from", "").strip()
-    to_date = request.GET.get("to", "").strip()
+def _date_param(request, name):
+    """The ``name`` query param as a date, or None when missing or malformed."""
+    try:
+        return datetime.date.fromisoformat(request.GET.get(name, "").strip())
+    except ValueError:
+        return None
 
-    if not from_date:
-        from_date = start or datetime.date.today() - datetime.timedelta(days=days)
 
-    if not to_date:
-        to_date = end or datetime.date.today() + datetime.timedelta(days=1)
+def period_from_request(request, days=7):
+    """The ``(from, to)`` dates from the query params, both days inclusive.
+    A missing or malformed date falls back to the last ``days`` days up to
+    today."""
+    today = datetime.date.today()
+
+    from_date = _date_param(request, "from") or today - datetime.timedelta(days=days)
+    to_date = _date_param(request, "to") or today
 
     return (from_date, to_date)
 
@@ -165,7 +172,7 @@ def period_from_request(request, days=7, start=None, end=None):
 def summaries(request):
     period = period_from_request(request, days=30)
 
-    boards = BoardCommitted.objects.filter(published__range=period).order_by(
+    boards = BoardCommitted.objects.filter(published__date__range=period).order_by(
         "-published"
     )
 
