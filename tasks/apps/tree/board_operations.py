@@ -1,5 +1,6 @@
 import uuid
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -42,9 +43,18 @@ def add_task_to_board(text, thread_name):
     return None
 
 
+class UnknownThreadError(Exception):
+    """A board item is marked to move to a thread that doesn't exist."""
+
+
 def _latest_board(thread_name):
     """The thread's latest board, or a new unsaved one when it has none."""
-    thread = Thread.objects.get(name=thread_name)
+    try:
+        thread = Thread.objects.get(name=thread_name)
+    except Thread.DoesNotExist as e:
+        raise UnknownThreadError(
+            f"no thread named {thread_name!r} to move items to"
+        ) from e
 
     try:
         return Board.objects.filter(thread=thread)[0]
@@ -52,10 +62,14 @@ def _latest_board(thread_name):
         return Board(thread=thread)
 
 
+@transaction.atomic
 def close_board(board):
     """Commit ``board``: record a ``BoardCommitted`` event, move the items
     marked with a ``transition`` onto the latest board of that thread, and
     restart ``board`` with the items that stay.
+
+    All or nothing: raises ``UnknownThreadError`` before writing anything
+    when an item is marked for a thread that doesn't exist.
 
     Returns the restarted board.
     """
@@ -66,6 +80,8 @@ def close_board(board):
         del changeset[None]
     else:
         new_state = default_state()
+
+    other_boards = list(map(_latest_board, changeset.keys()))
 
     now = timezone.now()
 
@@ -78,8 +94,6 @@ def close_board(board):
         transitions=changeset,
         date_started=board.date_started,
     )
-
-    other_boards = list(map(_latest_board, changeset.keys()))
 
     for other_board in other_boards:
         other_board.state = merge(other_board.state, changeset[other_board.thread.name])
