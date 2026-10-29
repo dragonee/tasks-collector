@@ -53,6 +53,18 @@ class ThumbnailTaskTestCase(TestCase):
         self.assertEqual(called_ct, "image/webp")
         self.assertEqual(Image.open(io.BytesIO(called_data)).format, "WEBP")
 
+    @mock.patch(f"{STORAGE}.upload_bytes", side_effect=[ConnectionError("s3"), None])
+    @mock.patch(f"{STORAGE}.download_bytes", return_value=_png_bytes())
+    def test_retries_a_failed_thumbnail_upload(self, _dl, up):
+        # A transient upload error must not leave the photo without a
+        # thumbnail for good: the task retries and records the key.
+        photo = self._photo()
+        generate_photo_thumbnail.apply(args=[photo.pk]).get()
+
+        photo.refresh_from_db()
+        self.assertEqual(photo.thumbnail_key, "trips/1/1/abc_thumb.webp")
+        self.assertEqual(up.call_count, 2)
+
     @mock.patch(f"{STORAGE}.upload_bytes")
     @mock.patch(f"{STORAGE}.download_bytes", return_value=_png_bytes())
     def test_idempotent_when_thumbnail_already_set(self, dl, up):

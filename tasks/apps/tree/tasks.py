@@ -15,7 +15,8 @@ def generate_photo_thumbnail(self, photo_added_id):
     """Generate a WebP thumbnail for a PhotoAdded original and record its key.
 
     Idempotent: a no-op once ``thumbnail_key`` is set. Retried on transient
-    failures (e.g. the original not yet visible in the bucket).
+    storage failures, on the download (e.g. the original not yet visible in
+    the bucket) and on the thumbnail upload alike.
     """
     from .models import PhotoAdded
     from .services.photos import storage, thumbnail_key_for
@@ -42,7 +43,10 @@ def generate_photo_thumbnail(self, photo_added_id):
     img.save(buf, "WEBP", quality=80)
 
     tkey = thumbnail_key_for(photo.original_key)
-    storage.upload_bytes(tkey, buf.getvalue(), "image/webp")
+    try:
+        storage.upload_bytes(tkey, buf.getvalue(), "image/webp")
+    except Exception as exc:  # noqa: BLE001 - retry any storage hiccup
+        raise self.retry(exc=exc)
 
     PhotoAdded.objects.filter(pk=photo.pk).update(
         thumbnail_key=tkey, width=img.width, height=img.height
