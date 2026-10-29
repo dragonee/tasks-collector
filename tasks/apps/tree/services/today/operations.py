@@ -3,6 +3,12 @@
 Each public operation is wrapped in ``transaction.atomic`` so that the
 multi-record write (Board JSON + Plan.focus + Reflection.good) either all
 commits or none of it does.
+
+Every write also row-locks the current board (``_current_board(user,
+for_update=True)``) before reading anything else, so concurrent writes — two
+quick taps on the phone — run one after the other. Without it both would read
+the same Board.state / Plan.focus / Reflection.good, and the later save would
+drop the other's change (or ``get_or_create`` would make a duplicate row).
 """
 
 from dataclasses import dataclass
@@ -103,9 +109,14 @@ def _daily_thread():
     return Thread.objects.get(name="Daily")
 
 
-def _current_board(user):
+def _current_board(user, for_update=False):
+    """The latest board of the user's board thread. ``for_update`` row-locks it
+    until the surrounding transaction ends (see the module docstring)."""
     thread = board_thread_for(user)
-    board = Board.objects.filter(thread=thread).order_by("-date_started").first()
+    boards = Board.objects.filter(thread=thread).order_by("-date_started")
+    if for_update:
+        boards = boards.select_for_update()
+    board = boards.first()
     if board is None:
         raise NoBoardError(
             f"No board exists for thread {thread.name!r}; "
@@ -238,7 +249,7 @@ def add_task(user, text, today=None):
         _add_carried_progress_task(user, text, remaining, pub_date)
         return
 
-    board = _current_board(user)
+    board = _current_board(user, for_update=True)
 
     if board_tree.find_task_by_text(board.state, text) is None:
         board_tree.append_task_at_root(board.state, text)
@@ -266,7 +277,7 @@ def _add_carried_progress_task(user, text, remaining, pub_date):
     only the marker value is rewritten. When the task isn't on the board yet, the
     canonical line is appended at the root.
     """
-    board = _current_board(user)
+    board = _current_board(user, for_update=True)
     canonical = render_carried(text, remaining)
     base = base_of(text)
 
@@ -337,7 +348,7 @@ def complete_task(
 
 def _set_task_done_boolean(user, text, done, today, published):
     pub_date = _today(today, published)
-    board = _current_board(user)
+    board = _current_board(user, for_update=True)
 
     new_node_state = "done" if done else "open"
     hit = board_tree.find_task_by_text(board.state, text)
@@ -395,6 +406,7 @@ def _set_task_done_progress(user, text, done, progress, today, published):
     """
     pub_date = _today(today, published)
     base = base_of(text)
+    board = _current_board(user, for_update=True)
     daily = _daily_thread()
     reflection, _created = Reflection.objects.get_or_create(
         pub_date=pub_date, thread=daily
@@ -417,7 +429,6 @@ def _set_task_done_progress(user, text, done, progress, today, published):
         reflection.good = new_good
         reflection.save()
 
-    board = _current_board(user)
     if _cross_if_complete(board, base, new_n):
         board.save()
 
@@ -437,7 +448,7 @@ def delete_task(user, text, today=None):
     way. This is what lets "Move to tomorrow" drop the task off today's plan.
     """
     pub_date = _today(today)
-    board = _current_board(user)
+    board = _current_board(user, for_update=True)
 
     hit = board_tree.find_task_by_text(board.state, text)
     if hit is not None:
