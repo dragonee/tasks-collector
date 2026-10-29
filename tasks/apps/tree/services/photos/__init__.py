@@ -16,6 +16,7 @@ from .keys import (
     thumbnail_key_for,
 )
 from .metadata import read_capture_datetime
+from .originals import PhotoNotFoundError, presign_photo_original
 from .standalone import add_standalone_photo, presign_standalone_photo
 
 __all__ = [
@@ -33,6 +34,8 @@ __all__ = [
     "photo_key_belongs_to",
     "thumbnail_key_for",
     "read_capture_datetime",
+    "PhotoNotFoundError",
+    "presign_photo_original",
     "add_standalone_photo",
     "presign_standalone_photo",
 ]

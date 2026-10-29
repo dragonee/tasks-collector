@@ -154,7 +154,7 @@ urlpatterns = [
     ),
     path(
         "api/v1/android/trip/photo/<int:event_id>/original/",
-        views_android_trip.AndroidTripPhotoOriginalView.as_view(),
+        views_android_photo.AndroidPhotoOriginalView.as_view(),
         name="android-trip-photo-original",
     ),
     path(
@@ -174,7 +174,7 @@ urlpatterns = [
     ),
     path(
         "api/v1/android/photo/<int:event_id>/original/",
-        views_android_trip.AndroidTripPhotoOriginalView.as_view(),
+        views_android_photo.AndroidPhotoOriginalView.as_view(),
         name="android-photo-original",
     ),
     path(

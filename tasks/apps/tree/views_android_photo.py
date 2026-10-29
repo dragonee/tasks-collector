@@ -3,7 +3,8 @@
 The capture flow mirrors the trip-photo one — presign an S3 key, the device
 PUTs the bytes directly, then confirms — but there is no Story: a confirm
 creates a ``PhotoAdded`` on the Daily thread linked to no trip. The original
-endpoint is shared with trips via the generalized ``presign_photo_original``.
+endpoint here serves trip photos too, via the generalized
+``presign_photo_original``.
 """
 
 from django.utils.decorators import method_decorator
@@ -16,8 +17,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .services.photos import (
+    PhotoNotFoundError,
     PhotoObjectMissingError,
     add_standalone_photo,
+    presign_photo_original,
     presign_standalone_photo,
 )
 from .utils.datetime import parse_aware_datetime
@@ -87,3 +90,25 @@ class AndroidPhotoConfirmView(APIView):
         except ValueError as e:
             return _bad_request(str(e))
         return Response({"ok": True, "photo_id": photo.pk}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidPhotoOriginalView(APIView):
+    """Return a fresh short-lived presigned GET URL for a photo's original.
+
+    Serves both ``trip/photo/<id>/original/`` and ``photo/<id>/original/``:
+    ``presign_photo_original`` resolves ownership for trip and standalone
+    photos alike.
+    """
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, event_id):
+        try:
+            result = presign_photo_original(request.user, event_id)
+        except PhotoNotFoundError:
+            return Response(
+                {"error": "photo not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(result, status=status.HTTP_200_OK)
