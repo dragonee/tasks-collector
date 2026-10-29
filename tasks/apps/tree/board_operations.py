@@ -32,10 +32,20 @@ def create_task_item(text):
     }
 
 
+@transaction.atomic
 def add_task_to_board(text, thread_name):
-    """Helper function to add a task to a board"""
+    """Helper function to add a task to a board.
+
+    The board row is locked from read to save, so a concurrent write to it
+    (another append, an Android tick, a commit) can't be overwritten.
+    """
     thread = get_object_or_404(Thread, name=thread_name)
-    board = Board.objects.filter(thread=thread).order_by("-date_started").first()
+    board = (
+        Board.objects.filter(thread=thread)
+        .order_by("-date_started")
+        .select_for_update()
+        .first()
+    )
     if board:
         board.state.append(create_task_item(text))
         board.save()
