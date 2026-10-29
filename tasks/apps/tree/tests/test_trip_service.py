@@ -21,6 +21,7 @@ from ..models import (
     StoryEvent,
     Thread,
 )
+from ..services.photos import PhotoNotFoundError, presign_photo_original
 from ..services.trips import (
     InvalidStopTimeError,
     PhotoObjectMissingError,
@@ -32,7 +33,6 @@ from ..services.trips import (
     get_shared_story,
     list_active,
     list_history,
-    presign_photo_original,
     presign_photo_upload,
     share_trip,
     start_trip,
@@ -625,7 +625,7 @@ class TripPhotoServiceTestCase(TestCase):
         )
         result = presign_photo_original(self.alice, photo.pk)
         self.assertEqual(result["url"], "https://get.example/orig")
-        with self.assertRaises(StoryNotFoundError):
+        with self.assertRaises(PhotoNotFoundError):
             presign_photo_original(self.bob, photo.pk)
 
     @staticmethod

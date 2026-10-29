@@ -9,13 +9,14 @@ from PIL import Image
 
 from ..models import HabitTracked, JournalAdded, PhotoAdded, Profile, StoryEvent, Thread
 from ..services.photos import (
+    PhotoNotFoundError,
     PhotoObjectMissingError,
     add_standalone_photo,
     photo_key,
     photo_key_belongs_to,
+    presign_photo_original,
     presign_standalone_photo,
 )
-from ..services.trips import StoryNotFoundError, presign_photo_original
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 
@@ -217,12 +218,12 @@ class StandalonePhotoServiceTestCase(TestCase):
             content_type="image/jpeg",
             published=timezone.now(),
         )
-        with self.assertRaises(StoryNotFoundError):
+        with self.assertRaises(PhotoNotFoundError):
             presign_photo_original(self.bob, photo.pk)
 
     def test_presign_original_404_for_non_photo_event(self):
         journal = JournalAdded.objects.create(
             thread=self.daily, comment="not a photo", published=timezone.now()
         )
-        with self.assertRaises(StoryNotFoundError):
+        with self.assertRaises(PhotoNotFoundError):
             presign_photo_original(self.alice, journal.pk)

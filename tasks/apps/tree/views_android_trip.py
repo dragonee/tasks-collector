@@ -18,7 +18,6 @@ from .services.trips import (
     get_detail,
     list_active,
     list_history,
-    presign_photo_original,
     presign_photo_upload,
     share_trip,
     start_trip,
@@ -369,18 +368,3 @@ class AndroidTripPhotoConfirmView(APIView):
         except PhotoObjectMissingError:
             return _conflict("uploaded photo not found; re-upload and retry")
         return Response({"ok": True, "photo_id": photo.pk}, status=status.HTTP_200_OK)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class AndroidTripPhotoOriginalView(APIView):
-    """Return a fresh short-lived presigned GET URL for a photo's original."""
-
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, event_id):
-        try:
-            result = presign_photo_original(request.user, event_id)
-        except StoryNotFoundError:
-            return _not_found()
-        return Response(result, status=status.HTTP_200_OK)

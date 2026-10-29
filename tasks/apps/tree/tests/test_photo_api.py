@@ -206,3 +206,10 @@ class PhotoAPITestCase(APITestCase):
         self._auth(self.other_token)
         r = self.client.get(reverse("android-trip-photo-original", args=[photo_id]))
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(r.data, {"error": "photo not found"})
+
+    def test_original_unknown_photo_404_on_both_routes(self):
+        for name in ("android-trip-photo-original", "android-photo-original"):
+            r = self.client.get(reverse(name, args=[999999]))
+            self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+            self.assertEqual(r.data, {"error": "photo not found"})
