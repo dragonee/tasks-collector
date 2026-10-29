@@ -17,6 +17,7 @@ from .services.today import (
     delete_task,
     list_board_items,
     list_today_tasks,
+    move_task,
 )
 from .services.trips import StoryNotFoundError, StoryStoppedError
 from .utils.datetime import parse_aware_datetime
@@ -240,6 +241,32 @@ class AndroidTaskDeleteView(APIView):
             return _bad_request("date is required (YYYY-MM-DD)")
         try:
             delete_task(request.user, text, today=today)
+        except NoBoardError:
+            return _no_board_response()
+        return Response({"ok": True}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AndroidTaskMoveView(APIView):
+    """Move a task from one day's plan to another's, keeping its board node."""
+
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        text = _text_from(request)
+        if text is None:
+            return _bad_request("text is required")
+        from_date = _parse_date(request.data.get("from_date"))
+        if from_date is None:
+            return _bad_request("from_date is required (YYYY-MM-DD)")
+        to_date = _parse_date(request.data.get("to_date"))
+        if to_date is None:
+            return _bad_request("to_date is required (YYYY-MM-DD)")
+        if from_date == to_date:
+            return _bad_request("from_date and to_date must differ")
+        try:
+            move_task(request.user, text, from_date, to_date)
         except NoBoardError:
             return _no_board_response()
         return Response({"ok": True}, status=status.HTTP_200_OK)

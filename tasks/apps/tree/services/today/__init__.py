@@ -7,6 +7,7 @@ from .operations import (
     delete_task,
     list_board_items,
     list_today_tasks,
+    move_task,
     plan_tasks,
     set_task_done,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "delete_task",
     "list_board_items",
     "list_today_tasks",
+    "move_task",
     "plan_tasks",
     "set_task_done",
 ]

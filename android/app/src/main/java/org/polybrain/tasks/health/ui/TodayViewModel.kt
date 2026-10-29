@@ -15,6 +15,7 @@ import org.polybrain.tasks.health.data.HabitKeyword
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.TaskCompleteRequest
+import org.polybrain.tasks.health.data.TaskMoveRequest
 import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
@@ -190,19 +191,19 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Move a task to tomorrow: copy it onto tomorrow's Daily plan, then drop it
-     * from today's. Offered from a task's context menu only while viewing today.
-     * Both calls share one [mutate] block so a single reload reflects the result
-     * — the row leaves today and reappears when you step to tomorrow. Reuses the
-     * existing /add and /delete paths, so no new endpoint is needed.
+     * Move a task to tomorrow's Daily plan via /move, which keeps its board node
+     * (unlike /delete). Offered from a task's context menu only while viewing
+     * today. `mutate`'s reload reflects the result — the row leaves today and
+     * reappears when you step to tomorrow.
      */
     fun moveToTomorrow(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
             mutate { api ->
-                api.addTodayTask(TaskTextRequest(trimmed, LocalDate.now().plusDays(1).toString()))
-                api.deleteTodayTask(TaskTextRequest(trimmed, today()))
+                api.moveTodayTask(
+                    TaskMoveRequest(trimmed, today(), LocalDate.now().plusDays(1).toString())
+                )
             }
         }
     }
@@ -452,7 +453,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
 
     // The selected day in ISO 8601 (YYYY-MM-DD). Used by /add, /delete,
-    // /list — they only need to know which day the user means.
+    // /move, /list — they only need to know which day the user means.
     private fun today(): String = _selectedDate.value.toString()
 
     // Canonical pub_date of the Weekly plan covering the selected day: the

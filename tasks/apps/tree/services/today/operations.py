@@ -431,10 +431,7 @@ def delete_task(user, text, today=None):
 
     Board removal matches the exact text, so a carried progress task whose node
     was already renamed to its remaining count survives (that node is the work
-    moved forward, not deleted). The Plan.focus line is matched by base for
-    progress tasks, because the plan stores the canonical ``(K)`` form while the
-    caller passes the display ``(N/K)`` form — matching by base finds it either
-    way. This is what lets "Move to tomorrow" drop the task off today's plan.
+    moved forward, not deleted).
     """
     pub_date = _today(today)
     board = _current_board(user)
@@ -446,8 +443,24 @@ def delete_task(user, text, today=None):
             parent_list.pop(idx)
             board.save()
 
-    daily = _daily_thread()
-    plan = Plan.objects.filter(pub_date=pub_date, thread=daily).first()
+    _remove_from_daily_plan(text, pub_date)
+
+
+@transaction.atomic
+def move_task(user, text, from_date, to_date):
+    """Move the task from one day's Plan.focus to another's. Unlike
+    ``delete_task`` this never removes the board node, so the task keeps its
+    place in the tree and its markers. Reflection.good is left untouched.
+
+    A progress task's display ``(N/K)`` form is carried as its remaining count;
+    see ``add_task``.
+    """
+    add_task(user, text, today=to_date)
+    _remove_from_daily_plan(text, from_date)
+
+
+def _remove_from_daily_plan(text, pub_date):
+    plan = Plan.objects.filter(pub_date=pub_date, thread=_daily_thread()).first()
     if plan and plan.focus:
         new_focus = _remove_plan_line(plan.focus, text)
         if new_focus != plan.focus:

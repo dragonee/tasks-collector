@@ -27,6 +27,7 @@ import org.polybrain.tasks.health.data.PlanListResponse
 import org.polybrain.tasks.health.data.StandalonePhotoConfirmRequest
 import org.polybrain.tasks.health.data.StandalonePhotoPresignRequest
 import org.polybrain.tasks.health.data.TaskCompleteRequest
+import org.polybrain.tasks.health.data.TaskMoveRequest
 import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TodayTasksResponse
@@ -230,6 +231,7 @@ class OutboxDrainerTest {
         override suspend fun addTodayTask(body: TaskTextRequest): OkResponse = nope()
         override suspend fun completeTodayTask(body: TaskCompleteRequest): OkResponse = nope()
         override suspend fun deleteTodayTask(body: TaskTextRequest): OkResponse = nope()
+        override suspend fun moveTodayTask(body: TaskMoveRequest): OkResponse = nope()
         override suspend fun listPlans(thread: String, pubDate: String): PlanListResponse = nope()
         override suspend fun startTrip(body: TripStartRequest): TripResponse = nope()
         override suspend fun stopTrip(body: TripStopRequest): TripResponse = nope()
