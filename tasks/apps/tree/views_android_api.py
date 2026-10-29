@@ -5,6 +5,8 @@ from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.exceptions import ValidationError
+from rest_framework.fields import BooleanField
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -23,11 +25,27 @@ from .services.trips import StoryNotFoundError, StoryStoppedError
 from .utils.datetime import parse_aware_datetime
 
 
-def _text_from(request):
-    text = request.data.get("text") if hasattr(request, "data") else None
-    if text is None or not str(text).strip():
+def _text_error(text):
+    """Why ``text`` can't be used as a task, or None when it can. A task is a
+    single line of Plan.focus / Reflection.good, so it must be a non-blank
+    string with no line breaks — an embedded break would split it into several
+    plan lines while the board keeps it as one node."""
+    if not isinstance(text, str) or not text.strip():
+        return "text is required"
+    if "\n" in text or "\r" in text:
+        return "text must be a single line"
+    return None
+
+
+def _parse_bool(value):
+    """Parse a JSON or form boolean (``true``/``false``, ``"true"``/``"false"``,
+    ``1``/``0``, ...). Returns the bool, or None when ``value`` is missing or
+    not a boolean — plain truthiness would read the string ``"false"`` as
+    True."""
+    try:
+        return BooleanField().to_internal_value(value)
+    except ValidationError:
         return None
-    return str(text)
 
 
 def _parse_date(value):
@@ -121,9 +139,10 @@ class AndroidTaskAddView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        text = _text_from(request)
-        if text is None:
-            return _bad_request("text is required")
+        text = request.data.get("text")
+        error = _text_error(text)
+        if error is not None:
+            return _bad_request(error)
         today = _parse_date(request.data.get("date"))
         if today is None:
             return _bad_request("date is required (YYYY-MM-DD)")
@@ -158,11 +177,13 @@ class AndroidTaskCompleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        text = _text_from(request)
-        if text is None:
-            return _bad_request("text is required")
-        if "done" not in request.data:
-            return _bad_request("done is required")
+        text = request.data.get("text")
+        error = _text_error(text)
+        if error is not None:
+            return _bad_request(error)
+        done = _parse_bool(request.data.get("done"))
+        if done is None:
+            return _bad_request("done is required (true or false)")
         published = parse_aware_datetime(request.data.get("date"))
         if published is None:
             return _bad_request("date is required (full ISO 8601 timestamp)")
@@ -175,7 +196,6 @@ class AndroidTaskCompleteView(APIView):
                 story_id = int(story_id)
             except TypeError, ValueError:
                 return _bad_request("story_id must be an integer")
-        done = bool(request.data.get("done"))
         try:
             complete_task(
                 request.user,
@@ -233,9 +253,10 @@ class AndroidTaskDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        text = _text_from(request)
-        if text is None:
-            return _bad_request("text is required")
+        text = request.data.get("text")
+        error = _text_error(text)
+        if error is not None:
+            return _bad_request(error)
         today = _parse_date(request.data.get("date"))
         if today is None:
             return _bad_request("date is required (YYYY-MM-DD)")
