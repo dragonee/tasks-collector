@@ -93,6 +93,11 @@ urlpatterns = [
         name="android-task-delete",
     ),
     path(
+        "api/v1/android/task/move/",
+        views_android_api.AndroidTaskMoveView.as_view(),
+        name="android-task-move",
+    ),
+    path(
         "api/v1/android/board/items/",
         views_android_api.AndroidBoardListView.as_view(),
         name="android-board-items",

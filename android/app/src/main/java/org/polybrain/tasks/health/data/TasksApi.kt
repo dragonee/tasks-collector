@@ -70,6 +70,13 @@ data class TaskTextRequest(
 )
 
 @Serializable
+data class TaskMoveRequest(
+    @SerialName("text") val text: String,
+    @SerialName("from_date") val fromDate: String,
+    @SerialName("to_date") val toDate: String,
+)
+
+@Serializable
 data class TaskCompleteRequest(
     @SerialName("text") val text: String,
     @SerialName("done") val done: Boolean,
@@ -352,6 +359,9 @@ interface TasksApi {
 
     @POST("api/v1/android/task/delete/")
     suspend fun deleteTodayTask(@Body body: TaskTextRequest): OkResponse
+
+    @POST("api/v1/android/task/move/")
+    suspend fun moveTodayTask(@Body body: TaskMoveRequest): OkResponse
 
     // Generic DRF Plan endpoint shared with the web frontend. Filtered by
     // thread name (e.g. "Weekly") and the plan's canonical pub_date (for

@@ -20,7 +20,7 @@ each call.
 
 ## Endpoints
 
-All four live under the existing mobile-API namespace and use the same
+All five live under the existing mobile-API namespace and use the same
 auth as `/api/v1/habit/track/`: DRF `TokenAuthentication` +
 `IsAuthenticated`, `@csrf_exempt`, JSON request and response.
 
@@ -30,6 +30,7 @@ auth as `/api/v1/habit/track/`: DRF `TokenAuthentication` +
 | POST   | `/api/v1/android/task/add/`          | `{"text","date":"YYYY-MM-DD"}`                 | `{"ok": true}`                   |
 | POST   | `/api/v1/android/task/complete/`     | `{"text","done","date":"<ISO 8601 ts>","note"?}` | `{"ok": true}`                 |
 | POST   | `/api/v1/android/task/delete/`       | `{"text","date":"YYYY-MM-DD"}`                 | `{"ok": true}`                   |
+| POST   | `/api/v1/android/task/move/`         | `{"text","from_date","to_date"}` (`YYYY-MM-DD`) | `{"ok": true}`                  |
 
 Error model: `400` on missing/malformed input, `401` without a valid
 token, `409` if the user has no `Board` on their configured thread, `200`
@@ -37,8 +38,8 @@ otherwise.
 
 ### Why `/complete` carries a full timestamp
 
-Three of the four endpoints only need to know *which day* the user means,
-so they pass a date-only string. `/complete` is different: every check
+Four of the five endpoints only need to know *which day* the user means,
+so they pass date-only strings. `/complete` is different: every check
 that comes with a free-form note is also recorded as a `JournalAdded`,
 and that journal entry should carry the device's real wall-clock moment
 of the tap — not a server-side synthesized noon. The Android client uses

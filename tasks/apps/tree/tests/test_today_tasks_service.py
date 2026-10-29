@@ -16,6 +16,7 @@ from ..services.today import (
     complete_task,
     delete_task,
     list_today_tasks,
+    move_task,
     set_task_done,
     text_lines,
 )
@@ -216,8 +217,7 @@ class TodayServiceTestCase(TestCase):
         add_task(self.user, "New task (2)", today=TODAY)
         set_task_done(self.user, "New task (2)", True, today=TODAY)  # display (2/2)
 
-        add_task(self.user, "New task (2/2)", today=TOMORROW)
-        delete_task(self.user, "New task (2/2)", today=TODAY)
+        move_task(self.user, "New task (2/2)", TODAY, TOMORROW)
 
         tomorrow_plan = Plan.objects.get(pub_date=TOMORROW, thread=self.daily)
         self.assertEqual(tomorrow_plan.focus, "New task")
@@ -230,13 +230,12 @@ class TodayServiceTestCase(TestCase):
     def test_move_progress_task_to_tomorrow(self):
         # Full "Move to tomorrow": the task was added and one step ticked, so
         # today's list shows it as (2/3). Moving hands that display form to
-        # /add (for tomorrow) then /delete (for today).
+        # /move.
         TOMORROW = date_cls(2026, 5, 22)
         add_task(self.user, "New task (3)", today=TODAY)
         set_task_done(self.user, "New task (3)", True, today=TODAY)
 
-        add_task(self.user, "New task (2/3)", today=TOMORROW)
-        delete_task(self.user, "New task (2/3)", today=TODAY)
+        move_task(self.user, "New task (2/3)", TODAY, TOMORROW)
 
         # Tomorrow carries the two remaining steps; today's plan line is gone.
         tomorrow_plan = Plan.objects.get(pub_date=TOMORROW, thread=self.daily)
@@ -338,6 +337,53 @@ class TodayServiceTestCase(TestCase):
 
         reflection = Reflection.objects.get(pub_date=TODAY, thread=self.daily)
         self.assertEqual(reflection.good, "buy bread")
+
+    # --- move_task ----------------------------------------------------------
+
+    def test_move_plain_task_keeps_board_node(self):
+        TOMORROW = date_cls(2026, 5, 22)
+        parent = create_task_item("Shopping")
+        kid = create_task_item("buy bread")
+        kid["data"]["meaningfulMarkers"]["moscow"] = "must"
+        parent["children"] = [kid]
+        self.board.state = [parent]
+        self.board.save()
+        add_task(self.user, "buy bread", today=TODAY)
+
+        move_task(self.user, "buy bread", TODAY, TOMORROW)
+
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state, [parent])
+        today_plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(today_plan.focus, "")
+        tomorrow_plan = Plan.objects.get(pub_date=TOMORROW, thread=self.daily)
+        self.assertEqual(tomorrow_plan.focus, "buy bread")
+
+    def test_move_task_leaves_other_lines_and_reflection_untouched(self):
+        TOMORROW = date_cls(2026, 5, 22)
+        add_task(self.user, "buy bread", today=TODAY)
+        add_task(self.user, "walk dog", today=TODAY)
+        set_task_done(self.user, "buy bread", True, today=TODAY)
+
+        move_task(self.user, "buy bread", TODAY, TOMORROW)
+
+        today_plan = Plan.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(today_plan.focus, "walk dog")
+        reflection = Reflection.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(reflection.good, "buy bread")
+
+    def test_move_task_is_idempotent(self):
+        # A retried request after a lost response changes nothing further.
+        TOMORROW = date_cls(2026, 5, 22)
+        add_task(self.user, "buy bread", today=TODAY)
+
+        move_task(self.user, "buy bread", TODAY, TOMORROW)
+        move_task(self.user, "buy bread", TODAY, TOMORROW)
+
+        self.board.refresh_from_db()
+        self.assertEqual(len(self.board.state), 1)
+        tomorrow_plan = Plan.objects.get(pub_date=TOMORROW, thread=self.daily)
+        self.assertEqual(tomorrow_plan.focus, "buy bread")
 
     # --- list_today_tasks ---------------------------------------------------
 

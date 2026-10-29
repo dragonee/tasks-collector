@@ -72,6 +72,9 @@ class AndroidTaskAPITestCase(APITestCase):
             format="json",
         )
 
+    def _move(self, **payload):
+        return self.client.post(reverse("android-task-move"), payload, format="json")
+
     def _list(self, date=TODAY_ISO):
         url = reverse("android-task-today")
         if date is None:
@@ -103,6 +106,61 @@ class AndroidTaskAPITestCase(APITestCase):
         self.assertEqual(self.board.state[0]["text"], "buy bread")
         plan = Plan.objects.get(thread=self.daily)
         self.assertEqual(plan.pub_date, TODAY)
+
+    def test_move_changes_plans_and_keeps_board_node(self):
+        self._auth()
+        tomorrow = TODAY + timedelta(days=1)
+        self._add("buy bread")
+
+        response = self._move(
+            text="buy bread", from_date=TODAY_ISO, to_date=tomorrow.isoformat()
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json(), {"ok": True})
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state[0]["text"], "buy bread")
+        self.assertEqual(Plan.objects.get(pub_date=TODAY).focus, "")
+        self.assertEqual(Plan.objects.get(pub_date=tomorrow).focus, "buy bread")
+
+    def test_move_rejects_invalid_input(self):
+        self._auth()
+        self._add("buy bread")
+        valid = {"text": "buy bread", "from_date": TODAY_ISO, "to_date": "2026-05-22"}
+
+        for override in (
+            {"text": ""},
+            {"from_date": ""},
+            {"from_date": "not-a-date"},
+            {"to_date": ""},
+            {"to_date": "not-a-date"},
+            {"to_date": TODAY_ISO},
+        ):
+            with self.subTest(override=override):
+                response = self._move(**{**valid, **override})
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    Plan.objects.get(pub_date=TODAY).focus,
+                    "buy bread",
+                )
+
+    def test_move_without_board_returns_conflict(self):
+        self._auth()
+        Board.objects.all().delete()
+
+        response = self._move(
+            text="buy bread", from_date=TODAY_ISO, to_date="2026-05-22"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_move_requires_authentication(self):
+        response = self._move(
+            text="buy bread", from_date=TODAY_ISO, to_date="2026-05-22"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_complete_then_uncomplete_round_trip(self):
         self._auth()
