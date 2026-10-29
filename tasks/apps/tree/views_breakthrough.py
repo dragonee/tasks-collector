@@ -1,7 +1,9 @@
+from datetime import MAXYEAR, MINYEAR
+
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.forms import inlineformset_factory
-from django.http import HttpResponseBadRequest
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -23,7 +25,11 @@ from .models import (
 
 @login_required
 def breakthrough(request, year):
-    year = int(year)
+    # The page also filters by last_year and links to year - 1 and year + 1,
+    # all of which have to be valid datetime years.
+    if not MINYEAR < year < MAXYEAR:
+        raise Http404("Year out of range")
+
     review_mode = request.GET.get("review", "1") == "1"
     last_year = year if review_mode else year - 1
 
@@ -103,7 +109,13 @@ def projected_outcome_events_history(request, event_stream_id):
     from .presentation import ProjectedOutcomePresentation
 
     # Create a presentation object that handles both active and complete scenarios
-    presentation = ProjectedOutcomePresentation.from_event_stream_id(event_stream_id)
+    try:
+        presentation = ProjectedOutcomePresentation.from_event_stream_id(
+            event_stream_id
+        )
+    except ValueError:
+        # No ProjectedOutcomeMade in the stream: unknown or foreign stream id.
+        raise Http404("No projected outcome with this event stream")
 
     return render(
         request,
