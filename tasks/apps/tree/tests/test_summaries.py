@@ -1,7 +1,9 @@
 import datetime
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -55,3 +57,16 @@ class SummariesDateRangeTestCase(TestCase):
         self._commit(timezone.now() - datetime.timedelta(days=40))
 
         self.assertEqual(self._shown(), [today.pk])
+
+    def _count_queries(self):
+        with CaptureQueriesContext(connection) as ctx:
+            self._shown()
+        return len(ctx.captured_queries)
+
+    def test_query_count_does_not_grow_with_boards(self):
+        self._commit(timezone.now())
+        one_board = self._count_queries()
+        self._commit(timezone.now())
+        self._commit(timezone.now())
+
+        self.assertEqual(self._count_queries(), one_board)
