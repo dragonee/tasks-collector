@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Subquery
+from django.db.models import CharField, Exists, OuterRef, Subquery
+from django.db.models.functions import Cast
 from django.forms import inlineformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -98,18 +99,36 @@ class EventFilter(filters.FilterSet):
         }
 
 
+def serializable_observations():
+    """Observations with the relations ObservationSerializer reads joined in."""
+    return Observation.objects.with_last_event_published().select_related(
+        "user", "thread", "type"
+    )
+
+
 class ObservationViewSet(viewsets.ModelViewSet):
-    queryset = Observation.objects.with_last_event_published()
+    queryset = serializable_observations()
 
     filter_backends = [DjangoFilterBackend]
     filterset_class = ObservationFilter
 
     pagination_class = ObservationPagination
 
-    def get_serializer_class(self):
+    def wants_updates(self):
         features = self.request.query_params.get("features")
 
-        if features and "updates" in features:
+        return bool(features and "updates" in features)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        if self.wants_updates():
+            queryset = queryset.prefetch_related("observationupdated_set")
+
+        return queryset
+
+    def get_serializer_class(self):
+        if self.wants_updates():
             return ObservationWithUpdatesSerializer
 
         return ObservationSerializer
@@ -694,8 +713,9 @@ def observation_search(request):
     if pk_query.isdigit():
         # Search by primary key pattern - find PKs that start with the number
         observations = (
-            Observation.objects.with_last_event_published()
-            .extra(where=["CAST(id AS TEXT) LIKE %s"], params=[pk_query + "%"])
+            serializable_observations()
+            .annotate(id_text=Cast("id", CharField()))
+            .filter(id_text__startswith=pk_query)
             .order_by("id")
         )
 
@@ -737,7 +757,7 @@ def observation_search(request):
 
     # Search observations and rank by relevance
     observations = (
-        Observation.objects.with_last_event_published()
+        serializable_observations()
         .annotate(search=search_vector, rank=SearchRank(search_vector, search_query))
         .filter(search=search_query)
         .order_by("-rank", "-pub_date")
