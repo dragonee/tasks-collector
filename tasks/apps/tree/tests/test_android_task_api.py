@@ -177,6 +177,33 @@ class AndroidTaskAPITestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_add_multiline_text_returns_400(self):
+        # A line break would split the task into several Plan.focus lines while
+        # the board stored it as a single node.
+        self._auth()
+        for text in ("buy\nbread", "buy\r\nbread", "buy\rbread"):
+            response = self._add(text)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertEqual(response.json(), {"error": "text must be a single line"})
+        self.assertFalse(Plan.objects.filter(thread=self.daily).exists())
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.state, [])
+
+    def test_complete_and_delete_multiline_text_return_400(self):
+        self._auth()
+        response = self._complete("buy\nbread", True)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = self._delete("buy\nbread")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_non_string_text_returns_400(self):
+        self._auth()
+        for text in (42, ["buy bread"], {"text": "buy bread"}):
+            response = self._add(text)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertEqual(response.json(), {"error": "text is required"})
+        self.assertFalse(Plan.objects.filter(thread=self.daily).exists())
+
     def test_complete_missing_done_returns_400(self):
         self._auth()
         response = self.client.post(
@@ -185,6 +212,40 @@ class AndroidTaskAPITestCase(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_complete_invalid_done_returns_400(self):
+        self._auth()
+        for done in (None, "maybe", [True]):
+            response = self._complete("buy bread", done)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Reflection.objects.filter(thread=self.daily).exists())
+
+    def test_complete_string_false_unticks(self):
+        # bool("false") is True: the string form must still untick.
+        self._auth()
+        self._add("buy bread")
+        self._complete("buy bread", True)
+
+        response = self._complete("buy bread", "false")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "")
+
+    def test_complete_form_encoded_done(self):
+        self._auth()
+        self._add("buy bread")
+        url = reverse("android-task-complete")
+        payload = {"text": "buy bread", "date": COMPLETE_AT_ISO}
+
+        response = self.client.post(url, {**payload, "done": "true"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reflection = Reflection.objects.get(thread=self.daily)
+        self.assertEqual(reflection.good, "buy bread")
+
+        response = self.client.post(url, {**payload, "done": "false"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reflection.refresh_from_db()
+        self.assertEqual(reflection.good, "")
 
     def test_add_missing_date_returns_400(self):
         self._auth()
