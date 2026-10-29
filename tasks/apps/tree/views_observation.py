@@ -131,7 +131,9 @@ class ObservationUpdatedViewSet(viewsets.ModelViewSet):
         return ObservationUpdatedSerializer
 
 
-class ObservationEventViewSet(viewsets.ModelViewSet):
+class ObservationEventViewSet(viewsets.ReadOnlyModelViewSet):
+    # Read-only: observation events are recorded by the observation endpoints
+    # (create/update, close, attach...), never written here directly.
     # XXX do we need to filter out events that are not of the observation type?
     queryset = Event.objects.all()
 
