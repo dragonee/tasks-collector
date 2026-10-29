@@ -5,6 +5,7 @@ toggle, and the public page behind a share link."""
 import json
 import uuid as uuid_module
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -358,6 +359,28 @@ class TripWebTestCase(TestCase):
         self.assertEqual(r.status_code, 204)
         self.story.refresh_from_db()
         self.assertEqual(timezone.localtime(self.story.stopped), ended)
+
+    def test_trip_stop_backdates_to_the_posted_utc_instant(self):
+        # What trip_actions.js submits: the browser-local pick converted with
+        # Date.toISOString(), so the server never guesses the browser's zone.
+        self.story.started = timezone.now() - timedelta(days=2)
+        self.story.save(update_fields=["started"])
+        ended = (timezone.now() - timedelta(days=1)).replace(microsecond=0)
+        r = self.client.post(
+            reverse("trip-stop", args=[self.story.pk]),
+            {
+                "stopped": ended.astimezone(dt_timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%S.000Z"
+                )
+            },
+        )
+        self.assertEqual(r.status_code, 204)
+        self.story.refresh_from_db()
+        self.assertEqual(self.story.stopped, ended)
+
+    def test_trip_stop_modal_carries_the_start_as_epoch_seconds(self):
+        r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
+        self.assertContains(r, f'data-started="{int(self.story.started.timestamp())}"')
 
     def test_trip_stop_before_the_start_400(self):
         r = self.client.post(
