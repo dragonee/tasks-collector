@@ -108,6 +108,8 @@ def _add_task_to_plan(text, timeframe):
     """
     from datetime import date, timedelta
 
+    from .services.today import text_lines
+
     if timeframe == "today":
         focus_date = date.today()
         thread = Thread.objects.get(name="Daily")
@@ -120,20 +122,16 @@ def _add_task_to_plan(text, timeframe):
     else:
         raise ValueError(f"Invalid timeframe: {timeframe}")
 
-    plan, created = Plan.objects.get_or_create(
+    plan, _created = Plan.objects.get_or_create(
         pub_date=focus_date, thread=thread, defaults={"focus": text}
     )
-    if not created:
-        # Check if the text already exists in the plan (prevent duplicates)
-        if plan.focus:
-            existing_lines = plan.focus.split("\n")
-            if text not in existing_lines:
-                plan.focus += "\n" + text
-                plan.save()
-            # If text already exists, don't add it again (but still return success)
-        else:
-            plan.focus = text
-            plan.save()
+    # A line already in the plan isn't added again (but still returns success).
+    # Matching goes through text_lines so a CRLF focus, as saved by the web
+    # plan form, still finds the line.
+    new_focus = text_lines.add_unique_line(plan.focus, text)
+    if new_focus != (plan.focus or ""):
+        plan.focus = new_focus
+        plan.save()
 
     return plan
 
