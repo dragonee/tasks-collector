@@ -24,7 +24,9 @@ class TodayPlansAPITestCase(APITestCase):
         cls.user = User.objects.create_user(username="u", password="x")
         cls.daily = Thread.objects.create(name="Daily")
         cls.weekly = Thread.objects.create(name="Weekly")
-        cls.bigpic = Thread.objects.create(name="Big-picture")
+        # Lowercase, as in the dev fixtures, the web Today view and reflection
+        # extraction — the name the monthly plans are actually stored under.
+        cls.bigpic = Thread.objects.create(name="big-picture")
         cls.url = reverse("today-plans")
 
     def setUp(self):
@@ -75,7 +77,7 @@ class TodayPlansAPITestCase(APITestCase):
             [{"text": "week task", "done": False, "mark": None}],
         )
 
-        self.assertEqual(body["monthly"]["thread"], "Big-picture")
+        self.assertEqual(body["monthly"]["thread"], "big-picture")
         self.assertEqual(body["monthly"]["pub_date"], eom.isoformat())
         self.assertEqual(
             body["monthly"]["tasks"],

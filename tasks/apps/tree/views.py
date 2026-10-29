@@ -210,7 +210,7 @@ def today_plans(request):
             "daily": _serialize_plan(pub_date, "Daily"),
             "weekly": _serialize_plan(make_last_day_of_the_week(pub_date), "Weekly"),
             "monthly": _serialize_plan(
-                make_last_day_of_the_month(pub_date), "Big-picture"
+                make_last_day_of_the_month(pub_date), "big-picture"
             ),
         },
         status=status.HTTP_200_OK,
