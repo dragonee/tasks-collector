@@ -19,6 +19,11 @@ from .models import (
     ProjectedOutcomeEvolved,
     ProjectedOutcomeMoved,
 )
+from .services.breakthrough.operations import (
+    close_projected_outcome,
+    evolve_projected_outcome,
+    move_projected_outcome_to_next_year,
+)
 
 
 @login_required
@@ -130,14 +135,7 @@ def projected_outcome_events_history(request, event_stream_id):
 def projected_outcome_close(request, projected_outcome_id):
     projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
 
-    projected_outcome_closed = ProjectedOutcomeClosed.from_projected_outcome(
-        projected_outcome
-    )
-
-    with transaction.atomic():
-        projected_outcome_closed.save()
-
-        projected_outcome.delete()
+    close_projected_outcome(projected_outcome)
 
     response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
     response["HX-Redirect"] = reverse(
@@ -156,10 +154,7 @@ def projected_outcome_evolve(request, projected_outcome_id):
     if not form.is_valid():
         return HttpResponseBadRequest("Invalid note")
 
-    evolved = ProjectedOutcomeEvolved.from_projected_outcome(
-        projected_outcome, form.cleaned_data["note"]
-    )
-    evolved.save()
+    evolve_projected_outcome(projected_outcome, form.cleaned_data["note"])
 
     return render(
         request,
@@ -178,22 +173,8 @@ def projected_outcome_move(request, projected_outcome_id):
     projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
 
     old_breakthrough = projected_outcome.breakthrough
-    next_year = int(old_breakthrough.slug) + 1
 
-    # Get or create the next year's breakthrough
-    new_breakthrough, _ = Breakthrough.objects.get_or_create(slug=str(next_year))
-
-    # Create the moved event
-    moved_event = ProjectedOutcomeMoved.from_projected_outcome(
-        projected_outcome, old_breakthrough, new_breakthrough
-    )
-
-    with transaction.atomic():
-        moved_event.save()
-
-        # Update the projected outcome to point to the new breakthrough
-        projected_outcome.breakthrough = new_breakthrough
-        projected_outcome.save()
+    move_projected_outcome_to_next_year(projected_outcome)
 
     response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
     response["HX-Redirect"] = reverse("breakthrough", args=[old_breakthrough.slug])
