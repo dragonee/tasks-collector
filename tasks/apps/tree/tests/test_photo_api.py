@@ -30,6 +30,11 @@ class PhotoAPITestCase(APITestCase):
     def setUp(self):
         self._auth()
         self.story = Story.objects.create(user=self.user, title="Trip")
+        # Confirm downloads the original to read its EXIF capture time; keep
+        # that off the bucket (empty bytes -> no EXIF -> ``published`` kept).
+        patcher = mock.patch(f"{STORAGE}.download_bytes", return_value=b"")
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _auth(self, token=None):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {(token or self.token).key}")

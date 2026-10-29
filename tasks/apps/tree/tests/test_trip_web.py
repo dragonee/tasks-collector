@@ -38,6 +38,11 @@ class TripWebTestCase(TestCase):
     def setUp(self):
         self.client.force_login(self.user)
         self.story = Story.objects.create(user=self.user, title="Lisbon weekend")
+        # Photo confirm downloads the original to read its EXIF capture time;
+        # keep that off the bucket (empty bytes -> no EXIF).
+        patcher = mock.patch(f"{STORAGE}.download_bytes", return_value=b"")
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _note(self, comment, story=None, published=None):
         note = JournalAdded.objects.create(
