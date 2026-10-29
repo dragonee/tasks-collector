@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
+from django_filters import rest_framework as filters
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response as RestResponse
@@ -14,19 +15,23 @@ from .models import Board, BoardCommitted, Thread, default_state
 from .serializers import BoardSerializer, BoardSummary
 
 
+class BoardFilter(filters.FilterSet):
+    thread = filters.NumberFilter(field_name="thread_id")
+
+    class Meta:
+        model = Board
+        fields = ["thread"]
+
+
 class BoardViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows boards to be viewed or edited.
     """
 
-    def get_queryset(self):
-        queryset = Board.objects.all()
-        thread_id = self.request.query_params.get("thread", None)
+    queryset = Board.objects.all()
 
-        if thread_id is not None:
-            queryset = queryset.filter(thread_id=thread_id)
-
-        return queryset
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = BoardFilter
 
     serializer_class = BoardSerializer
 
