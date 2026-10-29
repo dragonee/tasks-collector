@@ -1,11 +1,13 @@
+import threading
 from datetime import date as date_cls
 from datetime import datetime as datetime_cls
 from datetime import timezone as dt_timezone
 from unittest import mock
 
 from django.contrib.auth import get_user_model
-from django.db import DatabaseError
-from django.test import TestCase
+from django.db import DatabaseError, connection, transaction
+from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 
 from ..board_operations import create_task_item
 from ..models import Board, JournalAdded, Plan, Profile, Reflection, Thread
@@ -567,3 +569,100 @@ class TodayServiceTestCase(TestCase):
         self.assertTrue(reflection is None or reflection.good == "")
         self.board.refresh_from_db()
         self.assertEqual(self.board.state[0]["data"]["state"], "open")
+
+    # --- board lock ---------------------------------------------------------
+
+    def _assert_board_locked_first(self, operation):
+        """``operation`` row-locks the board before it reads the day's Plan or
+        Reflection, so a concurrent write can't interleave with it."""
+        with CaptureQueriesContext(connection) as ctx:
+            operation()
+        sqls = [q["sql"] for q in ctx.captured_queries]
+        lock = next(
+            (
+                i
+                for i, sql in enumerate(sqls)
+                if '"tree_board"' in sql and "FOR UPDATE" in sql
+            ),
+            None,
+        )
+        day_read = next(
+            (
+                i
+                for i, sql in enumerate(sqls)
+                if '"tree_plan"' in sql or '"tree_reflection"' in sql
+            ),
+            None,
+        )
+        self.assertIsNotNone(lock, "board was not locked")
+        self.assertIsNotNone(day_read)
+        self.assertLess(lock, day_read)
+
+    def test_writes_lock_the_board_before_reading_the_day(self):
+        self._assert_board_locked_first(
+            lambda: add_task(self.user, "buy bread", today=TODAY)
+        )
+        self._assert_board_locked_first(
+            lambda: add_task(self.user, "Carry (2/3)", today=TODAY)
+        )
+        self._assert_board_locked_first(
+            lambda: set_task_done(self.user, "buy bread", True, today=TODAY)
+        )
+        self._assert_board_locked_first(
+            lambda: set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        )
+        self._assert_board_locked_first(
+            lambda: delete_task(self.user, "buy bread", today=TODAY)
+        )
+
+
+class TodayConcurrentWritesTestCase(TransactionTestCase):
+    """Two Today writes in flight at once — e.g. two quick unticks on the
+    phone, each its own request — must both land."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="phone", password="x")
+        self.daily = Thread.objects.create(name="Daily")
+        Profile.objects.create(user=self.user, default_board_thread=self.daily)
+        self.board = Board.objects.create(thread=self.daily, state=[])
+        add_task(self.user, "buy bread", today=TODAY)
+        add_task(self.user, "walk dog", today=TODAY)
+
+    def _start(self, operation):
+        """Run ``operation`` on its own thread (and so its own connection)."""
+        errors = []
+
+        def run():
+            try:
+                operation()
+            except Exception as e:
+                errors.append(e)
+            finally:
+                connection.close()
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        return thread, errors
+
+    def test_concurrent_ticks_both_land(self):
+        with transaction.atomic():
+            set_task_done(self.user, "buy bread", True, today=TODAY)
+            # The first tick hasn't committed yet; the second must wait for it
+            # rather than work from the board and reflection it saw before.
+            thread, errors = self._start(
+                lambda: set_task_done(self.user, "walk dog", True, today=TODAY)
+            )
+            thread.join(timeout=0.5)
+            self.assertTrue(thread.is_alive())
+        thread.join(timeout=10)
+
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        self.board.refresh_from_db()
+        self.assertEqual(
+            [board_tree.get_state(node) for node in self.board.state],
+            ["done", "done"],
+        )
+        reflection = Reflection.objects.get(pub_date=TODAY, thread=self.daily)
+        self.assertEqual(reflection.good, "buy bread\nwalk dog")
