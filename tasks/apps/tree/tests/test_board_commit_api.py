@@ -1,9 +1,12 @@
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..board_operations import create_task_item
+from ..board_operations import add_task_to_board, close_board, create_task_item
 from ..models import Board, BoardCommitted, Thread
 
 
@@ -67,3 +70,44 @@ class BoardCommitAPITestCase(APITestCase):
         board.refresh_from_db()
         self.assertEqual(board.state, state)
         self.assertEqual(board.date_started, date_started)
+
+
+class CloseBoardLockTestCase(TestCase):
+    """close_board() commits what is stored, not the caller's copy, and holds
+    row locks on every board it rewrites, so it can't overwrite a concurrent
+    append or Today tick."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.daily = Thread.objects.create(name="Daily")
+        cls.sidetrack = Thread.objects.create(name="Sidetrack")
+
+    def test_commits_a_task_saved_after_the_board_was_loaded(self):
+        board = Board.objects.create(thread=self.daily, state=[_item("first")])
+        stale = Board.objects.get(pk=board.pk)
+        add_task_to_board("appended meanwhile", "Daily")
+
+        close_board(stale)
+
+        board.refresh_from_db()
+        self.assertEqual(_texts(board), ["first", "appended meanwhile"])
+        self.assertEqual(len(BoardCommitted.objects.get().before), 2)
+
+    def test_locks_the_board_and_the_target_board(self):
+        Board.objects.create(thread=self.sidetrack, state=[_item("old")])
+        board = Board.objects.create(
+            thread=self.daily,
+            state=[_item("stays"), _item("moves", transition="Sidetrack")],
+        )
+
+        with CaptureQueriesContext(connection) as ctx:
+            close_board(board)
+
+        board_reads = [
+            q["sql"]
+            for q in ctx.captured_queries
+            if q["sql"].startswith("SELECT") and 'FROM "tree_board"' in q["sql"]
+        ]
+        self.assertEqual(len(board_reads), 2)
+        for sql in board_reads:
+            self.assertIn("FOR UPDATE", sql)
