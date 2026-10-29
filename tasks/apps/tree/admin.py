@@ -1,11 +1,11 @@
 from datetime import datetime
 
 from django.contrib import admin
-from django.db import transaction
 
 from polymorphic.admin import PolymorphicChildModelAdmin, PolymorphicParentModelAdmin
 
 from .models import *
+from .services.observations.closing import close_observation
 
 
 class ObservationTypeAdmin(admin.ModelAdmin):
@@ -40,13 +40,7 @@ class ThreadAdmin(admin.ModelAdmin):
 @admin.action(description="Close selected observations")
 def close_observations(modeladmin, request, queryset):
     for observation in queryset:
-
-        observation_closed = ObservationClosed.from_observation(observation)
-
-        with transaction.atomic():
-            observation_closed.save()
-
-            observation.delete()
+        close_observation(observation.pk)
 
 
 class ObservationUpdatedInline(admin.StackedInline):

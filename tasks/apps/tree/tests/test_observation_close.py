@@ -13,6 +13,7 @@ from django.test import TransactionTestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from ..admin import close_observations
 from ..models import (
     InsightRefined,
     Observation,
@@ -78,6 +79,17 @@ class ObservationCloseAPITestCase(APITestCase):
         self.assertEqual(self.client.post(url).status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(ObservationClosed.objects.count(), 1)
         self.assertEqual(InsightRefined.objects.count(), 1)
+
+    def test_admin_action_closes_each_observation(self):
+        other = _observation(self.user, self.thread, self.type)
+
+        close_observations(None, None, Observation.objects.all())
+
+        self.assertFalse(Observation.objects.exists())
+        self.assertEqual(
+            set(ObservationClosed.objects.values_list("event_stream_id", flat=True)),
+            {self.observation.event_stream_id, other.event_stream_id},
+        )
 
 
 class ConcurrentCloseTestCase(TransactionTestCase):
