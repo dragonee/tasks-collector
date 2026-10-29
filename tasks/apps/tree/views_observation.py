@@ -666,8 +666,8 @@ def filter_out_attached_observations(observations, observation_id):
         observations = observations.exclude(pk=observation_id)
         if attached_stream_ids:
             observations = observations.exclude(event_stream_id__in=attached_stream_ids)
-    except Observation.DoesNotExist:
-        pass  # If observation doesn't exist, proceed without filtering
+    except Observation.DoesNotExist, ValueError:
+        pass  # If observation doesn't exist or the id is malformed, don't filter
 
     return observations
 
