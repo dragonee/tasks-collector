@@ -15,7 +15,7 @@
     <div class="topbar">
         <div class="upper-pane">
             {% if projected_outcome %}
-                <a class="back-chevron" href="{% url 'breakthrough' year=projected_outcome.breakthrough.published.year %}" aria-label="Back to Breakthrough">&lsaquo;</a>
+                <a class="back-chevron" href="{% url 'breakthrough' year=projected_outcome.breakthrough.slug %}" aria-label="Back to Breakthrough">&lsaquo;</a>
             {% else %}
                 <a class="back-chevron" href="javascript:history.back()" aria-label="Back">&lsaquo;</a>
             {% endif %}
