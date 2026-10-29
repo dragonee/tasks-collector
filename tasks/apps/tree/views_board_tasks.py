@@ -172,8 +172,10 @@ def period_from_request(request, days=7):
 def summaries(request):
     period = period_from_request(request, days=30)
 
-    boards = BoardCommitted.objects.filter(published__date__range=period).order_by(
-        "-published"
+    boards = (
+        BoardCommitted.objects.filter(published__date__range=period)
+        .select_related("thread")
+        .order_by("-published")
     )
 
     summaries = [BoardSummary(board) for board in boards]
