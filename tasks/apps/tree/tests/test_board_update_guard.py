@@ -60,3 +60,34 @@ class BoardUpdateEmptyStateGuardTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         board.refresh_from_db()
         self.assertEqual([n["text"] for n in board.state], ["only task left"])
+
+
+class BoardCreateDeleteNotAllowedTestCase(APITestCase):
+    """boards/ only reads and updates existing boards. A POSTed board has no
+    thread (the serializer can't set one), and a DELETE would bypass the
+    erase guard above."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="web", password="x")
+        cls.daily = Thread.objects.create(name="Daily")
+
+    def setUp(self):
+        self.client.force_authenticate(user=self.user)
+
+    def test_create_is_not_allowed(self):
+        response = self.client.post("/boards/", {"state": []}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertFalse(Board.objects.exists())
+
+    def test_delete_is_not_allowed(self):
+        board = Board.objects.create(
+            thread=self.daily, state=[create_task_item("water plants")]
+        )
+
+        response = self.client.delete(f"/boards/{board.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertTrue(Board.objects.filter(pk=board.pk).exists())

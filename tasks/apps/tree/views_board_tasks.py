@@ -30,6 +30,12 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     serializer_class = BoardSerializer
 
+    # No create or delete. The serializer can't set a thread, so a POSTed
+    # board is an orphan no thread lists and the commit can't record. A
+    # DELETE would erase a board without the guard below. Boards come from
+    # the admin or from a commit moving items to a thread with no board.
+    http_method_names = ["get", "put", "patch", "head", "options"]
+
     def update(self, request, *args, **kwargs):
         # A stale or broken client (e.g. a tree view that serialized an empty
         # model) can PUT `state: []` and silently erase the whole board. An
