@@ -140,6 +140,9 @@ class ObservationUpdatedSerializer(serializers.ModelSerializer):
     class Meta:
         model = ObservationUpdated
         fields = ["id", "comment", "published", "observation_fields", "observation"]
+        # The FK is nullable only so updates survive their observation being
+        # closed; a new update must belong to an open observation.
+        extra_kwargs = {"observation": {"required": True, "allow_null": False}}
 
 
 class MultipleObservationUpdatedSerializer(serializers.ModelSerializer):
