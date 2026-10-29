@@ -53,9 +53,7 @@ def breakthrough(request, year):
                 formset.save()
 
             url = reverse("breakthrough", args=[year])
-            if review_mode:
-                url += "?review=1"
-            return redirect(url)
+            return redirect(f"{url}?review={'1' if review_mode else '0'}")
     else:
         form = BreakthroughForm(instance=breakthrough)
         formset = ProjectedOutcomeFormSet(
