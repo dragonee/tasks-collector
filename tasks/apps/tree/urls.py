@@ -192,8 +192,8 @@ urlpatterns = [
         views_observation.ObservationClosedListView.as_view(),
         name="public-observation-list-closed",
     ),
-    re_path(
-        r"^observations/closed/(?P<event_stream_id>[a-f0-9\-]+)/$",
+    path(
+        "observations/closed/<uuid:event_stream_id>/",
         views_observation.observation_closed_detail,
         name="public-observation-closed-detail",
     ),
@@ -202,8 +202,8 @@ urlpatterns = [
         views_observation.InsightsListView.as_view(),
         name="public-insights-list",
     ),
-    re_path(
-        r"^insights/(?P<event_stream_id>[a-f0-9\-]+)/$",
+    path(
+        "insights/<uuid:event_stream_id>/",
         views_observation.insight_edit,
         name="public-insight-edit",
     ),
@@ -213,38 +213,38 @@ urlpatterns = [
         views_observation.observation_edit,
         name="public-observation-add",
     ),
-    re_path(
-        r"^observations/(?P<observation_id>[a-f0-9\-]+)/$",
+    path(
+        "observations/<int:observation_id>/",
         views_observation.observation_edit,
         name="public-observation-edit",
     ),
-    re_path(
-        r"^observations/(?P<observation_id>[a-f0-9\-]+)/close/$",
+    path(
+        "observations/<int:observation_id>/close/",
         views_observation.observation_close,
         name="public-observation-close",
     ),
-    re_path(
-        r"^observations/(?P<observation_id>[a-f0-9\-]+)/close-and-extract/$",
+    path(
+        "observations/<int:observation_id>/close-and-extract/",
         views_observation.observation_close_and_extract,
         name="public-observation-close-and-extract",
     ),
-    re_path(
-        r"^observations/closed/(?P<event_stream_id>[a-f0-9\-]+)/extract-insight/$",
+    path(
+        "observations/closed/<uuid:event_stream_id>/extract-insight/",
         views_observation.observation_extract_insight,
         name="public-observation-extract-insight",
     ),
-    re_path(
-        r"^observations/(?P<observation_id>[a-f0-9\-]+)/attach/$",
+    path(
+        "observations/<int:observation_id>/attach/",
         views_observation.observation_attach,
         name="public-observation-attach",
     ),
-    re_path(
-        r"^observations/(?P<observation_id>[a-f0-9\-]+)/detach/$",
+    path(
+        "observations/<int:observation_id>/detach/",
         views_observation.observation_detach,
         name="public-observation-detach",
     ),
-    re_path(
-        r"^observations/(?P<observation_id>[a-f0-9\-]+)/attachments/$",
+    path(
+        "observations/<int:observation_id>/attachments/",
         views_observation.observation_attachments,
         name="public-observation-attachments",
     ),
