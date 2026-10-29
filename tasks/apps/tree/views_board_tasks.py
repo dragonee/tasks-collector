@@ -7,7 +7,12 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response as RestResponse
 
-from .board_operations import add_task_to_board, close_board, current_board_thread_name
+from .board_operations import (
+    UnknownThreadError,
+    add_task_to_board,
+    close_board,
+    current_board_thread_name,
+)
 from .models import Board, BoardCommitted
 from .serializers import BoardSerializer, BoardSummary
 
@@ -51,9 +56,12 @@ class BoardViewSet(viewsets.ModelViewSet):
 
 @api_view(["POST"])
 def commit_board(request, id=None):
-    board = Board.objects.get(pk=id)
+    board = get_object_or_404(Board, pk=id)
 
-    board = close_board(board)
+    try:
+        board = close_board(board)
+    except UnknownThreadError as e:
+        return RestResponse({"errors": str(e)}, status=status.HTTP_409_CONFLICT)
 
     return RestResponse(BoardSerializer(board).data)
 
