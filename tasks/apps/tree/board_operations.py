@@ -48,7 +48,8 @@ class UnknownThreadError(Exception):
 
 
 def _latest_board(thread_name):
-    """The thread's latest board, or a new unsaved one when it has none."""
+    """The thread's latest board, row-locked until the surrounding transaction
+    ends, or a new unsaved one when it has none."""
     try:
         thread = Thread.objects.get(name=thread_name)
     except Thread.DoesNotExist as e:
@@ -57,7 +58,7 @@ def _latest_board(thread_name):
         ) from e
 
     try:
-        return Board.objects.filter(thread=thread)[0]
+        return Board.objects.filter(thread=thread).select_for_update()[0]
     except IndexError:
         return Board(thread=thread)
 
@@ -71,8 +72,14 @@ def close_board(board):
     All or nothing: raises ``UnknownThreadError`` before writing anything
     when an item is marked for a thread that doesn't exist.
 
+    The board and the target boards are row-locked and re-read, so a task
+    appended or ticked since the caller loaded ``board`` is committed with
+    the rest instead of being overwritten.
+
     Returns the restarted board.
     """
+    board = Board.objects.select_for_update().get(pk=board.pk)
+
     changeset = calculate_changes_per_board(board.state)
 
     if None in changeset:
