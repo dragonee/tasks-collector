@@ -71,7 +71,10 @@ class ThreadPagination(PageNumberPagination):
     max_page_size = 1000
 
 
-class ThreadViewSet(viewsets.ModelViewSet):
+class ThreadViewSet(viewsets.ReadOnlyModelViewSet):
+    # Read-only: thread names are looked up by literal value all over the code
+    # ("Daily", "Weekly", ...), so a rename breaks them, and deleting a thread
+    # cascades to every event, board, plan and reflection filed under it.
     queryset = Thread.objects.all()
     serializer_class = ThreadSerializer
     pagination_class = ThreadPagination
