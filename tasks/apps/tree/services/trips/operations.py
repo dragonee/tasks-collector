@@ -250,8 +250,11 @@ def add_trip_photo(
     # Prefer the time the photo was taken (EXIF) over upload time. Falls back
     # to the client-supplied ``published`` (the gallery's DATE_TAKEN) and then
     # to now. Done here so the pre_save signal computes event_stream_id from
-    # the correct date.
-    captured = capture_datetime_from_storage(key)
+    # the correct date. An EXIF time without an offset is the camera's
+    # wall clock, so read it in the zone of the device-supplied ``published``.
+    captured = capture_datetime_from_storage(
+        key, default_tz=published.tzinfo if published else None
+    )
 
     try:
         # Nested savepoint so a unique-key collision (concurrent retry) rolls

@@ -685,6 +685,52 @@ class TripPhotoServiceTestCase(TestCase):
         self.assertEqual(photo.published, expected)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_reads_offsetless_exif_in_the_device_zone(self, _exists):
+        # EXIF DateTime is the camera's wall clock. Without an offset tag it is
+        # read in the zone of the device-supplied ``published`` (+02:00), not
+        # the server's UTC, which would shift the photo by two hours.
+        story = start_trip(self.alice)
+        device_tz = dt_timezone(timedelta(hours=2))
+        jpeg = self._jpeg_with_exif_datetime("2021:07:15 09:30:00")
+        with mock.patch(f"{STORAGE}.download_bytes", return_value=jpeg):
+            photo = add_trip_photo(
+                self.alice,
+                story.pk,
+                key=f"trips/{self.alice.pk}/{story.pk}/abc.jpg",
+                comment="sunset",
+                content_type="image/jpeg",
+                published=datetime_cls(2021, 7, 15, 9, 30, 5, tzinfo=device_tz),
+            )
+        photo.refresh_from_db()
+        expected = datetime_cls(2021, 7, 15, 7, 30, 0, tzinfo=dt_timezone.utc)
+        self.assertEqual(photo.published, expected)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_add_trip_photo_exif_offset_wins_over_the_device_zone(self, _exists):
+        story = start_trip(self.alice)
+        img = Image.new("RGB", (4, 4), "red")
+        exif = img.getexif()
+        sub = exif.get_ifd(0x8769)
+        sub[0x9003] = "2021:07:15 09:30:00"  # DateTimeOriginal
+        sub[0x9011] = "+05:30"  # OffsetTimeOriginal
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", exif=exif)
+        with mock.patch(f"{STORAGE}.download_bytes", return_value=buf.getvalue()):
+            photo = add_trip_photo(
+                self.alice,
+                story.pk,
+                key=f"trips/{self.alice.pk}/{story.pk}/abc.jpg",
+                comment="sunset",
+                content_type="image/jpeg",
+                published=datetime_cls(
+                    2021, 7, 15, 9, 30, tzinfo=dt_timezone(timedelta(hours=2))
+                ),
+            )
+        photo.refresh_from_db()
+        expected = datetime_cls(2021, 7, 15, 4, 0, 0, tzinfo=dt_timezone.utc)
+        self.assertEqual(photo.published, expected)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_add_trip_photo_falls_back_to_published_without_exif(self, _exists):
         story = start_trip(self.alice)
         upload_time = timezone.now()

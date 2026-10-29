@@ -38,13 +38,15 @@ def _parse_offset(value):
     return dt_timezone(delta if text[0] == "+" else -delta)
 
 
-def read_capture_datetime(raw):
+def read_capture_datetime(raw, default_tz=None):
     """Return the tz-aware capture time from an image's EXIF, or None.
 
     Prefers DateTimeOriginal (with OffsetTimeOriginal when present), falling
-    back to the main-IFD DateTime tag. When EXIF records no UTC offset, the
-    naive value is interpreted in the server's default timezone. Any failure
-    (non-image bytes, absent or malformed EXIF) returns None.
+    back to the main-IFD DateTime tag. EXIF stores the camera's wall-clock
+    time, so when it records no UTC offset the naive value is interpreted in
+    ``default_tz`` — the uploading device's zone — falling back to the
+    server's default timezone. Any failure (non-image bytes, absent or
+    malformed EXIF) returns None.
     """
     try:
         exif = Image.open(io.BytesIO(raw)).getexif()
@@ -70,4 +72,4 @@ def read_capture_datetime(raw):
     tz = _parse_offset((sub or {}).get(_OFFSET_TIME_ORIGINAL))
     if tz is not None:
         return naive.replace(tzinfo=tz)
-    return timezone.make_aware(naive)
+    return timezone.make_aware(naive, default_tz)
