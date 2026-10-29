@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -76,3 +78,16 @@ class BoardAppendTestCase(APITestCase):
         response = self._append({"text": "orphan"})
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_board_is_locked_while_appending(self):
+        with CaptureQueriesContext(connection) as ctx:
+            response = self._append({"text": "buy milk"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        board_reads = [
+            q["sql"]
+            for q in ctx.captured_queries
+            if q["sql"].startswith("SELECT") and 'FROM "tree_board"' in q["sql"]
+        ]
+        self.assertEqual(len(board_reads), 1)
+        self.assertIn("FOR UPDATE", board_reads[0])
