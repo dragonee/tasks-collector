@@ -2,15 +2,13 @@ import datetime
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response as RestResponse
 
-from .board_operations import add_task_to_board, current_board_thread_name
-from .commit import calculate_changes_per_board, merge
-from .models import Board, BoardCommitted, Thread, default_state
+from .board_operations import add_task_to_board, close_board, current_board_thread_name
+from .models import Board, BoardCommitted
 from .serializers import BoardSerializer, BoardSummary
 
 
@@ -51,53 +49,11 @@ class BoardViewSet(viewsets.ModelViewSet):
         return super().update(request, *args, **kwargs)
 
 
-def make_board(thread_name):
-    thread = Thread.objects.get(name=thread_name)
-
-    try:
-        return Board.objects.filter(thread=thread)[0]
-    except IndexError:
-        return Board(thread=thread)
-
-
 @api_view(["POST"])
 def commit_board(request, id=None):
     board = Board.objects.get(pk=id)
 
-    changeset = calculate_changes_per_board(board.state)
-
-    # for name, changes in changeset.items():
-    #     print("Board ({})".format(name))
-    #     pprint(changes)
-    #     print('------------------', flush=True)
-
-    if None in changeset:
-        new_state = changeset[None]
-        del changeset[None]
-    else:
-        new_state = default_state()
-
-    now = timezone.now()
-
-    BoardCommitted.objects.create(
-        published=now,
-        thread=board.thread,
-        focus=board.focus or "",
-        before=board.state,
-        after=new_state,
-        transitions=changeset,
-        date_started=board.date_started,
-    )
-
-    other_boards = list(map(make_board, changeset.keys()))
-
-    for other_board in other_boards:
-        other_board.state = merge(other_board.state, changeset[other_board.thread.name])
-        other_board.save()
-
-    board.state = new_state
-    board.date_started = now
-    board.save()
+    board = close_board(board)
 
     return RestResponse(BoardSerializer(board).data)
 

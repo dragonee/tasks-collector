@@ -1,8 +1,10 @@
 import uuid
 
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
-from .models import Board, Profile, Thread
+from .commit import calculate_changes_per_board, merge
+from .models import Board, BoardCommitted, Profile, Thread, default_state
 
 
 def create_task_item(text):
@@ -38,6 +40,56 @@ def add_task_to_board(text, thread_name):
         board.save()
         return board
     return None
+
+
+def _latest_board(thread_name):
+    """The thread's latest board, or a new unsaved one when it has none."""
+    thread = Thread.objects.get(name=thread_name)
+
+    try:
+        return Board.objects.filter(thread=thread)[0]
+    except IndexError:
+        return Board(thread=thread)
+
+
+def close_board(board):
+    """Commit ``board``: record a ``BoardCommitted`` event, move the items
+    marked with a ``transition`` onto the latest board of that thread, and
+    restart ``board`` with the items that stay.
+
+    Returns the restarted board.
+    """
+    changeset = calculate_changes_per_board(board.state)
+
+    if None in changeset:
+        new_state = changeset[None]
+        del changeset[None]
+    else:
+        new_state = default_state()
+
+    now = timezone.now()
+
+    BoardCommitted.objects.create(
+        published=now,
+        thread=board.thread,
+        focus=board.focus or "",
+        before=board.state,
+        after=new_state,
+        transitions=changeset,
+        date_started=board.date_started,
+    )
+
+    other_boards = list(map(_latest_board, changeset.keys()))
+
+    for other_board in other_boards:
+        other_board.state = merge(other_board.state, changeset[other_board.thread.name])
+        other_board.save()
+
+    board.state = new_state
+    board.date_started = now
+    board.save()
+
+    return board
 
 
 def board_thread_for(user):
