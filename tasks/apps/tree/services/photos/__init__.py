@@ -1,4 +1,5 @@
 from . import storage
+from .display import attach_photo_urls
 from .events import (
     PhotoObjectMissingError,
     capture_datetime_from_storage,
@@ -19,6 +20,7 @@ from .standalone import add_standalone_photo, presign_standalone_photo
 
 __all__ = [
     "storage",
+    "attach_photo_urls",
     "PhotoObjectMissingError",
     "capture_datetime_from_storage",
     "daily_thread",

@@ -9,12 +9,12 @@ from django.utils import timezone
 
 from .forms import PlanForm, ReflectionForm
 from .models import Habit, HabitTracked, JournalAdded, Plan, Reflection, Thread
+from .services.photos import attach_photo_urls
 from .utils.datetime import (
     adjust_start_date_to_monday,
     make_last_day_of_the_month,
     make_last_day_of_the_week,
 )
-from .views_trip import attach_photo_urls
 
 
 def make_aware_start(date):
