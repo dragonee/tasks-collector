@@ -85,7 +85,7 @@
 
 {% if show_share_control and not story.stopped %}
 <div class="trip-modal" id="trip-stop-modal" data-story-id="{{ story.id }}"
-     data-started="{{ story.started|date:"Y-m-d" }}T{{ story.started|date:"H:i" }}" hidden>
+     data-started="{{ story.started|date:"U" }}" hidden>
     <div class="trip-modal-backdrop" data-trip-stop-close></div>
     <div class="trip-modal-dialog" role="dialog" aria-modal="true" aria-label="Stop trip">
         <form class="trip-stop-form">

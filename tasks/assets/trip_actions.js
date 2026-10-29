@@ -26,6 +26,12 @@ function localInputValue(date) {
     return shifted.toISOString().slice(0, 16);
 }
 
+// The reverse for the request: the server reads a naive timestamp in its own
+// zone (UTC), not the browser's, so send the picked moment as a UTC instant.
+function inputValueToISO(value) {
+    return value ? new Date(value).toISOString() : '';
+}
+
 const modal = document.getElementById('trip-stop-modal');
 const actions = document.querySelector('[data-trip-actions]');
 
@@ -47,7 +53,9 @@ if (modal) {
             const now = localInputValue(new Date());
             input.value = now;
             input.max = now;
-            input.min = modal.dataset.started || '';
+            // data-started is the trip start as epoch seconds.
+            const started = Number(modal.dataset.started);
+            input.min = started ? localInputValue(new Date(started * 1000)) : '';
             setStatus('');
         },
     });
@@ -68,7 +76,9 @@ if (modal) {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': csrfToken(),
                 },
-                body: new URLSearchParams({ stopped: input.value }).toString(),
+                body: new URLSearchParams({
+                    stopped: inputValueToISO(input.value),
+                }).toString(),
             });
             if (!res.ok) {
                 // The stop view answers 4xx with a plain-text reason

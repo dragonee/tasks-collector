@@ -269,9 +269,10 @@ def trip_stop(request, story_id):
     """Stop a trip, optionally backdating its end to a moment in the past.
 
     Session-auth web twin of ``AndroidTripStopView``. ``stopped`` carries the
-    value of the modal's ``<input type="datetime-local">`` — a naive local
-    timestamp, made aware in the server's timezone; a blank value stops the
-    trip now. Answers 204: the page state changes far beyond the timeline
+    moment picked in the modal's ``<input type="datetime-local">``, sent by
+    trip_actions.js as a UTC ISO 8601 instant (a naive value would be read in
+    the server's timezone, not the browser's); a blank value stops the trip
+    now. Answers 204: the page state changes far beyond the timeline
     (the add affordances go away), so the client reloads rather than swapping
     a partial.
     """
