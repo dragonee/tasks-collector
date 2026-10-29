@@ -119,6 +119,20 @@ class StandalonePhotoAPITestCase(APITestCase):
         r = self._confirm(key)
         self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
 
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_confirm_rejects_overlong_idempotency_key(self, _exists):
+        r = self._confirm(f"photos/{self.user.pk}/abc.jpg", idempotency_key="k" * 65)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(PhotoAdded.objects.exists())
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_confirm_rejects_content_type_not_matching_the_key(self, _exists):
+        key = f"photos/{self.user.pk}/abc.jpg"
+        for content_type in ("image/png", "x" * 101):
+            r = self._confirm(key, content_type=content_type)
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(PhotoAdded.objects.exists())
+
     def test_confirm_missing_published_400(self):
         key = f"photos/{self.user.pk}/abc.jpg"
         r = self.client.post(

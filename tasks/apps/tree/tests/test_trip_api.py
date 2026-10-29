@@ -139,6 +139,29 @@ class TripAPITestCase(APITestCase):
         r = self._update(sid, "   ")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    # Values that overflow their column are a 400, not a database error (a 500
+    # the Android outbox would keep retrying).
+
+    def test_start_rejects_overlong_title(self):
+        self._auth()
+        r = self._start(title="x" * 256)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Story.objects.filter(user=self.user).exists())
+
+    def test_update_rejects_overlong_title(self):
+        self._auth()
+        sid = self._start(title="Short").json()["story"]["id"]
+        r = self._update(sid, "x" * 256)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Story.objects.get(pk=sid).title, "Short")
+
+    def test_note_rejects_overlong_idempotency_key(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        r = self._note(sid, "walking", idempotency_key="k" * 65)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(StoryEvent.objects.filter(story_id=sid).exists())
+
     def test_note_creates_journal_and_links_to_story(self):
         self._auth()
         sid = self._start().json()["story"]["id"]

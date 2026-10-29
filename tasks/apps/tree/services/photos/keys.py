@@ -51,3 +51,10 @@ def key_belongs_to(key, user_id, story_id):
 def photo_key_belongs_to(key, user_id):
     """Guard: a confirmed standalone key must live under this user's prefix."""
     return key.startswith(f"photos/{user_id}/")
+
+
+def content_type_matches_key(content_type, key):
+    """Guard: a confirm must name the allowed content type the key was
+    presigned for, which the key carries as its extension."""
+    ext = CONTENT_TYPE_EXT.get(content_type)
+    return ext is not None and key.endswith(f".{ext}")

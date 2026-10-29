@@ -21,6 +21,7 @@ from ..photos.events import (
     daily_thread,
     existing_event,
 )
+from ..photos.keys import content_type_matches_key
 from .titles import default_title
 
 # ``PhotoObjectMissingError`` is imported from ``..photos.events`` and re-exported
@@ -56,14 +57,26 @@ def _get_owned_story(user, story_id):
         ) from e
 
 
+def _checked_title(title):
+    """``title`` unchanged, or ``ValueError`` if it would overflow Story.title
+    (the database would reject it with an error instead)."""
+    max_length = Story._meta.get_field("title").max_length
+    if len(title) > max_length:
+        raise ValueError(f"title must be at most {max_length} characters")
+    return title
+
+
 @transaction.atomic
 def start_trip(user, title=None, type_=Story.Type.TRIP, started=None):
     """Create and persist a new Story for the user.
 
-    If ``title`` is blank or None, auto-generate one from ``started``.
+    If ``title`` is blank or None, auto-generate one from ``started``. Raises
+    ``ValueError`` for a title longer than Story.title allows.
     """
     started = started or timezone.now()
-    final_title = title if (title and title.strip()) else default_title(started)
+    final_title = (
+        _checked_title(title) if (title and title.strip()) else default_title(started)
+    )
     return Story.objects.create(
         user=user,
         type=type_,
@@ -96,10 +109,11 @@ def stop_trip(user, story_id, stopped=None):
 
 @transaction.atomic
 def update_trip(user, story_id, title=None):
-    """Rename a trip. A blank/None title is a no-op."""
+    """Rename a trip. A blank/None title is a no-op; a title longer than
+    Story.title allows raises ``ValueError``."""
     story = _get_owned_story(user, story_id)
     if title is not None and title.strip():
-        story.title = title.strip()
+        story.title = _checked_title(title.strip())
         story.save(update_fields=["title"])
     return story
 
@@ -212,7 +226,9 @@ def add_trip_photo(
     still creates a HabitTracked). Enqueues the thumbnail task on commit.
 
     Raises ``StoryStoppedError`` if stopped, ``PhotoObjectMissingError`` if the
-    object isn't in the bucket (or the key doesn't belong to this user/story).
+    object isn't in the bucket (or the key doesn't belong to this user/story),
+    ``ValueError`` if ``content_type`` isn't the type the key was presigned
+    for or an argument would overflow its column.
 
     ``idempotency_key`` makes the confirm exactly-once: a retry carrying a key
     that already produced a photo returns that same photo (checked before the
@@ -233,6 +249,10 @@ def add_trip_photo(
     if existing is not None:
         return existing
 
+    hash_max_length = PhotoAdded._meta.get_field("content_hash").max_length
+    if content_hash and len(content_hash) > hash_max_length:
+        raise ValueError(f"content_hash must be at most {hash_max_length} characters")
+
     if content_hash:
         dup = PhotoAdded.objects.filter(
             story_entry__story=story, content_hash=content_hash
@@ -244,6 +264,8 @@ def add_trip_photo(
         raise StoryStoppedError(f"Story #{story_id} is stopped; cannot add photos.")
     if not key_belongs_to(key, user.pk, story_id):
         raise PhotoObjectMissingError(f"key {key!r} not under this story's prefix")
+    if not content_type_matches_key(content_type, key):
+        raise ValueError(f"content_type {content_type!r} does not match the key")
     if not photo_storage.object_exists(key):
         raise PhotoObjectMissingError(f"no uploaded object at {key!r}")
 
