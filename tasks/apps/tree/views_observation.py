@@ -16,6 +16,7 @@ from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response as RestResponse
 
@@ -524,23 +525,34 @@ def migrate_observation_updates_to_journal(request, observation_id):
     return redirect(reverse("public-observation-list"))
 
 
-def _parse_event_stream_id(value):
-    """Parse a client-supplied event stream id; None if it isn't a UUID.
+def _event_stream_id_from_observation_id(observation_id):
+    try:
+        return Observation.objects.get(pk=observation_id).event_stream_id
+    except TypeError, ValueError:
+        raise ValidationError({"error": "other_observation_id must be an integer"})
+    except Observation.DoesNotExist:
+        raise NotFound({"error": "Observation does not exist"})
+
+
+def _validate_event_stream_id(value):
+    """Return a client-supplied event stream id as a UUID, if its observation
+    exists, open or closed.
 
     ComplexPresenter keys attachments by UUID, so a raw string would never
     match an attached stream.
     """
     try:
-        return uuid.UUID(str(value))
+        event_stream_id = uuid.UUID(str(value))
     except ValueError:
-        return None
+        raise ValidationError({"error": "other_event_stream_id must be a UUID"})
 
+    if Observation.objects.filter(event_stream_id=event_stream_id).exists():
+        return event_stream_id
 
-def _invalid_event_stream_id_response():
-    return RestResponse(
-        {"error": "other_event_stream_id must be a UUID"},
-        status=status.HTTP_400_BAD_REQUEST,
-    )
+    if ObservationClosed.objects.filter(event_stream_id=event_stream_id).exists():
+        return event_stream_id
+
+    raise NotFound({"error": "Observation does not exist"})
 
 
 @api_view(["POST"])
@@ -560,42 +572,12 @@ def observation_attach(request, observation_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Find the other observation
-    other_observation = None
     if other_observation_id:
-        try:
-            other_observation = Observation.objects.get(pk=other_observation_id)
-            other_event_stream_id = other_observation.event_stream_id
-        except TypeError, ValueError:
-            return RestResponse(
-                {"error": "other_observation_id must be an integer"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Observation.DoesNotExist:
-            return RestResponse(
-                {"error": "Observation to attach does not exist"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-    else:
-        other_event_stream_id = _parse_event_stream_id(other_event_stream_id)
-        if other_event_stream_id is None:
-            return _invalid_event_stream_id_response()
+        other_event_stream_id = _event_stream_id_from_observation_id(
+            other_observation_id
+        )
 
-        # Find by event_stream_id; it may also be a closed observation
-        other_observation = Observation.objects.filter(
-            event_stream_id=other_event_stream_id
-        ).first()
-
-        if (
-            other_observation is None
-            and not ObservationClosed.objects.filter(
-                event_stream_id=other_event_stream_id
-            ).exists()
-        ):
-            return RestResponse(
-                {"error": "Observation to attach does not exist"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+    other_event_stream_id = _validate_event_stream_id(other_event_stream_id)
 
     if other_event_stream_id == complex_observation.event_stream_id:
         return RestResponse(
@@ -630,7 +612,9 @@ def observation_attach(request, observation_id):
         thread=complex_observation.thread,
         event_stream_id=complex_observation.event_stream_id,
         other_event_stream_id=other_event_stream_id,
-        observation=other_observation,
+        observation=Observation.objects.filter(
+            event_stream_id=other_event_stream_id
+        ).first(),
     )
     attach_event.save()
 
@@ -653,9 +637,7 @@ def observation_detach(request, observation_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    other_event_stream_id = _parse_event_stream_id(other_event_stream_id)
-    if other_event_stream_id is None:
-        return _invalid_event_stream_id_response()
+    other_event_stream_id = _validate_event_stream_id(other_event_stream_id)
 
     # Check if the observation is currently attached by replaying events
     from .presenters import ComplexPresenter
