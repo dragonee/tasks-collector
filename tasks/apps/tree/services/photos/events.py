@@ -14,15 +14,15 @@ class PhotoObjectMissingError(Exception):
     """The presigned upload was never completed (no object in the bucket)."""
 
 
-def daily_thread():
-    """The Daily thread, where diary-style journal/photo events land.
+def daily_thread(user):
+    """``user``'s Daily thread, where diary-style journal/photo events land.
 
     Deliberately *not* the user's ``Profile.default_board_thread`` (which
     targets boards/tasks and may be the Inbox).
     """
     from ...models import Thread
 
-    return Thread.objects.get(name="Daily")
+    return Thread.objects.daily(user)
 
 
 def existing_event(model, idempotency_key):

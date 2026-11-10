@@ -59,7 +59,7 @@ class BreakthroughNewYearTestCase(TestCase):
     def test_year_lists_only_its_own_outcomes(self):
         for slug in ("2030", "2031"):
             ProjectedOutcome.objects.create(
-                breakthrough=Breakthrough.objects.create(slug=slug),
+                breakthrough=Breakthrough.objects.create(user=self.user, slug=slug),
                 name=f"Outcome {slug}",
                 description="",
                 resolved_by=date(int(slug), 6, 30),

@@ -43,9 +43,10 @@ class InvalidStopTimeError(ValueError):
 def _journal_thread_for(user):
     """Resolve the Thread used for a trip note's/photo's JournalAdded.
 
-    Trip notes are diary-style entries, so they always go to the Daily thread.
+    Trip notes are diary-style entries, so they always go to the user's Daily
+    thread.
     """
-    return daily_thread()
+    return daily_thread(user)
 
 
 def _get_owned_story(user, story_id):

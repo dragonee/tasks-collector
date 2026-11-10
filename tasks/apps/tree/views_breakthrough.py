@@ -39,9 +39,9 @@ def breakthrough(request, year):
     last_year = year if review_mode else year - 1
 
     try:
-        breakthrough = Breakthrough.objects.get(slug=f"{year}")
+        breakthrough = Breakthrough.objects.get(user=request.user, slug=f"{year}")
     except Breakthrough.DoesNotExist:
-        breakthrough = Breakthrough(slug=f"{year}")
+        breakthrough = Breakthrough(user=request.user, slug=f"{year}")
 
     ProjectedOutcomeFormSet = inlineformset_factory(
         Breakthrough, ProjectedOutcome, form=ProjectedOutcomeForm, extra=1

@@ -27,7 +27,7 @@ class ProjectedOutcomeTestMixin:
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="u", password="x")
         make_thread(cls.user, "Daily")
-        cls.breakthrough = Breakthrough.objects.create(slug="2026")
+        cls.breakthrough = Breakthrough.objects.create(user=cls.user, slug="2026")
 
     def create_outcome(self, **kwargs):
         return ProjectedOutcome.objects.create(
@@ -91,7 +91,9 @@ class MoveProjectedOutcomeTestCase(ProjectedOutcomeTestMixin, TestCase):
         self.assertEqual(moved.event_stream_id, outcome.event_stream_id)
 
     def test_reuses_existing_next_year_breakthrough(self):
-        existing = Breakthrough.objects.create(slug="2027", theme="Next")
+        existing = Breakthrough.objects.create(
+            user=self.user, slug="2027", theme="Next"
+        )
         outcome = self.create_outcome()
 
         self.assertEqual(move_projected_outcome_to_next_year(outcome), existing)

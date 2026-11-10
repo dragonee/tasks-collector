@@ -23,16 +23,47 @@ def default_state():
     return []
 
 
+class ThreadQuerySet(models.QuerySet):
+    def for_user(self, user):
+        return self.filter(user=user)
+
+    def daily(self, user):
+        """``user``'s Daily thread, where diary-style entries land."""
+        return self.get(user=user, name=Thread.DAILY)
+
+
 class Thread(models.Model):
+    # Every user gets the built-in threads (see services.provisioning) and
+    # cannot delete them: code looks them up by these names.
+    DAILY = "Daily"
+    WEEKLY = "Weekly"
+    BIG_PICTURE = "big-picture"
+    BUILTIN_NAMES = (DAILY, WEEKLY, BIG_PICTURE)
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="threads"
+    )
+
     # readonly-once-set
     # if you need to change name, a migration needs to be run
     name = models.CharField(max_length=255)
 
+    objects = ThreadQuerySet.as_manager()
+
     def __str__(self):
         return self.name
 
+    @property
+    def is_builtin(self):
+        return self.name in self.BUILTIN_NAMES
+
     class Meta:
         ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"], name="thread_user_name_unique"
+            ),
+        ]
 
 
 class Event(PolymorphicModel):
@@ -622,7 +653,14 @@ class JournalTag(models.Model):
 
 
 class Breakthrough(models.Model):
-    slug = models.SlugField(max_length=255, unique=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="breakthroughs",
+    )
+
+    # The year, unique per user.
+    slug = models.SlugField(max_length=255)
 
     published = models.DateTimeField(default=timezone.now)
     last_updated = models.DateTimeField(auto_now=True)
@@ -637,6 +675,13 @@ class Breakthrough(models.Model):
         max_length=255,
         help_text=_("A phrase that captures your year"),
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "slug"], name="breakthrough_user_slug_unique"
+            ),
+        ]
 
 
 class ProjectedOutcome(models.Model):
@@ -678,10 +723,9 @@ class ProjectedOutcomeEventMixin:
 
 
 def _get_thread_from_breakthrough(breakthrough):
-    """Get the thread from a breakthrough, falling back to Daily thread."""
-    if hasattr(breakthrough, "thread"):
-        return breakthrough.thread
-    return Thread.objects.get(name="Daily")
+    """The thread projected-outcome events are filed under: the Daily thread
+    of the breakthrough's owner."""
+    return Thread.objects.daily(breakthrough.user_id)
 
 
 class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):

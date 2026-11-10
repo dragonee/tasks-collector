@@ -33,7 +33,7 @@ class ObservationAPIFilterTestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
         cls.other = User.objects.create_user(username="o", password="x")
-        cls.thread = make_thread(cls.other, "Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
         cls.mine = cls._observation(cls.user, date_cls(2026, 10, 20), "mine")

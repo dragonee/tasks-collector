@@ -49,6 +49,11 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
         return
 
     triplets = habits_line_to_habits_tracked(comment)
+    if not triplets:
+        return
+
+    # Habits are tracked on the Daily thread of whoever wrote the entry.
+    daily = Thread.objects.daily(journal_added.thread.user_id)
 
     for occured, habit, note in triplets:
         habit_tracked = HabitTracked.objects.create(
@@ -56,7 +61,7 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
             habit=habit,
             note=note,
             published=journal_added.published,
-            thread=Thread.objects.get(name="Daily"),
+            thread=daily,
         )
         if story is not None:
             StoryEvent.objects.create(story=story, event=habit_tracked)
@@ -89,7 +94,7 @@ def _check_matching_board_tasks(user, comment, published):
     except NoBoardError:
         return
 
-    daily = Thread.objects.filter(name="Daily").first()
+    daily = Thread.objects.filter(user=user, name=Thread.DAILY).first()
     reflection = (
         Reflection.objects.filter(pub_date=published.date(), thread=daily).first()
         if daily is not None

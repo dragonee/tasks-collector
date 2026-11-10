@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
@@ -224,18 +224,20 @@ def yesterday(date):
 
 
 def get_period_by_thread(thread):
-    if thread.name == "Weekly":
+    if thread.name == Thread.WEEKLY:
         return Weekly
-    elif thread.name == "big-picture":
+    elif thread.name == Thread.BIG_PICTURE:
         return Monthly
     else:
         return Daily
 
 
 def get_larger_plan(period, thread):
+    """The plan one level up (Daily -> Weekly -> big-picture) on the same
+    user's thread, or None."""
     mapping = {
-        "Weekly": ("big-picture", Monthly),
-        "Daily": ("Weekly", Weekly),
+        Thread.WEEKLY: (Thread.BIG_PICTURE, Monthly),
+        Thread.DAILY: (Thread.WEEKLY, Weekly),
     }
 
     try:
@@ -246,8 +248,10 @@ def get_larger_plan(period, thread):
     larger_period = larger_period_cls(period.get_canonical_date())
 
     try:
-        return Plan.objects.get(
-            pub_date=larger_period.get_canonical_date(), thread__name=larger_thread
+        return Plan.objects.select_related("thread").get(
+            pub_date=larger_period.get_canonical_date(),
+            thread__user_id=thread.user_id,
+            thread__name=larger_thread,
         )
     except Plan.DoesNotExist:
         return None
@@ -289,9 +293,9 @@ def today(request):
     if request.method == "POST":
         thread_name = request.POST.get("thread")
     else:
-        thread_name = request.GET.get("thread", "Daily")
+        thread_name = request.GET.get("thread", Thread.DAILY)
 
-    thread = Thread.objects.get(name=thread_name)
+    thread = get_object_or_404(Thread, user=request.user, name=thread_name)
 
     period = get_period_from_request(request, thread)
 
@@ -382,7 +386,7 @@ def today(request):
             "habits": habits,
             "tracked_habits": tracked_habits,
             "thread": thread,
-            "threads": Thread.objects.all(),
+            "threads": Thread.objects.for_user(request.user),
             "journals": journals,
             "period_is_single_day": period.start.date() == period.end.date(),
         },

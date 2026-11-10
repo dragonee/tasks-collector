@@ -23,6 +23,8 @@ def first_line(text):
 
 @register.filter
 def get_habit_form(journal_added):
+    # Only rendered here (thread is a hidden input); the POST is validated by
+    # views_habit.track_habit with the request user's threads.
     return OnlyTextSingleHabitTrackedForm(
         initial={
             "journal": journal_added,

@@ -91,7 +91,7 @@ def add_task(request):
     # "text > Thread" syntax) keep naming the thread directly.
     thread_name = item.get("thread-name") or current_board_thread_name(request.user)
 
-    board = add_task_to_board(text, thread_name)
+    board = add_task_to_board(request.user, text, thread_name)
     if board is None:
         return RestResponse(
             {"errors": f"no board for thread {thread_name!r}"},

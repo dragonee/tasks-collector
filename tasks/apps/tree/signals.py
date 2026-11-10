@@ -5,7 +5,10 @@ This module contains Django signal handlers that manage event stream IDs,
 create event-sourcing events, and maintain data consistency across models.
 """
 
-from django.db.models.signals import post_save, pre_save
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db.models import ProtectedError
+from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
 from .models import (
@@ -23,15 +26,47 @@ from .models import (
     ProjectedOutcomeMoved,
     ProjectedOutcomeRedefined,
     ProjectedOutcomeRescheduled,
+    Thread,
     observation_event_types,
 )
 from .services.breakthrough.event_creation import create_projected_outcome_change_events
+from .services.provisioning import provision_user
 from .utils.db import field_has_changed
 from .uuid_generators import (
     board_event_stream_id_from_thread,
     habit_event_stream_id,
     journal_added_event_stream_id,
 )
+
+# Users and threads
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def provision_new_user(sender, instance, created, raw=False, **kwargs):
+    """Every new user gets the built-in threads, their boards and a profile.
+
+    Skipped for ``loaddata`` (``raw``): fixtures carry their own rows.
+    """
+    if created and not raw:
+        provision_user(instance)
+
+
+@receiver(pre_delete, sender=Thread)
+def protect_builtin_threads(sender, instance, origin=None, **kwargs):
+    """Built-in threads can't be deleted, except along with their owner."""
+    if not instance.is_builtin:
+        return
+
+    origin_model = getattr(origin, "model", None) or getattr(
+        getattr(origin, "_meta", None), "model", None
+    )
+    if origin_model is get_user_model():
+        return
+
+    raise ProtectedError(
+        f"The built-in thread {instance.name!r} can't be deleted.", {instance}
+    )
+
 
 # Boards and tasks
 

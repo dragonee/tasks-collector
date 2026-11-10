@@ -52,9 +52,8 @@ class StandalonePhotoServiceTestCase(TestCase):
         User = get_user_model()
         cls.alice = User.objects.create_user(username="alice", password="x")
         cls.bob = User.objects.create_user(username="bob", password="x")
-        cls.daily = make_thread(cls.bob, "Daily")
+        cls.daily = make_thread(cls.alice, "Daily")
         make_profile(user=cls.alice, default_board_thread=cls.daily)
-        make_profile(user=cls.bob, default_board_thread=cls.daily)
 
     def setUp(self):
         # Confirm reads the uploaded original's EXIF for the capture time; keep

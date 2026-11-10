@@ -21,6 +21,20 @@ from django.utils import timezone
 from .services.journalling import habits_line_to_habits_tracked
 
 
+class UserThreadFormMixin:
+    """Offers only the threads of ``user`` (a required keyword argument) in
+    the ``thread_field`` select; with no user there is nothing to choose."""
+
+    thread_field = "thread"
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.fields[self.thread_field].queryset = (
+            Thread.objects.for_user(user) if user is not None else Thread.objects.none()
+        )
+
+
 class PlanForm(forms.ModelForm):
     class Meta:
         model = Plan
@@ -33,7 +47,7 @@ class ReflectionForm(forms.ModelForm):
         exclude = ("pub_date", "thread")
 
 
-class ObservationForm(forms.ModelForm):
+class ObservationForm(UserThreadFormMixin, forms.ModelForm):
     class Meta:
         model = Observation
         fields = [
@@ -57,7 +71,7 @@ class InsightForm(forms.Form):
     )
 
 
-class SingleHabitTrackedForm(forms.Form):
+class SingleHabitTrackedForm(UserThreadFormMixin, forms.Form):
     text = forms.CharField(max_length=255)
 
     journal = forms.ModelChoiceField(
@@ -65,7 +79,8 @@ class SingleHabitTrackedForm(forms.Form):
     )
     # or
     published = forms.DateTimeField(required=False)
-    thread = forms.ModelChoiceField(queryset=Thread.objects.all(), required=False)
+    # Limited to the user's threads by UserThreadFormMixin.
+    thread = forms.ModelChoiceField(queryset=Thread.objects.none(), required=False)
 
     def clean_text(self):
         text = self.cleaned_data["text"]
@@ -91,7 +106,7 @@ class SingleHabitTrackedForm(forms.Form):
             cleaned_data["published"] = timezone.now()
 
         if not cleaned_data.get("thread"):
-            cleaned_data["thread"] = Thread.objects.get(name="Daily")
+            cleaned_data["thread"] = Thread.objects.daily(self.user)
 
         try:
             cleaned_data["triplets"] = habits_line_to_habits_tracked(
@@ -213,7 +228,9 @@ class ProjectedOutcomeForm(forms.ModelForm):
         }
 
 
-class ProfileForm(forms.ModelForm):
+class ProfileForm(UserThreadFormMixin, forms.ModelForm):
+    thread_field = "default_board_thread"
+
     class Meta:
         model = Profile
         fields = ["default_board_thread", "map_provider", "habit_keywords"]
@@ -252,7 +269,7 @@ class UserForm(forms.ModelForm):
         }
 
 
-class JournalAddedForm(forms.ModelForm):
+class JournalAddedForm(UserThreadFormMixin, forms.ModelForm):
     # Handle tags manually - use single select for tags
     tag = forms.ModelChoiceField(
         queryset=JournalTag.objects.all(),
@@ -290,13 +307,13 @@ class JournalAddedForm(forms.ModelForm):
         self.fields["thread"].required = True
         self.fields["thread"].empty_label = None
 
-        # Set default thread to 'Daily' if not provided
+        # Set default thread to the user's 'Daily' if not provided
         if not self.instance.pk and "thread" not in self.initial:
-            try:
-                daily_thread = Thread.objects.get(name="Daily")
+            daily_thread = (
+                self.fields["thread"].queryset.filter(name=Thread.DAILY).first()
+            )
+            if daily_thread is not None:
                 self.initial["thread"] = daily_thread.id
-            except Thread.DoesNotExist:
-                pass
 
         # Load existing tag if editing (just the first one if multiple exist)
         if self.instance.pk:

@@ -14,7 +14,7 @@ class ProjectedOutcomeEventsHistoryNotFoundTestCase(TestCase):
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="u", password="x")
         make_thread(cls.user, "Daily")
-        cls.breakthrough = Breakthrough.objects.create(slug="2026")
+        cls.breakthrough = Breakthrough.objects.create(user=cls.user, slug="2026")
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -74,7 +74,7 @@ class BreakthroughYearOutOfRangeTestCase(TestCase):
 
     def test_years_outside_datetime_range_are_404(self):
         for year in (0, 1, 9999, 10000):
-            Breakthrough.objects.create(slug=str(year))
+            Breakthrough.objects.create(user=self.user, slug=str(year))
             with self.subTest(year=year):
                 response = self.client.get(reverse("breakthrough", args=[year]))
 

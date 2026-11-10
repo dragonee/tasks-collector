@@ -76,10 +76,12 @@ class BoardCreateDeleteNotAllowedTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_create_is_not_allowed(self):
+        boards_before = Board.objects.count()
+
         response = self.client.post("/boards/", {"state": []}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-        self.assertFalse(Board.objects.exists())
+        self.assertEqual(Board.objects.count(), boards_before)
 
     def test_delete_is_not_allowed(self):
         board = make_board(thread=self.daily, state=[create_task_item("water plants")])

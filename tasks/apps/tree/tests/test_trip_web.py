@@ -35,7 +35,7 @@ class TripWebTestCase(TestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="me", password="x")
         cls.other = User.objects.create_user(username="other", password="x")
-        cls.daily = make_thread(cls.other, "Daily")
+        cls.daily = make_thread(cls.user, "Daily")
         make_profile(user=cls.user, default_board_thread=cls.daily)
 
     def setUp(self):

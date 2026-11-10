@@ -336,7 +336,7 @@ def observation_closed_detail(request, event_stream_id):
     )
 
 
-def _get_initial_dict_for_observation(observation):
+def _get_initial_dict_for_observation(user, observation):
     initial_dict = {}
 
     if not observation.pub_date:
@@ -346,7 +346,7 @@ def _get_initial_dict_for_observation(observation):
         initial_dict["type"] = ObservationType.objects.get(name="Observation")
 
     if not observation.thread_id:
-        initial_dict["thread"] = Thread.objects.get(name="big-picture")
+        initial_dict["thread"] = Thread.objects.get(user=user, name=Thread.BIG_PICTURE)
 
     return initial_dict
 
@@ -367,7 +367,7 @@ def observation_edit(request, observation_id=None):
     observation_updated_queryset = ObservationUpdated.objects.order_by("pk")
 
     if request.method == "POST":
-        form = ObservationForm(request.POST, instance=observation)
+        form = ObservationForm(request.POST, instance=observation, user=request.user)
         formset = ObservationUpdatedFormSet(
             request.POST,
             instance=observation,
@@ -400,9 +400,11 @@ def observation_edit(request, observation_id=None):
             return redirect(reverse("public-observation-edit", args=[observation.pk]))
 
     else:
-        initial_dict = _get_initial_dict_for_observation(observation)
+        initial_dict = _get_initial_dict_for_observation(request.user, observation)
 
-        form = ObservationForm(instance=observation, initial=initial_dict)
+        form = ObservationForm(
+            instance=observation, initial=initial_dict, user=request.user
+        )
         formset = ObservationUpdatedFormSet(
             instance=observation,
             queryset=observation_updated_queryset,
@@ -533,7 +535,8 @@ def insight_edit(request, event_stream_id):
 @api_view(["POST"])
 def migrate_observation_updates_to_journal(request, observation_id):
     observation = get_object_or_404(Observation, pk=observation_id)
-    thread = Thread.objects.get(name="Daily")
+    # The updates become journal entries in the observation owner's diary.
+    thread = Thread.objects.daily(observation.user_id)
 
     _migrate_observation_updates_to_journal(observation, thread.id)
 

@@ -22,6 +22,21 @@ class AbsoluteURLSerializerMixin:
         return obj.url()
 
 
+class UserThreadField(serializers.SlugRelatedField):
+    """A thread given by name. Names are unique per user only, so a name is
+    looked up among the requesting user's threads."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("slug_field", "name")
+        super().__init__(**kwargs)
+
+    def get_queryset(self):
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return Thread.objects.none()
+        return Thread.objects.for_user(request.user)
+
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Thread
@@ -88,9 +103,7 @@ class BaseTypeThreadSerializer(serializers.HyperlinkedModelSerializer):
         queryset=ObservationType.objects.all(), slug_field="slug"
     )
 
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
 
 class ObservationUserSerializer(serializers.ModelSerializer):
@@ -162,9 +175,7 @@ class ObservationWithUpdatesSerializer(ObservationSerializer):
 
 
 class JournalAddedSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     tags = serializers.SlugRelatedField(
         many=True,
@@ -355,9 +366,7 @@ class TrackHabitAPISerializer(serializers.Serializer):
 
 
 class ProjectedOutcomeMadeSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ProjectedOutcomeMade
@@ -374,9 +383,7 @@ class ProjectedOutcomeMadeSerializer(serializers.ModelSerializer):
 
 
 class ProjectedOutcomeRedefinedSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ProjectedOutcomeRedefined
@@ -395,9 +402,7 @@ class ProjectedOutcomeRedefinedSerializer(serializers.ModelSerializer):
 
 
 class ProjectedOutcomeRescheduledSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ProjectedOutcomeRescheduled
@@ -412,9 +417,7 @@ class ProjectedOutcomeRescheduledSerializer(serializers.ModelSerializer):
 
 
 class ProjectedOutcomeClosedSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ProjectedOutcomeClosed
@@ -431,9 +434,7 @@ class ProjectedOutcomeClosedSerializer(serializers.ModelSerializer):
 
 
 class ProjectedOutcomeMovedSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ProjectedOutcomeMoved
@@ -452,9 +453,7 @@ class ProjectedOutcomeMovedSerializer(serializers.ModelSerializer):
 
 
 class ProjectedOutcomeEvolvedSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ProjectedOutcomeEvolved
@@ -493,9 +492,7 @@ class ObservationUpdatedEventSerializer(
 
 
 class ObservationAttachedSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ObservationAttached
@@ -510,9 +507,7 @@ class ObservationAttachedSerializer(serializers.ModelSerializer):
 
 
 class ObservationDetachedSerializer(serializers.ModelSerializer):
-    thread = serializers.SlugRelatedField(
-        queryset=Thread.objects.all(), slug_field="name"
-    )
+    thread = UserThreadField()
 
     class Meta:
         model = ObservationDetached
