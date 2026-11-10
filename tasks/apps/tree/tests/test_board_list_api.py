@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Board, Thread
+from .factories import make_board, make_thread
 
 
 class BoardListThreadFilterTestCase(APITestCase):
@@ -14,10 +14,10 @@ class BoardListThreadFilterTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
-        cls.weekly = Thread.objects.create(name="Weekly")
-        cls.daily_board = Board.objects.create(thread=cls.daily, state=[])
-        cls.weekly_board = Board.objects.create(thread=cls.weekly, state=[])
+        cls.daily = make_thread(cls.user, "Daily")
+        cls.weekly = make_thread(cls.user, "Weekly")
+        cls.daily_board = make_board(thread=cls.daily, state=[])
+        cls.weekly_board = make_board(thread=cls.weekly, state=[])
 
     def setUp(self):
         self.client.force_authenticate(user=self.user)

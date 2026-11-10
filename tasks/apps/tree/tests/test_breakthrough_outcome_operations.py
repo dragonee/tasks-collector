@@ -13,20 +13,20 @@ from ..models import (
     ProjectedOutcomeEvolved,
     ProjectedOutcomeMade,
     ProjectedOutcomeMoved,
-    Thread,
 )
 from ..services.breakthrough.operations import (
     close_projected_outcome,
     evolve_projected_outcome,
     move_projected_outcome_to_next_year,
 )
+from .factories import make_thread
 
 
 class ProjectedOutcomeTestMixin:
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="u", password="x")
-        Thread.objects.create(name="Daily")
+        make_thread(cls.user, "Daily")
         cls.breakthrough = Breakthrough.objects.create(slug="2026")
 
     def create_outcome(self, **kwargs):

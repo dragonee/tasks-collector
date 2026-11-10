@@ -3,7 +3,8 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
 
 from ..admin import EventAdmin
-from ..models import Event, JournalAdded, Thread
+from ..models import Event, JournalAdded
+from .factories import make_thread
 
 
 class EventAdminOrderingTestCase(TestCase):
@@ -14,7 +15,7 @@ class EventAdminOrderingTestCase(TestCase):
             username="admin", email="admin@example.com", password="admin"
         )
 
-        thread = Thread.objects.create(name="Daily")
+        thread = make_thread(self.user, "Daily")
 
         self.events = [
             JournalAdded.objects.create(thread=thread, comment=comment)

@@ -7,8 +7,9 @@ from django.utils import timezone
 
 from PIL import Image
 
-from ..models import PhotoAdded, Thread
+from ..models import PhotoAdded
 from ..tasks import generate_photo_thumbnail
+from .factories import make_thread
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 
@@ -24,7 +25,7 @@ class ThumbnailTaskTestCase(TestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
+        cls.daily = make_thread(cls.user, "Daily")
 
     def _photo(self):
         return PhotoAdded.objects.create(

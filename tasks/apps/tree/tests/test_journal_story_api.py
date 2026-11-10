@@ -7,15 +7,13 @@ from rest_framework.test import APITestCase
 
 from ..board_operations import create_task_item
 from ..models import (
-    Board,
     HabitTracked,
     JournalAdded,
-    Profile,
     Reflection,
     Story,
     StoryEvent,
-    Thread,
 )
+from .factories import make_board, make_profile, make_thread
 
 
 class JournalStoryAPITestCase(APITestCase):
@@ -24,7 +22,7 @@ class JournalStoryAPITestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
         cls.other = User.objects.create_user(username="other", password="x")
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
+        cls.daily = make_thread(cls.other, "Daily")
 
     def setUp(self):
         self.client.force_authenticate(user=self.user)
@@ -82,12 +80,12 @@ class JournalBoardCheckEndpointTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
+        cls.daily = make_thread(cls.user, "Daily")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
 
     def setUp(self):
         self.client.force_authenticate(user=self.user)
-        self.board = Board.objects.create(
+        self.board = make_board(
             thread=self.daily, state=[create_task_item("Do tasks (3)")]
         )
 

@@ -6,8 +6,9 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Plan, Reflection, Thread
+from ..models import Plan, Reflection
 from ..utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
+from .factories import make_thread
 
 # A Thursday — end-of-week and end-of-month fall on distinct later dates.
 TODAY = date_cls(2026, 6, 25)
@@ -22,11 +23,11 @@ class TodayPlansAPITestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
-        cls.weekly = Thread.objects.create(name="Weekly")
+        cls.daily = make_thread(cls.user, "Daily")
+        cls.weekly = make_thread(cls.user, "Weekly")
         # Lowercase, as in the dev fixtures, the web Today view and reflection
         # extraction — the name the monthly plans are actually stored under.
-        cls.bigpic = Thread.objects.create(name="big-picture")
+        cls.bigpic = make_thread(cls.user, "big-picture")
         cls.url = reverse("today-plans")
 
     def setUp(self):

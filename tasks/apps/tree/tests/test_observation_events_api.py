@@ -15,8 +15,8 @@ from ..models import (
     ObservationClosed,
     ObservationMade,
     ObservationType,
-    Thread,
 )
+from .factories import make_thread
 
 EVENTS_URL = "/observation-events/"
 
@@ -26,7 +26,7 @@ class ObservationEventAPIReadOnlyTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
         observation = Observation.objects.create(

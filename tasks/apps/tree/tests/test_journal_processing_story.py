@@ -2,8 +2,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from ..models import HabitTracked, JournalAdded, Story, StoryEvent, Thread
+from ..models import HabitTracked, JournalAdded, Story, StoryEvent
 from ..services.journalling import process_journal_entry
+from .factories import make_thread
 
 
 class JournalProcessingWithStoryTestCase(TestCase):
@@ -11,7 +12,7 @@ class JournalProcessingWithStoryTestCase(TestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
+        cls.daily = make_thread(cls.user, "Daily")
 
     def _journal(self, comment):
         return JournalAdded.objects.create(

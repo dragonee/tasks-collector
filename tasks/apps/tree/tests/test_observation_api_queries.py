@@ -11,7 +11,8 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Observation, ObservationType, ObservationUpdated, Thread
+from ..models import Observation, ObservationType, ObservationUpdated
+from .factories import make_thread
 
 
 class ObservationAPIQueryCountTestCase(APITestCase):
@@ -19,7 +20,7 @@ class ObservationAPIQueryCountTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
     def setUp(self):

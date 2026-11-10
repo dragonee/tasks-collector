@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..models import Board, Thread
+from .factories import make_board, make_thread
 
 
 class ThreadAPIReadOnlyTestCase(APITestCase):
@@ -15,8 +16,8 @@ class ThreadAPIReadOnlyTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
-        cls.board = Board.objects.create(thread=cls.daily, state=[])
+        cls.daily = make_thread(cls.user, "Daily")
+        cls.board = make_board(thread=cls.daily, state=[])
 
     def setUp(self):
         self.client.force_authenticate(user=self.user)

@@ -12,8 +12,8 @@ from ..models import (
     ObservationClosed,
     ObservationMade,
     ObservationType,
-    Thread,
 )
+from .factories import make_thread
 
 OBSERVATIONS_URL = "/observation-api/"
 EVENTS_URL = "/observation-events/"
@@ -32,7 +32,7 @@ class ObservationAPIFilterTestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
         cls.other = User.objects.create_user(username="o", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.other, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
         cls.mine = cls._observation(cls.user, date_cls(2026, 10, 20), "mine")
@@ -78,7 +78,7 @@ class ObservationEventAPIFilterTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
         cls.open_obs = Observation.objects.create(

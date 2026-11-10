@@ -15,12 +15,11 @@ from ..models import (
     Board,
     JournalAdded,
     Plan,
-    Profile,
     Reflection,
     Story,
     StoryEvent,
-    Thread,
 )
+from .factories import make_board, make_profile, make_thread
 
 TODAY = date_cls(2026, 5, 21)
 TODAY_ISO = TODAY.isoformat()
@@ -35,9 +34,9 @@ class AndroidTaskAPITestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
         cls.token = Token.objects.create(user=cls.user)
-        cls.daily = Thread.objects.create(name="Daily")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
-        cls.board = Board.objects.create(thread=cls.daily, state=[])
+        cls.daily = make_thread(cls.user, "Daily")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
+        cls.board = make_board(thread=cls.daily, state=[])
 
     def setUp(self):
         self.board = Board.objects.get(pk=self.board.pk)

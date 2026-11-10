@@ -10,7 +10,7 @@ from django.test import TestCase, TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 
 from ..board_operations import create_task_item
-from ..models import Board, JournalAdded, Plan, Profile, Reflection, Thread
+from ..models import Board, JournalAdded, Plan, Reflection
 from ..services.today import (
     NoBoardError,
     add_task,
@@ -22,6 +22,7 @@ from ..services.today import (
     set_task_done,
     text_lines,
 )
+from .factories import make_board, make_profile, make_thread
 
 TODAY = date_cls(2026, 5, 21)
 PUBLISHED_AT = datetime_cls(2026, 5, 21, 15, 42, 33, tzinfo=dt_timezone.utc)
@@ -32,9 +33,9 @@ class TodayServiceTestCase(TestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
-        cls.board = Board.objects.create(thread=cls.daily, state=[])
+        cls.daily = make_thread(cls.user, "Daily")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
+        cls.board = make_board(thread=cls.daily, state=[])
 
     def setUp(self):
         # Each test gets a clean board; reload from DB so per-test mutations
@@ -623,9 +624,9 @@ class TodayConcurrentWritesTestCase(TransactionTestCase):
     def setUp(self):
         User = get_user_model()
         self.user = User.objects.create_user(username="phone", password="x")
-        self.daily = Thread.objects.create(name="Daily")
-        Profile.objects.create(user=self.user, default_board_thread=self.daily)
-        self.board = Board.objects.create(thread=self.daily, state=[])
+        self.daily = make_thread(self.user, "Daily")
+        make_profile(user=self.user, default_board_thread=self.daily)
+        self.board = make_board(thread=self.daily, state=[])
         add_task(self.user, "buy bread", today=TODAY)
         add_task(self.user, "walk dog", today=TODAY)
 

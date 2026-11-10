@@ -6,7 +6,8 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..models import Board, Profile, Thread
+from ..models import Profile
+from .factories import make_board, make_profile, make_thread
 
 APPEND_URL = "/boards/append/"
 
@@ -22,11 +23,11 @@ class BoardAppendTestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
         cls.token = Token.objects.create(user=cls.user)
-        cls.daily = Thread.objects.create(name="Daily")
-        cls.weekly = Thread.objects.create(name="Weekly")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
-        cls.daily_board = Board.objects.create(thread=cls.daily, state=[])
-        cls.weekly_board = Board.objects.create(thread=cls.weekly, state=[])
+        cls.daily = make_thread(cls.user, "Daily")
+        cls.weekly = make_thread(cls.user, "Weekly")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
+        cls.daily_board = make_board(thread=cls.daily, state=[])
+        cls.weekly_board = make_board(thread=cls.weekly, state=[])
 
     def setUp(self):
         for board in (self.daily_board, self.weekly_board):

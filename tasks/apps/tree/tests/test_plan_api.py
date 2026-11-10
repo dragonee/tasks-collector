@@ -6,7 +6,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Plan, Thread
+from ..models import Plan
+from .factories import make_thread
 
 # Sundays ending two consecutive weeks, and the Friday between them.
 LAST_WEEK_END = date_cls(2026, 10, 25)
@@ -24,8 +25,8 @@ class PlanAPIFilterTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
-        cls.weekly = Thread.objects.create(name="Weekly")
+        cls.daily = make_thread(cls.user, "Daily")
+        cls.weekly = make_thread(cls.user, "Weekly")
         cls.url = reverse("plan-list")
 
     def setUp(self):
@@ -65,7 +66,7 @@ class PlanAddTaskTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
+        cls.daily = make_thread(cls.user, "Daily")
         cls.url = reverse("plan-add-task")
 
     def setUp(self):

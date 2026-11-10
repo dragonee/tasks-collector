@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from PIL import Image
 
-from ..models import HabitTracked, JournalAdded, PhotoAdded, Profile, StoryEvent, Thread
+from ..models import HabitTracked, JournalAdded, PhotoAdded, StoryEvent
 from ..services.photos import (
     PhotoNotFoundError,
     PhotoObjectMissingError,
@@ -17,6 +17,7 @@ from ..services.photos import (
     presign_photo_original,
     presign_standalone_photo,
 )
+from .factories import make_profile, make_thread
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 
@@ -51,9 +52,9 @@ class StandalonePhotoServiceTestCase(TestCase):
         User = get_user_model()
         cls.alice = User.objects.create_user(username="alice", password="x")
         cls.bob = User.objects.create_user(username="bob", password="x")
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
-        Profile.objects.create(user=cls.alice, default_board_thread=cls.daily)
-        Profile.objects.create(user=cls.bob, default_board_thread=cls.daily)
+        cls.daily = make_thread(cls.bob, "Daily")
+        make_profile(user=cls.alice, default_board_thread=cls.daily)
+        make_profile(user=cls.bob, default_board_thread=cls.daily)
 
     def setUp(self):
         # Confirm reads the uploaded original's EXIF for the capture time; keep

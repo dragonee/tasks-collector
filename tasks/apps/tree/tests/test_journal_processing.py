@@ -4,16 +4,14 @@ from django.utils import timezone
 
 from ..board_operations import create_task_item
 from ..models import (
-    Board,
     Habit,
     HabitKeyword,
     HabitTracked,
     JournalAdded,
-    Profile,
     Reflection,
-    Thread,
 )
 from ..services.journalling.journal_processing import process_journal_entry
+from .factories import make_board, make_profile, make_thread
 
 
 class JournalProcessingTestCase(TestCase):
@@ -21,8 +19,9 @@ class JournalProcessingTestCase(TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.daily_thread = Thread.objects.create(name="Daily")
-        self.weekly_thread = Thread.objects.create(name="Weekly")
+        self.user = get_user_model().objects.create_user(username="u", password="x")
+        self.daily_thread = make_thread(self.user, "Daily")
+        self.weekly_thread = make_thread(self.user, "Weekly")
 
         self.food_habit = Habit.objects.create(name="Food", slug="food")
         HabitKeyword.objects.create(habit=self.food_habit, keyword="food")
@@ -211,9 +210,9 @@ class JournalBoardCheckTestCase(TestCase):
     def setUp(self):
         User = get_user_model()
         self.user = User.objects.create_user(username="phone", password="x")
-        self.daily = Thread.objects.create(name="Daily")
-        Profile.objects.create(user=self.user, default_board_thread=self.daily)
-        self.board = Board.objects.create(thread=self.daily, state=[])
+        self.daily = make_thread(self.user, "Daily")
+        make_profile(user=self.user, default_board_thread=self.daily)
+        self.board = make_board(thread=self.daily, state=[])
 
     def _add_board_task(self, text):
         self.board.state.append(create_task_item(text))

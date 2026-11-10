@@ -8,8 +8,9 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..models import Habit, HabitTracked, Thread
+from ..models import Habit, HabitTracked
 from ..services.health import parse_weight_kg
+from .factories import make_thread
 
 
 class ParseWeightKgTestCase(APITestCase):
@@ -36,7 +37,7 @@ class AndroidHealthDataAPITestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
         cls.token = Token.objects.create(user=cls.user)
-        cls.daily_thread = Thread.objects.create(name="Daily")
+        cls.daily_thread = make_thread(cls.user, "Daily")
         # Created by migration 0074_weight_habit; fetching it also asserts the
         # migration ran.
         cls.weight_habit = Habit.objects.get(slug="weight")

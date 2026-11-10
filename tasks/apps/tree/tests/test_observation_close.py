@@ -19,9 +19,9 @@ from ..models import (
     Observation,
     ObservationClosed,
     ObservationType,
-    Thread,
 )
 from ..services.observations.closing import close_observation
+from .factories import make_thread
 
 
 def _observation(user, thread, type):
@@ -40,7 +40,7 @@ class ObservationCloseAPITestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
     def setUp(self):
@@ -99,7 +99,7 @@ class ConcurrentCloseTestCase(TransactionTestCase):
     def setUp(self):
         User = get_user_model()
         user = User.objects.create_user(username="u", password="x")
-        thread = Thread.objects.create(name="Daily")
+        thread = make_thread(user, "Daily")
         type = ObservationType.objects.create(name="Error", slug="error")
         self.observation = _observation(user, thread, type)
 
