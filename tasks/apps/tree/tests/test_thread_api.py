@@ -26,7 +26,8 @@ class ThreadAPIReadOnlyTestCase(APITestCase):
         response = self.client.get("/threads/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
+        # Order follows the database collation, which differs between setups.
+        self.assertCountEqual(
             [thread["name"] for thread in response.json()["results"]],
             ["Daily", "Weekly", "big-picture"],
         )
