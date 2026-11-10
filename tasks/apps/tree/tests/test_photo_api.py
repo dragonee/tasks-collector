@@ -9,8 +9,8 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..models import PhotoAdded, Story, StoryEvent
-from .factories import make_profile, make_thread
+from ..models import PhotoAdded, Story
+from .factories import make_profile, make_thread, trip_links
 
 PUB_AT = datetime_cls(2026, 5, 25, 14, 30, tzinfo=dt_timezone.utc).isoformat()
 STORAGE = "tasks.apps.tree.services.photos.storage"
@@ -121,14 +121,12 @@ class PhotoAPITestCase(APITestCase):
         self.assertTrue(r.data["ok"])
         photo = PhotoAdded.objects.get(pk=r.data["photo_id"])
         self.assertEqual(photo.original_key, key)
-        self.assertTrue(
-            StoryEvent.objects.filter(story=self.story, event=photo).exists()
-        )
+        self.assertTrue(trip_links(story=self.story, event=photo).exists())
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_confirm_idempotency_key_dedupes(self, _exists):
         # A retried confirm with the same idempotency_key returns the same
-        # photo_id and creates exactly one PhotoAdded + one StoryEvent link.
+        # photo_id and creates exactly one PhotoAdded + one trip link.
         key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
         first = self._confirm(self.story.pk, key, idempotency_key="ph-123")
         second = self._confirm(self.story.pk, key, idempotency_key="ph-123")
@@ -136,7 +134,7 @@ class PhotoAPITestCase(APITestCase):
         self.assertEqual(second.status_code, status.HTTP_200_OK)
         self.assertEqual(first.data["photo_id"], second.data["photo_id"])
         self.assertEqual(PhotoAdded.objects.filter(idempotency_key="ph-123").count(), 1)
-        self.assertEqual(StoryEvent.objects.filter(story=self.story).count(), 1)
+        self.assertEqual(trip_links(story=self.story).count(), 1)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_confirm_content_hash_dedupes_within_trip(self, _exists):
@@ -156,7 +154,7 @@ class PhotoAPITestCase(APITestCase):
         )
         self.assertEqual(first.data["photo_id"], second.data["photo_id"])
         self.assertEqual(PhotoAdded.objects.filter(content_hash="deadbeef").count(), 1)
-        self.assertEqual(StoryEvent.objects.filter(story=self.story).count(), 1)
+        self.assertEqual(trip_links(story=self.story).count(), 1)
 
     def test_confirm_rejects_non_string_content_hash(self):
         r = self._confirm(

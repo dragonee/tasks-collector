@@ -10,8 +10,8 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..models import HabitTracked, JournalAdded, Story, StoryEvent
-from .factories import make_profile, make_thread
+from ..models import HabitTracked, JournalAdded, Story
+from .factories import make_profile, make_thread, trip_links
 
 PUB_AT = datetime_cls(2026, 5, 25, 14, 30, tzinfo=dt_timezone.utc).isoformat()
 
@@ -160,7 +160,7 @@ class TripAPITestCase(APITestCase):
         sid = self._start().json()["story"]["id"]
         r = self._note(sid, "walking", idempotency_key="k" * 65)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(StoryEvent.objects.filter(story_id=sid).exists())
+        self.assertFalse(trip_links(story_id=sid).exists())
 
     def test_note_creates_journal_and_links_to_story(self):
         self._auth()
@@ -170,7 +170,7 @@ class TripAPITestCase(APITestCase):
         journal_id = r.json()["journal_id"]
         journal = JournalAdded.objects.get(pk=journal_id)
         self.assertEqual(journal.comment, "walking around")
-        self.assertTrue(StoryEvent.objects.filter(story_id=sid, event=journal).exists())
+        self.assertTrue(trip_links(story_id=sid, event=journal).exists())
 
     def test_note_with_poi_tag_creates_linked_habit_tracked(self):
         self._auth()
@@ -181,7 +181,7 @@ class TripAPITestCase(APITestCase):
         habits = HabitTracked.objects.filter(habit__slug="poi")
         self.assertEqual(habits.count(), 1)
         # Both events linked to the story.
-        self.assertEqual(StoryEvent.objects.filter(story_id=sid).count(), 2)
+        self.assertEqual(trip_links(story_id=sid).count(), 2)
 
     def test_note_on_stopped_story_returns_409(self):
         self._auth()
@@ -211,7 +211,7 @@ class TripAPITestCase(APITestCase):
 
     def test_note_idempotency_key_dedupes(self):
         # A retried POST with the same idempotency_key returns the same
-        # journal_id and creates exactly one event + one StoryEvent link.
+        # journal_id and creates exactly one event + one trip link.
         self._auth()
         sid = self._start().json()["story"]["id"]
         first = self._note(sid, "walking", idempotency_key="abc-123")
@@ -222,7 +222,7 @@ class TripAPITestCase(APITestCase):
         self.assertEqual(
             JournalAdded.objects.filter(idempotency_key="abc-123").count(), 1
         )
-        self.assertEqual(StoryEvent.objects.filter(story_id=sid).count(), 1)
+        self.assertEqual(trip_links(story_id=sid).count(), 1)
 
     def test_list_returns_active_and_history(self):
         self._auth()

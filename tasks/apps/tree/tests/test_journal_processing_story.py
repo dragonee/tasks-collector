@@ -2,9 +2,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from ..models import HabitTracked, JournalAdded, Story, StoryEvent
+from ..models import HabitTracked, JournalAdded, Story
 from ..services.journalling import process_journal_entry
-from .factories import make_thread
+from .factories import make_thread, trip_links
 
 
 class JournalProcessingWithStoryTestCase(TestCase):
@@ -22,32 +22,28 @@ class JournalProcessingWithStoryTestCase(TestCase):
     def test_no_story_kwarg_preserves_existing_behavior(self):
         journal = self._journal("plain entry, no story arg")
         process_journal_entry(journal)
-        self.assertFalse(StoryEvent.objects.filter(event=journal).exists())
+        self.assertFalse(trip_links(event=journal).exists())
 
     def test_story_kwarg_links_journal_only_when_no_hashtags(self):
         story = Story.objects.create(user=self.user, title="t")
         journal = self._journal("just a thought")
         process_journal_entry(journal, story=story)
-        self.assertEqual(
-            StoryEvent.objects.filter(story=story, event=journal).count(), 1
-        )
-        self.assertEqual(StoryEvent.objects.filter(story=story).count(), 1)
+        self.assertEqual(trip_links(story=story, event=journal).count(), 1)
+        self.assertEqual(trip_links(story=story).count(), 1)
 
     def test_story_kwarg_links_journal_and_extracted_habit_tracked(self):
         story = Story.objects.create(user=self.user, title="t")
         journal = self._journal("#poi lat=10 lng=20\nseaside")
         process_journal_entry(journal, story=story)
         # 1 journal + 1 habit-tracked = 2 story_event rows
-        self.assertEqual(StoryEvent.objects.filter(story=story).count(), 2)
+        self.assertEqual(trip_links(story=story).count(), 2)
         habits = HabitTracked.objects.filter(habit__slug="poi")
         self.assertEqual(habits.count(), 1)
-        self.assertTrue(
-            StoryEvent.objects.filter(story=story, event=habits.first()).exists()
-        )
+        self.assertTrue(trip_links(story=story, event=habits.first()).exists())
 
     def test_skip_habits_skips_habit_linking_but_still_links_journal(self):
         story = Story.objects.create(user=self.user, title="t")
         journal = self._journal("#poi lat=1 lng=2\nignore habits")
         process_journal_entry(journal, skip_habits=True, story=story)
-        self.assertEqual(StoryEvent.objects.filter(story=story).count(), 1)
+        self.assertEqual(trip_links(story=story).count(), 1)
         self.assertFalse(HabitTracked.objects.filter(habit__slug="poi").exists())

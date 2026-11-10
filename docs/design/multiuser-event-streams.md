@@ -199,6 +199,21 @@ production dump migrated through 0077–0086.
 - Idempotent `ensure_home_entries` SQL run after deploy; invariant test "no event
   without its home entry".
 
+As built (0087–0089):
+- The home entry follows the home stream instead of refusing a change: a journal
+  entry moved to another thread leaves the old journal and joins the new one; its
+  trip membership stays. `Event.save` tracks the stored home stream via `from_db`.
+- `Story.add(event)` enforces one trip per event (the database used to, through
+  `StoryEvent`'s one-to-one). `Event.trip` and `Event.prefetch_trip()` replace
+  `story_entry.story` for the trip badge.
+- Photo originals are owned by whoever owns the photo's home stream (the uploader's
+  Daily journal), for trip and standalone photos alike; the S3 key prefix is only
+  checked on upload now.
+- `manage.py ensure_stream_entries` adds home entries for events the previous release
+  saved during the deploy (migrations run while it is still serving). Idempotent.
+- Checked on the pre-stage-0 production dump: 9,541 home entries, 493 trip entries
+  (= the 493 StoryEvent rows), all 16 trips with a stream owned by the traveller.
+
 ### Stage 5 — `Event.created_by`
 - Nullable → backfill from the home stream's owner → NOT NULL.
 - Set at every creation site. `ProjectedOutcome` Made/Redefined/Rescheduled leave the

@@ -209,8 +209,7 @@ class AndroidTripNoteView(APIView):
     The ``comment`` is fed through ``process_journal_entry`` so any
     ``#poi``/``#coords``/``#coordinates``/``#latlng`` hashtag inside it
     also creates a ``HabitTracked``; both the ``JournalAdded`` itself
-    and any extracted ``HabitTracked`` are linked to the story via
-    ``StoryEvent``.
+    and any extracted ``HabitTracked`` are added to the trip's stream.
     """
 
     authentication_classes = [TokenAuthentication]

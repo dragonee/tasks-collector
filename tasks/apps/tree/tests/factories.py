@@ -5,7 +5,15 @@ the model managers, so that the move to per-user threads (provisioned for
 every new user) changes only the bodies below, not every test module.
 """
 
-from ..models import Board, Habit, HabitKeyword, Profile, Thread
+from ..models import (
+    Board,
+    EventStream,
+    EventStreamEntry,
+    Habit,
+    HabitKeyword,
+    Profile,
+    Thread,
+)
 
 
 def make_thread(user, name="Daily"):
@@ -41,6 +49,24 @@ def make_habit(user, name, slug=None, keywords=(), **fields):
     for keyword in keywords:
         HabitKeyword.objects.create(habit=habit, keyword=keyword)
     return habit
+
+
+def trip_links(story=None, event=None, story_id=None):
+    """Events' memberships in trip streams (what StoryEvent rows used to be),
+    narrowed to a story and/or an event."""
+    links = EventStreamEntry.objects.filter(stream__type=EventStream.Type.TRIP)
+    if story is not None:
+        links = links.filter(stream__story=story)
+    if story_id is not None:
+        links = links.filter(stream__story__id=story_id)
+    if event is not None:
+        links = links.filter(event=event)
+    return links
+
+
+def link_to_trip(story, event):
+    """Make ``event`` part of ``story`` (a trip)."""
+    story.add(event)
 
 
 def make_profile(user, **fields):

@@ -254,11 +254,11 @@ class JournalArchiveContextMixin:
         context["tags"] = JournalTag.objects.all()
 
         # Render trip photos and badges the same way today.html does: presign
-        # thumbnails and prefetch the StoryEvent -> Story link (one query for
+        # thumbnails and prefetch the trip each entry is part of (one query for
         # the whole month, no per-entry lookup for the badge). Materialise so
         # the attributes survive the template's repeated iteration of the list.
         entries = list(context["object_list"])
-        prefetch_related_objects(entries, "story_entry__story")
+        prefetch_related_objects(entries, Event.prefetch_trip())
         attach_photo_urls(entries)
         context["object_list"] = entries
 

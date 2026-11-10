@@ -1,7 +1,7 @@
 """Orchestrated Trip (Story) operations.
 
 Each public mutator is wrapped in ``transaction.atomic`` so multi-record
-writes (Story + JournalAdded + StoryEvent + possibly HabitTracked)
+writes (Story + JournalAdded + trip membership + possibly HabitTracked)
 either all commit or none do.
 """
 
@@ -11,7 +11,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from ...models import JournalAdded, PhotoAdded, SharedStory, Story, StoryEvent
+from ...models import JournalAdded, PhotoAdded, SharedStory, Story
 from ..journalling import process_journal_entry
 from ..photos import key_belongs_to, original_key
 from ..photos import storage as photo_storage
@@ -256,7 +256,7 @@ def add_trip_photo(
 
     if content_hash:
         dup = PhotoAdded.objects.filter(
-            story_entry__story=story, content_hash=content_hash
+            stream_entries__stream=story.event_stream_id, content_hash=content_hash
         ).first()
         if dup is not None:
             return dup
@@ -342,7 +342,9 @@ def story_entries(story):
     per entry. Shared by the Android detail endpoint and the web trip pages.
     """
     return list(
-        JournalAdded.objects.filter(story_entry__story=story).order_by("-published")
+        JournalAdded.objects.filter(
+            stream_entries__stream=story.event_stream_id
+        ).order_by("-published")
     )
 
 

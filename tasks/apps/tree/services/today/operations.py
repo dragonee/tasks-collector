@@ -19,7 +19,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from ...board_operations import board_thread_for
-from ...models import Board, JournalAdded, Plan, Reflection, Story, StoryEvent, Thread
+from ...models import Board, JournalAdded, Plan, Reflection, Story, Thread
 from ..trips.operations import StoryNotFoundError, StoryStoppedError
 from . import board_tree, text_lines
 from .progress import (
@@ -85,7 +85,7 @@ def _maybe_add_journal(text_for_marker, note, published, daily, story=None):
         published=published or timezone.now(),
     )
     if story is not None:
-        StoryEvent.objects.create(story=story, event=journal)
+        story.add(journal)
 
 
 def _owned_active_story(user, story_id):

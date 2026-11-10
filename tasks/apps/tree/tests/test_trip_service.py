@@ -20,7 +20,6 @@ from ..models import (
     Profile,
     SharedStory,
     Story,
-    StoryEvent,
 )
 from ..services.photos import PhotoNotFoundError, presign_photo_original
 from ..services.trips import (
@@ -41,7 +40,7 @@ from ..services.trips import (
     unshare_trip,
     update_trip,
 )
-from .factories import make_profile, make_thread
+from .factories import link_to_trip, make_profile, make_thread, trip_links
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 
@@ -128,7 +127,7 @@ class TripServiceTestCase(TestCase):
             self.alice, story.pk, comment="just walking around", published=published
         )
         self.assertEqual(journal.comment, "just walking around")
-        link = StoryEvent.objects.get(story=story, event=journal)
+        link = trip_links(story=story, event=journal).get()
         self.assertIsNotNone(link)
 
     def test_add_trip_note_uses_daily_thread_not_board_default(self):
@@ -154,10 +153,8 @@ class TripServiceTestCase(TestCase):
         self.assertIn("lat=40.7128", habit_event.note)
         self.assertIn("lng=-74.0060", habit_event.note)
         # both events linked
-        self.assertTrue(StoryEvent.objects.filter(story=story, event=journal).exists())
-        self.assertTrue(
-            StoryEvent.objects.filter(story=story, event=habit_event).exists()
-        )
+        self.assertTrue(trip_links(story=story, event=journal).exists())
+        self.assertTrue(trip_links(story=story, event=habit_event).exists())
 
     def test_add_trip_note_on_stopped_story_raises(self):
         story = start_trip(self.alice)
@@ -194,7 +191,7 @@ class TripServiceTestCase(TestCase):
         self.assertEqual(
             JournalAdded.objects.filter(idempotency_key="note-key-1").count(), 1
         )
-        self.assertEqual(StoryEvent.objects.filter(story=story, event=first).count(), 1)
+        self.assertEqual(trip_links(story=story, event=first).count(), 1)
 
     def test_add_trip_note_idempotent_retry_succeeds_after_stop(self):
         # The first call's response was lost, the trip was then stopped, and the
@@ -285,14 +282,14 @@ class TripServiceTestCase(TestCase):
 
     def _link_note_and_photo(self, story):
         note = JournalAdded.objects.create(thread=self.daily, comment="note")
-        StoryEvent.objects.create(story=story, event=note)
+        link_to_trip(story=story, event=note)
         photo = PhotoAdded.objects.create(
             thread=self.daily,
             comment="photo",
             original_key=f"trips/{self.alice.pk}/{story.pk}/x.jpg",
             content_type="image/jpeg",
         )
-        StoryEvent.objects.create(story=story, event=photo)
+        link_to_trip(story=story, event=photo)
 
     def test_get_detail_query_count_does_not_grow_with_entries(self):
         story = start_trip(self.alice)
@@ -435,7 +432,7 @@ class TripPhotoServiceTestCase(TestCase):
         self.assertIsInstance(photo, PhotoAdded)
         self.assertEqual(photo.original_key, key)
         self.assertIsNone(photo.thumbnail_key)
-        self.assertTrue(StoryEvent.objects.filter(story=story, event=photo).exists())
+        self.assertTrue(trip_links(story=story, event=photo).exists())
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_add_trip_photo_idempotency_returns_same_photo(self, _exists):
@@ -464,7 +461,7 @@ class TripPhotoServiceTestCase(TestCase):
         self.assertEqual(
             PhotoAdded.objects.filter(idempotency_key="photo-key-1").count(), 1
         )
-        self.assertEqual(StoryEvent.objects.filter(story=story, event=first).count(), 1)
+        self.assertEqual(trip_links(story=story, event=first).count(), 1)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_add_trip_photo_content_hash_dedups_within_trip(self, _exists):
@@ -494,7 +491,7 @@ class TripPhotoServiceTestCase(TestCase):
         )
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(PhotoAdded.objects.filter(content_hash="abc123").count(), 1)
-        self.assertEqual(StoryEvent.objects.filter(story=story, event=first).count(), 1)
+        self.assertEqual(trip_links(story=story, event=first).count(), 1)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_add_trip_photo_same_content_hash_different_trip_creates_distinct(
@@ -563,8 +560,8 @@ class TripPhotoServiceTestCase(TestCase):
         )
         habit = HabitTracked.objects.filter(habit__slug="poi").first()
         self.assertIsNotNone(habit)
-        self.assertTrue(StoryEvent.objects.filter(story=story, event=habit).exists())
-        self.assertTrue(StoryEvent.objects.filter(story=story, event=photo).exists())
+        self.assertTrue(trip_links(story=story, event=habit).exists())
+        self.assertTrue(trip_links(story=story, event=photo).exists())
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=False)
     def test_add_trip_photo_missing_object_raises(self, _exists):

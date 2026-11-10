@@ -9,8 +9,8 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..models import PhotoAdded, StoryEvent
-from .factories import make_profile, make_thread
+from ..models import PhotoAdded
+from .factories import make_profile, make_thread, trip_links
 
 PUB_AT = datetime_cls(2026, 5, 25, 14, 30, tzinfo=dt_timezone.utc).isoformat()
 STORAGE = "tasks.apps.tree.services.photos.storage"
@@ -95,7 +95,7 @@ class StandalonePhotoAPITestCase(APITestCase):
         self.assertTrue(r.data["ok"])
         photo = PhotoAdded.objects.get(pk=r.data["photo_id"])
         self.assertEqual(photo.original_key, key)
-        self.assertEqual(StoryEvent.objects.filter(event=photo).count(), 0)
+        self.assertEqual(trip_links(event=photo).count(), 0)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_confirm_idempotency_key_dedupes(self, _exists):

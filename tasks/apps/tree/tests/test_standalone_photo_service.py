@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from PIL import Image
 
-from ..models import HabitTracked, JournalAdded, PhotoAdded, StoryEvent
+from ..models import HabitTracked, JournalAdded, PhotoAdded
 from ..services.photos import (
     PhotoNotFoundError,
     PhotoObjectMissingError,
@@ -17,7 +17,7 @@ from ..services.photos import (
     presign_photo_original,
     presign_standalone_photo,
 )
-from .factories import make_profile, make_thread
+from .factories import make_profile, make_thread, trip_links
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 
@@ -93,8 +93,8 @@ class StandalonePhotoServiceTestCase(TestCase):
         self.assertEqual(photo.original_key, key)
         self.assertIsNone(photo.thumbnail_key)
         self.assertEqual(photo.thread, self.daily)
-        # The defining property of a standalone photo: no StoryEvent link.
-        self.assertEqual(StoryEvent.objects.filter(event=photo).count(), 0)
+        # The defining property of a standalone photo: part of no trip.
+        self.assertEqual(trip_links(event=photo).count(), 0)
 
     @staticmethod
     def _jpeg_with_exif_datetime(dt_str):
@@ -157,8 +157,8 @@ class StandalonePhotoServiceTestCase(TestCase):
         habit = HabitTracked.objects.filter(habit__slug="poi").first()
         self.assertIsNotNone(habit)
         # Neither the photo nor its extracted habit is linked to any story.
-        self.assertEqual(StoryEvent.objects.filter(event=photo).count(), 0)
-        self.assertEqual(StoryEvent.objects.filter(event=habit).count(), 0)
+        self.assertEqual(trip_links(event=photo).count(), 0)
+        self.assertEqual(trip_links(event=habit).count(), 0)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=False)
     def test_add_standalone_photo_missing_object_raises(self, _exists):

@@ -21,10 +21,9 @@ from ..models import (
     Profile,
     SharedStory,
     Story,
-    StoryEvent,
 )
 from ..services.photos import attach_photo_urls
-from .factories import make_profile, make_thread
+from .factories import link_to_trip, make_profile, make_thread, trip_links
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 
@@ -51,7 +50,7 @@ class TripWebTestCase(TestCase):
         note = JournalAdded.objects.create(
             thread=self.daily, comment=comment, published=published or timezone.now()
         )
-        StoryEvent.objects.create(story=story or self.story, event=note)
+        link_to_trip(story=story or self.story, event=note)
         return note
 
     def _photo(self, comment="", story=None, thumbnail_key="trips/1/1/x_thumb.webp"):
@@ -63,7 +62,7 @@ class TripWebTestCase(TestCase):
             content_type="image/jpeg",
             thumbnail_key=thumbnail_key,
         )
-        StoryEvent.objects.create(story=story or self.story, event=photo)
+        link_to_trip(story=story or self.story, event=photo)
         return photo
 
     # --- trip index ---
@@ -449,9 +448,7 @@ class TripWebTestCase(TestCase):
         )
         self.assertEqual(r.status_code, 200)
         note = JournalAdded.objects.get(comment="Coffee by the river")
-        self.assertTrue(
-            StoryEvent.objects.filter(story=self.story, event=note).exists()
-        )
+        self.assertTrue(trip_links(story=self.story, event=note).exists())
         # Returns the timeline partial so HTMX can swap it in.
         self.assertContains(r, 'id="trip-entries"')
         self.assertContains(r, "Coffee by the river")
@@ -461,7 +458,7 @@ class TripWebTestCase(TestCase):
             reverse("trip-add-note", args=[self.story.pk]), {"comment": "   "}
         )
         self.assertEqual(r.status_code, 400)
-        self.assertFalse(StoryEvent.objects.filter(story=self.story).exists())
+        self.assertFalse(trip_links(story=self.story).exists())
 
     def test_add_note_requires_post(self):
         r = self.client.get(reverse("trip-add-note", args=[self.story.pk]))
@@ -473,7 +470,7 @@ class TripWebTestCase(TestCase):
             reverse("trip-add-note", args=[theirs.pk]), {"comment": "hi"}
         )
         self.assertEqual(r.status_code, 404)
-        self.assertFalse(StoryEvent.objects.filter(story=theirs).exists())
+        self.assertFalse(trip_links(story=theirs).exists())
 
     def test_add_note_stopped_story_409(self):
         self.story.stopped = timezone.now()
@@ -482,7 +479,7 @@ class TripWebTestCase(TestCase):
             reverse("trip-add-note", args=[self.story.pk]), {"comment": "too late"}
         )
         self.assertEqual(r.status_code, 409)
-        self.assertFalse(StoryEvent.objects.filter(story=self.story).exists())
+        self.assertFalse(trip_links(story=self.story).exists())
 
     # --- add to trip: photo presign ---
 
@@ -547,9 +544,7 @@ class TripWebTestCase(TestCase):
         r = self._confirm(self.story.pk, key, comment="At the beach")
         self.assertEqual(r.status_code, 200)
         photo = PhotoAdded.objects.get(original_key=key)
-        self.assertTrue(
-            StoryEvent.objects.filter(story=self.story, event=photo).exists()
-        )
+        self.assertTrue(trip_links(story=self.story, event=photo).exists())
         self.assertContains(r, 'id="trip-entries"')
         self.assertContains(r, "At the beach")
 
@@ -652,7 +647,7 @@ class SharedTripWebTestCase(TestCase):
         note = JournalAdded.objects.create(
             thread=self.daily, comment=comment, published=published or timezone.now()
         )
-        StoryEvent.objects.create(story=self.story, event=note)
+        link_to_trip(story=self.story, event=note)
         return note
 
     def test_public_page_renders_without_auth(self):
@@ -705,7 +700,7 @@ class SharedTripWebTestCase(TestCase):
             content_type="image/jpeg",
             thumbnail_key="trips/1/1/x_thumb.webp",
         )
-        StoryEvent.objects.create(story=self.story, event=photo)
+        link_to_trip(story=self.story, event=photo)
 
         r = self.client.get(self._url())
         self.assertEqual(r.status_code, 200)

@@ -169,7 +169,7 @@ class AndroidTaskCompleteView(APIView):
     ``note`` means no journal entry.
 
     An optional ``story_id`` ("Save to trip") links the journal entry to
-    that active trip via ``StoryEvent``. Story errors mirror the trip
+    that active trip (adds it to the trip's stream). Story errors mirror the trip
     endpoints: 404 for missing/not-owned, 409 for a stopped trip.
     """
 
