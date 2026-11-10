@@ -130,6 +130,8 @@ class AndroidTaskAPITestCase(APITestCase):
 
         for override in (
             {"text": ""},
+            {"text": 5},
+            {"text": "buy\nbread"},
             {"from_date": ""},
             {"from_date": "not-a-date"},
             {"to_date": ""},

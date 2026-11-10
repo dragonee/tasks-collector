@@ -275,9 +275,10 @@ class AndroidTaskMoveView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        text = _text_from(request)
-        if text is None:
-            return _bad_request("text is required")
+        text = request.data.get("text")
+        error = _text_error(text)
+        if error is not None:
+            return _bad_request(error)
         from_date = _parse_date(request.data.get("from_date"))
         if from_date is None:
             return _bad_request("from_date is required (YYYY-MM-DD)")
