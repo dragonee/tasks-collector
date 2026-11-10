@@ -40,22 +40,22 @@ class HabitPagination(PageNumberPagination):
 
 class HabitViewSet(viewsets.ModelViewSet):
     serializer_class = HabitSerializer
-    queryset = Habit.objects.all()
+    # The class queryset only names the router basename; see get_queryset.
+    queryset = Habit.objects.none()
 
     pagination_class = HabitPagination
 
     def get_queryset(self):
         day = get_day_from_request(self.request)
 
-        return (
-            super()
-            .get_queryset()
-            .annotate(
-                today_tracked=Count(
-                    "habittracked", filter=Q(habittracked__published__date=day)
-                ),
-            )
+        return Habit.objects.filter(user=self.request.user).annotate(
+            today_tracked=Count(
+                "habittracked", filter=Q(habittracked__published__date=day)
+            ),
         )
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 @api_view(["POST"])
@@ -147,6 +147,10 @@ def habit_calendar(habit, start, end):
 class HabitDetailView(LoginRequiredMixin, DetailView):
     model = Habit
 
+    def get_queryset(self):
+        # Slugs are unique per user only.
+        return Habit.objects.filter(user=self.request.user)
+
     def get_slug_field(self) -> str:
         return "slug"
 
@@ -174,6 +178,9 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
 class HabitListView(LoginRequiredMixin, ListView):
     model = Habit
 
+    def get_queryset(self):
+        return Habit.objects.filter(user=self.request.user)
+
 
 def get_habit_keywords_for_user(user, all=False):
     from django.db.models import Count
@@ -193,7 +200,7 @@ def get_habit_keywords_for_user(user, all=False):
     ]
 
     if any(should_return_all_checks):
-        return HabitKeyword.objects.all()
+        return HabitKeyword.objects.filter(user=user)
 
     return Profile.objects.get(user=user).habit_keywords.all()
 
@@ -202,7 +209,7 @@ def get_habit_keywords_for_user_and_date(user, date, all=False):
     habit_keywords = get_habit_keywords_for_user(user, all=all)
 
     tracked_habit_ids = (
-        HabitTracked.objects.filter(published__date=date)
+        HabitTracked.objects.filter(habit__user=user, published__date=date)
         .values_list("habit_id", flat=True)
         .distinct()
     )

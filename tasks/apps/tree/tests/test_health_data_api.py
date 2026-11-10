@@ -10,7 +10,7 @@ from rest_framework.test import APITestCase
 
 from ..models import Habit, HabitTracked
 from ..services.health import parse_weight_kg
-from .factories import make_thread
+from .factories import make_habit, make_thread
 
 
 class ParseWeightKgTestCase(APITestCase):
@@ -38,9 +38,8 @@ class AndroidHealthDataAPITestCase(APITestCase):
         cls.user = User.objects.create_user(username="phone", password="x")
         cls.token = Token.objects.create(user=cls.user)
         cls.daily_thread = make_thread(cls.user, "Daily")
-        # Created by migration 0074_weight_habit; fetching it also asserts the
-        # migration ran.
-        cls.weight_habit = Habit.objects.get(slug="weight")
+        # Provisioned with the user; fetching it also asserts that.
+        cls.weight_habit = Habit.objects.get(user=cls.user, slug="weight")
         cls.url = reverse("android-health-data")
 
     def _auth(self):
@@ -81,7 +80,7 @@ class AndroidHealthDataAPITestCase(APITestCase):
         self.assertEqual(response.json()["recorded_at"], latest.published.isoformat())
 
     def test_ignores_records_under_other_habits(self):
-        other = Habit.objects.create(name="Health metrics", slug="health-metrics")
+        other = make_habit(self.user, "Health metrics", "health-metrics")
         HabitTracked.objects.create(
             habit=other,
             occured=True,

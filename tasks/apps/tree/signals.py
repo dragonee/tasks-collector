@@ -180,17 +180,15 @@ for _model in [
 
 
 @receiver(post_save, sender=Profile)
-def add_all_habit_keywords_to_new_profile(sender, instance, created, **kwargs):
-    """When a new Profile is created, add all existing HabitKeywords to it"""
+def add_users_habit_keywords_to_new_profile(sender, instance, created, **kwargs):
+    """A new Profile starts with all of its user's habit keywords selected."""
     if created:
-        all_keywords = HabitKeyword.objects.all()
-        instance.habit_keywords.set(all_keywords)
+        instance.habit_keywords.set(HabitKeyword.objects.filter(user=instance.user_id))
 
 
 @receiver(post_save, sender=HabitKeyword)
-def add_new_habit_keyword_to_all_profiles(sender, instance, created, **kwargs):
-    """When a new HabitKeyword is created, add it to all existing Profiles"""
+def add_new_habit_keyword_to_owners_profile(sender, instance, created, **kwargs):
+    """A new habit keyword is selected in its owner's Profile."""
     if created:
-        all_profiles = Profile.objects.all()
-        for profile in all_profiles:
+        for profile in Profile.objects.filter(user=instance.user_id):
             profile.habit_keywords.add(instance)

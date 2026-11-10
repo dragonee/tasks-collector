@@ -76,6 +76,7 @@ def breakthrough(request, year):
 
     breakthrough_habits = HabitTracked.objects.filter(
         published__year=last_year,
+        habit__user=request.user,
         habit__slug="breakthrough",
     ).select_related("habit")
 

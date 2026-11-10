@@ -137,14 +137,15 @@ def build_keyword_to_habit_map(habits):
 # Orchestration function (with DB query)
 
 
-def habits_line_to_habits_tracked(line, habits=None):
+def habits_line_to_habits_tracked(line, user, habits=None):
     """
     Parse a line and return matched habit tracking tuples.
 
     Args:
         line: Text line containing habit markers (# or !).
+        user: Whose habits the markers name (a user or a user id).
         habits: Optional iterable of Habit instances. If not provided,
-            fetches all habits from the database.
+            fetches ``user``'s habits from the database.
 
     Returns:
         List of (occurred, habit, note) tuples for each matched habit.
@@ -155,7 +156,7 @@ def habits_line_to_habits_tracked(line, habits=None):
         return []
 
     if habits is None:
-        habits = Habit.objects.all()
+        habits = Habit.objects.filter(user=user)
 
     habits_from_keywords = build_keyword_to_habit_map(habits)
 

@@ -48,12 +48,15 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
     if skip_habits:
         return
 
-    triplets = habits_line_to_habits_tracked(comment)
+    # Hashtags name the habits of whoever wrote the entry, and are tracked on
+    # their Daily thread.
+    author_id = journal_added.thread.user_id
+
+    triplets = habits_line_to_habits_tracked(comment, author_id)
     if not triplets:
         return
 
-    # Habits are tracked on the Daily thread of whoever wrote the entry.
-    daily = Thread.objects.daily(journal_added.thread.user_id)
+    daily = Thread.objects.daily(author_id)
 
     for occured, habit, note in triplets:
         habit_tracked = HabitTracked.objects.create(

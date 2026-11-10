@@ -1,8 +1,9 @@
 """
 Health data helpers for the Android Health screen.
 
-Body weight is recorded as a HabitTracked under a dedicated ``weight`` Habit
-(see migration 0074). It is intentionally a separate Habit from
+Body weight is recorded as a HabitTracked under each user's dedicated
+``weight`` Habit (provisioned with the user, see services.provisioning). It is
+intentionally a separate Habit from
 ``health-metrics`` so the hourly background sync — which upserts on
 (habit, date) — never clobbers a manually recorded weight.
 """
@@ -36,15 +37,14 @@ def parse_weight_kg(note):
     return float(match.group(1))
 
 
-def latest_weight():
-    """Return the most recently recorded weight, or None if none exists.
+def latest_weight(user):
+    """Return ``user``'s most recently recorded weight, or None if none exists.
 
-    Walks weight events newest-first and returns the first whose note carries
-    a parseable ``weight=<float>kg`` token. Global (not user-scoped), matching
-    the rest of the habit-tracking endpoints.
+    Walks the user's weight events newest-first and returns the first whose
+    note carries a parseable ``weight=<float>kg`` token.
     """
     events = HabitTracked.objects.filter(
-        habit__slug=WEIGHT_SLUG, occured=True
+        habit__user=user, habit__slug=WEIGHT_SLUG, occured=True
     ).order_by("-published")
 
     for event in events:

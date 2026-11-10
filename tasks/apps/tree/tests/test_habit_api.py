@@ -6,7 +6,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..models import Habit, HabitKeyword, HabitTracked
-from .factories import make_thread
+from .factories import make_habit, make_thread
 
 
 class TrackHabitAPITestCase(APITestCase):
@@ -16,8 +16,9 @@ class TrackHabitAPITestCase(APITestCase):
         cls.user = User.objects.create_user(username="phone", password="x")
         cls.token = Token.objects.create(user=cls.user)
         cls.daily_thread = make_thread(cls.user, "Daily")
-        cls.habit = Habit.objects.create(name="Health metrics", slug="health-metrics")
-        HabitKeyword.objects.create(habit=cls.habit, keyword="health-metrics")
+        cls.habit = make_habit(
+            cls.user, "Health metrics", "health-metrics", keywords=["health-metrics"]
+        )
         cls.url = reverse("track-habit-api")
 
     def _auth(self):

@@ -50,6 +50,20 @@ class HabitSerializer(serializers.HyperlinkedModelSerializer):
     def get_keywords(self, obj):
         return list(obj.get_keywords())
 
+    def validate_slug(self, slug):
+        # Unique per user; the owner is not a serializer field, so the
+        # database constraint can't be turned into a validator automatically.
+        request = self.context.get("request")
+        if request is not None:
+            others = Habit.objects.filter(user=request.user, slug=slug)
+            if self.instance is not None:
+                others = others.exclude(pk=self.instance.pk)
+            if others.exists():
+                raise serializers.ValidationError(
+                    "You already have a habit with this slug."
+                )
+        return slug
+
     class Meta:
         model = Habit
         fields = ["id", "name", "description", "slug", "keywords", "today_tracked"]

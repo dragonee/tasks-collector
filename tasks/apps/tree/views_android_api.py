@@ -232,7 +232,7 @@ class AndroidHealthDataView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        record = latest_weight()
+        record = latest_weight(request.user)
         if record is None:
             return Response(
                 {"weight_kg": None, "recorded_at": None},

@@ -23,6 +23,9 @@ from ..models import (
 )
 from .itertools import _in_second, compose
 
+# Statistics are per user. Events and plans belong to whoever owns the thread
+# they are filed under.
+
 
 def count_words_in_text(text):
     """Count words in a text string, excluding empty strings"""
@@ -44,18 +47,20 @@ fields = [
 ]
 
 
-def calculate_total_word_count(year=None):
-    """Calculate total word count from all events and plans with text content
+def calculate_total_word_count(user, year=None):
+    """Calculate total word count from ``user``'s events and plans with text
+    content
 
     Reflections are not counted as they most often just repeat the text found in journal entries.
 
     Args:
+        user: Whose events and plans to count.
         year (int, optional): Filter by year. If None, includes all records.
     """
     total_words = 0
 
     # Count words from Events
-    events = Event.objects.all()
+    events = Event.objects.filter(thread__user=user)
     if year:
         events = events.filter(published__year=year)
 
@@ -73,7 +78,7 @@ def calculate_total_word_count(year=None):
             total_words += count_words_in_text(text)
 
     # Count words from Plans
-    plans = Plan.objects.all()
+    plans = Plan.objects.filter(thread__user=user)
     if year:
         plans = plans.filter(pub_date__year=year)
 
@@ -84,20 +89,21 @@ def calculate_total_word_count(year=None):
     return total_words
 
 
-def update_word_count_statistic(year=None):
-    """Update or create the word count statistic
+def update_word_count_statistic(user, year=None):
+    """Update or create ``user``'s word count statistic
 
     Args:
+        user: Whose word count to update.
         year (int, optional): Year to calculate for. If None, calculates for all events.
     """
-    total_words = calculate_total_word_count(year)
+    total_words = calculate_total_word_count(user, year)
 
     # Create key based on year
     key = f"total_word_count_{year}" if year else "total_word_count"
 
     # Update or create the statistic
     stat, created = Statistics.objects.get_or_create(
-        key=key, defaults={"value": total_words}
+        user=user, key=key, defaults={"value": total_words}
     )
 
     if not created:
@@ -107,16 +113,18 @@ def update_word_count_statistic(year=None):
     return total_words
 
 
-def get_all_years_in_database():
-    """Get all years that have events in the database"""
-    years = Event.objects.dates("published", "year").values_list(
-        "published__year", flat=True
+def get_all_years_in_database(user):
+    """Get all years in which ``user`` has events"""
+    years = (
+        Event.objects.filter(thread__user=user)
+        .dates("published", "year")
+        .values_list("published__year", flat=True)
     )
     return list(set(years))
 
 
-def update_all_word_count_statistics():
-    """Update word count statistics for all years and overall total
+def update_all_word_count_statistics(user):
+    """Update ``user``'s word count statistics for all years and overall total
 
     Only updates current year and previous year if they already exist.
     Creates statistics for other years only if they don't exist.
@@ -127,7 +135,7 @@ def update_all_word_count_statistics():
     results = {}
 
     # Update overall total (always update)
-    total_words = update_word_count_statistic()
+    total_words = update_word_count_statistic(user)
     results["total"] = total_words
 
     # Get current and previous year
@@ -135,38 +143,39 @@ def update_all_word_count_statistics():
     previous_year = current_year - 1
 
     # Get all years in database
-    years = get_all_years_in_database()
+    years = get_all_years_in_database(user)
     results["years"] = {}
 
     for year in sorted(years):
         # Always update current and previous year
         if year in [current_year, previous_year]:
-            year_words = update_word_count_statistic(year=year)
+            year_words = update_word_count_statistic(user, year=year)
             results["years"][year] = year_words
         else:
             # Only create if doesn't exist for other years
             key = f"total_word_count_{year}"
             try:
-                stat = Statistics.objects.get(key=key)
+                stat = Statistics.objects.get(user=user, key=key)
                 results["years"][year] = stat.value  # Use existing value
             except Statistics.DoesNotExist:
                 # Create new statistic for this year
-                year_words = update_word_count_statistic(year=year)
+                year_words = update_word_count_statistic(user, year=year)
                 results["years"][year] = year_words
 
     return results
 
 
-def get_word_count_statistic(year=None):
-    """Get the current word count statistic
+def get_word_count_statistic(user, year=None):
+    """Get ``user``'s current word count statistic
 
     Args:
+        user: Whose statistic to read.
         year (int, optional): Year to get statistic for. If None, gets overall statistic.
     """
     key = f"total_word_count_{year}" if year else "total_word_count"
 
     try:
-        stat = Statistics.objects.get(key=key)
+        stat = Statistics.objects.get(user=user, key=key)
         return stat.value, stat.last_updated
     except Statistics.DoesNotExist:
         return None, None
@@ -190,10 +199,11 @@ aggregate_models_dict = {
 }
 
 
-def get_aggregate_statistics(year=None):
-    """Get aggregate statistics for all events and activities
+def get_aggregate_statistics(user, year=None):
+    """Get aggregate statistics for ``user``'s events and activities
 
     Args:
+        user: Whose events to count.
         year (int, optional): Year to filter statistics by. If None, includes all records.
 
     Returns:
@@ -206,7 +216,7 @@ def get_aggregate_statistics(year=None):
         year_filter = lambda qs: qs
 
     _count_with_year_filter = compose(
-        lambda model: model.objects.all(),
+        lambda model: model.objects.filter(thread__user=user),
         year_filter,
         lambda qs: qs.count(),
     )
@@ -216,7 +226,7 @@ def get_aggregate_statistics(year=None):
     )
 
     # Get word count statistic
-    word_count, word_count_updated = get_word_count_statistic(year=year)
+    word_count, word_count_updated = get_word_count_statistic(user, year=year)
 
     return all_counts | {
         "year": year,

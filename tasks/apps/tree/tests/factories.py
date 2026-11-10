@@ -5,7 +5,7 @@ the model managers, so that the move to per-user threads (provisioned for
 every new user) changes only the bodies below, not every test module.
 """
 
-from ..models import Board, Profile, Thread
+from ..models import Board, Habit, HabitKeyword, Profile, Thread
 
 
 def make_thread(user, name="Daily"):
@@ -31,6 +31,16 @@ def make_board(thread, state=None, **fields):
         setattr(board, name, value)
     board.save()
     return board
+
+
+def make_habit(user, name, slug=None, keywords=(), **fields):
+    """A new habit of ``user`` with the given hashtag ``keywords``."""
+    habit = Habit.objects.create(
+        user=user, name=name, slug=slug or name.lower(), **fields
+    )
+    for keyword in keywords:
+        HabitKeyword.objects.create(habit=habit, keyword=keyword)
+    return habit
 
 
 def make_profile(user, **fields):
