@@ -12,6 +12,8 @@ exclude = '''
   | src/django-debug-toolbar
 )/
 '''
+# pre-commit passes files by name, which `exclude` doesn't cover; this does.
+force-exclude = '/migrations/'
 
 [tool.isort]
 profile = "black"
