@@ -3,7 +3,7 @@ Lifecycle operations for ProjectedOutcome: close, move and evolve.
 
 Operations that write more than one record run in ``transaction.atomic``,
 so the emitted event and the ProjectedOutcome change either both commit or
-neither does.
+neither does. ``created_by`` is who acts; the outcome's owner when not given.
 """
 
 from django.db import transaction
@@ -17,7 +17,7 @@ from ...models import (
 
 
 @transaction.atomic
-def close_projected_outcome(projected_outcome):
+def close_projected_outcome(projected_outcome, created_by=None):
     """
     Close a ProjectedOutcome.
 
@@ -28,6 +28,7 @@ def close_projected_outcome(projected_outcome):
         The saved ProjectedOutcomeClosed event.
     """
     closed = ProjectedOutcomeClosed.from_projected_outcome(projected_outcome)
+    closed.created_by = created_by
     closed.save()
 
     projected_outcome.delete()
@@ -36,7 +37,7 @@ def close_projected_outcome(projected_outcome):
 
 
 @transaction.atomic
-def move_projected_outcome_to_next_year(projected_outcome):
+def move_projected_outcome_to_next_year(projected_outcome, created_by=None):
     """
     Move a ProjectedOutcome to the following year's Breakthrough of the
     same user.
@@ -53,9 +54,11 @@ def move_projected_outcome_to_next_year(projected_outcome):
         slug=str(int(old_breakthrough.slug) + 1),
     )
 
-    ProjectedOutcomeMoved.from_projected_outcome(
+    moved = ProjectedOutcomeMoved.from_projected_outcome(
         projected_outcome, old_breakthrough, new_breakthrough
-    ).save()
+    )
+    moved.created_by = created_by
+    moved.save()
 
     projected_outcome.breakthrough = new_breakthrough
     projected_outcome.save()
@@ -63,7 +66,7 @@ def move_projected_outcome_to_next_year(projected_outcome):
     return new_breakthrough
 
 
-def evolve_projected_outcome(projected_outcome, note):
+def evolve_projected_outcome(projected_outcome, note, created_by=None):
     """
     Add an evolution note to a ProjectedOutcome.
 
@@ -71,6 +74,7 @@ def evolve_projected_outcome(projected_outcome, note):
         The saved ProjectedOutcomeEvolved event.
     """
     evolved = ProjectedOutcomeEvolved.from_projected_outcome(projected_outcome, note)
+    evolved.created_by = created_by
     evolved.save()
 
     return evolved

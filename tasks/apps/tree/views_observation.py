@@ -157,6 +157,9 @@ class ObservationUpdatedViewSet(viewsets.ModelViewSet):
 
         return ObservationUpdatedSerializer
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 
 class ObservationEventViewSet(viewsets.ReadOnlyModelViewSet):
     # Read-only: observation events are recorded by the observation endpoints
@@ -386,12 +389,14 @@ def observation_edit(request, observation_id=None):
                 for event in create_observation_change_events(
                     obj, previous, published=now
                 ):
+                    event.created_by = request.user
                     event.save()
 
                 updates = formset.save(commit=False)
                 for update in updates:
                     if not update.pk:
                         update.published = now
+                        update.created_by = request.user
                     update.save()
 
             if "save_and_close" in request.POST:
@@ -427,7 +432,7 @@ def observation_edit(request, observation_id=None):
 @api_view(["POST"])
 def observation_close(request, observation_id):
     try:
-        close_observation(observation_id)
+        close_observation(observation_id, created_by=request.user)
     except Observation.DoesNotExist:
         raise Http404
 
@@ -441,11 +446,14 @@ def observation_close(request, observation_id):
 def observation_close_and_extract(request, observation_id):
     with transaction.atomic():
         try:
-            observation_closed = close_observation(observation_id)
+            observation_closed = close_observation(
+                observation_id, created_by=request.user
+            )
         except Observation.DoesNotExist:
             raise Http404
 
         insight = InsightRefined.from_observation_closed(observation_closed)
+        insight.created_by = request.user
         insight.save()
 
     response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
@@ -467,6 +475,7 @@ def observation_extract_insight(request, event_stream_id):
 
     if not existing and request.method == "POST":
         insight = InsightRefined.from_observation_closed(observation_closed)
+        insight.created_by = request.user
         insight.save()
 
     return redirect(
@@ -500,6 +509,7 @@ def insight_edit(request, event_stream_id):
                 situation=form.cleaned_data["situation"],
                 approach=form.cleaned_data["approach"],
             )
+            insight.created_by = request.user
             insight.save()
 
             return redirect(
@@ -538,7 +548,9 @@ def migrate_observation_updates_to_journal(request, observation_id):
     # The updates become journal entries in the observation owner's diary.
     thread = Thread.objects.daily(observation.user_id)
 
-    _migrate_observation_updates_to_journal(observation, thread.id)
+    _migrate_observation_updates_to_journal(
+        observation, thread.id, created_by=request.user
+    )
 
     if request.htmx:
         response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
@@ -639,6 +651,7 @@ def observation_attach(request, observation_id):
         observation=Observation.objects.filter(
             event_stream_id=other_event_stream_id
         ).first(),
+        created_by=request.user,
     )
     attach_event.save()
 
@@ -695,6 +708,7 @@ def observation_detach(request, observation_id):
         thread=complex_observation.thread,
         event_stream_id=complex_observation.event_stream_id,
         other_event_stream_id=other_event_stream_id,
+        created_by=request.user,
     )
     detach_event.save()
 

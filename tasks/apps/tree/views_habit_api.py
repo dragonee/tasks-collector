@@ -66,6 +66,7 @@ class TrackHabitAPIView(APIView):
                 note=data["note"],
                 thread=thread,
                 published=published,
+                created_by=request.user,
             )
 
         return Response({"ok": True}, status=status.HTTP_200_OK)

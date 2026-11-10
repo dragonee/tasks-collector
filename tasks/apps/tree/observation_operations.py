@@ -3,13 +3,14 @@ from django.db import transaction
 from .models import Event, JournalAdded
 
 
-def migrate_observation_updates_to_journal(observation, thread_id):
+def migrate_observation_updates_to_journal(observation, thread_id, created_by=None):
     """Turn the observation's updates into journal entries and drop the
     observation with its whole stream.
 
     Deleting the stream also deletes the attach/detach records other
     (complex) observations keep about this one, so they don't point at an
-    observation that no longer exists.
+    observation that no longer exists. The journal entries are written by
+    ``created_by`` (the thread's owner when not given).
     """
     with transaction.atomic():
         for update in observation.observationupdated_set.all():
@@ -17,6 +18,7 @@ def migrate_observation_updates_to_journal(observation, thread_id):
                 published=update.published,
                 thread_id=thread_id,
                 comment=update.comment,
+                created_by=created_by,
             )
 
         stream = observation.event_stream

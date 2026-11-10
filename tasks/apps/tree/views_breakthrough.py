@@ -147,7 +147,7 @@ def projected_outcome_events_history(request, event_stream_id):
 def projected_outcome_close(request, projected_outcome_id):
     projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
 
-    close_projected_outcome(projected_outcome)
+    close_projected_outcome(projected_outcome, created_by=request.user)
 
     response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
     response["HX-Redirect"] = reverse(
@@ -166,7 +166,9 @@ def projected_outcome_evolve(request, projected_outcome_id):
     if not form.is_valid():
         return HttpResponseBadRequest("Invalid note")
 
-    evolve_projected_outcome(projected_outcome, form.cleaned_data["note"])
+    evolve_projected_outcome(
+        projected_outcome, form.cleaned_data["note"], created_by=request.user
+    )
 
     return render(
         request,
@@ -186,7 +188,7 @@ def projected_outcome_move(request, projected_outcome_id):
 
     old_breakthrough = projected_outcome.breakthrough
 
-    move_projected_outcome_to_next_year(projected_outcome)
+    move_projected_outcome_to_next_year(projected_outcome, created_by=request.user)
 
     response = RestResponse({"ok": True}, status=status.HTTP_200_OK)
     response["HX-Redirect"] = reverse("breakthrough", args=[old_breakthrough.slug])

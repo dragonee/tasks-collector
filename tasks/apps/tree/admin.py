@@ -50,7 +50,7 @@ class ThreadAdmin(admin.ModelAdmin):
 @admin.action(description="Close selected observations")
 def close_observations(modeladmin, request, queryset):
     for observation in queryset:
-        close_observation(observation.pk)
+        close_observation(observation.pk, created_by=request.user)
 
 
 class ObservationUpdatedInline(admin.StackedInline):

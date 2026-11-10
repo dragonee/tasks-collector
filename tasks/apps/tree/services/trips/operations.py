@@ -163,7 +163,7 @@ def add_trip_note(user, story_id, comment, published=None, idempotency_key=None)
     """
     story = _get_owned_story(user, story_id)
 
-    existing = existing_event(JournalAdded, idempotency_key)
+    existing = existing_event(JournalAdded, user, idempotency_key)
     if existing is not None:
         return existing
 
@@ -177,13 +177,14 @@ def add_trip_note(user, story_id, comment, published=None, idempotency_key=None)
         with transaction.atomic():
             journal_added = JournalAdded.objects.create(
                 thread=_journal_thread_for(user),
+                created_by=user,
                 comment=comment,
                 published=published or timezone.now(),
                 idempotency_key=idempotency_key,
             )
             process_journal_entry(journal_added, story=story)
     except IntegrityError:
-        existing = existing_event(JournalAdded, idempotency_key)
+        existing = existing_event(JournalAdded, user, idempotency_key)
         if existing is not None:
             return existing
         raise
@@ -246,7 +247,7 @@ def add_trip_photo(
     """
     story = _get_owned_story(user, story_id)
 
-    existing = existing_event(PhotoAdded, idempotency_key)
+    existing = existing_event(PhotoAdded, user, idempotency_key)
     if existing is not None:
         return existing
 
@@ -285,6 +286,7 @@ def add_trip_photo(
         with transaction.atomic():
             photo = PhotoAdded.objects.create(
                 thread=_journal_thread_for(user),
+                created_by=user,
                 comment=comment,
                 original_key=key,
                 content_type=content_type,
@@ -294,7 +296,7 @@ def add_trip_photo(
             )
             process_journal_entry(photo, story=story)
     except IntegrityError:
-        existing = existing_event(PhotoAdded, idempotency_key)
+        existing = existing_event(PhotoAdded, user, idempotency_key)
         if existing is not None:
             return existing
         raise

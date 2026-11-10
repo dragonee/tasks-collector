@@ -87,6 +87,7 @@ def track_habit(request):
             note=note,
             published=form.cleaned_data["published"],
             thread=form.cleaned_data["thread"],
+            created_by=request.user,
         )
 
         habits_tracked.append(obj)

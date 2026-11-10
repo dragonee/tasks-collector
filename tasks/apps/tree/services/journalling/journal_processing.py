@@ -65,6 +65,7 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
             note=note,
             published=journal_added.published,
             thread=daily,
+            created_by_id=journal_added.created_by_id,
         )
         if story is not None:
             story.add(habit_tracked)
