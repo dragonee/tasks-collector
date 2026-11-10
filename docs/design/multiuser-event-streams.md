@@ -60,8 +60,8 @@ Decisions already taken:
 class EventStream(models.Model):
     id = UUIDField(primary_key=True, default=uuid4, editable=False)
     type = CharField(choices=Type)  # board, journal, habit, observation, projected_outcome, trip
-    created_by = FK(User, PROTECT)
-    created = DateTimeField(auto_now_add=True)
+    created_by = FK(User, CASCADE)   # provenance; see Stage 2 notes
+    created = DateTimeField(default=now)
 
 class EventStreamAccess(models.Model):      # the access list; authority for permissions
     stream = FK(EventStream, related_name="access")
@@ -153,6 +153,20 @@ created via admin gets threads, boards and a profile.
 
 `Event.event_stream_id` is still a plain UUID column here — nothing can violate a
 constraint yet. Exit: no code computes a stream id.
+
+As built (0083–0085):
+- Owner links (`Thread.board_stream`/`journal_stream`, `Observation`/`Habit`/
+  `ProjectedOutcome.event_stream`) are one-to-one with `RESTRICT`: a stream can't be
+  deleted while its subject exists, but both go in one cascade when a user is deleted.
+  `EventStream.created_by` is `CASCADE` for the same reason. Revisit both with the
+  editor role, when streams can hold other users' events.
+- `Event.derived_event_stream_id()` is recomputed on every save, as the signals did:
+  a journal entry or board commit moved to another thread moves to that thread's
+  stream. Stage 4's "refuse a later change of home stream" has to decide this.
+- The backfill also moves board commits and journal entries carrying another thread's
+  stream id to their own thread's stream (two 2021/2024 board commits in the real
+  data), and refuses events of unknown kinds (the dev database has two `discovery`
+  events from a removed feature).
 
 ### Stage 3 — The constraint
 - Assert zero orphan ids, then convert without touching the column: `AlterField` to

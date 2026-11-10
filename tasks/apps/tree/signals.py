@@ -1,8 +1,9 @@
 """
 Signal handlers for the tree app.
 
-This module contains Django signal handlers that manage event stream IDs,
-create event-sourcing events, and maintain data consistency across models.
+Provisioning of new users, protection of built-in threads, creation of
+projected-outcome events, and data consistency across models. Which stream
+an event belongs to is decided by the event itself (``Event.save``).
 """
 
 from django.conf import settings
@@ -12,31 +13,17 @@ from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
 from .models import (
-    BoardCommitted,
     Event,
     HabitKeyword,
-    HabitTracked,
-    JournalAdded,
     Observation,
-    PhotoAdded,
     Profile,
     ProjectedOutcome,
-    ProjectedOutcomeClosed,
     ProjectedOutcomeMade,
-    ProjectedOutcomeMoved,
-    ProjectedOutcomeRedefined,
-    ProjectedOutcomeRescheduled,
     Thread,
-    observation_event_types,
 )
 from .services.breakthrough.event_creation import create_projected_outcome_change_events
 from .services.provisioning import provision_user
 from .utils.db import field_has_changed
-from .uuid_generators import (
-    board_event_stream_id_from_thread,
-    habit_event_stream_id,
-    journal_added_event_stream_id,
-)
 
 # Users and threads
 
@@ -68,42 +55,7 @@ def protect_builtin_threads(sender, instance, origin=None, **kwargs):
     )
 
 
-# Boards and tasks
-
-
-@receiver(pre_save, sender=BoardCommitted)
-def update_board_committed_event_stream_id(sender, instance, *args, **kwargs):
-    """On BoardCommitted save, generate event_stream_id from thread."""
-    instance.event_stream_id = board_event_stream_id_from_thread(instance.thread)
-
-
-# Habits
-
-
-@receiver(pre_save, sender=HabitTracked)
-def update_habit_tracked_event_stream_id(sender, instance, *args, **kwargs):
-    """Set the event_stream_id for HabitTracked from its associated habit."""
-    instance.event_stream_id = habit_event_stream_id(instance)
-
-
-# Observation signals
-
-
-@receiver(pre_save)
-def copy_observation_to_update_events(sender, instance, *args, **kwargs):
-    """
-    Copy observation data to observation event instances before saving.
-
-    For observation event types, copies the thread_id (if not set) and
-    event_stream_id from the related observation to maintain consistency.
-    """
-    if not isinstance(instance, observation_event_types):
-        return
-
-    if not instance.thread_id and instance.observation:
-        instance.thread_id = instance.observation.thread_id
-
-    instance.event_stream_id = instance.observation.event_stream_id
+# Observations
 
 
 @receiver(pre_save, sender=Observation)
@@ -127,21 +79,6 @@ def on_observation_thread_change_update_events(sender, instance, *args, **kwargs
     )
 
 
-# Journals
-
-
-@receiver(pre_save, sender=JournalAdded)
-@receiver(pre_save, sender=PhotoAdded)
-def update_journal_added_event_stream_id(sender, instance, *args, **kwargs):
-    """Set the event_stream_id for JournalAdded based on thread and date.
-
-    Registered for PhotoAdded too: ``sender=`` signals fire only for the
-    exact class, not subclasses, so the PhotoAdded child would otherwise
-    save with a null event_stream_id.
-    """
-    instance.event_stream_id = journal_added_event_stream_id(instance)
-
-
 # Breakthroughs and projected outcomes
 
 
@@ -158,22 +95,6 @@ def create_projected_outcome_events(sender, instance, **kwargs):
     """Create event-sourcing events when a ProjectedOutcome is modified."""
     for event in create_projected_outcome_change_events(instance):
         event.save()
-
-
-def _update_event_stream_id_from_projected_outcome(sender, instance, **kwargs):
-    """Update event_stream_id from projected_outcome if present."""
-    if instance.projected_outcome:
-        instance.event_stream_id = instance.projected_outcome.event_stream_id
-
-
-for _model in [
-    ProjectedOutcomeMade,
-    ProjectedOutcomeRedefined,
-    ProjectedOutcomeRescheduled,
-    ProjectedOutcomeClosed,
-    ProjectedOutcomeMoved,
-]:
-    pre_save.connect(_update_event_stream_id_from_projected_outcome, sender=_model)
 
 
 # Habit keywords
