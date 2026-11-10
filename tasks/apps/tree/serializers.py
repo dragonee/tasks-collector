@@ -197,8 +197,8 @@ class JournalAddedSerializer(serializers.ModelSerializer):
         slug_field="slug",
     )
 
-    # JournalAdded has no `story` attribute; the link is created via a
-    # StoryEvent in the viewset. Write-only so output never tries to read
+    # JournalAdded has no `story` attribute; the viewset adds the entry to the
+    # trip's stream. Write-only so output never tries to read
     # a non-existent attribute and the POST response stays unchanged.
     story = serializers.PrimaryKeyRelatedField(
         queryset=Story.objects.all(),
@@ -222,8 +222,8 @@ class JournalAddedSerializer(serializers.ModelSerializer):
         return story
 
     def create(self, validated_data):
-        # `story` is not a model field; it is linked via StoryEvent in
-        # JournalAddedViewSet.perform_create using serializer.validated_data.
+        # `story` is not a model field; JournalAddedViewSet.perform_create adds
+        # the entry to the trip using serializer.validated_data.
         validated_data.pop("story", None)
         return super().create(validated_data)
 

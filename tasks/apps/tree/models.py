@@ -230,6 +230,13 @@ class Event(PolymorphicModel):
         """
         return None
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        # The home stream as stored, so save() can tell when it changes.
+        instance._stored_event_stream_id = instance.__dict__.get("event_stream_id")
+        return instance
+
     def save(self, *args, **kwargs):
         derived = self.derived_event_stream_id()
         if derived is not None:
@@ -239,7 +246,78 @@ class Event(PolymorphicModel):
                 f"{type(self).__name__} needs an event_stream_id: nothing it is "
                 "about determines its stream."
             )
-        super().save(*args, **kwargs)
+
+        stored = None if self._state.adding else self._stored_event_stream_id
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            # The event is a member of its home stream, and stays one when the
+            # home changes (a journal entry moved to another thread).
+            if stored != self.event_stream_id:
+                if stored is not None:
+                    EventStreamEntry.objects.filter(
+                        event_id=self.pk, stream_id=stored
+                    ).delete()
+                EventStreamEntry.objects.get_or_create(
+                    event_id=self.pk, stream_id=self.event_stream_id
+                )
+        self._stored_event_stream_id = self.event_stream_id
+
+    _stored_event_stream_id = None
+
+    @property
+    def trip(self):
+        """The trip (Story) this event was added to, or None.
+
+        Reads ``trip_entries`` when the queryset was prefetched with
+        ``Event.prefetch_trip()``; otherwise costs one query.
+        """
+        entries = getattr(self, "trip_entries", None)
+        if entries is None:
+            entries = list(
+                self.stream_entries.filter(
+                    stream__type=EventStream.Type.TRIP
+                ).select_related("stream__story")
+            )
+        return entries[0].stream.story if entries else None
+
+    @staticmethod
+    def prefetch_trip():
+        """Prefetch for ``trip`` on a list of events (one query for all)."""
+        return models.Prefetch(
+            "stream_entries",
+            queryset=EventStreamEntry.objects.filter(
+                stream__type=EventStream.Type.TRIP
+            ).select_related("stream__story"),
+            to_attr="trip_entries",
+        )
+
+
+class EventStreamEntry(models.Model):
+    """An event's membership in a stream.
+
+    Every event is a member of its home stream (``Event.event_stream``, kept
+    by ``Event.save``) and may be added to others: a trip note is in its
+    thread's journal and in the trip.
+    """
+
+    stream = models.ForeignKey(
+        EventStream, on_delete=models.CASCADE, related_name="entries"
+    )
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="stream_entries"
+    )
+    added = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name_plural = "Event stream entries"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["stream", "event"], name="eventstreamentry_stream_event_unique"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.stream} <- event #{self.event_id}"
 
 
 class BoardCommitted(Event):
@@ -1224,28 +1302,44 @@ class Story(models.Model):
     started = models.DateTimeField(default=timezone.now)
     stopped = models.DateTimeField(null=True, blank=True)
 
+    # The trip's notes, photos and POIs, as members (they live in the user's
+    # journal and habit streams too). Created with the story.
+    event_stream = models.OneToOneField(
+        EventStream,
+        on_delete=models.RESTRICT,
+        related_name="story",
+        editable=False,
+    )
+
     class Meta:
         ordering = ("-started",)
         indexes = [
             models.Index(fields=["user", "stopped", "-started"]),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.event_stream_id is None:
+            self.event_stream = EventStream.objects.create_for(
+                self.user, EventStream.Type.TRIP
+            )
+        super().save(*args, **kwargs)
+
+    def add(self, event):
+        """Make ``event`` part of this trip. An event belongs to one trip at
+        most; adding it to the same trip again changes nothing."""
+        other = (
+            event.stream_entries.filter(stream__type=EventStream.Type.TRIP)
+            .exclude(stream_id=self.event_stream_id)
+            .exists()
+        )
+        if other:
+            raise ValueError(f"Event #{event.pk} is already part of another trip.")
+        EventStreamEntry.objects.get_or_create(
+            stream_id=self.event_stream_id, event_id=event.pk
+        )
+
     def __str__(self):
         return self.title or f"{self.get_type_display()} #{self.pk}"
-
-
-class StoryEvent(models.Model):
-    story = models.ForeignKey(Story, on_delete=models.CASCADE, related_name="entries")
-    event = models.OneToOneField(
-        Event, on_delete=models.CASCADE, related_name="story_entry"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ("created_at",)
-
-    def __str__(self):
-        return f"{self.story} <- event #{self.event_id}"
 
 
 class SharedStory(models.Model):

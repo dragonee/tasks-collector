@@ -24,7 +24,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import PhotoAdded, Story, StoryEvent
+from .models import EventStreamEntry, PhotoAdded, Story
 from .services.photos import attach_photo_urls
 from .services.trips import operations as trip_ops
 from .utils.datetime import parse_aware_datetime
@@ -42,18 +42,19 @@ POI_LINE_RE = re.compile(
 
 
 def _cover_photos_by_story(user):
-    """Map of story_id -> latest PhotoAdded linked to it (the tile cover).
+    """Map of story_id -> latest PhotoAdded in it (the tile cover).
 
-    One pass over the user's photo StoryEvents (newest first); the first row
-    seen per story is its latest photo. PhotoAdded shares its pk with the base
-    Event, so the StoryEvent.event_id keys straight into ``in_bulk``.
+    One pass over the photos in the user's trip streams (newest first); the
+    first row seen per story is its latest photo. PhotoAdded shares its pk
+    with the base Event, so the entry's event_id keys straight into
+    ``in_bulk``.
     """
     rows = (
-        StoryEvent.objects.filter(
-            story__user=user, event__journaladded__photoadded__isnull=False
+        EventStreamEntry.objects.filter(
+            stream__story__user=user, event__journaladded__photoadded__isnull=False
         )
-        .order_by("story_id", "-event__published")
-        .values_list("story_id", "event_id")
+        .order_by("stream__story", "-event__published")
+        .values_list("stream__story", "event_id")
     )
     latest = {}
     for story_id, event_id in rows:

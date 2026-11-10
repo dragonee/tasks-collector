@@ -349,14 +349,14 @@ def today(request):
         reflection_form = ReflectionForm(instance=reflection, prefix="reflection")
 
     # Materialise so we can attach presigned photo URLs; prefetch the trip
-    # link (StoryEvent -> Story) so the per-entry trip badge costs no extra
+    # each entry is part of, so the per-entry trip badge costs no extra
     # query per journal entry.
     journals = list(
         JournalAdded.objects.filter(
             published__range=period.as_tuple(),
             thread=thread,
         )
-        .prefetch_related("story_entry__story")
+        .prefetch_related(JournalAdded.prefetch_trip())
         .order_by("published")
     )
     attach_photo_urls(journals)

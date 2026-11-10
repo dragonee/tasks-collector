@@ -25,15 +25,15 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
         journal_added: A saved JournalAdded instance.
         skip_habits: If True, skip habit extraction (used for reflection-only entries).
         story: Optional Story instance. When provided, the JournalAdded itself
-            and every HabitTracked extracted from hashtags get linked to the
-            story via a StoryEvent row.
+            and every HabitTracked extracted from hashtags are added to the
+            trip (members of its stream).
         user: Optional user. When given, any reflection line whose base matches
             a task on the user's current board crosses that task once its
             progress (derived from the Reflection) reaches the total. Passed
             only by the console/web journal callers.
     """
     # Import here to avoid circular imports
-    from ...models import HabitTracked, StoryEvent, Thread
+    from ...models import HabitTracked, Thread
 
     comment = QUOTED_LINE_RE.sub("", journal_added.comment)
 
@@ -43,7 +43,7 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
         _check_matching_board_tasks(user, comment, journal_added.published)
 
     if story is not None:
-        StoryEvent.objects.create(story=story, event=journal_added)
+        story.add(journal_added)
 
     if skip_habits:
         return
@@ -67,7 +67,7 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
             thread=daily,
         )
         if story is not None:
-            StoryEvent.objects.create(story=story, event=habit_tracked)
+            story.add(habit_tracked)
 
 
 def _check_matching_board_tasks(user, comment, published):

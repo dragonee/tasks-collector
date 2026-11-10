@@ -17,9 +17,8 @@ from ..models import (
     Plan,
     Reflection,
     Story,
-    StoryEvent,
 )
-from .factories import make_board, make_profile, make_thread
+from .factories import make_board, make_profile, make_thread, trip_links
 
 TODAY = date_cls(2026, 5, 21)
 TODAY_ISO = TODAY.isoformat()
@@ -570,7 +569,7 @@ class AndroidTaskAPITestCase(APITestCase):
 
         entry = JournalAdded.objects.get(thread=self.daily)
         self.assertEqual(entry.comment, "- [x] buy bread\nbought rye instead")
-        self.assertTrue(StoryEvent.objects.filter(story=trip, event=entry).exists())
+        self.assertTrue(trip_links(story=trip, event=entry).exists())
 
     def test_complete_with_story_id_and_empty_note_keeps_marker_entry(self):
         # "Save to trip" is an explicit choice, so unlike the plain empty-note
@@ -584,7 +583,7 @@ class AndroidTaskAPITestCase(APITestCase):
 
         entry = JournalAdded.objects.get(thread=self.daily)
         self.assertEqual(entry.comment, "- [x] buy bread")
-        self.assertTrue(StoryEvent.objects.filter(story=trip, event=entry).exists())
+        self.assertTrue(trip_links(story=trip, event=entry).exists())
 
     def test_complete_without_story_id_links_nothing(self):
         self._auth()
@@ -592,7 +591,7 @@ class AndroidTaskAPITestCase(APITestCase):
         self._trip()
 
         self._complete("buy bread", True, note="done it")
-        self.assertFalse(StoryEvent.objects.exists())
+        self.assertFalse(trip_links().exists())
 
     def test_complete_with_other_users_story_returns_404(self):
         User = get_user_model()
@@ -629,4 +628,4 @@ class AndroidTaskAPITestCase(APITestCase):
 
         entry = JournalAdded.objects.get(thread=self.daily)
         self.assertEqual(entry.comment, "- [x] Do tasks (1/1)\nfirst")
-        self.assertTrue(StoryEvent.objects.filter(story=trip, event=entry).exists())
+        self.assertTrue(trip_links(story=trip, event=entry).exists())

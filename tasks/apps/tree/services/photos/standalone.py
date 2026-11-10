@@ -2,10 +2,9 @@
 
 A standalone photo is the same ``PhotoAdded`` event as a trip photo — it lands
 on the Daily thread and runs through the journalling pipeline so a ``#poi`` line
-still creates a HabitTracked — except it is **not** linked to any Story (no
-``StoryEvent`` row). The only structural difference is the S3 key prefix
-(``photos/{user}/`` instead of ``trips/{user}/{story}/``), which doubles as the
-ownership signal for the full-original endpoint.
+still creates a HabitTracked — except it is **not** part of any trip's
+stream. The only structural difference is the S3 key prefix
+(``photos/{user}/`` instead of ``trips/{user}/{story}/``).
 
 Kept in the ``photos`` package (not ``trips``) so it shares the photo plumbing
 without importing the trips module, avoiding a ``trips`` <-> ``photos`` cycle.
@@ -43,7 +42,7 @@ def add_standalone_photo(
     """Confirm an uploaded storyless photo: create a ``PhotoAdded`` on the Daily
     thread and run it through the journalling pipeline (so a ``#poi`` line in
     ``comment`` still creates a HabitTracked). Enqueues the thumbnail task on
-    commit. Creates no ``StoryEvent`` — the photo belongs to no trip.
+    commit. Adds it to no trip's stream — the photo belongs to no trip.
 
     Raises ``PhotoObjectMissingError`` if the object isn't in the bucket (or the
     key doesn't belong to this user's ``photos/{user}/`` prefix), ``ValueError``

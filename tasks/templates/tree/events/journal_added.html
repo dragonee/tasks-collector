@@ -23,7 +23,7 @@
 
     <div class="trip-markers">
         {% if not hide_trip_marker %}
-            {% with story=event.story_entry.story %}
+            {% with story=event.trip %}
                 {% if story %}
                 <a class="trip-badge" href="{% url 'trip-detail' story.id %}">🧳 {{ story }} ›</a>
                 {% endif %}
