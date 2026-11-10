@@ -10,7 +10,6 @@ export default defineConfig({
     entry: {
       app: './tasks/assets/app.js',
       hello_world_mount: './tasks/assets/components/hello_world_mount.js',
-      enfp_mount: './tasks/assets/components/enfp_mount.js',
     },
   },
 
@@ -49,7 +48,7 @@ export default defineConfig({
       // Note to AI Agents
       // Do not add entry points here unless building a new standalone, Vue-component-based page
       // Otherwise, add an import in app.js – can be chunked out if needed and async loaded
-      const entryPoints = ['app', 'hello_world_mount', 'enfp_mount'];
+      const entryPoints = ['app', 'hello_world_mount'];
 
       entryPoints.forEach(entryName => {
         config.plugins.push(
