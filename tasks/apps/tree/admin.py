@@ -221,6 +221,20 @@ class JournalTagAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+class EventStreamAccessInline(admin.TabularInline):
+    model = EventStreamAccess
+    extra = 0
+    raw_id_fields = ("user",)
+
+
+class EventStreamAdmin(admin.ModelAdmin):
+    list_display = ("id", "type", "created_by", "created")
+    list_filter = ("type", "created_by")
+    search_fields = ("id",)
+    raw_id_fields = ("created_by",)
+    inlines = [EventStreamAccessInline]
+
+
 admin.site.register(Board)
 admin.site.register(Thread, ThreadAdmin)
 admin.site.register(Plan)
@@ -241,6 +255,7 @@ admin.site.register(PhotoAdded, PhotoAddedAdmin)
 admin.site.register(Event, EventAdmin)
 admin.site.register(JournalTag, JournalTagAdmin)
 admin.site.register(Breakthrough, BreakthroughAdmin)
+admin.site.register(EventStream, EventStreamAdmin)
 admin.site.register(ProjectedOutcome, ProjectedOutcomeAdmin)
 admin.site.register(ProjectedOutcomeMade, ProjectedOutcomeMadeAdmin)
 admin.site.register(ProjectedOutcomeRedefined, ProjectedOutcomeRedefinedAdmin)

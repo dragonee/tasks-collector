@@ -7,7 +7,7 @@ from django.template.defaultfilters import slugify
 
 import uuid
 
-from tasks.apps.tree.uuid_generators import habit_event_stream_id, HabitEventVersion
+from tasks.apps.tree.migrations._legacy_stream_ids import habit_event_stream_id, HabitEventVersion
 
 def forwards_func(apps, schema_editor):
     Habit = apps.get_model('tree', 'Habit')

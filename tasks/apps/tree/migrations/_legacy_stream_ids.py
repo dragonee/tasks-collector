@@ -1,3 +1,11 @@
+"""The stream id generators the app used before EventStream rows existed.
+
+Kept only for the migrations that computed ids with them (0028, 0037) and
+0084, which gives each existing thread's board and journal stream the id it
+already had. The leading underscore keeps the migration loader from treating
+this module as a migration.
+"""
+
 import uuid
 from enum import IntEnum
 

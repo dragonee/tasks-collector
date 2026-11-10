@@ -4,7 +4,7 @@ from django.db import migrations, models
 import django.db.models.deletion
 import uuid
 
-from tasks.apps.tree.uuid_generators import board_event_stream_id_from_thread, habit_event_stream_id, journal_added_event_stream_id, HabitEventVersion
+from tasks.apps.tree.migrations._legacy_stream_ids import board_event_stream_id_from_thread, habit_event_stream_id, journal_added_event_stream_id, HabitEventVersion
 
 def forwards_func(apps, schema_editor):
     Board = apps.get_model('tree', 'Board')

@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import Truncator, slugify
@@ -12,7 +12,6 @@ from polymorphic.models import PolymorphicModel
 
 from .utils.datetime import aware_from_date
 from .utils.strings import coalesce
-from .uuid_generators import board_event_stream_id
 
 
 def empty_dict():
@@ -21,6 +20,86 @@ def empty_dict():
 
 def default_state():
     return []
+
+
+class EventStreamManager(models.Manager):
+    def create_for(self, user, type):
+        """A new stream of ``type`` created by and owned by ``user``."""
+        with transaction.atomic():
+            stream = self.create(type=type, created_by=user)
+            EventStreamAccess.objects.create(
+                stream=stream, user=user, role=EventStreamAccess.Role.OWNER
+            )
+        return stream
+
+
+class EventStream(models.Model):
+    """A sequence of events about one thing: a thread's board or journal, a
+    habit, an observation, a projected outcome.
+
+    Streams are reached from what they are about (``Thread.journal_stream``,
+    ``Observation.event_stream``...), never computed. Who may see a stream is
+    its access list (``EventStreamAccess``).
+    """
+
+    class Type(models.TextChoices):
+        BOARD = "board", _("Board")
+        JOURNAL = "journal", _("Journal")
+        HABIT = "habit", _("Habit")
+        OBSERVATION = "observation", _("Observation")
+        PROJECTED_OUTCOME = "projected_outcome", _("Projected outcome")
+        TRIP = "trip", _("Trip")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    type = models.CharField(max_length=32, choices=Type.choices)
+
+    # Who started the stream; provenance only. Permissions come from access.
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_event_streams",
+    )
+    created = models.DateTimeField(default=timezone.now)
+
+    objects = EventStreamManager()
+
+    def __str__(self):
+        return f"{self.get_type_display()} {self.id}"
+
+
+class EventStreamAccess(models.Model):
+    """A user's access to a whole stream. Every stream has exactly one
+    owner; sharing adds viewers."""
+
+    class Role(models.TextChoices):
+        OWNER = "owner", _("Owner")
+        VIEWER = "viewer", _("Viewer")
+
+    stream = models.ForeignKey(
+        EventStream, on_delete=models.CASCADE, related_name="access"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="stream_access",
+    )
+    role = models.CharField(max_length=16, choices=Role.choices)
+
+    class Meta:
+        verbose_name_plural = "Event stream access"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["stream", "user"], name="eventstreamaccess_stream_user_unique"
+            ),
+            models.UniqueConstraint(
+                fields=["stream"],
+                condition=models.Q(role="owner"),
+                name="eventstreamaccess_one_owner_per_stream",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} {self.role} of {self.stream}"
 
 
 class ThreadQuerySet(models.QuerySet):
@@ -48,7 +127,34 @@ class Thread(models.Model):
     # if you need to change name, a migration needs to be run
     name = models.CharField(max_length=255)
 
+    # Board commits and journal entries filed under the thread; both are
+    # created with the thread. RESTRICT: a stream can't be deleted while its
+    # thread exists, but both go when their user is deleted.
+    board_stream = models.OneToOneField(
+        EventStream,
+        on_delete=models.RESTRICT,
+        related_name="board_thread",
+        editable=False,
+    )
+    journal_stream = models.OneToOneField(
+        EventStream,
+        on_delete=models.RESTRICT,
+        related_name="journal_thread",
+        editable=False,
+    )
+
     objects = ThreadQuerySet.as_manager()
+
+    def save(self, *args, **kwargs):
+        if self.board_stream_id is None:
+            self.board_stream = EventStream.objects.create_for(
+                self.user, EventStream.Type.BOARD
+            )
+        if self.journal_stream_id is None:
+            self.journal_stream = EventStream.objects.create_for(
+                self.user, EventStream.Type.JOURNAL
+            )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -105,10 +211,29 @@ class Event(PolymorphicModel):
             cls=self.get_real_instance_class().__name__, pk=self.pk
         )
 
+    def derived_event_stream_id(self):
+        """The id of the stream this event belongs to, when it follows from
+        what the event is about (its thread, habit, observation...).
+
+        None means the creator sets ``event_stream_id`` itself (the
+        ``from_observation``-style factories do).
+        """
+        return None
+
+    def save(self, *args, **kwargs):
+        derived = self.derived_event_stream_id()
+        if derived is not None:
+            self.event_stream_id = derived
+        if self.event_stream_id is None:
+            raise ValueError(
+                f"{type(self).__name__} needs an event_stream_id: nothing it is "
+                "about determines its stream."
+            )
+        super().save(*args, **kwargs)
+
 
 class BoardCommitted(Event):
     # thread set manually from board
-    # event_stream_id <- thread
 
     focus = models.CharField(max_length=255)
 
@@ -123,6 +248,9 @@ class BoardCommitted(Event):
     def date_closed(self):
         return self.published
 
+    def derived_event_stream_id(self):
+        return self.thread.board_stream_id
+
 
 class Habit(models.Model):
     user = models.ForeignKey(
@@ -135,7 +263,14 @@ class Habit(models.Model):
     # URL Slug, unique per user
     slug = models.SlugField(max_length=255)
 
-    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    # Same column as the old event_stream_id UUID, so ids keep working.
+    event_stream = models.OneToOneField(
+        EventStream,
+        on_delete=models.RESTRICT,
+        related_name="habit",
+        db_column="event_stream_id",
+        editable=False,
+    )
 
     description = models.TextField(null=True, blank=True)
 
@@ -149,6 +284,13 @@ class Habit(models.Model):
                 fields=["user", "slug"], name="habit_user_slug_unique"
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        if self.event_stream_id is None:
+            self.event_stream = EventStream.objects.create_for(
+                self.user, EventStream.Type.HABIT
+            )
+        super().save(*args, **kwargs)
 
     def as_hashtags(self):
         return ["#{}".format(keyword) for keyword in self.get_keywords()]
@@ -190,7 +332,6 @@ class HabitKeyword(models.Model):
 
 class HabitTracked(Event):
     # thread must be set manually
-    # event_stream_id <- habit.event_stream_id (v2)
 
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE)
 
@@ -199,6 +340,9 @@ class HabitTracked(Event):
     note = models.TextField(null=True, blank=True)
 
     template = "tree/events/habit_tracked.html"
+
+    def derived_event_stream_id(self):
+        return self.habit.event_stream_id
 
     def __str__(self):
         return "{} {}".format(self.habit, self.published)
@@ -221,10 +365,6 @@ class Board(models.Model):
             return str(self.thread)
 
         return "{} {}".format(self.focus, self.thread)
-
-    @property
-    def event_stream_id(self):
-        return board_event_stream_id(self)
 
 
 class Reflection(models.Model):
@@ -358,7 +498,15 @@ class Observation(models.Model):
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
     type = models.ForeignKey(ObservationType, on_delete=models.CASCADE)
 
-    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    # Outlives the observation: closing deletes the row, the stream stays.
+    # Same column as the old event_stream_id UUID, so ids keep working.
+    event_stream = models.OneToOneField(
+        EventStream,
+        on_delete=models.RESTRICT,
+        related_name="observation",
+        db_column="event_stream_id",
+        editable=False,
+    )
 
     objects = ObservationManager()
 
@@ -377,6 +525,13 @@ class Observation(models.Model):
         return "{}: {} ({})".format(
             self.pub_date, Truncator(self.situation).words(6), self.thread
         )
+
+    def save(self, *args, **kwargs):
+        if self.event_stream_id is None:
+            self.event_stream = EventStream.objects.create_for(
+                self.user, EventStream.Type.OBSERVATION
+            )
+        super().save(*args, **kwargs)
 
     def copy(self, as_new=True):
         kwargs = {}
@@ -497,6 +652,16 @@ class ObservationUpdated(Event, ObservationEventMixin):
     template = "tree/events/observation_updated.html"
 
     comment = models.TextField(help_text=_("Update"))
+
+    def derived_event_stream_id(self):
+        # The FK is cleared when the observation closes; the stream stays.
+        return self.observation.event_stream_id if self.observation_id else None
+
+    def save(self, *args, **kwargs):
+        # Updates added in the observation form or the admin inherit its thread.
+        if not self.thread_id and self.observation_id:
+            self.thread_id = self.observation.thread_id
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.comment
@@ -638,6 +803,9 @@ class JournalAdded(Event):
     # PhotoAdded overrides this to True.
     is_photo = False
 
+    def derived_event_stream_id(self):
+        return self.thread.journal_stream_id
+
     def __str__(self):
         return self.comment
 
@@ -733,7 +901,21 @@ class ProjectedOutcome(models.Model):
         blank=True,
     )
 
-    event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    # Same column as the old event_stream_id UUID, so ids keep working.
+    event_stream = models.OneToOneField(
+        EventStream,
+        on_delete=models.RESTRICT,
+        related_name="projected_outcome",
+        db_column="event_stream_id",
+        editable=False,
+    )
+
+    def save(self, *args, **kwargs):
+        if self.event_stream_id is None:
+            self.event_stream = EventStream.objects.create_for(
+                self.breakthrough.user, EventStream.Type.PROJECTED_OUTCOME
+            )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -750,6 +932,14 @@ class ProjectedOutcomeEventMixin:
         return f"ProjectedOutcome event: {self.projected_outcome().name}"
 
 
+def _projected_outcome_stream_id(event):
+    """The stream of the outcome a projected-outcome event is about. The FK
+    is cleared when the outcome closes; the stream stays."""
+    if event.projected_outcome_id is None:
+        return None
+    return event.projected_outcome.event_stream_id
+
+
 def _get_thread_from_breakthrough(breakthrough):
     """The thread projected-outcome events are filed under: the Daily thread
     of the breakthrough's owner."""
@@ -760,6 +950,8 @@ class ProjectedOutcomeMade(Event, ProjectedOutcomeEventMixin):
     projected_outcome = models.ForeignKey(
         ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
     )
+
+    derived_event_stream_id = _projected_outcome_stream_id
 
     name = models.CharField(max_length=255)
     description = models.TextField()
@@ -783,6 +975,8 @@ class ProjectedOutcomeRedefined(Event, ProjectedOutcomeEventMixin):
     projected_outcome = models.ForeignKey(
         ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
     )
+
+    derived_event_stream_id = _projected_outcome_stream_id
 
     old_name = models.CharField(max_length=255, null=True, blank=True)
     new_name = models.CharField(max_length=255, null=True, blank=True)
@@ -813,6 +1007,8 @@ class ProjectedOutcomeRescheduled(Event, ProjectedOutcomeEventMixin):
         ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
     )
 
+    derived_event_stream_id = _projected_outcome_stream_id
+
     old_resolved_by = models.DateField()
     new_resolved_by = models.DateField()
 
@@ -831,6 +1027,8 @@ class ProjectedOutcomeClosed(Event, ProjectedOutcomeEventMixin):
     projected_outcome = models.ForeignKey(
         ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
     )
+
+    derived_event_stream_id = _projected_outcome_stream_id
     breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE)
 
     name = models.CharField(max_length=255)
@@ -856,6 +1054,8 @@ class ProjectedOutcomeMoved(Event, ProjectedOutcomeEventMixin):
     projected_outcome = models.ForeignKey(
         ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
     )
+
+    derived_event_stream_id = _projected_outcome_stream_id
     old_breakthrough = models.ForeignKey(
         Breakthrough, on_delete=models.CASCADE, related_name="moved_outcomes_from"
     )
@@ -890,6 +1090,8 @@ class ProjectedOutcomeEvolved(Event, ProjectedOutcomeEventMixin):
     projected_outcome = models.ForeignKey(
         ProjectedOutcome, on_delete=models.SET_NULL, null=True, blank=True
     )
+
+    derived_event_stream_id = _projected_outcome_stream_id
 
     note = models.CharField(max_length=512)
 
