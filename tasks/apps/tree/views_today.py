@@ -316,8 +316,10 @@ def today(request):
     )
     reflection = get_or_initial(Reflection, pub_date=canonical_date, thread=thread)
 
-    habits = Habit.objects.all()
-    tracked_habits = HabitTracked.objects.filter(published__range=period.as_tuple())
+    habits = Habit.objects.filter(user=request.user)
+    tracked_habits = HabitTracked.objects.filter(
+        habit__user=request.user, published__range=period.as_tuple()
+    )
 
     if request.method == "POST":
         plan = PlanForm(request.POST, instance=today_plan, prefix="today_plan")

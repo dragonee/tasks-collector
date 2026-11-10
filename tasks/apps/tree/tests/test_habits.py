@@ -1,7 +1,8 @@
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from ..models import Habit, HabitKeyword
 from ..services.journalling.habit_extraction import habits_line_to_habits_tracked
+from .factories import make_habit
 
 
 class HabitParsingTestCase(TestCase):
@@ -9,32 +10,35 @@ class HabitParsingTestCase(TestCase):
 
     def setUp(self):
         """Set up test habits with keywords."""
+        self.user = get_user_model().objects.create_user(username="u", password="x")
+
         # Create a habit with single keyword
-        self.food_habit = Habit.objects.create(
-            name="Food",
-            slug="food",
-        )
-        HabitKeyword.objects.create(habit=self.food_habit, keyword="food")
+        self.food_habit = make_habit(self.user, "Food", keywords=["food"])
 
         # Create a habit with multiple keywords
-        self.workout_habit = Habit.objects.create(
-            name="Workout",
-            slug="workout",
+        self.workout_habit = make_habit(
+            self.user, "Workout", keywords=["workout", "siłka"]
         )
-        HabitKeyword.objects.create(habit=self.workout_habit, keyword="workout")
-        HabitKeyword.objects.create(habit=self.workout_habit, keyword="siłka")
 
         # Create another habit
-        self.meditation_habit = Habit.objects.create(
-            name="Meditation",
-            slug="meditation",
+        self.meditation_habit = make_habit(
+            self.user, "Meditation", keywords=["medytacja"]
         )
-        HabitKeyword.objects.create(habit=self.meditation_habit, keyword="medytacja")
+
+    def test_matches_only_the_users_own_habits(self):
+        other = get_user_model().objects.create_user(username="o", password="x")
+        make_habit(other, "Reading", keywords=["read"])
+
+        self.assertEqual(habits_line_to_habits_tracked("#read", self.user), [])
+        self.assertEqual(
+            [habit for _, habit, _ in habits_line_to_habits_tracked("#read", other)],
+            [other.habits.get(slug="reading")],
+        )
 
     def _parse_and_check(self, line, expected_result):
         """Run habits_line_to_habits_tracked and assert the result matches the expected result."""
 
-        result = habits_line_to_habits_tracked(line)
+        result = habits_line_to_habits_tracked(line, self.user)
 
         self.assertEqual(len(result), len(expected_result))
 

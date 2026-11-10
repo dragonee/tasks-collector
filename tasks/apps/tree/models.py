@@ -125,11 +125,15 @@ class BoardCommitted(Event):
 
 
 class Habit(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="habits"
+    )
+
     # Display name
     name = models.CharField(max_length=255)
 
-    # URL Slug
-    slug = models.SlugField(max_length=255, unique=True)
+    # URL Slug, unique per user
+    slug = models.SlugField(max_length=255)
 
     event_stream_id = models.UUIDField(default=uuid.uuid4, editable=False)
 
@@ -140,6 +144,11 @@ class Habit(models.Model):
 
     class Meta:
         ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "slug"], name="habit_user_slug_unique"
+            ),
+        ]
 
     def as_hashtags(self):
         return ["#{}".format(keyword) for keyword in self.get_keywords()]
@@ -151,10 +160,29 @@ class Habit(models.Model):
 
 class HabitKeyword(models.Model):
     habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name="keywords")
-    keyword = models.SlugField(max_length=255, unique=True, allow_unicode=True)
+
+    # Always the habit's owner (set on save): it lets a keyword be unique per
+    # user, which a constraint can't express through the habit relation.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="habit_keywords",
+        editable=False,
+    )
+
+    keyword = models.SlugField(max_length=255, allow_unicode=True)
 
     class Meta:
         ordering = ("keyword",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "keyword"], name="habitkeyword_user_keyword_unique"
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.user_id = self.habit.user_id
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.habit.name}: {self.keyword}"
@@ -913,13 +941,21 @@ class ObservationDetached(Event, ObservationEventMixin):
 
 
 class Statistics(models.Model):
-    key = models.CharField(max_length=255, unique=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="statistics"
+    )
+    key = models.CharField(max_length=255)
     value = models.JSONField()
     last_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = "Statistics"
         ordering = ("key",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "key"], name="statistics_user_key_unique"
+            ),
+        ]
 
     def __str__(self):
         return f"{self.key}: {self.value}"

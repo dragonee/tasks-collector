@@ -11,7 +11,7 @@ from ..models import (
     Reflection,
 )
 from ..services.journalling.journal_processing import process_journal_entry
-from .factories import make_board, make_profile, make_thread
+from .factories import make_board, make_habit, make_profile, make_thread
 
 
 class JournalProcessingTestCase(TestCase):
@@ -23,8 +23,7 @@ class JournalProcessingTestCase(TestCase):
         self.daily_thread = make_thread(self.user, "Daily")
         self.weekly_thread = make_thread(self.user, "Weekly")
 
-        self.food_habit = Habit.objects.create(name="Food", slug="food")
-        HabitKeyword.objects.create(habit=self.food_habit, keyword="food")
+        self.food_habit = make_habit(self.user, "Food", keywords=["food"])
 
     def _create_journal(self, comment, thread=None):
         """Helper to create a JournalAdded instance."""

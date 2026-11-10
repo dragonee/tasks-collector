@@ -19,7 +19,8 @@ class HabitKeywordInline(admin.TabularInline):
 
 
 class HabitAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "display_keywords", "event_stream_id")
+    list_display = ("name", "slug", "user", "display_keywords", "event_stream_id")
+    list_filter = ("user",)
     readonly_fields = ("event_stream_id",)
     inlines = [HabitKeywordInline]
 

@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 
 from .models import (
     Breakthrough,
+    HabitKeyword,
     JournalAdded,
     JournalTag,
     Observation,
@@ -110,7 +111,7 @@ class SingleHabitTrackedForm(UserThreadFormMixin, forms.Form):
 
         try:
             cleaned_data["triplets"] = habits_line_to_habits_tracked(
-                cleaned_data["text"]
+                cleaned_data["text"], self.user
             )
         except ValueError as e:
             self.add_error("text", str(e))
@@ -230,6 +231,12 @@ class ProjectedOutcomeForm(forms.ModelForm):
 
 class ProfileForm(UserThreadFormMixin, forms.ModelForm):
     thread_field = "default_board_thread"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["habit_keywords"].queryset = HabitKeyword.objects.filter(
+            user=self.user
+        ).select_related("habit")
 
     class Meta:
         model = Profile

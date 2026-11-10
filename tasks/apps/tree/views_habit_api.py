@@ -40,7 +40,9 @@ class TrackHabitAPIView(APIView):
         data = serializer.validated_data
 
         keyword = get_object_or_404(
-            HabitKeyword.objects.select_related("habit"), keyword=data["keyword"]
+            HabitKeyword.objects.select_related("habit"),
+            user=request.user,
+            keyword=data["keyword"],
         )
         habit = keyword.habit
         thread = Thread.objects.daily(request.user)

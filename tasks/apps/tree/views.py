@@ -361,7 +361,9 @@ def stats(request):
     except ValueError, TypeError:
         year = None
 
-    return render(request, "tree/stats.html", get_aggregate_statistics(year))
+    return render(
+        request, "tree/stats.html", get_aggregate_statistics(request.user, year)
+    )
 
 
 @api_view(["GET"])
@@ -371,7 +373,7 @@ def stats_json(request):
     except ValueError, TypeError:
         year = None
 
-    return RestResponse(get_aggregate_statistics(year))
+    return RestResponse(get_aggregate_statistics(request.user, year))
 
 
 @api_view(["GET"])
