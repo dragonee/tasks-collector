@@ -179,6 +179,11 @@ As built (0083–0085):
   the stream; the cascade removes attach/detach events that pointed at it. This fixes
   today's 500 on a complex observation whose attachment was journalized.
 
+As built (0086): one migration checks that every id has a stream row (it stops
+otherwise), then converts the three columns in place: only foreign key constraints
+and an index on each `other_event_stream_id` are added. Checked on a pre-stage-0
+production dump migrated through 0077–0086.
+
 ### Stage 4 — Memberships and trips
 - `EventStreamEntry`; `Event.save()` writes the home entry atomically with the insert
   and refuses a later change of home stream. Backfill home entries for every event.
