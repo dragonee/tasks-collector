@@ -11,7 +11,6 @@ from django.dispatch import receiver
 from .models import (
     BoardCommitted,
     Event,
-    Habit,
     HabitKeyword,
     HabitTracked,
     JournalAdded,
@@ -44,21 +43,6 @@ def update_board_committed_event_stream_id(sender, instance, *args, **kwargs):
 
 
 # Habits
-
-
-@receiver(pre_save, sender=Habit)
-def on_habit_name_change_update_event_stream_id(sender, instance, *args, **kwargs):
-    """
-    Propagate Habit event_stream_id changes to all related HabitTracked events.
-    """
-    changed = field_has_changed(instance, "event_stream_id")
-
-    if not changed or not changed.old:
-        return
-
-    Event.objects.filter(event_stream_id=changed.old).update(
-        event_stream_id=changed.new
-    )
 
 
 @receiver(pre_save, sender=HabitTracked)
