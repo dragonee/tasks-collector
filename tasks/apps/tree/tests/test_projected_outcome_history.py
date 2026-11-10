@@ -21,7 +21,9 @@ class ProjectedOutcomeHistoryBackLinkTestCase(TestCase):
         # Planned in December, or created by moving an outcome to next year:
         # the row's published year is not the year it is about.
         breakthrough = Breakthrough.objects.create(
-            slug="2027", published=datetime(2026, 12, 20, tzinfo=timezone.utc)
+            user=self.user,
+            slug="2027",
+            published=datetime(2026, 12, 20, tzinfo=timezone.utc),
         )
         outcome = ProjectedOutcome.objects.create(
             breakthrough=breakthrough,

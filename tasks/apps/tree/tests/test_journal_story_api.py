@@ -22,7 +22,7 @@ class JournalStoryAPITestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
         cls.other = User.objects.create_user(username="other", password="x")
-        cls.daily = make_thread(cls.other, "Daily")
+        cls.daily = make_thread(cls.user, "Daily")
 
     def setUp(self):
         self.client.force_authenticate(user=self.user)

@@ -43,7 +43,7 @@ class TrackHabitAPIView(APIView):
             HabitKeyword.objects.select_related("habit"), keyword=data["keyword"]
         )
         habit = keyword.habit
-        thread = get_object_or_404(Thread, name="Daily")
+        thread = Thread.objects.daily(request.user)
 
         published = _aware_midday(data["date"])
 

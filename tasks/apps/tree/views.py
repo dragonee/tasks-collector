@@ -25,7 +25,12 @@ from .utils.statistics import get_aggregate_statistics
 
 
 class PlanFilter(filters.FilterSet):
-    thread = filters.CharFilter(field_name="thread__name")
+    # Thread names are unique per user only: ?thread=Weekly means the
+    # caller's Weekly thread.
+    thread = filters.CharFilter(method="filter_thread")
+
+    def filter_thread(self, queryset, name, value):
+        return queryset.filter(thread__user=self.request.user, thread__name=value)
 
     class Meta:
         model = Plan
@@ -75,9 +80,13 @@ class ThreadViewSet(viewsets.ReadOnlyModelViewSet):
     # Read-only: thread names are looked up by literal value all over the code
     # ("Daily", "Weekly", ...), so a rename breaks them, and deleting a thread
     # cascades to every event, board, plan and reflection filed under it.
-    queryset = Thread.objects.all()
+    # The class queryset only names the router basename; see get_queryset.
+    queryset = Thread.objects.none()
     serializer_class = ThreadSerializer
     pagination_class = ThreadPagination
+
+    def get_queryset(self):
+        return Thread.objects.for_user(self.request.user)
 
 
 class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
@@ -99,10 +108,11 @@ class StoryViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
-def _add_task_to_plan(text, timeframe):
-    """Helper function to add a task to a plan
+def _add_task_to_plan(user, text, timeframe):
+    """Helper function to add a task to one of ``user``'s plans
 
     Args:
+        user: The owner of the plan's thread
         text: The task text to add
         timeframe: One of 'today', 'tomorrow', 'this_week'
 
@@ -115,15 +125,17 @@ def _add_task_to_plan(text, timeframe):
 
     if timeframe == "today":
         focus_date = date.today()
-        thread = Thread.objects.get(name="Daily")
+        thread_name = Thread.DAILY
     elif timeframe == "tomorrow":
         focus_date = date.today() + timedelta(days=1)
-        thread = Thread.objects.get(name="Daily")
+        thread_name = Thread.DAILY
     elif timeframe == "this_week":
         focus_date = make_last_day_of_the_week(date.today())
-        thread = Thread.objects.get(name="Weekly")
+        thread_name = Thread.WEEKLY
     else:
         raise ValueError(f"Invalid timeframe: {timeframe}")
+
+    thread = Thread.objects.get(user=user, name=thread_name)
 
     plan, _created = Plan.objects.get_or_create(
         pub_date=focus_date, thread=thread, defaults={"focus": text}
@@ -152,7 +164,7 @@ def add_task_to_plan(request):
         )
 
     try:
-        plan = _add_task_to_plan(task_text, timeframe)
+        plan = _add_task_to_plan(request.user, task_text, timeframe)
         return RestResponse(
             {
                 "success": True,
@@ -169,15 +181,16 @@ def add_task_to_plan(request):
         return RestResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def _serialize_plan(pub_date, thread_name):
-    """Build the {thread, pub_date, tasks:[{text, done}]} payload for one plan,
-    delegating the crossed-off computation to the today service."""
+def _serialize_plan(user, pub_date, thread_name):
+    """Build the {thread, pub_date, tasks:[{text, done}]} payload for one of
+    ``user``'s plans, delegating the crossed-off computation to the today
+    service."""
     return {
         "thread": thread_name,
         "pub_date": pub_date.isoformat(),
         "tasks": [
             {"text": t.text, "done": t.done, "mark": t.mark}
-            for t in plan_tasks(pub_date, thread_name)
+            for t in plan_tasks(user, pub_date, thread_name)
         ],
     }
 
@@ -208,10 +221,12 @@ def today_plans(request):
 
     return RestResponse(
         {
-            "daily": _serialize_plan(pub_date, "Daily"),
-            "weekly": _serialize_plan(make_last_day_of_the_week(pub_date), "Weekly"),
+            "daily": _serialize_plan(request.user, pub_date, Thread.DAILY),
+            "weekly": _serialize_plan(
+                request.user, make_last_day_of_the_week(pub_date), Thread.WEEKLY
+            ),
             "monthly": _serialize_plan(
-                make_last_day_of_the_month(pub_date), "big-picture"
+                request.user, make_last_day_of_the_month(pub_date), Thread.BIG_PICTURE
             ),
         },
         status=status.HTTP_200_OK,
@@ -363,21 +378,14 @@ def stats_json(request):
 def daily_events(request):
     day = request.GET.get("date", timezone.now().date())
 
-    thread_name = request.GET.get("thread", "Daily")
+    thread_name = request.GET.get("thread", Thread.DAILY)
+    thread = Thread.objects.filter(user=request.user, name=thread_name).first()
 
-    events = Event.objects.filter(
-        published__date=day, thread__name=thread_name
-    ).not_instance_of(BoardCommitted)
-
-    try:
-        plan = Plan.objects.get(pub_date=day, thread__name=thread_name)
-    except Plan.DoesNotExist:
-        plan = None
-
-    try:
-        reflection = Reflection.objects.get(pub_date=day, thread__name=thread_name)
-    except Reflection.DoesNotExist:
-        reflection = None
+    events = Event.objects.filter(published__date=day, thread=thread).not_instance_of(
+        BoardCommitted
+    )
+    plan = Plan.objects.filter(pub_date=day, thread=thread).first()
+    reflection = Reflection.objects.filter(pub_date=day, thread=thread).first()
 
     return RestResponse(
         {
@@ -407,7 +415,7 @@ def account_settings(request):
         profile = Profile(user=request.user)
 
     if request.method == "POST":
-        profile_form = ProfileForm(request.POST, instance=profile)
+        profile_form = ProfileForm(request.POST, instance=profile, user=request.user)
         user_form = UserForm(request.POST, instance=request.user)
         if profile_form.is_valid() and user_form.is_valid():
             profile_form.save()
@@ -415,7 +423,7 @@ def account_settings(request):
             messages.success(request, "Settings saved successfully!")
             return redirect("account-settings")
     else:
-        profile_form = ProfileForm(instance=profile)
+        profile_form = ProfileForm(instance=profile, user=request.user)
         user_form = UserForm(instance=request.user)
 
     return render(
@@ -450,7 +458,7 @@ def todo(request):
 def journal_add(request):
     """View to add a journal entry via web form"""
     if request.method == "POST":
-        form = JournalAddedForm(request.POST)
+        form = JournalAddedForm(request.POST, user=request.user)
         if form.is_valid():
             journal_added = form.save()
             skip_habits = "reflection" in request.POST
@@ -462,7 +470,7 @@ def journal_add(request):
             today_str = timezone.now().date().isoformat()
             return redirect(f"{reverse('public-today')}?date={today_str}")
     else:
-        form = JournalAddedForm()
+        form = JournalAddedForm(user=request.user)
 
     return render(
         request,

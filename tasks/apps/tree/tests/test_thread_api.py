@@ -27,10 +27,24 @@ class ThreadAPIReadOnlyTestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
-            response.json()["results"], [{"id": self.daily.id, "name": "Daily"}]
+            [thread["name"] for thread in response.json()["results"]],
+            ["Daily", "Weekly", "big-picture"],
         )
         response = self.client.get(f"/threads/{self.daily.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_lists_only_the_users_own_threads(self):
+        other = get_user_model().objects.create_user(username="o", password="x")
+        make_thread(other, "Sidetrack")
+
+        response = self.client.get("/threads/")
+
+        self.assertEqual(
+            {thread["id"] for thread in response.json()["results"]},
+            set(Thread.objects.filter(user=self.user).values_list("id", flat=True)),
+        )
+        response = self.client.get(f"/threads/{make_thread(other, 'Daily').id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_create_is_not_allowed(self):
         response = self.client.post("/threads/", {"name": "Monthly"})

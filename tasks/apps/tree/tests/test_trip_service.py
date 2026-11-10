@@ -52,9 +52,8 @@ class TripServiceTestCase(TestCase):
         User = get_user_model()
         cls.alice = User.objects.create_user(username="alice", password="x")
         cls.bob = User.objects.create_user(username="bob", password="x")
-        cls.daily = make_thread(cls.bob, "Daily")
+        cls.daily = make_thread(cls.alice, "Daily")
         make_profile(user=cls.alice, default_board_thread=cls.daily)
-        make_profile(user=cls.bob, default_board_thread=cls.daily)
 
     def test_start_trip_generates_default_title_when_blank(self):
         story = start_trip(self.alice, title=None)
@@ -135,7 +134,7 @@ class TripServiceTestCase(TestCase):
     def test_add_trip_note_uses_daily_thread_not_board_default(self):
         # Diary-style trip notes always land on the Daily thread, even when the
         # user's default *board* thread is something else (e.g. the Inbox).
-        inbox = make_thread(self.bob, "Inbox")
+        inbox = make_thread(self.alice, "Inbox")
         Profile.objects.filter(user=self.alice).update(default_board_thread=inbox)
         story = start_trip(self.alice)
         journal = add_trip_note(
@@ -317,9 +316,8 @@ class TripShareServiceTestCase(TestCase):
         User = get_user_model()
         cls.alice = User.objects.create_user(username="alice", password="x")
         cls.bob = User.objects.create_user(username="bob", password="x")
-        cls.daily = make_thread(cls.bob, "Daily")
+        cls.daily = make_thread(cls.alice, "Daily")
         make_profile(user=cls.alice, default_board_thread=cls.daily)
-        make_profile(user=cls.bob, default_board_thread=cls.daily)
 
     def test_share_trip_creates_share_with_uuid(self):
         story = start_trip(self.alice)
@@ -384,9 +382,8 @@ class TripPhotoServiceTestCase(TestCase):
         User = get_user_model()
         cls.alice = User.objects.create_user(username="alice", password="x")
         cls.bob = User.objects.create_user(username="bob", password="x")
-        cls.daily = make_thread(cls.bob, "Daily")
+        cls.daily = make_thread(cls.alice, "Daily")
         make_profile(user=cls.alice, default_board_thread=cls.daily)
-        make_profile(user=cls.bob, default_board_thread=cls.daily)
 
     def setUp(self):
         # Confirm reads the uploaded original's EXIF for the capture time; keep

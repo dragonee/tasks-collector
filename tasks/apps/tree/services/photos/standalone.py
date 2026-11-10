@@ -73,7 +73,7 @@ def add_standalone_photo(
         # back only this insert, leaving the outer transaction usable.
         with transaction.atomic():
             photo = PhotoAdded.objects.create(
-                thread=daily_thread(),
+                thread=daily_thread(user),
                 comment=comment,
                 original_key=key,
                 content_type=content_type,

@@ -33,13 +33,13 @@ def create_task_item(text):
 
 
 @transaction.atomic
-def add_task_to_board(text, thread_name):
-    """Helper function to add a task to a board.
+def add_task_to_board(user, text, thread_name):
+    """Helper function to add a task to the board of ``user``'s thread.
 
     The board row is locked from read to save, so a concurrent write to it
     (another append, an Android tick, a commit) can't be overwritten.
     """
-    thread = get_object_or_404(Thread, name=thread_name)
+    thread = get_object_or_404(Thread, user=user, name=thread_name)
     board = (
         Board.objects.filter(thread=thread)
         .order_by("-date_started")
@@ -57,11 +57,11 @@ class UnknownThreadError(Exception):
     """A board item is marked to move to a thread that doesn't exist."""
 
 
-def _latest_board(thread_name):
-    """The thread's latest board, row-locked until the surrounding transaction
-    ends, or a new unsaved one when it has none."""
+def _latest_board(user, thread_name):
+    """The latest board of ``user``'s thread, row-locked until the surrounding
+    transaction ends, or a new unsaved one when it has none."""
     try:
-        thread = Thread.objects.get(name=thread_name)
+        thread = Thread.objects.get(user=user, name=thread_name)
     except Thread.DoesNotExist as e:
         raise UnknownThreadError(
             f"no thread named {thread_name!r} to move items to"
@@ -98,7 +98,10 @@ def close_board(board):
     else:
         new_state = default_state()
 
-    other_boards = list(map(_latest_board, changeset.keys()))
+    # Items move between the board owner's own threads.
+    other_boards = [
+        _latest_board(board.thread.user_id, thread_name) for thread_name in changeset
+    ]
 
     now = timezone.now()
 
@@ -134,7 +137,7 @@ def board_thread_for(user):
     )
     if profile and profile.default_board_thread is not None:
         return profile.default_board_thread
-    return Thread.objects.get(name="Daily")
+    return Thread.objects.daily(user)
 
 
 def current_board_thread_name(user):

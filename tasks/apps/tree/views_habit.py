@@ -65,7 +65,7 @@ def track_habit(request):
     else:
         form_class = SingleHabitTrackedForm
 
-    form = form_class(request.data)
+    form = form_class(request.data, user=request.user)
 
     if not form.is_valid():
         if request.htmx:
@@ -102,7 +102,7 @@ def track_habit(request):
             "tree/habit_tracked/ok.html",
             {
                 "habits_tracked": habits_tracked,
-                "form": form_class(initial=initial_dict),
+                "form": form_class(initial=initial_dict, user=request.user),
             },
         )
     return RestResponse({"ok": True}, status=status.HTTP_200_OK)

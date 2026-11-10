@@ -105,8 +105,8 @@ def _owned_active_story(user, story_id):
     return story
 
 
-def _daily_thread():
-    return Thread.objects.get(name="Daily")
+def _daily_thread(user):
+    return Thread.objects.daily(user)
 
 
 def _current_board(user, for_update=False):
@@ -154,9 +154,10 @@ def _boolean_mark(reflection, line):
     return (False, None)
 
 
-def plan_tasks(pub_date, thread_name):
-    """Return the day's Plan.focus lines as display tasks, deriving state from
-    the Reflection (Plan/Board text is never rewritten by progress).
+def plan_tasks(user, pub_date, thread_name):
+    """Return the day's Plan.focus lines of ``user``'s thread as display tasks,
+    deriving state from the Reflection (Plan/Board text is never rewritten by
+    progress).
 
     - Marker-less line: done if it appears in any Reflection field
       (good/better/best), with a ``~``/`^`` mark for better/best.
@@ -166,7 +167,7 @@ def plan_tasks(pub_date, thread_name):
     Order follows the Plan; empty lines are dropped. Returns an empty list when
     the thread doesn't exist or there's no plan for the date.
     """
-    thread = Thread.objects.filter(name=thread_name).first()
+    thread = Thread.objects.filter(user=user, name=thread_name).first()
     if thread is None:
         return []
 
@@ -199,7 +200,7 @@ def list_today_tasks(user, today=None):
     in Reflection.good. Unchecked first, original Plan order preserved within
     each group.
     """
-    items = plan_tasks(_today(today), "Daily")
+    items = plan_tasks(user, _today(today), Thread.DAILY)
     items.sort(key=lambda it: it.done)  # False (not done) sorts before True
     return items
 
@@ -255,7 +256,7 @@ def add_task(user, text, today=None):
         board_tree.append_task_at_root(board.state, text)
         board.save()
 
-    daily = _daily_thread()
+    daily = _daily_thread(user)
     plan, _created = Plan.objects.get_or_create(pub_date=pub_date, thread=daily)
     new_focus = text_lines.add_unique_line(plan.focus, text)
     if new_focus != (plan.focus or ""):
@@ -297,7 +298,7 @@ def _add_carried_progress_task(user, text, remaining, pub_date):
             board_tree.rename(node, new_node_text)
             board.save()
 
-    daily = _daily_thread()
+    daily = _daily_thread(user)
     plan, _created = Plan.objects.get_or_create(pub_date=pub_date, thread=daily)
     new_focus = text_lines.add_unique_line(plan.focus, canonical)
     if new_focus != (plan.focus or ""):
@@ -343,7 +344,7 @@ def complete_task(
     marker_text = set_task_done(user, text, done, today=today, published=published)
     if done and marker_text is not None:
         story = _owned_active_story(user, story_id) if story_id is not None else None
-        _maybe_add_journal(marker_text, note, published, _daily_thread(), story)
+        _maybe_add_journal(marker_text, note, published, _daily_thread(user), story)
 
 
 def _set_task_done_boolean(user, text, done, today, published):
@@ -362,7 +363,7 @@ def _set_task_done_boolean(user, text, done, today, published):
             board_tree.set_state(node, new_node_state)
             board.save()
 
-    daily = _daily_thread()
+    daily = _daily_thread(user)
     reflection, _created = Reflection.objects.get_or_create(
         pub_date=pub_date, thread=daily
     )
@@ -407,7 +408,7 @@ def _set_task_done_progress(user, text, done, progress, today, published):
     pub_date = _today(today, published)
     base = base_of(text)
     board = _current_board(user, for_update=True)
-    daily = _daily_thread()
+    daily = _daily_thread(user)
     reflection, _created = Reflection.objects.get_or_create(
         pub_date=pub_date, thread=daily
     )
@@ -454,7 +455,7 @@ def delete_task(user, text, today=None):
             parent_list.pop(idx)
             board.save()
 
-    _remove_from_daily_plan(text, pub_date)
+    _remove_from_daily_plan(user, text, pub_date)
 
 
 @transaction.atomic
@@ -467,11 +468,11 @@ def move_task(user, text, from_date, to_date):
     see ``add_task``.
     """
     add_task(user, text, today=to_date)
-    _remove_from_daily_plan(text, from_date)
+    _remove_from_daily_plan(user, text, from_date)
 
 
-def _remove_from_daily_plan(text, pub_date):
-    plan = Plan.objects.filter(pub_date=pub_date, thread=_daily_thread()).first()
+def _remove_from_daily_plan(user, text, pub_date):
+    plan = Plan.objects.filter(pub_date=pub_date, thread=_daily_thread(user)).first()
     if plan and plan.focus:
         new_focus = _remove_plan_line(plan.focus, text)
         if new_focus != plan.focus:

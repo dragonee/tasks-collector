@@ -38,7 +38,8 @@ def close_projected_outcome(projected_outcome):
 @transaction.atomic
 def move_projected_outcome_to_next_year(projected_outcome):
     """
-    Move a ProjectedOutcome to the following year's Breakthrough.
+    Move a ProjectedOutcome to the following year's Breakthrough of the
+    same user.
 
     Creates that Breakthrough if it does not exist yet and records a
     ProjectedOutcomeMoved snapshot of the outcome.
@@ -48,7 +49,8 @@ def move_projected_outcome_to_next_year(projected_outcome):
     """
     old_breakthrough = projected_outcome.breakthrough
     new_breakthrough, _ = Breakthrough.objects.get_or_create(
-        slug=str(int(old_breakthrough.slug) + 1)
+        user_id=old_breakthrough.user_id,
+        slug=str(int(old_breakthrough.slug) + 1),
     )
 
     ProjectedOutcomeMoved.from_projected_outcome(

@@ -87,7 +87,7 @@ class CloseBoardLockTestCase(TestCase):
     def test_commits_a_task_saved_after_the_board_was_loaded(self):
         board = make_board(thread=self.daily, state=[_item("first")])
         stale = Board.objects.get(pk=board.pk)
-        add_task_to_board("appended meanwhile", "Daily")
+        add_task_to_board(self.user, "appended meanwhile", "Daily")
 
         close_board(stale)
 

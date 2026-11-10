@@ -15,7 +15,7 @@ class BreakthroughPageQueriesTestCase(TestCase):
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="u", password="x")
         make_thread(cls.user, "Daily")
-        cls.breakthrough = Breakthrough.objects.create(slug="2026")
+        cls.breakthrough = Breakthrough.objects.create(user=cls.user, slug="2026")
 
     def setUp(self):
         self.client.force_login(self.user)

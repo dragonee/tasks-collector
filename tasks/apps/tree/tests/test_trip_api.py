@@ -24,9 +24,8 @@ class TripAPITestCase(APITestCase):
         cls.other = User.objects.create_user(username="other", password="x")
         cls.token = Token.objects.create(user=cls.user)
         cls.other_token = Token.objects.create(user=cls.other)
-        cls.daily = make_thread(cls.other, "Daily")
+        cls.daily = make_thread(cls.user, "Daily")
         make_profile(user=cls.user, default_board_thread=cls.daily)
-        make_profile(user=cls.other, default_board_thread=cls.daily)
 
     def _auth(self, token=None):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {(token or self.token).key}")

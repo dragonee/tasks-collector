@@ -188,7 +188,7 @@ class ProgressLifecycleTestCase(TestCase):
         return self.board.state[0]
 
     def _display(self):
-        return [(t.text, t.done) for t in plan_tasks(TODAY, "Daily")]
+        return [(t.text, t.done) for t in plan_tasks(self.user, TODAY, "Daily")]
 
     # --- forward progression: Plan/Board text fixed, count logged ----------
 

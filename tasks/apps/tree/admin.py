@@ -30,11 +30,20 @@ class HabitAdmin(admin.ModelAdmin):
 
 
 class ThreadAdmin(admin.ModelAdmin):
+    list_display = ("name", "user")
+    list_filter = ("user",)
+
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return self.readonly_fields + ("name",)
+            return self.readonly_fields + ("name", "user")
 
         return self.readonly_fields
+
+    def has_delete_permission(self, request, obj=None):
+        # Built-in threads go only together with their owner.
+        if obj is not None and obj.is_builtin:
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.action(description="Close selected observations")
