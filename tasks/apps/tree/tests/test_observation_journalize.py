@@ -5,7 +5,7 @@ attach/detach records complex observations keep about it."""
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.db.models import ProtectedError
+from django.db.models import RestrictedError
 from django.test import TestCase
 from django.utils import timezone
 
@@ -87,5 +87,5 @@ class JournalizeTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_a_stream_with_events_cannot_be_deleted(self):
-        with self.assertRaises(ProtectedError):
+        with self.assertRaises(RestrictedError):
             self.complex.event_stream.events.first().event_stream.delete()

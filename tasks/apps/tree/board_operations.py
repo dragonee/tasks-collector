@@ -74,8 +74,9 @@ def _latest_board(user, thread_name):
 
 
 @transaction.atomic
-def close_board(board):
-    """Commit ``board``: record a ``BoardCommitted`` event, move the items
+def close_board(board, created_by=None):
+    """Commit ``board``: record a ``BoardCommitted`` event (written by
+    ``created_by``, the board's owner when not given), move the items
     marked with a ``transition`` onto the latest board of that thread, and
     restart ``board`` with the items that stay.
 
@@ -113,6 +114,7 @@ def close_board(board):
         after=new_state,
         transitions=changeset,
         date_started=board.date_started,
+        created_by=created_by,
     )
 
     for other_board in other_boards:

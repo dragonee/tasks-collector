@@ -153,9 +153,12 @@ class ObservationSerializer(BaseTypeThreadSerializer):
 
         new_obj = super().save(*args, **kwargs)
 
+        request = self.context.get("request")
         for event in create_observation_change_events(
             new_obj, previous=previous, published=timezone.now()
         ):
+            if request is not None:
+                event.created_by = request.user
             event.save()
 
         return new_obj

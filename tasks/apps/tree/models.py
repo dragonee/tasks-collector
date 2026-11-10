@@ -178,11 +178,12 @@ class Event(PolymorphicModel):
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
     # The stream the event belongs to (its home). Same column as the old
-    # event_stream_id UUID. PROTECT: a stream goes only after its events.
+    # event_stream_id UUID. RESTRICT: a stream goes only after its events, or
+    # together with them when their user is deleted.
     # No index of its own: the (event_stream_id, published) one leads with it.
     event_stream = models.ForeignKey(
         EventStream,
-        on_delete=models.PROTECT,
+        on_delete=models.RESTRICT,
         related_name="events",
         db_column="event_stream_id",
         db_index=False,
@@ -196,6 +197,16 @@ class Event(PolymorphicModel):
     # event-creating endpoint can opt in — not just trip notes/photos.
     idempotency_key = models.CharField(max_length=64, null=True, blank=True)
 
+    # Who wrote the event. Provenance only: what someone may see or change is
+    # decided by stream access, never by this. Defaults to whoever started the
+    # event's stream (see save); writes on behalf of a user pass it explicitly.
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.RESTRICT,
+        related_name="created_events",
+        editable=False,
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=["published"]),
@@ -207,12 +218,12 @@ class Event(PolymorphicModel):
         constraints = [
             # Partial unique constraint: only opted-in rows are indexed, so the
             # hot tree_event table pays nothing for the rows that don't set a
-            # key. Client keys are globally unique UUIDs, so no user/story
-            # scoping is needed.
+            # key. Scoped to the writer: one user's key can never collide with
+            # (or reveal) another user's event.
             models.UniqueConstraint(
-                fields=["idempotency_key"],
+                fields=["created_by", "idempotency_key"],
                 condition=models.Q(idempotency_key__isnull=False),
-                name="event_idempotency_key_unique",
+                name="event_created_by_idempotency_key_unique",
             ),
         ]
 
@@ -245,6 +256,14 @@ class Event(PolymorphicModel):
             raise ValueError(
                 f"{type(self).__name__} needs an event_stream_id: nothing it is "
                 "about determines its stream."
+            )
+
+        if self.created_by_id is None:
+            # Nobody acting on another's behalf: the stream's own user wrote it.
+            self.created_by_id = (
+                EventStream.objects.filter(pk=self.event_stream_id)
+                .values_list("created_by", flat=True)
+                .get()
             )
 
         stored = None if self._state.adding else self._stored_event_stream_id

@@ -8,7 +8,7 @@ from datetime import date
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.models.signals import post_save
-from django.test import TransactionTestCase
+from django.test import RequestFactory, TransactionTestCase
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -83,12 +83,19 @@ class ObservationCloseAPITestCase(APITestCase):
     def test_admin_action_closes_each_observation(self):
         other = _observation(self.user, self.thread, self.type)
 
-        close_observations(None, None, Observation.objects.all())
+        request = RequestFactory().post("/")
+        request.user = self.user
+
+        close_observations(None, request, Observation.objects.all())
 
         self.assertFalse(Observation.objects.exists())
         self.assertEqual(
             set(ObservationClosed.objects.values_list("event_stream_id", flat=True)),
             {self.observation.event_stream_id, other.event_stream_id},
+        )
+        self.assertEqual(
+            set(ObservationClosed.objects.values_list("created_by", flat=True)),
+            {self.user.pk},
         )
 
 

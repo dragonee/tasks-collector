@@ -60,9 +60,10 @@ def _today(today, published=None):
     return date_cls.today()
 
 
-def _maybe_add_journal(text_for_marker, note, published, daily, story=None):
-    """Record a JournalAdded with ``- [x] <text_for_marker>`` followed by
-    the user's free-form note, linked to ``story`` when one is given.
+def _maybe_add_journal(user, text_for_marker, note, published, story=None):
+    """Record a JournalAdded on ``user``'s Daily thread with
+    ``- [x] <text_for_marker>`` followed by their free-form note, linked to
+    ``story`` when one is given.
 
     Skipped when ``note`` is falsy (None or empty string) and there is no
     ``story`` — confirming a check without any text counts as "just tick the
@@ -80,9 +81,10 @@ def _maybe_add_journal(text_for_marker, note, published, daily, story=None):
     marker = f"- [x] {text_for_marker}"
     comment = f"{marker}\n{note}" if note else marker
     journal = JournalAdded.objects.create(
-        thread=daily,
+        thread=_daily_thread(user),
         comment=comment,
         published=published or timezone.now(),
+        created_by=user,
     )
     if story is not None:
         story.add(journal)
@@ -344,7 +346,7 @@ def complete_task(
     marker_text = set_task_done(user, text, done, today=today, published=published)
     if done and marker_text is not None:
         story = _owned_active_story(user, story_id) if story_id is not None else None
-        _maybe_add_journal(marker_text, note, published, _daily_thread(user), story)
+        _maybe_add_journal(user, marker_text, note, published, story)
 
 
 def _set_task_done_boolean(user, text, done, today, published):

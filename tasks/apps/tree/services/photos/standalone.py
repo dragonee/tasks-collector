@@ -56,7 +56,7 @@ def add_standalone_photo(
     ``idempotency_key`` makes the confirm exactly-once: a retry carrying a key
     that already produced a photo returns that same photo.
     """
-    existing = existing_event(PhotoAdded, idempotency_key)
+    existing = existing_event(PhotoAdded, user, idempotency_key)
     if existing is not None:
         return existing
 
@@ -73,6 +73,7 @@ def add_standalone_photo(
         with transaction.atomic():
             photo = PhotoAdded.objects.create(
                 thread=daily_thread(user),
+                created_by=user,
                 comment=comment,
                 original_key=key,
                 content_type=content_type,
@@ -81,7 +82,7 @@ def add_standalone_photo(
             )
             process_journal_entry(photo, story=None)
     except IntegrityError:
-        existing = existing_event(PhotoAdded, idempotency_key)
+        existing = existing_event(PhotoAdded, user, idempotency_key)
         if existing is not None:
             return existing
         raise

@@ -70,7 +70,7 @@ def commit_board(request, id=None):
     board = get_object_or_404(Board, pk=id)
 
     try:
-        board = close_board(board)
+        board = close_board(board, created_by=request.user)
     except UnknownThreadError as e:
         return RestResponse({"errors": str(e)}, status=status.HTTP_409_CONFLICT)
 

@@ -59,7 +59,7 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        journal_added = serializer.save()
+        journal_added = serializer.save(created_by=self.request.user)
         skip_habits = "reflection" in self.request.data
         story = serializer.validated_data.get("story")
         process_journal_entry(
@@ -462,6 +462,7 @@ def journal_add(request):
     if request.method == "POST":
         form = JournalAddedForm(request.POST, user=request.user)
         if form.is_valid():
+            form.instance.created_by = request.user
             journal_added = form.save()
             skip_habits = "reflection" in request.POST
             process_journal_entry(

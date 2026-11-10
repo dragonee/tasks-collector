@@ -225,6 +225,20 @@ As built (0087–0089):
 - Idempotency constraint becomes `(created_by, idempotency_key)`;
   `existing_event()` (`services/photos/events.py`) scopes its lookup to match.
 
+As built (0090–0092):
+- Request paths pass the acting user; anything else (projected-outcome events
+  created by the `ProjectedOutcome` signals, the admin, Celery) defaults to whoever
+  started the event's stream, which is the writer as long as only owners write. The
+  signals stay: on the breakthrough page the outcome's owner is the request user, so
+  moving them into the service would not change what is recorded. Once editors exist,
+  writes on someone else's stream must pass `created_by`.
+- `Event.event_stream` and `Event.created_by` are `RESTRICT`: deleting a user works
+  when their events are filed under their own threads, and is refused when they are
+  filed under someone else's (production has one such observation, from before
+  threads had owners).
+- The release window: `created_by` becomes required while the previous release still
+  serves, so for those seconds that release can't save events.
+
 ### Stage 6 — Enforcement
 - Queryset methods: `owned_by(user)` and `visible_to(user)` on `Event` (via entries →
   access), `Observation` / `ProjectedOutcome` / `Story` (via their stream), and owner

@@ -10,7 +10,7 @@ from django.db import transaction
 from ...models import Observation, ObservationClosed
 
 
-def close_observation(observation_id, published=None):
+def close_observation(observation_id, published=None, created_by=None):
     """
     Close an open observation.
 
@@ -22,6 +22,7 @@ def close_observation(observation_id, published=None):
     Args:
         observation_id: Primary key of the open observation.
         published: Optional timestamp. Defaults to now.
+        created_by: Who closes it; the observation's owner when not given.
 
     Returns:
         The saved ObservationClosed event.
@@ -35,6 +36,7 @@ def close_observation(observation_id, published=None):
         observation_closed = ObservationClosed.from_observation(
             observation, published=published
         )
+        observation_closed.created_by = created_by
         observation_closed.save()
 
         observation.delete()
