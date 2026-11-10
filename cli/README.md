@@ -27,7 +27,6 @@ Available commands:
   hlist
   oedit
   edit
-  quest
   journal
   thought
   update
@@ -118,21 +117,6 @@ Options:
     -Y, --yesterday  Set the date to yesterday.
     -l, --list       List habits
     -o, --output FILENAME  If listing, output to file [default: -]
-    -h, --help       Show this message.
-    --version        Show version information.
-```
-
-## Quests
-
-### quest (1.0.1)
-
-```
-Follow a quest.
-
-Usage: 
-    quest [options] KEY [STAGE]
-
-Options:
     -h, --help       Show this message.
     --version        Show version information.
 ```

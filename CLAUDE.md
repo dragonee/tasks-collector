@@ -31,16 +31,7 @@ This is a Django-based personal productivity application with a Vue.js frontend.
    - Provides shared functionality and custom User model
    - Contains template tags and management commands
 
-2. **Quests App** (`tasks.apps.quests`)
-   - Quest-based goal tracking with journaling
-   - Models: Quest, QuestJournal
-
-3. **Rewards App** (`tasks.apps.rewards`)
-   - Gamification system with nested reward tables
-   - Models: Reward, RewardTableItem, Claim, Claimed
-   - Uses probability-based reward distribution
-
-4. **Tree App** (`tasks.apps.tree`) - **Main Application**
+2. **Tree App** (`tasks.apps.tree`) - **Main Application**
    - Core productivity system with comprehensive life tracking
    - **Thread-based organization**: Daily, Weekly, Monthly threads
    - **Event sourcing**: All activities tracked as polymorphic events
