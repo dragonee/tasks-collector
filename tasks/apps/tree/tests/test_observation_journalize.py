@@ -83,7 +83,6 @@ class JournalizeTestCase(TestCase):
             ComplexPresenter(self.complex.event_stream_id).get_attached_stream_ids(),
             set(),
         )
-        # Used to fail: the page looked up the journalized observation.
         response = self.client.get(f"/observations/{self.complex.pk}/")
         self.assertEqual(response.status_code, 200)
 

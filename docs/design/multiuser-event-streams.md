@@ -176,8 +176,8 @@ As built (0083–0085):
   attname so the autodetector sees no diff.
 - Same for `ObservationAttached/Detached.other_event_stream`, with `CASCADE`.
 - Journalize (`observation_operations.py`) deletes the events, the observation and
-  the stream; the cascade removes attach/detach events that pointed at it. This fixes
-  today's 500 on a complex observation whose attachment was journalized.
+  the stream; the cascade removes attach/detach events that pointed at it, which
+  until now kept pointing at an observation that no longer existed.
 
 As built (0086): one migration checks that every id has a stream row (it stops
 otherwise), then converts the three columns in place: only foreign key constraints
