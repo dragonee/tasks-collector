@@ -72,6 +72,11 @@ class ObservationFilter(filters.FilterSet):
         label="Show",
     )
 
+    # Declared explicitly: once event_stream becomes a ForeignKey, an
+    # auto-generated filter would turn into a ModelChoiceFilter (400 on an
+    # unknown id instead of an empty result).
+    event_stream_id = filters.UUIDFilter(field_name="event_stream_id")
+
     def filter_ownership(self, queryset, name, value):
         if value == "mine":
             return queryset.filter(user=self.request.user)
@@ -79,11 +84,13 @@ class ObservationFilter(filters.FilterSet):
 
     class Meta:
         model = Observation
-        fields = {"pub_date": ("gte", "lte"), "event_stream_id": ("exact",)}
+        fields = {"pub_date": ("gte", "lte")}
 
 
 class EventFilter(filters.FilterSet):
     open = filters.BooleanFilter(method="filter_open")
+
+    event_stream_id = filters.UUIDFilter(field_name="event_stream_id")
 
     def filter_open(self, queryset, name, value):
         if value is None:
@@ -97,10 +104,7 @@ class EventFilter(filters.FilterSet):
 
     class Meta:
         model = Event
-        fields = {
-            "published": ("gte", "lte"),
-            "event_stream_id": ("exact",),
-        }
+        fields = {"published": ("gte", "lte")}
 
 
 def serializable_observations():
