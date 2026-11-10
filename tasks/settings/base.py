@@ -46,9 +46,6 @@ INSTALLED_APPS = [
     "django_filters",
     "tasks.apps.common",
     "tasks.apps.tree",
-    "tasks.apps.rewards",
-    "tasks.apps.quests",
-    "tasks.apps.enfp",
 ]
 
 MIDDLEWARE = [
