@@ -7,7 +7,8 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
-from ..models import BoardCommitted, Thread
+from ..models import BoardCommitted
+from .factories import make_thread
 
 
 def _at(day, hour):
@@ -22,7 +23,7 @@ class SummariesDateRangeTestCase(TestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
+        cls.daily = make_thread(cls.user, "Daily")
         cls.url = reverse("summaries")
 
     def setUp(self):

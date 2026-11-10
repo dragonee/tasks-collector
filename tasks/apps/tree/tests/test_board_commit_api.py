@@ -7,7 +7,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..board_operations import add_task_to_board, close_board, create_task_item
-from ..models import Board, BoardCommitted, Thread
+from ..models import Board, BoardCommitted
+from .factories import make_board, make_thread
 
 
 def _item(text, transition=None):
@@ -26,8 +27,8 @@ class BoardCommitAPITestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
-        cls.sidetrack = Thread.objects.create(name="Sidetrack")
+        cls.daily = make_thread(cls.user, "Daily")
+        cls.sidetrack = make_thread(cls.user, "Sidetrack")
 
     def setUp(self):
         self.client.force_authenticate(user=self.user)
@@ -36,7 +37,7 @@ class BoardCommitAPITestCase(APITestCase):
         return self.client.post(f"/boards/{board_id}/commit/")
 
     def test_moves_marked_items_and_records_the_commit(self):
-        board = Board.objects.create(
+        board = make_board(
             thread=self.daily,
             state=[_item("stays"), _item("moves", transition="Sidetrack")],
         )
@@ -59,7 +60,7 @@ class BoardCommitAPITestCase(APITestCase):
 
     def test_item_marked_for_unknown_thread_rolls_back_the_commit(self):
         state = [_item("stays"), _item("moves", transition="Nowhere")]
-        board = Board.objects.create(thread=self.daily, state=state)
+        board = make_board(thread=self.daily, state=state)
         date_started = board.date_started
 
         response = self._commit(board.id)
@@ -79,11 +80,12 @@ class CloseBoardLockTestCase(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.daily = Thread.objects.create(name="Daily")
-        cls.sidetrack = Thread.objects.create(name="Sidetrack")
+        cls.user = get_user_model().objects.create_user(username="u", password="x")
+        cls.daily = make_thread(cls.user, "Daily")
+        cls.sidetrack = make_thread(cls.user, "Sidetrack")
 
     def test_commits_a_task_saved_after_the_board_was_loaded(self):
-        board = Board.objects.create(thread=self.daily, state=[_item("first")])
+        board = make_board(thread=self.daily, state=[_item("first")])
         stale = Board.objects.get(pk=board.pk)
         add_task_to_board("appended meanwhile", "Daily")
 
@@ -94,8 +96,8 @@ class CloseBoardLockTestCase(TestCase):
         self.assertEqual(len(BoardCommitted.objects.get().before), 2)
 
     def test_locks_the_board_and_the_target_board(self):
-        Board.objects.create(thread=self.sidetrack, state=[_item("old")])
-        board = Board.objects.create(
+        make_board(thread=self.sidetrack, state=[_item("old")])
+        board = make_board(
             thread=self.daily,
             state=[_item("stays"), _item("moves", transition="Sidetrack")],
         )

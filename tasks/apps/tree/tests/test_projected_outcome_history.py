@@ -4,14 +4,15 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from ..models import Breakthrough, ProjectedOutcome, Thread
+from ..models import Breakthrough, ProjectedOutcome
+from .factories import make_thread
 
 
 class ProjectedOutcomeHistoryBackLinkTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="u", password="x")
-        Thread.objects.create(name="Daily")
+        make_thread(cls.user, "Daily")
 
     def setUp(self):
         self.client.force_login(self.user)

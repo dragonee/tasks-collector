@@ -8,7 +8,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Observation, ObservationType, ObservationUpdated, Thread
+from ..models import Observation, ObservationType, ObservationUpdated
+from .factories import make_thread
 
 UPDATES_URL = "/updates/"
 
@@ -18,7 +19,7 @@ class ObservationUpdatedAPITestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
         cls.observation = Observation.objects.create(
             user=cls.user,

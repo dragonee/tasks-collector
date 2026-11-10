@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import DatabaseError
 from django.test import TestCase
 
-from ..models import Board, Plan, Profile, Reflection, Thread
+from ..models import Board, Plan, Reflection
 from ..services.today import board_tree, plan_tasks, set_task_done, text_lines
 from ..services.today.progress import (
     parse_progress,
@@ -13,6 +13,7 @@ from ..services.today.progress import (
     render_carried,
     render_progress,
 )
+from .factories import make_board, make_profile, make_thread
 
 TODAY = date_cls(2026, 5, 21)
 
@@ -156,9 +157,9 @@ class ProgressLifecycleTestCase(TestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
-        cls.board = Board.objects.create(thread=cls.daily, state=[])
+        cls.daily = make_thread(cls.user, "Daily")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
+        cls.board = make_board(thread=cls.daily, state=[])
 
     def setUp(self):
         self.board = Board.objects.get(pk=self.board.pk)

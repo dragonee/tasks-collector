@@ -10,7 +10,8 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..models import HabitTracked, JournalAdded, Profile, Story, StoryEvent, Thread
+from ..models import HabitTracked, JournalAdded, Story, StoryEvent
+from .factories import make_profile, make_thread
 
 PUB_AT = datetime_cls(2026, 5, 25, 14, 30, tzinfo=dt_timezone.utc).isoformat()
 
@@ -23,9 +24,9 @@ class TripAPITestCase(APITestCase):
         cls.other = User.objects.create_user(username="other", password="x")
         cls.token = Token.objects.create(user=cls.user)
         cls.other_token = Token.objects.create(user=cls.other)
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
-        Profile.objects.create(user=cls.other, default_board_thread=cls.daily)
+        cls.daily = make_thread(cls.other, "Daily")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
+        make_profile(user=cls.other, default_board_thread=cls.daily)
 
     def _auth(self, token=None):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {(token or self.token).key}")

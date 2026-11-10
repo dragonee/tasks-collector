@@ -22,9 +22,9 @@ from ..models import (
     SharedStory,
     Story,
     StoryEvent,
-    Thread,
 )
 from ..services.photos import attach_photo_urls
+from .factories import make_profile, make_thread
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
 
@@ -35,8 +35,8 @@ class TripWebTestCase(TestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="me", password="x")
         cls.other = User.objects.create_user(username="other", password="x")
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
+        cls.daily = make_thread(cls.other, "Daily")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -637,8 +637,8 @@ class SharedTripWebTestCase(TestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="me", password="x")
-        cls.daily, _ = Thread.objects.get_or_create(name="Daily")
-        Profile.objects.create(user=cls.user, default_board_thread=cls.daily)
+        cls.daily = make_thread(cls.user, "Daily")
+        make_profile(user=cls.user, default_board_thread=cls.daily)
 
     def setUp(self):
         # Deliberately no login: every request in this case is anonymous.

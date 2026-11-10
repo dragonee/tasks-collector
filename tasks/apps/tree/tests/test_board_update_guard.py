@@ -5,7 +5,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..board_operations import create_task_item
-from ..models import Board, Thread
+from ..models import Board
+from .factories import make_board, make_thread
 
 
 class BoardUpdateEmptyStateGuardTestCase(APITestCase):
@@ -20,15 +21,13 @@ class BoardUpdateEmptyStateGuardTestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="web", password="x")
         cls.token = Token.objects.create(user=cls.user)
-        cls.daily = Thread.objects.create(name="Daily")
+        cls.daily = make_thread(cls.user, "Daily")
 
     def setUp(self):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
 
     def _make_board(self, texts):
-        return Board.objects.create(
-            thread=self.daily, state=[create_task_item(t) for t in texts]
-        )
+        return make_board(thread=self.daily, state=[create_task_item(t) for t in texts])
 
     def _put_state(self, board, state):
         return self.client.put(f"/boards/{board.id}/", {"state": state}, format="json")
@@ -71,7 +70,7 @@ class BoardCreateDeleteNotAllowedTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="web", password="x")
-        cls.daily = Thread.objects.create(name="Daily")
+        cls.daily = make_thread(cls.user, "Daily")
 
     def setUp(self):
         self.client.force_authenticate(user=self.user)
@@ -83,9 +82,7 @@ class BoardCreateDeleteNotAllowedTestCase(APITestCase):
         self.assertFalse(Board.objects.exists())
 
     def test_delete_is_not_allowed(self):
-        board = Board.objects.create(
-            thread=self.daily, state=[create_task_item("water plants")]
-        )
+        board = make_board(thread=self.daily, state=[create_task_item("water plants")])
 
         response = self.client.delete(f"/boards/{board.id}/")
 

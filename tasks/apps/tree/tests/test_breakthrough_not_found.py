@@ -5,14 +5,15 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from ..models import Breakthrough, ProjectedOutcome, ProjectedOutcomeClosed, Thread
+from ..models import Breakthrough, ProjectedOutcome, ProjectedOutcomeClosed
+from .factories import make_thread
 
 
 class ProjectedOutcomeEventsHistoryNotFoundTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(username="u", password="x")
-        Thread.objects.create(name="Daily")
+        make_thread(cls.user, "Daily")
         cls.breakthrough = Breakthrough.objects.create(slug="2026")
 
     def setUp(self):

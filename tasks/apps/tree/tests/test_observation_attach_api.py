@@ -17,9 +17,9 @@ from ..models import (
     ObservationClosed,
     ObservationDetached,
     ObservationType,
-    Thread,
 )
 from ..presenters import ComplexPresenter
+from .factories import make_thread
 
 
 class ObservationAttachDetachAPITestCase(APITestCase):
@@ -27,7 +27,7 @@ class ObservationAttachDetachAPITestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
     def setUp(self):

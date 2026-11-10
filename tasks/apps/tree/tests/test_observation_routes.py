@@ -6,7 +6,8 @@ from datetime import date
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
-from ..models import Observation, ObservationClosed, ObservationType, Thread
+from ..models import Observation, ObservationClosed, ObservationType
+from .factories import make_thread
 
 
 class ObservationRouteIdTestCase(TestCase):
@@ -14,7 +15,7 @@ class ObservationRouteIdTestCase(TestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="u", password="x")
-        cls.thread = Thread.objects.create(name="Daily")
+        cls.thread = make_thread(cls.user, "Daily")
         cls.type = ObservationType.objects.create(name="Error", slug="error")
 
         cls.observation = Observation.objects.create(
