@@ -20,10 +20,6 @@ These tools add CLI support to the [Tasks Collector](https://github.com/dragonee
 
 [$ make-readme -h 3 habits]
 
-## Quests
-
-[$ make-readme -h 3 quest]
-
 ## Tools for periodical reflections
 
 TODO: write up process on how to do a periodical reflection.

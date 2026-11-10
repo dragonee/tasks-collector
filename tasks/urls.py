@@ -20,8 +20,6 @@ urlpatterns = [
     path(
         "accounts/logout/", auth_views.LogoutView.as_view(next_page="/"), name="logout"
     ),
-    re_path(r"^rewards/", include("tasks.apps.rewards.urls")),
-    re_path(r"^quests/", include("tasks.apps.quests.urls")),
     re_path(r"^", include("tasks.apps.tree.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

@@ -378,7 +378,7 @@ def add_focus_task(config, fd, old_settings):
     print()
     try:
         text = input("Task for later (empty to cancel): ").strip()
-    except (EOFError, KeyboardInterrupt):
+    except EOFError, KeyboardInterrupt:
         text = ""
 
     if text:
@@ -437,7 +437,6 @@ commands = {
     "hlist": ["habits", "-l"],
     "oedit": open_observation,
     "edit": open_observation,
-    "quest": "quest",
     "journal": "journal",
     "sjournal": "sjournal",
     "trip": select_trip,
@@ -575,5 +574,5 @@ def main():
                 config,
             )
         )
-    except (KeyboardInterrupt, EOFError):
+    except KeyboardInterrupt, EOFError:
         print("Exiting...")
