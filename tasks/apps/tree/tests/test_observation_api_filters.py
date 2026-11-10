@@ -1,3 +1,4 @@
+import uuid
 from datetime import date as date_cls
 from datetime import datetime
 
@@ -69,6 +70,14 @@ class ObservationAPIFilterTestCase(APITestCase):
             ["mine"],
         )
 
+    def test_filters_by_event_stream_id(self):
+        self.assertEqual(
+            self._situations(event_stream_id=str(self.mine.event_stream_id)), ["mine"]
+        )
+
+    def test_unknown_event_stream_id_returns_nothing(self):
+        self.assertEqual(self._situations(event_stream_id=str(uuid.uuid4())), [])
+
 
 class ObservationEventAPIFilterTestCase(APITestCase):
     """observation-events/ filters by stream, published range and whether the
@@ -138,6 +147,15 @@ class ObservationEventAPIFilterTestCase(APITestCase):
             self._ids(event_stream_id=str(self.open_obs.event_stream_id)),
             {self.open_made.id},
         )
+
+    def test_unknown_event_stream_id_returns_nothing(self):
+        # Must stay an empty 200 (not a 400 "invalid choice") once the stream
+        # id becomes a foreign key — the CLI's observationdump relies on it.
+        self.assertEqual(self._ids(event_stream_id=str(uuid.uuid4())), set())
+
+    def test_malformed_event_stream_id_is_rejected(self):
+        resp = self.client.get(EVENTS_URL, {"event_stream_id": "not-a-uuid"})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_filters_by_published_range(self):
         self.assertEqual(
