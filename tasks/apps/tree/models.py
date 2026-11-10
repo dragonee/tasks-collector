@@ -177,7 +177,17 @@ class Event(PolymorphicModel):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    event_stream_id = models.UUIDField(editable=False)
+    # The stream the event belongs to (its home). Same column as the old
+    # event_stream_id UUID. PROTECT: a stream goes only after its events.
+    # No index of its own: the (event_stream_id, published) one leads with it.
+    event_stream = models.ForeignKey(
+        EventStream,
+        on_delete=models.PROTECT,
+        related_name="events",
+        db_column="event_stream_id",
+        db_index=False,
+        editable=False,
+    )
 
     # Optional client-supplied key for exactly-once creation. When a device
     # retries a write whose response was lost (e.g. an offline outbox), the
@@ -1109,8 +1119,15 @@ class ObservationAttached(Event, ObservationEventMixin):
     observation = models.ForeignKey(
         Observation, on_delete=models.SET_NULL, null=True, blank=True
     )
-    other_event_stream_id = models.UUIDField(
-        help_text="Event stream ID of the observation being attached"
+    # When that observation's stream is deleted (it was journalized), this
+    # record of it goes too.
+    other_event_stream = models.ForeignKey(
+        EventStream,
+        on_delete=models.CASCADE,
+        related_name="+",
+        db_column="other_event_stream_id",
+        editable=False,
+        help_text="Event stream of the observation being attached",
     )
 
     template = "tree/events/observation_attached.html"
@@ -1126,8 +1143,15 @@ class ObservationAttached(Event, ObservationEventMixin):
 
 
 class ObservationDetached(Event, ObservationEventMixin):
-    other_event_stream_id = models.UUIDField(
-        help_text="Event stream ID of the observation being detached"
+    # When that observation's stream is deleted (it was journalized), this
+    # record of it goes too.
+    other_event_stream = models.ForeignKey(
+        EventStream,
+        on_delete=models.CASCADE,
+        related_name="+",
+        db_column="other_event_stream_id",
+        editable=False,
+        help_text="Event stream of the observation being detached",
     )
 
     template = "tree/events/observation_detached.html"
