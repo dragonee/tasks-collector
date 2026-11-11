@@ -87,7 +87,8 @@ class PlanAddTaskTestCase(APITestCase):
             pub_date=date_cls.today(), thread=self.daily, focus="a\r\nb"
         )
 
-        self.assertEqual(self._add_today("a").focus, "a\nb")
+        # Nothing to add: the plan is left as it was.
+        self.assertEqual(self._add_today("a").focus, "a\r\nb")
 
     def test_new_line_appended_to_crlf_plan(self):
         Plan.objects.create(

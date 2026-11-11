@@ -1,5 +1,11 @@
 # Today tasks on Android
 
+> The wire contract and the Android sections below hold. What the server does
+> behind the endpoints changed: tasks have rows now, and nothing is matched by
+> text beyond finding what a line means. See `docs/design/tasks.md`; the
+> "Service module", "Identity = text", "Operation semantics" and "Invariants"
+> sections here describe the old storage.
+
 This note explains how the Today tab on the Android companion app is wired
 to the Django backend. It covers the four endpoints, the service module
 that orchestrates them, the two extension patterns (progress-counted

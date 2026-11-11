@@ -101,6 +101,7 @@ class EventAdmin(PolymorphicParentModelAdmin):
         ProjectedOutcomeRescheduled,
         ProjectedOutcomeClosed,
         InsightRefined,
+        TaskCompleted,
     ]
 
     ordering = ["-published", "-pk"]
@@ -155,6 +156,21 @@ class ObservationClosedAdmin(PolymorphicChildModelAdmin):
 class InsightRefinedAdmin(PolymorphicChildModelAdmin):
     base_model = InsightRefined
     list_select_related = ("thread",)
+
+
+class TaskCompletedAdmin(PolymorphicChildModelAdmin):
+    base_model = TaskCompleted
+    list_select_related = ("thread",)
+    raw_id_fields = ("task", "journal")
+
+
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ("text", "user", "done_count", "completed_at", "created")
+    list_filter = ("user",)
+    list_select_related = ("user",)
+    search_fields = ("text", "anchor")
+    raw_id_fields = ("user", "board")
+    readonly_fields = ("anchor",)
 
 
 class JournalAddedAdmin(PolymorphicChildModelAdmin):
@@ -281,3 +297,5 @@ admin.site.register(ProjectedOutcomeRedefined, ProjectedOutcomeRedefinedAdmin)
 admin.site.register(ProjectedOutcomeRescheduled, ProjectedOutcomeRescheduledAdmin)
 admin.site.register(ProjectedOutcomeClosed, ProjectedOutcomeClosedAdmin)
 admin.site.register(InsightRefined, InsightRefinedAdmin)
+admin.site.register(Task, TaskAdmin)
+admin.site.register(TaskCompleted, TaskCompletedAdmin)

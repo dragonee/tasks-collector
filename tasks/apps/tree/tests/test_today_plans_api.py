@@ -6,7 +6,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Plan, Reflection
+from ..models import Plan, Reflection, Task
+from ..services.today import add_task, set_task_done
 from ..utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .factories import make_thread
 
@@ -14,10 +15,14 @@ from .factories import make_thread
 TODAY = date_cls(2026, 6, 25)
 
 
+def _brief(tasks):
+    """What the journal template reads of each task."""
+    return [{key: task[key] for key in ("text", "done", "mark")} for task in tasks]
+
+
 class TodayPlansAPITestCase(APITestCase):
     """The single CLI-facing endpoint that returns the Daily / Weekly /
-    Big-picture plans with each task flagged crossed-off, reusing the Today
-    service's Plan.focus-vs-Reflection.good computation."""
+    Big-picture plans with each task flagged crossed-off."""
 
     @classmethod
     def setUpTestData(cls):
@@ -54,7 +59,7 @@ class TodayPlansAPITestCase(APITestCase):
         self.assertEqual(daily["thread"], "Daily")
         self.assertEqual(daily["pub_date"], TODAY.isoformat())
         self.assertEqual(
-            daily["tasks"],
+            _brief(daily["tasks"]),
             [
                 {"text": "alpha", "done": False, "mark": None},
                 {"text": "bravo", "done": True, "mark": None},
@@ -74,14 +79,14 @@ class TodayPlansAPITestCase(APITestCase):
         self.assertEqual(body["weekly"]["thread"], "Weekly")
         self.assertEqual(body["weekly"]["pub_date"], eow.isoformat())
         self.assertEqual(
-            body["weekly"]["tasks"],
+            _brief(body["weekly"]["tasks"]),
             [{"text": "week task", "done": False, "mark": None}],
         )
 
         self.assertEqual(body["monthly"]["thread"], "big-picture")
         self.assertEqual(body["monthly"]["pub_date"], eom.isoformat())
         self.assertEqual(
-            body["monthly"]["tasks"],
+            _brief(body["monthly"]["tasks"]),
             [{"text": "month task", "done": True, "mark": None}],
         )
 
@@ -93,12 +98,54 @@ class TodayPlansAPITestCase(APITestCase):
 
         tasks = self._get().json()["daily"]["tasks"]
         self.assertEqual(
-            tasks,
+            _brief(tasks),
             [
                 {"text": "alpha", "done": False, "mark": None},
                 {"text": "bravo", "done": True, "mark": None},
             ],
         )
+
+    def test_a_plain_line_has_no_task_id(self):
+        Plan.objects.create(pub_date=TODAY, thread=self.daily, focus="alpha")
+
+        (task,) = self._get().json()["daily"]["tasks"]
+
+        self.assertEqual(
+            task,
+            {
+                "text": "alpha",
+                "done": False,
+                "mark": None,
+                "id": None,
+                "anchor": None,
+                "total": 1,
+                "done_count": 0,
+            },
+        )
+
+    def test_a_task_of_the_week_done_on_a_day_is_done_in_the_week(self):
+        # The same task on the week's and the day's plan: ticked on the day,
+        # it reads done wherever it is listed.
+        eow = make_last_day_of_the_week(TODAY)
+        Plan.objects.create(pub_date=eow, thread=self.weekly, focus="write report (2)")
+        add_task(self.user, "write report (2)", today=TODAY)
+        set_task_done(self.user, "write report (2)", True, today=TODAY)
+        set_task_done(self.user, "write report (2)", True, today=TODAY)
+        task = Task.objects.get()
+
+        body = self._get().json()
+
+        expected = {
+            "text": "write report (2/2)",
+            "done": True,
+            "mark": None,
+            "id": str(task.pk),
+            "anchor": task.anchor,
+            "total": 2,
+            "done_count": 2,
+        }
+        self.assertEqual(body["daily"]["tasks"], [expected])
+        self.assertEqual(body["weekly"]["tasks"], [expected])
 
     def test_empty_when_nothing_planned(self):
         body = self._get().json()

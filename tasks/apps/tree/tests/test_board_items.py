@@ -1,3 +1,5 @@
+import datetime
+
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 
@@ -12,6 +14,7 @@ from ..board_operations import (
 from ..commit import merge
 from ..models import Board
 from ..services.boards import items
+from ..services.tasks.operations import complete, task_for_item
 from .factories import make_board, make_thread
 
 
@@ -178,36 +181,128 @@ class CommitKeepsTaskLinksTestCase(TestCase):
         cls.inbox = make_thread(cls.user, "Inbox")
         cls.later = make_thread(cls.user, "Later")
 
+    def _planned(self, text, **markers):
+        """A board with one item, planned: (board, task)."""
+        item = create_unscheduled_task(text)
+        item["data"]["meaningfulMarkers"].update(markers)
+        board = make_board(thread=self.inbox, state=[item])
+        task = task_for_item(self.user, board, board.state[0])
+        return board, task
+
     def test_an_item_that_stays_keeps_its_id_and_task(self):
-        board = make_board(thread=self.inbox, state=[_linked("a", "t-1")])
+        board, task = self._planned("a")
         item_id = board.state[0]["id"]
 
         board = close_board(board)
 
         (item,) = board.state
         self.assertEqual(item["id"], item_id)
-        self.assertEqual(item["data"]["taskId"], "t-1")
+        self.assertEqual(item["data"]["taskId"], str(task.pk))
+        task.refresh_from_db()
+        self.assertEqual((task.board, task.board_item_id), (board, item_id))
 
-    def test_an_item_that_moves_keeps_its_task(self):
-        board = make_board(
-            thread=self.inbox, state=[_linked("a", "t-1", transition="Later")]
-        )
+    def test_a_task_follows_its_item_to_another_board(self):
+        board, task = self._planned("a", transition="Later")
 
         close_board(board)
 
-        (item,) = Board.objects.get(thread=self.later).state
-        self.assertEqual(item["data"]["taskId"], "t-1")
+        later = Board.objects.get(thread=self.later)
+        (item,) = later.state
+        self.assertEqual(item["data"]["taskId"], str(task.pk))
+        task.refresh_from_db()
+        self.assertEqual((task.board, task.board_item_id), (later, item["id"]))
+        # Whoever has that board now has the task.
+        self.assertEqual(task.event_stream_id, self.later.board_stream_id)
 
-    def test_a_ticked_item_that_stays_starts_unticked(self):
-        item = _linked("a", "t-1", canBePostponed=True)
-        item["state"]["checked"] = True
-        board = make_board(thread=self.inbox, state=[item])
+    def test_a_done_task_whose_item_is_committed_away_stays(self):
+        board, task = self._planned("a")
+        complete(task, self.user, day=datetime.date(2026, 11, 11))
+
+        board = close_board(board)
+
+        self.assertEqual(board.state, [])
+        task.refresh_from_db()
+        self.assertTrue(task.done)
+        self.assertIsNone(task.board)
+
+    def test_a_repeating_item_is_unscheduled_again_once_its_task_is_done(self):
+        board, task = self._planned("water plants", canBePostponed=True)
+        complete(task, self.user, day=datetime.date(2026, 11, 11))
 
         board = close_board(board)
 
         (item,) = board.state
         self.assertFalse(item["state"]["checked"])
         self.assertEqual(item["data"]["state"], "open")
+        self.assertIsNone(item["data"]["taskId"])
+        task.refresh_from_db()
+        self.assertTrue(task.done)
+        self.assertIsNone(task.board)
+
+    def test_an_item_naming_no_task_is_unscheduled(self):
+        # A board tree is JSON; what it says about tasks may be anything.
+        board = make_board(
+            thread=self.inbox,
+            state=[
+                _linked("a", "not-a-task-id"),
+                _linked("b", "00000000-0000-0000-0000-000000000000"),
+            ],
+        )
+
+        board = close_board(board)
+
+        self.assertEqual([item["data"]["taskId"] for item in board.state], [None, None])
+
+
+class WebSaveKeepsTaskLinksTestCase(APITestCase):
+    """The web board saves the whole tree, and may hold one it loaded before
+    an item was planned: which task an item has is the server's to say."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(username="u", password="x")
+        cls.inbox = make_thread(cls.user, "Inbox")
+
+    def setUp(self):
+        self.client.force_authenticate(user=self.user)
+        self.board = make_board(
+            thread=self.inbox,
+            state=[create_unscheduled_task("a"), create_unscheduled_task("b")],
+        )
+        self.stale = Board.objects.get(pk=self.board.pk).state
+        self.task = task_for_item(self.user, self.board, self.board.state[0])
+
+    def _put(self, state):
+        response = self.client.put(
+            f"/boards/{self.board.pk}/", {"state": state}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.json()["state"]
+
+    def test_a_stale_tree_does_not_unplan_the_item(self):
+        a, b = self._put(self.stale)
+
+        self.assertEqual(a["data"]["taskId"], str(self.task.pk))
+        self.assertIsNone(b["data"]["taskId"])
+        self.assertEqual(Board.objects.get(pk=self.board.pk).state, [a, b])
+
+    def test_a_tree_cannot_give_an_item_a_task(self):
+        tree = Board.objects.get(pk=self.board.pk).state
+        tree[1]["data"]["taskId"] = str(self.task.pk)
+
+        a, b = self._put(tree)
+
+        self.assertEqual(a["data"]["taskId"], str(self.task.pk))
+        self.assertIsNone(b["data"]["taskId"])
+
+    def test_removing_the_item_unlinks_the_task(self):
+        tree = Board.objects.get(pk=self.board.pk).state
+
+        self._put(tree[1:])
+
+        self.task.refresh_from_db()
+        self.assertIsNone(self.task.board)
+        self.assertIsNone(self.task.board_item_id)
 
 
 class MergeKeepsTaskLinksTestCase(SimpleTestCase):

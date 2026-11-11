@@ -1,47 +1,39 @@
-"""Orchestrated Today-tab task operations.
+"""The Today list by text, for clients that don't know task ids yet.
 
-Each public operation is wrapped in ``transaction.atomic`` so that the
-multi-record write (Board JSON + Plan.focus + Reflection.good) either all
-commits or none of it does.
+The Android app and the CLI name a task by the text of its line. Each
+operation here finds the task that text means on the day's plan and hands
+over to ``services.tasks``; nothing is matched by text beyond that lookup.
 
-Every write also row-locks the current board (``_current_board(user,
-for_update=True)``) before reading anything else, so concurrent writes — two
-quick taps on the phone — run one after the other. Without it both would read
-the same Board.state / Plan.focus / Reflection.good, and the later save would
-drop the other's change (or ``get_or_create`` would make a duplicate row).
+Every write first row-locks the user's Daily thread, so two quick taps on the
+phone run one after the other instead of both reading the same plan.
 """
 
 from dataclasses import dataclass
 from datetime import date as date_cls
+from datetime import timedelta
 from typing import Optional
 
 from django.db import transaction
-from django.utils import timezone
 
 from ...board_operations import board_thread_for
-from ...models import Board, JournalAdded, Plan, Reflection, Story, Thread
+from ...models import Board, PlanLine, Story, Thread
+from ...utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
+from ..boards import items
+from ..progress import base_of, parse_progress, render_count
+from ..tasks import agenda, documents
+from ..tasks import operations as tasks
+from ..tasks.agenda import AgendaTask as TodayTask
+from ..tasks.base import create_task
 from ..trips.operations import StoryNotFoundError, StoryStoppedError
-from . import board_tree, text_lines
-from .progress import (
-    base_of,
-    marker_value,
-    parse_progress,
-    remaining_after,
-    render_carried,
-    render_count,
-    render_progress,
-)
+from . import board_tree
+
+# How far back an open task of the same text is taken to be the one meant:
+# "copy to today" from a day of last week is that task, not a new one.
+SAME_TASK_WINDOW = timedelta(days=31)
 
 
 class NoBoardError(Exception):
     """No board exists for the user's configured thread."""
-
-
-@dataclass(frozen=True)
-class TodayTask:
-    text: str
-    done: bool
-    mark: Optional[str] = None  # "~" (better) / "^" (best) for boolean tasks
 
 
 @dataclass(frozen=True)
@@ -58,36 +50,6 @@ def _today(today, published=None):
     if published is not None:
         return published.date()
     return date_cls.today()
-
-
-def _maybe_add_journal(user, text_for_marker, note, published, story=None):
-    """Record a JournalAdded on ``user``'s Daily thread with
-    ``- [x] <text_for_marker>`` followed by their free-form note, linked to
-    ``story`` when one is given.
-
-    Skipped when ``note`` is falsy (None or empty string) and there is no
-    ``story`` — confirming a check without any text counts as "just tick the
-    task", not journal-worthy. "Save to trip" with an empty note is an
-    explicit choice, so the marker-only entry is kept and linked.
-
-    Only reached for ``done=True`` completions; the caller (``complete_task``)
-    owns the done-state guard. Deliberately bypasses
-    ``services.journalling.process_journal_entry``: the ``[x]`` prefix would
-    otherwise re-trigger reflection extraction and duplicate the line that
-    ``set_task_done`` already wrote to ``Reflection.good``.
-    """
-    if not note and story is None:
-        return
-    marker = f"- [x] {text_for_marker}"
-    comment = f"{marker}\n{note}" if note else marker
-    journal = JournalAdded.objects.create(
-        thread=_daily_thread(user),
-        comment=comment,
-        published=published or timezone.now(),
-        created_by=user,
-    )
-    if story is not None:
-        story.add(journal)
 
 
 def _owned_active_story(user, story_id):
@@ -107,13 +69,15 @@ def _owned_active_story(user, story_id):
     return story
 
 
-def _daily_thread(user):
-    return Thread.objects.daily(user)
+def _lock_day(user):
+    """Row-lock ``user``'s Daily thread until the transaction ends, and
+    return it: the lock every write to their Today list takes first."""
+    return Thread.objects.select_for_update().get(user=user, name=Thread.DAILY)
 
 
 def _current_board(user, for_update=False):
-    """The latest board of the user's board thread. ``for_update`` row-locks it
-    until the surrounding transaction ends (see the module docstring)."""
+    """The latest board of the user's board thread. ``for_update`` row-locks
+    it until the surrounding transaction ends."""
     thread = board_thread_for(user)
     boards = Board.objects.filter(thread=thread).order_by("-date_started")
     if for_update:
@@ -122,89 +86,24 @@ def _current_board(user, for_update=False):
     if board is None:
         raise NoBoardError(
             f"No board exists for thread {thread.name!r}; "
-            "create one in the web app before using the Android Today endpoints."
+            "create one in the web app before using the Android board picker."
         )
     return board
 
 
-def _progress_count(reflection, base):
-    """The task's completed-step count ``N`` = the largest marker value among
-    Reflection good/better/best lines whose base matches ``base`` (0 if none)."""
-    if reflection is None:
-        return 0
-    values = []
-    for field in ("good", "better", "best"):
-        for line in text_lines.split_lines(getattr(reflection, field)):
-            if base_of(line) == base:
-                value = marker_value(line)
-                if value is not None:
-                    values.append(value)
-    return max(values, default=0)
-
-
-def _boolean_mark(reflection, line):
-    """``(done, mark)`` for a marker-less task line: done if it appears in any
-    Reflection field; ``mark`` is ``~`` (better) / ``^`` (best), None for good."""
-    if reflection is None:
-        return (False, None)
-    if text_lines.has_line(reflection.good, line):
-        return (True, None)
-    if text_lines.has_line(reflection.better, line):
-        return (True, "~")
-    if text_lines.has_line(reflection.best, line):
-        return (True, "^")
-    return (False, None)
-
-
 def plan_tasks(user, pub_date, thread_name):
-    """Return the day's Plan.focus lines of ``user``'s thread as display tasks,
-    deriving state from the Reflection (Plan/Board text is never rewritten by
-    progress).
-
-    - Marker-less line: done if it appears in any Reflection field
-      (good/better/best), with a ``~``/`^`` mark for better/best.
-    - Counted line ``Base (M)``: ``N`` = the largest count logged for ``Base``
-      across the fields; display ``(min(N+1, M)/M)``; done when ``N >= M``.
-
-    Order follows the Plan; empty lines are dropped. Returns an empty list when
-    the thread doesn't exist or there's no plan for the date.
-    """
-    thread = Thread.objects.filter(user=user, name=thread_name).first()
-    if thread is None:
-        return []
-
-    plan = Plan.objects.filter(pub_date=pub_date, thread=thread).first()
-    reflection = Reflection.objects.filter(pub_date=pub_date, thread=thread).first()
-
-    plan_lines = [l for l in text_lines.split_lines(plan.focus if plan else None) if l]
-
-    tasks = []
-    for line in plan_lines:
-        progress = parse_progress(line)
-        if progress is None:
-            done, mark = _boolean_mark(reflection, line)
-            tasks.append(TodayTask(text=line, done=done, mark=mark))
-        else:
-            n = _progress_count(reflection, base_of(line))
-            step = min(n + 1, progress.total)
-            tasks.append(
-                TodayTask(
-                    text=render_progress(line, progress, step),
-                    done=n >= progress.total,
-                )
-            )
-    return tasks
+    """The tasks of ``user``'s plan on ``thread_name`` for ``pub_date``, in
+    the plan's order. See ``services.tasks.agenda``."""
+    return agenda.plan_tasks(user, pub_date, thread_name)
 
 
 @transaction.atomic
 def list_today_tasks(user, today=None):
-    """Return today's Daily Plan lines, each flagged done if it also appears
-    in Reflection.good. Unchecked first, original Plan order preserved within
-    each group.
-    """
-    items = plan_tasks(user, _today(today), Thread.DAILY)
-    items.sort(key=lambda it: it.done)  # False (not done) sorts before True
-    return items
+    """The day's tasks, open ones first, the plan's order kept within each
+    group."""
+    tasks_of_the_day = plan_tasks(user, _today(today), Thread.DAILY)
+    tasks_of_the_day.sort(key=lambda task: task.done)
+    return tasks_of_the_day
 
 
 def _flatten_board(nodes, depth, out):
@@ -215,10 +114,10 @@ def _flatten_board(nodes, depth, out):
         markers = (node.get("data") or {}).get("meaningfulMarkers") or {}
         out.append(
             BoardItem(
-                text=board_tree._node_text(node),
+                text=items.text_of(node),
                 moscow=markers.get("moscow"),
                 depth=depth,
-                done=board_tree.get_state(node) == "done",
+                done=items.is_checked(node),
             )
         )
         _flatten_board(node.get("children") or [], depth + 1, out)
@@ -233,266 +132,250 @@ def list_board_items(user):
     return _flatten_board(board.state, 0, [])
 
 
-@transaction.atomic
-def add_task(user, text, today=None):
-    """Ensure the task exists on the board (root-level append if missing)
-    and that today's Plan.focus contains the line.
-
-    An in-progress display marker ``(N/K)`` — the form the Android list shows
-    for a partly-counted task, carried in verbatim by "Copy to today" / "Move
-    to tomorrow" — is canonically rewritten to the count of the work that still
-    *remains* (``New task (2/3)`` → ``New task (2)``); see
-    ``_add_carried_progress_task``. Plain and already-canonical ``(K)`` tasks
-    take the straight path below.
-    """
-    pub_date = _today(today)
-
-    remaining = remaining_after(text)
-    if remaining is not None:
-        _add_carried_progress_task(user, text, remaining, pub_date)
-        return
-
-    board = _current_board(user, for_update=True)
-
-    if board_tree.find_unscheduled_task_by_text(board.state, text) is None:
-        board_tree.append_unscheduled_task_at_root(board.state, text)
-        board.save()
-
-    daily = _daily_thread(user)
-    plan, _created = Plan.objects.get_or_create(pub_date=pub_date, thread=daily)
-    new_focus = text_lines.add_unique_line(plan.focus, text)
-    if new_focus != (plan.focus or ""):
-        plan.focus = new_focus
-        plan.save()
+def _find_line(plan, text):
+    """The line of ``plan`` that ``text`` names, or None."""
+    if plan is None:
+        return None
+    for line in documents.rows(plan):
+        if line.content and tasks.same_task_text(line.content, text):
+            return line
+    return None
 
 
-def _add_carried_progress_task(user, text, remaining, pub_date):
-    """Carry an in-progress ``(N/K)`` task forward as a fresh ``(remaining)``
-    counter: rename the matching board node's marker to ``(remaining)`` and put
-    the canonical single-number line on the day's Plan.focus.
+def _task_of(user, line):
+    """The task of a plan line. A plain line becomes a task now: the task of
+    the board item with that text if there is one, and as done as the
+    period's reflection says the line was."""
+    if line.task_id:
+        return line.task
 
-    When only one step remains (``remaining == 1`` — the last item, or a
-    finished task whose display capped at ``(K/K)``) the marker is dropped
-    altogether and the task carries forward as a plain, counter-less one.
+    task = _task_for_board_item(user, line.text) or create_task(user, line.text)
+    documents.bind(line, task)
+    tasks.adopt(task, documents.reflection_for(line.plan.thread, line.plan.pub_date))
+    return task
 
-    The board node is matched by base (marker-insensitive) so ``New task (K)`` is
-    found regardless of the display marker; its own text layout is preserved and
-    only the marker value is rewritten. When the task isn't on the board yet, the
-    canonical line is appended at the root.
-    """
-    board = _current_board(user, for_update=True)
-    canonical = render_carried(text, remaining)
-    base = base_of(text)
 
-    hit = board_tree.find_unscheduled_task_by_base(board.state, base)
-    if hit is None:
-        board_tree.append_unscheduled_task_at_root(board.state, canonical)
-        board.save()
-    else:
-        _, _, node = hit
-        node_text = board_tree._node_text(node)
-        new_node_text = (
-            render_carried(node_text, remaining)
-            if parse_progress(node_text) is not None
-            else canonical
+def _item_named(board, text):
+    """The item of ``board`` that ``text`` names: that text exactly, or for
+    a counted one with the counter in any form."""
+    hit = board_tree.find_unscheduled_task_by_text(board.state, text)
+    if hit is None and parse_progress(text) is not None:
+        hit = board_tree.find_unscheduled_task_by_base(board.state, base_of(text))
+        if hit is not None and parse_progress(items.text_of(hit[2])) is None:
+            hit = None
+    return hit[2] if hit is not None else None
+
+
+def _task_for_board_item(user, text, any_board=False):
+    """The task of the item called ``text`` on the user's current board, or
+    None when the board has no such item (or there is no board). With
+    ``any_board`` the other boards the user may change are looked at too."""
+    boards = []
+    try:
+        boards.append(_current_board(user, for_update=True))
+    except NoBoardError:
+        pass
+
+    if any_board:
+        seen = {board.thread_id for board in boards}
+        others = (
+            Board.objects.editable_by(user)
+            .select_for_update()
+            .order_by("thread_id", "-date_started")
         )
-        if node_text != new_node_text:
-            board_tree.rename(node, new_node_text)
-            board.save()
+        for board in others:
+            if board.thread_id not in seen:
+                seen.add(board.thread_id)
+                boards.append(board)
 
-    daily = _daily_thread(user)
-    plan, _created = Plan.objects.get_or_create(pub_date=pub_date, thread=daily)
-    new_focus = text_lines.add_unique_line(plan.focus, canonical)
-    if new_focus != (plan.focus or ""):
-        plan.focus = new_focus
-        plan.save()
+    for board in boards:
+        item = _item_named(board, text)
+        if item is not None:
+            return tasks.task_for_item(user, board, item)
+    return None
+
+
+def planned_task(user, text, day, threads=Thread.BUILTIN_NAMES):
+    """The task ``text`` names on the plans ``user`` has for ``day``: the
+    day's, the week's, the month's (those of ``threads``). None when no plan
+    has such a line. Call it inside a transaction."""
+    periods = {
+        Thread.DAILY: day,
+        Thread.WEEKLY: make_last_day_of_the_week(day),
+        Thread.BIG_PICTURE: make_last_day_of_the_month(day),
+    }
+    for thread_name in threads:
+        thread = Thread.objects.filter(user=user, name=thread_name).first()
+        if thread is None:
+            continue
+        line = _find_line(documents.plan_for(thread, periods[thread_name]), text)
+        if line is not None:
+            return _task_of(user, line)
+    return None
+
+
+def _task_planned_elsewhere(user, text, day):
+    """The task ``text`` names among what the user has planned around
+    ``day``: on the week's or the month's plan, or an open task on another
+    recent day."""
+    task = planned_task(user, text, day, threads=(Thread.WEEKLY, Thread.BIG_PICTURE))
+    if task is not None:
+        return task
+
+    recent = (
+        PlanLine.objects.filter(
+            plan__thread__user=user,
+            plan__pub_date__gte=day - SAME_TASK_WINDOW,
+            task__isnull=False,
+            task__completed_at__isnull=True,
+        )
+        .select_related("task")
+        .order_by("-plan__pub_date")
+    )
+    for line in recent:
+        if tasks.same_task_text(line.task.text, text):
+            return line.task
+    return None
+
+
+def _new_task(user, text):
+    """A task for ``text`` that names nothing planned. A counter shown as
+    "step N of K" starts the new task with the steps before N done."""
+    progress = parse_progress(text)
+    if progress is None or progress.current == 0:
+        return create_task(user, text)
+
+    task = create_task(user, render_count(text, progress, progress.total))
+    task.done_count = min(progress.current - 1, progress.total)
+    task.save(update_fields=["done_count"])
+    return task
+
+
+def _task_for_text(user, text, day, any_board=False):
+    return (
+        _task_planned_elsewhere(user, text, day)
+        or _task_for_board_item(user, text, any_board=any_board)
+        or _new_task(user, text)
+    )
+
+
+@transaction.atomic
+def plan_text(user, text, thread_name, pub_date, day, any_board=False):
+    """Put the task ``text`` names on ``user``'s plan of the thread called
+    ``thread_name`` for ``pub_date``, and return the plan.
+
+    That is, in this order: nothing when the plan has it; the task of that
+    text already planned for the week or the month of ``day``, or for a
+    recent day; the task of the board item of that text (the item becomes
+    planned); a new task. A task typed in here is not written to the board.
+
+    Raises ``Thread.DoesNotExist`` when the user has no such thread.
+    """
+    _lock_day(user)
+    thread = Thread.objects.get(user=user, name=thread_name)
+    plan = documents.plan_for(thread, pub_date, create=True)
+
+    if _find_line(plan, text) is None:
+        tasks.plan(_task_for_text(user, text, day, any_board=any_board), plan)
+
+    return plan
+
+
+def add_task(user, text, today=None):
+    """Put the task ``text`` names on the day's plan (see ``plan_text``)."""
+    day = _today(today)
+    plan_text(user, text, Thread.DAILY, day, day)
+
+
+def _set_done(user, text, done, today, published, note=None, story_id=None):
+    day = _today(today, published)
+    daily = _lock_day(user)
+    plan = documents.plan_for(daily, day, create=True)
+
+    line = _find_line(plan, text)
+    if line is not None:
+        task = _task_of(user, line)
+    elif done:
+        task = _task_for_text(user, text, day)
+        tasks.plan(task, plan)
+    else:
+        return None
+
+    if not done:
+        if not tasks.reopen(task):
+            return None
+        return tasks.display_text(task)
+
+    if task.done and parse_progress(task.text) is None:
+        return tasks.display_text(task)
+
+    story = _owned_active_story(user, story_id) if story_id is not None else None
+    tasks.complete(task, user, day=day, at=published, note=note, story=story)
+    task.refresh_from_db()
+    return tasks.display_text(task)
 
 
 @transaction.atomic
 def set_task_done(user, text, done, today=None, published=None):
-    """Mark the task as done / not-done and sync ``Reflection.good``.
+    """Do a step of the task ``text`` names on the day's plan (``done``), or
+    take the last one back.
 
-    For plain tasks this flips the board node's ``data.state`` and adds /
-    removes the line in ``Reflection.good``. For tasks whose text contains
-    a progress marker (e.g. ``Do tasks (3)``, ``(2/4) Walk 1km``), this
-    advances or rewinds the marker — see ``_set_task_done_progress``.
-
-    Returns the marker text a journal entry should use — the input ``text``
-    for plain tasks, or the rendered progress text (e.g. ``Do tasks (3/3)``)
-    for progress tasks — or ``None`` when the request is a no-op (unticking a
-    partially-progressed task). Journal creation itself lives in
-    ``complete_task``; ``process_journal_entry`` calls this directly and
-    ignores the return.
+    Returns the task's text as lists now show it, or None when there was
+    nothing to take back.
     """
-    progress = parse_progress(text)
-    if progress is None:
-        return _set_task_done_boolean(user, text, done, today, published)
-    return _set_task_done_progress(user, text, done, progress, today, published)
+    return _set_done(user, text, done, today, published)
 
 
 @transaction.atomic
 def complete_task(
     user, text, done, today=None, note=None, published=None, story_id=None
 ):
-    """Android-edge orchestration: mark the task done / not-done and, for a
-    ``done=True`` completion carrying a ``note`` (or a "Save to trip"
-    ``story_id``), record a ``JournalAdded`` linked to the optional trip.
+    """As ``set_task_done``; a completion with a ``note``, or saved to the
+    trip ``story_id``, also makes a journal entry.
 
-    ``story_id`` links that journal entry to an active trip; raises
-    ``StoryNotFoundError`` / ``StoryStoppedError`` like the trip endpoints.
-    The whole operation is atomic, so a story error rolls back the board and
-    reflection writes too.
+    ``story_id`` raises ``StoryNotFoundError`` / ``StoryStoppedError`` like
+    the trip endpoints, and nothing is written.
     """
-    marker_text = set_task_done(user, text, done, today=today, published=published)
-    if done and marker_text is not None:
-        story = _owned_active_story(user, story_id) if story_id is not None else None
-        _maybe_add_journal(user, marker_text, note, published, story)
-
-
-def _set_task_done_boolean(user, text, done, today, published):
-    pub_date = _today(today, published)
-    board = _current_board(user, for_update=True)
-
-    new_node_state = "done" if done else "open"
-    hit = board_tree.find_unscheduled_task_by_text(board.state, text)
-    if hit is None:
-        node = board_tree.append_unscheduled_task_at_root(board.state, text)
-        board_tree.set_state(node, new_node_state)
-        board.save()
-    else:
-        _, _, node = hit
-        if board_tree.get_state(node) != new_node_state:
-            board_tree.set_state(node, new_node_state)
-            board.save()
-
-    daily = _daily_thread(user)
-    reflection, _created = Reflection.objects.get_or_create(
-        pub_date=pub_date, thread=daily
+    _set_done(
+        user,
+        text,
+        done,
+        today,
+        published,
+        note=note if done else None,
+        story_id=story_id if done else None,
     )
-    if done:
-        new_good = text_lines.add_unique_line(reflection.good, text)
-    else:
-        new_good = text_lines.remove_line(reflection.good, text)
-    if new_good != (reflection.good or ""):
-        reflection.good = new_good
-        reflection.save()
-
-    return text
-
-
-def _cross_if_complete(board, base, n):
-    """Cross / un-cross the board node matching ``base`` based on whether its
-    completed count ``n`` reached the node's own total. No text edits. Returns
-    True if the node state changed (caller saves the board)."""
-    hit = board_tree.find_unscheduled_task_by_base(board.state, base)
-    if hit is None:
-        return False
-    _, _, node = hit
-    node_progress = parse_progress(board_tree._node_text(node))
-    total = node_progress.total if node_progress else 1
-    new_state = "done" if n >= total else "open"
-    if board_tree.get_state(node) != new_state:
-        board_tree.set_state(node, new_state)
-        return True
-    return False
-
-
-def _set_task_done_progress(user, text, done, progress, today, published):
-    """Android-tick progression under the reflection-count model: read the
-    task's current count ``N`` from the Reflection, log the next count line
-    ``Base (N±1)`` (increment on tick, decrement on untick), and cross the
-    matching board node when the count reaches its total. Plan/Board text is
-    never rewritten.
-
-    Returns the display marker text for an optional journal entry, or None on a
-    no-op (untick at zero).
-    """
-    pub_date = _today(today, published)
-    base = base_of(text)
-    board = _current_board(user, for_update=True)
-    daily = _daily_thread(user)
-    reflection, _created = Reflection.objects.get_or_create(
-        pub_date=pub_date, thread=daily
-    )
-    n = _progress_count(reflection, base)
-
-    if done:
-        new_n = n + 1
-        new_good = text_lines.add_unique_line(
-            reflection.good, render_count(text, progress, new_n)
-        )
-    else:
-        if n <= 0:
-            return None
-        new_n = n - 1
-        new_good = text_lines.remove_line(
-            reflection.good, render_count(text, progress, n)
-        )
-    if new_good != (reflection.good or ""):
-        reflection.good = new_good
-        reflection.save()
-
-    if _cross_if_complete(board, base, new_n):
-        board.save()
-
-    return render_progress(text, progress, min(new_n + 1, progress.total))
 
 
 @transaction.atomic
 def delete_task(user, text, today=None):
-    """Remove the task from the board (only if leaf) and from today's
-    Plan.focus. Reflection.good is intentionally left untouched.
+    """Take the task ``text`` names off the day's plan. The board is left
+    alone, and so is what the reflection says."""
+    day = _today(today)
+    daily = _lock_day(user)
+    plan = documents.plan_for(daily, day)
 
-    Board removal matches the exact text, so a carried progress task whose node
-    was already renamed to its remaining count survives (that node is the work
-    moved forward, not deleted).
-    """
-    pub_date = _today(today)
-    board = _current_board(user, for_update=True)
-
-    hit = board_tree.find_unscheduled_task_by_text(board.state, text)
-    if hit is not None:
-        parent_list, idx, node = hit
-        if not board_tree.has_children(node):
-            parent_list.pop(idx)
-            board.save()
-
-    _remove_from_daily_plan(user, text, pub_date)
+    line = _find_line(plan, text)
+    if line is None:
+        return
+    if line.task_id:
+        tasks.unplan(line.task, plan)
+    else:
+        line.delete()
+        documents.write_cache(plan)
 
 
 @transaction.atomic
 def move_task(user, text, from_date, to_date):
-    """Move the task from one day's Plan.focus to another's. Unlike
-    ``delete_task`` this never removes the board node, so the task keeps its
-    place in the tree and its markers. Reflection.good is left untouched.
+    """Move the task ``text`` names from one day's plan to another's. It is
+    the same task on the new day, with the steps done so far."""
+    daily = _lock_day(user)
+    from_plan = documents.plan_for(daily, from_date)
 
-    A progress task's display ``(N/K)`` form is carried as its remaining count;
-    see ``add_task``.
-    """
-    add_task(user, text, today=to_date)
-    _remove_from_daily_plan(user, text, from_date)
+    line = _find_line(from_plan, text)
+    if line is None:
+        add_task(user, text, today=to_date)
+        return
 
-
-def _remove_from_daily_plan(user, text, pub_date):
-    plan = Plan.objects.filter(pub_date=pub_date, thread=_daily_thread(user)).first()
-    if plan and plan.focus:
-        new_focus = _remove_plan_line(plan.focus, text)
-        if new_focus != plan.focus:
-            plan.focus = new_focus
-            plan.save()
-
-
-def _remove_plan_line(focus, text):
-    """Drop ``text`` from a Plan.focus. Plain lines are removed by exact match;
-    a progress-marked ``text`` removes the counted line whose base matches
-    (marker-insensitive), so the stored ``(K)`` form is found when the caller
-    passes the display ``(N/K)`` form."""
-    if parse_progress(text) is None:
-        return text_lines.remove_line(focus, text)
-    base = base_of(text)
-    kept = [
-        line
-        for line in text_lines.split_lines(focus)
-        if not (parse_progress(line) is not None and base_of(line) == base)
-    ]
-    return "\n".join(kept)
+    task = _task_of(user, line)
+    tasks.move(task, from_plan, documents.plan_for(daily, to_date, create=True))

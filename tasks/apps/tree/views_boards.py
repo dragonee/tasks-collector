@@ -1,6 +1,7 @@
 import datetime
 
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import get_object_or_404, render
 
 from django_filters import rest_framework as filters
@@ -16,6 +17,7 @@ from .board_operations import (
 )
 from .models import Board, BoardCommitted
 from .serializers import BoardSerializer, BoardSummary
+from .services.tasks import board_links
 
 
 class BoardFilter(filters.FilterSet):
@@ -48,7 +50,13 @@ class BoardViewSet(viewsets.ModelViewSet):
             "thread__user"
         )
 
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
+        # Whoever writes a board takes its row first (see services.tasks):
+        # the tree is saved whole, and a task completed meanwhile ticks an
+        # item of it.
+        list(Board.objects.select_for_update().filter(pk=kwargs.get("pk")))
+
         # A stale or broken client (e.g. a tree view that serialized an empty
         # model) can PUT `state: []` and silently erase the whole board. An
         # empty state is only plausible when the board is already down to its
@@ -67,6 +75,13 @@ class BoardViewSet(viewsets.ModelViewSet):
             )
 
         return super().update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        # The tree comes from a browser that may have loaded it before an
+        # item was planned: which task an item has is the server's to say.
+        board = serializer.save()
+        if board_links.reapply(board):
+            board.save()
 
 
 @api_view(["POST"])
