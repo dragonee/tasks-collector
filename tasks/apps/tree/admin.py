@@ -49,8 +49,10 @@ class ThreadAdmin(admin.ModelAdmin):
 
 @admin.action(description="Close selected observations")
 def close_observations(modeladmin, request, queryset):
+    # Like any other admin write, the close is credited to the observation's
+    # owner, not to the admin who ran the action.
     for observation in queryset:
-        close_observation(observation.pk, created_by=request.user)
+        close_observation(observation.pk)
 
 
 class ObservationUpdatedInline(admin.StackedInline):
