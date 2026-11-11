@@ -6,7 +6,6 @@ from polymorphic.admin import PolymorphicChildModelAdmin, PolymorphicParentModel
 
 from .models import *
 from .services.observations.closing import close_observation
-from .services.tasks import documents
 
 
 class ObservationTypeAdmin(admin.ModelAdmin):
@@ -52,19 +51,11 @@ class ReflectionLineInline(admin.TabularInline):
     raw_id_fields = ("task", "completion")
 
 
-class DocumentAdmin(NamedAfterThreadAdmin):
-    """A plan or a reflection, with its lines."""
-
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        documents.write_copy(form.instance)
-
-
-class PlanAdmin(DocumentAdmin):
+class PlanAdmin(NamedAfterThreadAdmin):
     inlines = [PlanLineInline]
 
 
-class ReflectionAdmin(DocumentAdmin):
+class ReflectionAdmin(NamedAfterThreadAdmin):
     inlines = [ReflectionLineInline]
 
 

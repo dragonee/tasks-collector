@@ -95,21 +95,6 @@ class TextAndLinesTestCase(DocumentTestCase):
         )
         self.assertEqual(Task.objects.count(), 2)
 
-    def test_the_text_columns_say_what_the_lines_say(self):
-        # Nothing reads them; the release before this one would.
-        plan = self._written("a\nb")
-        reflection = make_reflection(self.daily, self.today, good="x", best="y\nz")
-        rename(Task.objects.get(text="a"), "c")
-        complete(Task.objects.get(text="b"), self.user, day=self.today)
-
-        plan.refresh_from_db()
-        reflection.refresh_from_db()
-        self.assertEqual(plan.focus_copy, "c\nb")
-        self.assertEqual(
-            (reflection.good_copy, reflection.better_copy, reflection.best_copy),
-            ("x\nb", None, "y\nz"),
-        )
-
 
 class WritingAPlanTestCase(DocumentTestCase):
     def test_lines_become_tasks(self):

@@ -93,11 +93,6 @@ Text is written into a document in two ways (`services/tasks/documents.py`):
 - `DocumentEdit.apply` for text from the day page's editors, whose lines carry
   anchors (next section).
 
-The database still has the four text columns the lines came from, as
-`focus_copy`, `good_copy`, `better_copy` and `best_copy`. Nothing reads them.
-Every change to rows ends with `write_copy`, which sets them, so the release
-before this one (which read them) could be put back without losing anything.
-
 How rewritten text maps onto rows:
 
 | The text now | Plan | Reflection |
@@ -282,11 +277,12 @@ Migration 0101 gave every line of every plan and reflection a row, and made task
 of the lines of the plans whose period was not over (Daily from the day before,
 the current Weekly and big-picture). Older lines are plain lines, word for word.
 
+The text columns the lines came from (`Plan.focus`, `Reflection.good|better|best`)
+were kept as unread copies by 0102 and dropped by 0103. Reversing 0103 brings
+them back, saying what the lines say.
+
 ## What is next
 
-1. The text columns go: drop `focus_copy`, `good_copy`, `better_copy`,
-   `best_copy` and `write_copy`. Not reversible once deployed, and after it the
-   release that read the columns cannot be put back.
-2. Android: task calls made offline are lost; they could go through the outbox.
-3. `tc reflect` could carry anchors, so a reworded line stays its task's in the
+1. Android: task calls made offline are lost; they could go through the outbox.
+2. `tc reflect` could carry anchors, so a reworded line stays its task's in the
    week's and the month's reflection.
