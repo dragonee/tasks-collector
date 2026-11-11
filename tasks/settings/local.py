@@ -38,6 +38,10 @@ if not is_running_tests:
 
 VALIDATE_FRONT_PASSWORD = False
 
+# Each stack devenv.py runs on this host names its own (see the compose file):
+# browsers keep one set of cookies for localhost, whatever the port.
+SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "sessionid")
+
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static", "local")]
 
 FIXTURE_DIRS = [

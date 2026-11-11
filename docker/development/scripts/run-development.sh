@@ -23,4 +23,8 @@ if [ "$HAS_TYPES" = "False" ]; then
     $MANAGE_PY loaddata tasks/fixtures/dev/initial_state.json
 fi
 
+# A new database also gets sample data to use the app with (django and alice,
+# password django); one with events in it is left as it is.
+$MANAGE_PY seed_dev --new-database-only
+
 $MANAGE_PY runserver 0.0.0.0:8000

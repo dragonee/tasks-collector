@@ -1,3 +1,8 @@
+# TASKS_PORT_PREFIX runs several stacks side by side (see devenv.py): with
+# prefix 4 the stack is the project tasks-4 on ports 4000, 4900, 4901 and
+# 4079. Unset, it is the project development on 8000, 9000, 9001 and 7079.
+# ${P:-8000}${P:+000} reads: 8000 when P is unset, otherwise P followed by 000.
+name: ${TASKS_PORT_PREFIX:+tasks-}${TASKS_PORT_PREFIX:-development}
 
 networks:
     tasks:
@@ -29,8 +34,8 @@ services:
             MINIO_ROOT_USER: minioadmin
             MINIO_ROOT_PASSWORD: minioadmin
         ports:
-            - "9000:9000"
-            - "9001:9001"
+            - "${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}:9000"
+            - "${TASKS_PORT_PREFIX:-9001}${TASKS_PORT_PREFIX:+901}:9001"
         volumes:
             - "./minio:/data"
         networks:
@@ -66,7 +71,8 @@ services:
             AWS_SECRET_ACCESS_KEY: minioadmin
             AWS_S3_BUCKET: trip-photos
             AWS_S3_ENDPOINT_URL: "http://tasks-minio:9000"
-            AWS_S3_PUBLIC_ENDPOINT_URL: "http://10.0.2.2:9000"
+            AWS_S3_PUBLIC_ENDPOINT_URL: "http://10.0.2.2:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
+            AWS_S3_WEB_ENDPOINT_URL: "http://localhost:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
         command: "/app/docker/development/scripts/run-celery.sh"
         working_dir: /app
     tasks-backend:
@@ -74,7 +80,7 @@ services:
         volumes:
             - "../..:/app"
         ports:
-            - "8000:8000"
+            - "${TASKS_PORT_PREFIX:-8000}${TASKS_PORT_PREFIX:+000}:8000"
         networks:
             - tasks
         depends_on:
@@ -87,7 +93,10 @@ services:
             AWS_SECRET_ACCESS_KEY: minioadmin
             AWS_S3_BUCKET: trip-photos
             AWS_S3_ENDPOINT_URL: "http://tasks-minio:9000"
-            AWS_S3_PUBLIC_ENDPOINT_URL: "http://10.0.2.2:9000"
+            AWS_S3_PUBLIC_ENDPOINT_URL: "http://10.0.2.2:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
+            AWS_S3_WEB_ENDPOINT_URL: "http://localhost:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
+            # Stacks on one host share localhost's cookies whatever the port.
+            SESSION_COOKIE_NAME: "sessionid${TASKS_PORT_PREFIX:-}"
         command: "/app/docker/development/scripts/run-development.sh"
         working_dir: /app
     tasks-frontend:
@@ -99,7 +108,7 @@ services:
     mcp-postgres:
         image: bytebase/dbhub:latest
         ports:
-            - "7079:8080"
+            - "${TASKS_PORT_PREFIX:-7079}${TASKS_PORT_PREFIX:+079}:8080"
         networks:
             - tasks
         environment:
