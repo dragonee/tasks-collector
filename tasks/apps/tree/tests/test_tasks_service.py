@@ -23,7 +23,15 @@ from ..services.tasks import agenda, documents
 from ..services.tasks import operations as tasks
 from ..services.today import NoBoardError, board_tree, list_board_items
 from ..services.today.operations import planned_task
-from .factories import complete, make_board, make_profile, make_thread, plan_task
+from .factories import (
+    complete,
+    make_board,
+    make_plan,
+    make_profile,
+    make_reflection,
+    make_thread,
+    plan_task,
+)
 
 TODAY = date_cls(2026, 5, 21)
 TOMORROW = date_cls(2026, 5, 22)
@@ -153,7 +161,7 @@ class TaskServiceTestCase(TestCase):
         # Done on the day, it is done on the week.
         weekly = make_thread(self.user, "Weekly")
         SUNDAY = date_cls(2026, 5, 24)
-        Plan.objects.create(pub_date=SUNDAY, thread=weekly, focus="write report")
+        make_plan(weekly, SUNDAY, "write report")
 
         task = self._done("write report")
 
@@ -278,20 +286,18 @@ class TaskServiceTestCase(TestCase):
         # line keeps its task, and goes when the task is reopened.
         task = self._done("buy bread")
         reflection = self._reflection()
-        reflection.good = "slept well\nbuy bread, rye this time"
-        reflection.save()
+        documents.write(reflection, {"good": "slept well\nbuy bread, rye this time"})
 
         tasks.reopen(task)
 
-        reflection.refresh_from_db()
         self.assertEqual(reflection.good, "slept well")
 
     def test_a_plain_plan_line_becomes_a_task_as_done_as_it_was(self):
         # Written as text before tasks had rows: done because the reflection
         # says so. Named by its text it becomes a task, done; taking that
         # back takes the reflection's line.
-        Plan.objects.create(pub_date=TODAY, thread=self.daily, focus="a\nb")
-        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="b\nc")
+        make_plan(self.daily, TODAY, "a\nb")
+        make_reflection(self.daily, TODAY, good="b\nc")
         self.assertEqual(
             [
                 (shown.text, shown.done, shown.id)

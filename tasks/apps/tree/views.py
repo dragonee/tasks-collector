@@ -54,14 +54,9 @@ class PlanViewSet(viewsets.ModelViewSet):
     filterset_class = PlanFilter
 
     def get_queryset(self):
-        return Plan.objects.filter(thread__user=self.request.user)
-
-    # Text written here is a plan: its lines become tasks.
-    def perform_create(self, serializer):
-        documents.sync_lines(serializer.save(), create_tasks=True)
-
-    def perform_update(self, serializer):
-        documents.sync_lines(serializer.save(), create_tasks=True)
+        return Plan.objects.filter(thread__user=self.request.user).prefetch_related(
+            "lines"
+        )
 
     def perform_destroy(self, instance):
         documents.delete(instance)
@@ -72,13 +67,9 @@ class ReflectionViewSet(viewsets.ModelViewSet):
     serializer_class = ReflectionSerializer
 
     def get_queryset(self):
-        return Reflection.objects.filter(thread__user=self.request.user)
-
-    def perform_create(self, serializer):
-        documents.sync_lines(serializer.save(), create_tasks=False)
-
-    def perform_update(self, serializer):
-        documents.sync_lines(serializer.save(), create_tasks=False)
+        return Reflection.objects.filter(
+            thread__user=self.request.user
+        ).prefetch_related("lines")
 
 
 # XXX should we permit only POST here?
@@ -258,8 +249,8 @@ def _serialize_plan(user, pub_date, thread_name):
 @api_view(["GET"])
 def today_plans(request):
     """Return the Daily / Weekly / Big-picture plans for the journal template,
-    each task flagged with whether it has been crossed off (i.e. the line also
-    appears in that day's Reflection.good). Powers the CLI `journal` command.
+    each task with whether it is done, its id and its anchor. Powers the CLI
+    `journal` command.
 
     The Daily plan is for ``date`` (a YYYY-MM-DD query param, the caller's
     local day; defaults to the server's today), the Weekly plan for the end of

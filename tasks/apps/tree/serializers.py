@@ -10,6 +10,7 @@ from rest_polymorphic.serializers import PolymorphicSerializer
 
 from .models import *
 from .services.observations.event_creation import create_observation_change_events
+from .services.tasks import documents
 from .templatetags.model_presenters import first_line
 
 
@@ -122,17 +123,67 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = ["id", "default_board_thread", "habit_keywords"]
 
 
-class PlanSerializer(serializers.HyperlinkedModelSerializer):
+class LinesAsText(serializers.CharField):
+    """A list of a document's lines, read and written as text."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("allow_blank", True)
+        kwargs.setdefault("allow_null", True)
+        kwargs.setdefault("trim_whitespace", False)
+        super().__init__(**kwargs)
+
+
+class DocumentSerializer(serializers.HyperlinkedModelSerializer):
+    """A plan or a reflection as text. The text fields given are written as
+    lines (``documents.write``); a line that is still there keeps its task."""
+
+    text_fields = ()
+    # Whether what is written here is a plan: its new lines become tasks.
+    creates_tasks = False
+
     # Write-only: what clients read stays as it was.
     thread = UserThreadField(write_only=True)
+
+    def _texts(self, validated_data):
+        return {
+            field: validated_data.pop(field) or ""
+            for field in self.text_fields
+            if field in validated_data
+        }
+
+    @transaction.atomic
+    def create(self, validated_data):
+        texts = self._texts(validated_data)
+        document = super().create(validated_data)
+        documents.write(document, texts, create_tasks=self.creates_tasks)
+        return document
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        texts = self._texts(validated_data)
+        document = super().update(instance, validated_data)
+        documents.write(document, texts, create_tasks=self.creates_tasks)
+        return document
+
+
+class PlanSerializer(DocumentSerializer):
+    text_fields = documents.PLAN_FIELDS
+    creates_tasks = True
+
+    focus = LinesAsText()
 
     class Meta:
         model = Plan
         fields = ["id", "pub_date", "focus", "thread"]
 
 
-class ReflectionSerializer(serializers.HyperlinkedModelSerializer):
-    thread = UserThreadField(write_only=True)
+class ReflectionSerializer(DocumentSerializer):
+    text_fields = documents.REFLECTION_FIELDS
+
+    good = LinesAsText()
+    better = LinesAsText()
+    best = LinesAsText()
 
     class Meta:
         model = Reflection

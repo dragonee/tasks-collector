@@ -81,21 +81,22 @@ was typed into a plan. Whoever has access to the board has access to the task:
 
 ## Lines and text
 
-The rows are what is true. `Plan.focus` and `Reflection.good|better|best` hold the
-same lines joined with newlines, for everything that reads text: the day page's
-forms, `plans/`, `reflections/`, `api/events/daily/`, the CLI, the Android app's
-week section.
+The rows are all there is. `plan.focus` and `reflection.good|better|best` are
+properties: the lines joined with newlines. That is what the text readers get:
+`plans/`, `reflections/`, `api/events/daily/`, the CLI.
 
-Text can be written into a column without the rows knowing (a form, the API, the
-admin, a release that predates the rows). `services/tasks/documents.py` handles
-both directions:
+Text is written into a document in two ways (`services/tasks/documents.py`):
 
-- `plan_for` / `reflection_for` are how code gets a document. They call
-  `ensure_lines`, which makes the rows say what the text says.
-- `sync_lines(doc, create_tasks)` does the same for text someone wrote as a plan
-  (the day page, `plans/`): with `create_tasks`, new lines become tasks.
-- Every change to rows ends with `write_cache`, which sets the columns. A column
-  that already says what the rows say is left alone, line endings included.
+- `write(doc, {field: text}, create_tasks)` for plain text (`plans/`,
+  `reflections/`, the day page without JavaScript). With `create_tasks` (text
+  someone wrote as a plan) new lines become tasks.
+- `DocumentEdit.apply` for text from the day page's editors, whose lines carry
+  anchors (next section).
+
+The database still has the four text columns the lines came from, as
+`focus_copy`, `good_copy`, `better_copy` and `best_copy`. Nothing reads them.
+Every change to rows ends with `write_copy`, which sets them, so the release
+before this one (which read them) could be put back without losing anything.
 
 How rewritten text maps onto rows:
 
@@ -283,7 +284,9 @@ the current Weekly and big-picture). Older lines are plain lines, word for word.
 
 ## What is next
 
-1. The text columns go.
+1. The text columns go: drop `focus_copy`, `good_copy`, `better_copy`,
+   `best_copy` and `write_copy`. Not reversible once deployed, and after it the
+   release that read the columns cannot be put back.
 2. Android: task calls made offline are lost; they could go through the outbox.
 3. `tc reflect` could carry anchors, so a reworded line stays its task's in the
    week's and the month's reflection.

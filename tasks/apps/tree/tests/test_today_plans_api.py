@@ -8,7 +8,13 @@ from rest_framework.test import APITestCase
 
 from ..models import Plan, Reflection, Task
 from ..utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
-from .factories import complete, make_thread, plan_task
+from .factories import (
+    complete,
+    make_plan,
+    make_reflection,
+    make_thread,
+    plan_task,
+)
 
 # A Thursday — end-of-week and end-of-month fall on distinct later dates.
 TODAY = date_cls(2026, 6, 25)
@@ -46,11 +52,9 @@ class TodayPlansAPITestCase(APITestCase):
         self.assertIn(self._get().status_code, (401, 403))
 
     def test_daily_plan_flags_crossed_off_tasks_in_plan_order(self):
-        Plan.objects.create(
-            pub_date=TODAY, thread=self.daily, focus="alpha\nbravo\ncharlie"
-        )
+        make_plan(self.daily, TODAY, "alpha\nbravo\ncharlie")
         # "bravo" appears verbatim in good -> it's crossed off.
-        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="bravo")
+        make_reflection(self.daily, TODAY, good="bravo")
 
         resp = self._get()
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -69,9 +73,9 @@ class TodayPlansAPITestCase(APITestCase):
     def test_weekly_and_monthly_use_period_end_dates(self):
         eow = make_last_day_of_the_week(TODAY)
         eom = make_last_day_of_the_month(TODAY)
-        Plan.objects.create(pub_date=eow, thread=self.weekly, focus="week task")
-        Plan.objects.create(pub_date=eom, thread=self.bigpic, focus="month task")
-        Reflection.objects.create(pub_date=eom, thread=self.bigpic, good="month task")
+        make_plan(self.weekly, eow, "week task")
+        make_plan(self.bigpic, eom, "month task")
+        make_reflection(self.bigpic, eom, good="month task")
 
         body = self._get().json()
 
@@ -92,8 +96,8 @@ class TodayPlansAPITestCase(APITestCase):
     def test_crlf_stored_focus_returns_clean_task_text(self):
         # Some writers store the focus with \r\n endings; task text must come
         # back with no stray \r so the journal prints normal newlines.
-        Plan.objects.create(pub_date=TODAY, thread=self.daily, focus="alpha\r\nbravo")
-        Reflection.objects.create(pub_date=TODAY, thread=self.daily, good="bravo")
+        make_plan(self.daily, TODAY, "alpha\r\nbravo")
+        make_reflection(self.daily, TODAY, good="bravo")
 
         tasks = self._get().json()["daily"]["tasks"]
         self.assertEqual(
@@ -105,7 +109,7 @@ class TodayPlansAPITestCase(APITestCase):
         )
 
     def test_a_plain_line_has_no_task_id(self):
-        Plan.objects.create(pub_date=TODAY, thread=self.daily, focus="alpha")
+        make_plan(self.daily, TODAY, "alpha")
 
         (task,) = self._get().json()["daily"]["tasks"]
 
@@ -126,7 +130,7 @@ class TodayPlansAPITestCase(APITestCase):
         # The same task on the week's and the day's plan: ticked on the day,
         # it reads done wherever it is listed.
         eow = make_last_day_of_the_week(TODAY)
-        Plan.objects.create(pub_date=eow, thread=self.weekly, focus="write report (2)")
+        make_plan(self.weekly, eow, "write report (2)")
         task = plan_task(self.user, "write report (2)", TODAY)
         complete(task, self.user, TODAY)
         complete(task, self.user, TODAY)

@@ -63,7 +63,7 @@ from ..services.streams import share
 from ..services.tasks.operations import complete
 from ..services.today import plan_text
 from ..services.trips import add_trip_note, share_trip, start_trip
-from .factories import make_habit, make_thread
+from .factories import make_habit, make_plan, make_reflection, make_thread
 from .html import nested_forms
 
 SECRET = "ALICE-SECRET"
@@ -152,10 +152,8 @@ class RouteIsolationTestCase(APITestCase):
         cls.board.focus = SECRET
         cls.board.state = [{"id": "1", "text": SECRET, "children": [], "data": {}}]
         cls.board.save()
-        cls.plan = Plan.objects.create(pub_date=cls.day, thread=daily, focus=SECRET)
-        cls.reflection = Reflection.objects.create(
-            pub_date=cls.day, thread=daily, good=SECRET
-        )
+        cls.plan = make_plan(daily, cls.day, SECRET)
+        cls.reflection = make_reflection(daily, cls.day, good=SECRET)
 
         # A task of hers, planned for the day and done: its completion is an
         # event in the stream of her board.

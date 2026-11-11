@@ -1,19 +1,21 @@
-"""Plans and reflections as documents of lines: the rows say what the text
-columns say, and keep their tasks when the text is rewritten."""
+"""Plans and reflections as documents of lines: text written into one is
+its lines, and the lines keep their tasks when the text is rewritten."""
 
 import datetime
 
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Plan, PlanLine, Reflection, ReflectionLine, Task
+from ..models import Plan, PlanLine, Reflection, ReflectionLine, Task, Thread
 from ..services.tasks import documents
 from ..services.tasks.base import create_task
 from ..services.tasks.operations import complete, rename
-from .factories import make_thread
+from .factories import make_plan, make_reflection, make_thread
 
 LONG_AGO = datetime.date(2020, 3, 4)
 
@@ -27,17 +29,21 @@ class DocumentTestCase(TestCase):
         cls.side = make_thread(cls.user, "Sidetrack")
         cls.today = datetime.date.today()
 
-    def _plan(self, focus, thread=None, pub_date=None):
-        return Plan.objects.create(
-            thread=thread or self.daily, pub_date=pub_date or self.today, focus=focus
+    def _plan(self, focus, thread=None, pub_date=None, create_tasks=False):
+        return make_plan(
+            thread or self.daily, pub_date or self.today, focus, create_tasks
         )
+
+    def _written(self, focus, **where):
+        """A plan someone wrote: its lines are tasks."""
+        return self._plan(focus, create_tasks=True, **where)
 
     def _texts(self, doc, field=None):
         return [row.content for row in documents.rows(doc, field)]
 
 
-class EnsureLinesTestCase(DocumentTestCase):
-    def test_text_as_history_has_it_round_trips(self):
+class TextAndLinesTestCase(DocumentTestCase):
+    def test_text_reads_back_as_written(self):
         # CRLF, a blank line inside, separators, a trailing newline.
         for focus in (
             "a\r\nb",
@@ -49,53 +55,38 @@ class EnsureLinesTestCase(DocumentTestCase):
             with self.subTest(focus=focus):
                 plan = self._plan(focus, pub_date=LONG_AGO)
 
-                documents.ensure_lines(plan)
-
-                self.assertEqual(
-                    documents.render(self._texts(plan)),
-                    focus.replace("\r\n", "\n"),
-                )
-                # Nothing was written by the catching up.
-                self.assertEqual(Plan.objects.get(pk=plan.pk).focus, focus)
+                self.assertEqual(plan.focus, focus.replace("\r\n", "\n"))
                 plan.delete()
 
     def test_an_empty_document_has_no_lines(self):
-        for focus in (None, ""):
-            with self.subTest(focus=focus):
-                plan = self._plan(focus)
-                documents.ensure_lines(plan)
-                self.assertEqual(documents.rows(plan), [])
-                plan.delete()
+        plan = self._plan("")
+
+        self.assertEqual(documents.rows(plan), [])
+        self.assertEqual(plan.focus, "")
+        self.assertEqual(Plan(thread=self.daily, pub_date=LONG_AGO).focus, "")
 
     def test_the_three_fields_of_a_reflection_are_three_lists(self):
-        reflection = Reflection.objects.create(
-            thread=self.daily, pub_date=self.today, good="a\nb", better=None, best="c"
-        )
-
-        documents.ensure_lines(reflection)
+        reflection = make_reflection(self.daily, self.today, good="a\nb", best="c")
 
         self.assertEqual(self._texts(reflection, "good"), ["a", "b"])
         self.assertEqual(self._texts(reflection, "better"), [])
         self.assertEqual(self._texts(reflection, "best"), ["c"])
+        self.assertEqual(
+            (reflection.good, reflection.better, reflection.best), ("a\nb", "", "c")
+        )
 
-    def test_catching_up_makes_no_tasks(self):
-        # Text that got into the column some other way (the admin, an older
-        # release) becomes plain lines; only writing a plan makes tasks.
+    def test_plain_text_makes_no_tasks(self):
+        # Only text written as a plan makes tasks.
         plan = self._plan("a\nb")
-
-        documents.ensure_lines(plan)
 
         self.assertFalse(Task.objects.exists())
         self.assertEqual(self._texts(plan), ["a", "b"])
 
-    def test_catching_up_keeps_the_tasks_of_lines_still_there(self):
-        plan = self._plan("a\nb")
-        documents.sync_lines(plan, create_tasks=True)
+    def test_rewriting_keeps_the_tasks_of_lines_still_there(self):
+        plan = self._written("a\nb")
         a, b = Task.objects.order_by("text")
 
-        Plan.objects.filter(pk=plan.pk).update(focus="new\r\nb\r\na")
-        plan.refresh_from_db()
-        documents.ensure_lines(plan)
+        documents.write(plan, {"focus": "new\r\nb\r\na"})
 
         # A line typed in, and "a" moved below "b": both keep their tasks.
         self.assertEqual(
@@ -104,12 +95,25 @@ class EnsureLinesTestCase(DocumentTestCase):
         )
         self.assertEqual(Task.objects.count(), 2)
 
+    def test_the_text_columns_say_what_the_lines_say(self):
+        # Nothing reads them; the release before this one would.
+        plan = self._written("a\nb")
+        reflection = make_reflection(self.daily, self.today, good="x", best="y\nz")
+        rename(Task.objects.get(text="a"), "c")
+        complete(Task.objects.get(text="b"), self.user, day=self.today)
+
+        plan.refresh_from_db()
+        reflection.refresh_from_db()
+        self.assertEqual(plan.focus_copy, "c\nb")
+        self.assertEqual(
+            (reflection.good_copy, reflection.better_copy, reflection.best_copy),
+            ("x\nb", None, "y\nz"),
+        )
+
 
 class WritingAPlanTestCase(DocumentTestCase):
     def test_lines_become_tasks(self):
-        plan = self._plan("water plants\n\n---\ncall bank")
-
-        documents.sync_lines(plan, create_tasks=True)
+        plan = self._written("water plants\n\n---\ncall bank")
 
         self.assertEqual(
             [(row.content, row.task_id is not None) for row in documents.rows(plan)],
@@ -120,43 +124,32 @@ class WritingAPlanTestCase(DocumentTestCase):
             self.assertEqual(task.event_stream_id, self.daily.board_stream_id)
 
     def test_not_on_a_plan_whose_period_is_over(self):
-        plan = self._plan("a", pub_date=LONG_AGO)
-
-        documents.sync_lines(plan, create_tasks=True)
+        self._written("a", pub_date=LONG_AGO)
 
         self.assertFalse(Task.objects.exists())
 
     def test_yesterdays_plan_still_makes_tasks(self):
         # The day page shows yesterday until noon.
-        plan = self._plan("a", pub_date=self.today - datetime.timedelta(days=1))
-
-        documents.sync_lines(plan, create_tasks=True)
+        self._written("a", pub_date=self.today - datetime.timedelta(days=1))
 
         self.assertTrue(Task.objects.exists())
 
     def test_not_on_a_thread_that_is_not_built_in(self):
-        plan = self._plan("a", thread=self.side)
-
-        documents.sync_lines(plan, create_tasks=True)
+        self._written("a", thread=self.side)
 
         self.assertFalse(Task.objects.exists())
 
     def test_the_same_line_twice_is_two_tasks(self):
-        plan = self._plan("a\na")
-
-        documents.sync_lines(plan, create_tasks=True)
+        plan = self._written("a\na")
 
         self.assertEqual(Task.objects.count(), 2)
         self.assertEqual(self._texts(plan), ["a", "a"])
 
     def test_rewording_one_line_among_others(self):
-        plan = self._plan("water plants\ncall bank\nbuy bread")
-        documents.sync_lines(plan, create_tasks=True)
+        plan = self._written("water plants\ncall bank\nbuy bread")
         tasks = {task.text: task.pk for task in Task.objects.all()}
 
-        plan.focus = "buy milk\nwater the plants\ncall bank"
-        plan.save()
-        documents.sync_lines(plan, create_tasks=True)
+        self._written("buy milk\nwater the plants\ncall bank")
 
         after = {row.content: row.task.pk for row in documents.rows(plan)}
         self.assertEqual(after["water the plants"], tasks["water plants"])
@@ -166,8 +159,7 @@ class WritingAPlanTestCase(DocumentTestCase):
         self.assertFalse(Task.objects.filter(pk=tasks["buy bread"]).exists())
 
     def test_a_renamed_task_reads_the_same_on_every_plan(self):
-        day = self._plan("call bank")
-        documents.sync_lines(day, create_tasks=True)
+        day = self._written("call bank")
         task = Task.objects.get()
         week = Plan.objects.create(
             thread=self.weekly, pub_date=self.today + datetime.timedelta(days=7)
@@ -177,20 +169,16 @@ class WritingAPlanTestCase(DocumentTestCase):
         rename(task, "call the bank")
 
         for plan in (day, week):
-            self.assertEqual(Plan.objects.get(pk=plan.pk).focus, "call the bank")
+            self.assertEqual(plan.focus, "call the bank")
 
         # And rewording it in one plan's text does the same.
-        day.refresh_from_db()
-        day.focus = "call the bank today"
-        day.save()
-        documents.sync_lines(day, create_tasks=True)
+        self._written("call the bank today")
 
-        self.assertEqual(Plan.objects.get(pk=week.pk).focus, "call the bank today")
+        self.assertEqual(week.focus, "call the bank today")
         self.assertEqual(Task.objects.count(), 1)
 
     def test_deleting_a_plan_forgets_its_open_tasks_and_keeps_the_done(self):
-        plan = self._plan("a\nb")
-        documents.sync_lines(plan, create_tasks=True)
+        plan = self._written("a\nb")
         complete(Task.objects.get(text="b"), self.user, day=self.today)
 
         documents.delete(plan)
@@ -206,10 +194,7 @@ class RewritingAReflectionTestCase(DocumentTestCase):
         self.reflection = Reflection.objects.get(thread=self.daily, pub_date=self.today)
 
     def _write(self, **fields):
-        for field, text in fields.items():
-            setattr(self.reflection, field, text)
-        self.reflection.save()
-        documents.sync_lines(self.reflection, create_tasks=False)
+        documents.write(self.reflection, fields)
 
     def _line(self):
         return ReflectionLine.objects.get(task=self.task)
@@ -283,6 +268,49 @@ class PlanAPITasksTestCase(APITestCase):
         self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Task.objects.exists())
 
+    def test_only_the_text_given_is_written(self):
+        created = self.client.post(
+            "/reflections/",
+            {"pub_date": self.today, "good": "a", "best": "b", "thread": "Daily"},
+            format="json",
+        ).json()
+
+        changed = self.client.patch(
+            f"/reflections/{created['id']}/",
+            {"best": None, "better": "c"},
+            format="json",
+        )
+
+        self.assertEqual(changed.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            {key: changed.json()[key] for key in ("good", "better", "best")},
+            {"good": "a", "better": "c", "best": ""},
+        )
+
+    def test_a_list_of_plans_costs_the_same_however_many(self):
+        def listed():
+            with CaptureQueriesContext(connection) as queries:
+                response = self.client.get("/plans/")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            return response.json()["results"], len(queries)
+
+        make_plan(Thread.objects.daily(self.user), self.today, "a\nb", True)
+        _one, cost_of_one = listed()
+        for days in (1, 2, 3):
+            make_plan(
+                Thread.objects.daily(self.user),
+                self.today + datetime.timedelta(days=days),
+                "c\nd",
+                True,
+            )
+
+        plans, cost_of_four = listed()
+
+        self.assertEqual(
+            [plan["focus"] for plan in plans], ["c\nd", "c\nd", "c\nd", "a\nb"]
+        )
+        self.assertEqual(cost_of_four, cost_of_one)
+
     def test_a_reflection_written_through_the_api_has_its_lines(self):
         created = self.client.post(
             "/reflections/",
@@ -300,3 +328,22 @@ class PlanAPITasksTestCase(APITestCase):
             [("good", "a", None), ("good", "b", None)],
         )
         self.assertFalse(Task.objects.exists())
+
+
+class DocumentAdminTestCase(TestCase):
+    def test_a_plan_and_a_reflection_show_their_lines(self):
+        admin = get_user_model().objects.create_superuser(username="a", password="x")
+        self.client.force_login(admin)
+        daily = Thread.objects.daily(admin)
+        today = datetime.date.today()
+        plan = make_plan(daily, today, "call bank\n---", create_tasks=True)
+        reflection = make_reflection(daily, today, better="start earlier")
+
+        for url, text in (
+            (f"/admin/tree/plan/{plan.pk}/change/", "---"),
+            (f"/admin/tree/reflection/{reflection.pk}/change/", "start earlier"),
+        ):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, text)

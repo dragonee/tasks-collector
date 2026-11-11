@@ -7,7 +7,7 @@ from django.urls import reverse
 from ..models import Plan, Reflection, Task
 from ..services.tasks import agenda, documents
 from ..services.tasks import operations as tasks
-from .factories import complete, make_thread, plan_task
+from .factories import complete, make_plan, make_thread, plan_task
 
 DAY = datetime.date(2026, 11, 11)
 
@@ -416,10 +416,7 @@ class TodayPageEditorTestCase(TestCase):
 
     def test_the_weeks_plan_shows_what_is_done(self):
         sunday = self.today + datetime.timedelta(days=6 - self.today.weekday())
-        week = Plan.objects.create(
-            thread=self.weekly, pub_date=sunday, focus="write report\nread a book"
-        )
-        documents.sync_lines(week, create_tasks=True)
+        make_plan(self.weekly, sunday, "write report\nread a book", create_tasks=True)
         complete(
             plan_task(self.user, "write report", self.today), self.user, self.today
         )

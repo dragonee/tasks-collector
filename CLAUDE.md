@@ -54,7 +54,7 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 ### Language: unscheduled tasks and tasks
 - A board is a tree of items. A board item is an **unscheduled task**: something to do that isn't planned yet. Code that creates, finds or appends board items says `unscheduled_task` (`board_operations.create_unscheduled_task`, `add_unscheduled_task`, `services/today/board_tree.py`). Don't call a board item a task.
 - A **task** is something planned (for a day, a week, a month): a `Task` row, made when an item is planned or a line is written into a plan. It stays once done, and done is the task's, whatever plan it is read from.
-- A plan is its `PlanLine` rows and a reflection its `ReflectionLine` rows; `Plan.focus` and `Reflection.good|better|best` are the same lines as text. Get a document with `services.tasks.documents.plan_for` / `reflection_for` (they bring the rows in step with the text), and change tasks through `services/tasks/operations.py`.
+- A plan is its `PlanLine` rows and a reflection its `ReflectionLine` rows; `plan.focus` and `reflection.good|better|best` are those lines as text (read-only properties). Get a document with `services.tasks.documents.plan_for` / `reflection_for`, write text into one with `documents.write`, and change tasks through `services/tasks/operations.py`.
 - A task lives in the stream of a board, so access to the board is access to the task: `Task.objects.visible_to(user)` / `editable_by(user)`.
 - Design and what is left: `docs/design/tasks.md`.
 

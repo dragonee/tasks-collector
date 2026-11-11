@@ -6,6 +6,7 @@ from polymorphic.admin import PolymorphicChildModelAdmin, PolymorphicParentModel
 
 from .models import *
 from .services.observations.closing import close_observation
+from .services.tasks import documents
 
 
 class ObservationTypeAdmin(admin.ModelAdmin):
@@ -37,6 +38,34 @@ class NamedAfterThreadAdmin(admin.ModelAdmin):
     """Boards, plans and reflections, whose names show their thread."""
 
     list_select_related = ("thread",)
+
+
+class PlanLineInline(admin.TabularInline):
+    model = PlanLine
+    extra = 0
+    raw_id_fields = ("task",)
+
+
+class ReflectionLineInline(admin.TabularInline):
+    model = ReflectionLine
+    extra = 0
+    raw_id_fields = ("task", "completion")
+
+
+class DocumentAdmin(NamedAfterThreadAdmin):
+    """A plan or a reflection, with its lines."""
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        documents.write_copy(form.instance)
+
+
+class PlanAdmin(DocumentAdmin):
+    inlines = [PlanLineInline]
+
+
+class ReflectionAdmin(DocumentAdmin):
+    inlines = [ReflectionLineInline]
 
 
 class ThreadAdmin(admin.ModelAdmin):
@@ -272,8 +301,8 @@ class EventStreamAdmin(admin.ModelAdmin):
 
 admin.site.register(Board, NamedAfterThreadAdmin)
 admin.site.register(Thread, ThreadAdmin)
-admin.site.register(Plan, NamedAfterThreadAdmin)
-admin.site.register(Reflection, NamedAfterThreadAdmin)
+admin.site.register(Plan, PlanAdmin)
+admin.site.register(Reflection, ReflectionAdmin)
 admin.site.register(Observation, ObservationAdmin)
 admin.site.register(ObservationType, ObservationTypeAdmin)
 admin.site.register(ObservationMade, ObservationMadeAdmin)
