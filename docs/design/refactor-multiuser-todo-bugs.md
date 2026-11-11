@@ -166,7 +166,36 @@ parameter is present), use `owned_by`.
 
 ### 5. Stage 6 — the route isolation test is weaker than described
 
-- [ ] Strengthen the test — reproduced
+- [x] Strengthen the test — reproduced
+
+Done: the test is rewritten.
+- `targets` names the objects of Alice's each route is called with, by route name
+  (by path for an unnamed one). A route with parameters that isn't listed fails
+  the test.
+- Every route gets every method with a JSON body (API style: threads and tags by
+  name) and a form-encoded one (browser style: objects by id, with the formset
+  management fields). Every route without parameters also gets query strings naming
+  Alice's objects (`thread`, `observation_id`, `observation`, `event_stream_id`,
+  `story`, `attach_mode`) and the other parameters the views read.
+- A Bob-as-viewer walk: Alice shares a trip, an open observation, a closed one and
+  an outcome. Bob may see those and nothing else of hers, and changes nothing.
+- Every API route is also called with `Accept: text/html`, so the browsable API
+  renders its forms.
+- Alice opens every page herself, and no rendered page may nest a form
+  (`tests/html.py`).
+- Each of Alice's ids is also compared with an id nobody has: the status codes must
+  match, which catches 400-versus-404 and 200-versus-400 oracles.
+- The fixture follows the wall clock, so the today page and the current month's
+  archives show her data to (not) leak.
+- What Bob sent in the URL is ignored in what comes back, since the browsable API
+  shows the request.
+
+Checked against regressions: with the old `updates/` filter and a nested form put
+back, it fails on both (the id oracle, SECRET in the browsable API, and the nested
+form). The richer payloads reached the older `POST /plans/` 500 (see
+"Older bugs"), which is fixed. The test makes about 6,500 requests.
+
+What follows is the problem as found.
 
 The note says the test calls every route "as a second user pointed at the first
 user's objects". For most detail routes it does not, because `url_kwargs`
@@ -198,12 +227,12 @@ A rerun with the right id for each route, form-encoded bodies and query strings
 here. The test would not catch a regression.
 
 To do:
-- [ ] ids per route name, not per parameter name;
-- [ ] form-encoded bodies next to JSON, and a set of query strings on GET;
-- [ ] a second walk where Bob is a viewer of a shared trip, open observation, closed
+- [x] ids per route name, not per parameter name;
+- [x] form-encoded bodies next to JSON, and a set of query strings on GET;
+- [x] a second walk where Bob is a viewer of a shared trip, open observation, closed
   observation and outcome: nothing private shows, nothing of Alice's changes;
-- [ ] render the browsable API (`Accept: text/html`) for the API routes;
-- [ ] check the rendered pages for a `<form>` inside another `<form>`. A test that
+- [x] render the browsable API (`Accept: text/html`) for the API routes;
+- [x] check the rendered pages for a `<form>` inside another `<form>`. A test that
   posts to the views can't see a broken page (item 9 went unseen).
 
 ### 6. Stage 4 — `ensure_stream_entries` is not run by the deploy
