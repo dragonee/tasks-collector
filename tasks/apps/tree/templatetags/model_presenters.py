@@ -6,18 +6,8 @@ from django.template.defaultfilters import linebreaks, stringfilter
 from django.utils.safestring import mark_safe
 
 from ..forms import JournalTagNameForm, OnlyTextSingleHabitTrackedForm
-from ..models import EventStream
 
 register = template.Library()
-
-
-@register.filter
-def stream_visible_to(stream_id, user):
-    """Whether ``user`` can open the stream, so a link to it leads somewhere."""
-    if not getattr(user, "is_authenticated", False):
-        return False
-
-    return EventStream.objects.visible_to(user).filter(pk=stream_id).exists()
 
 
 @register.filter

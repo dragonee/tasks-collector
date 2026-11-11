@@ -31,6 +31,8 @@ from .models import (
     ObservationAttached,
     ObservationClosed,
     ObservationDetached,
+    ObservationEventMixin,
+    ObservationMade,
     ObservationType,
     ObservationUpdated,
     Thread,
@@ -39,7 +41,7 @@ from .models import (
 from .observation_operations import (
     migrate_observation_updates_to_journal as _migrate_observation_updates_to_journal,
 )
-from .presenters import get_complex_presenter
+from .presenters import get_complex_presenter, load_other_observations
 from .serializers import (
     MultipleObservationUpdatedSerializer,
     ObservationAttachedSerializer,
@@ -159,7 +161,9 @@ class ObservationViewSet(viewsets.ModelViewSet):
 def _visible_observations(request):
     if request is None or not request.user.is_authenticated:
         return Observation.objects.none()
-    return Observation.objects.visible_to(request.user)
+    # The browsable API lists these as the filter's choices, by name, which
+    # shows the thread.
+    return Observation.objects.visible_to(request.user).select_related("thread")
 
 
 class ObservationUpdatedFilter(filters.FilterSet):
@@ -208,9 +212,23 @@ class ObservationEventViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = EventFilter
 
     def get_queryset(self):
-        return Event.objects.visible_to(self.request.user).instance_of(
-            *observation_event_types
+        return (
+            Event.objects.visible_to(self.request.user)
+            .instance_of(*observation_event_types)
+            .select_related("thread")
         )
+
+    def paginate_queryset(self, queryset):
+        # What the serializers read beyond the thread, which is on every kind
+        # of event and so selected above.
+        page = super().paginate_queryset(queryset)
+        if page is not None:
+            Event.prefetch_related_by_kind(
+                page, {ObservationMade: ["type"], ObservationClosed: ["type"]}
+            )
+            ObservationEventMixin.prefetch_open_observation(page)
+            ObservationEventMixin.prefetch_situations(page)
+        return page
 
 
 # Keep in sync with SORT_CHOICES in templatetags/observation_menu.py.
@@ -362,10 +380,11 @@ def observation_closed_detail(request, event_stream_id):
         event_stream_id=event_stream_id,
     )
 
-    events = list(
+    events = load_other_observations(
         Event.objects.filter(
             event_stream_id=observation_closed.event_stream_id
-        ).order_by("published")
+        ).order_by("published"),
+        request.user,
     )
 
     time_to_closed = events[-1].published - events[0].published
@@ -393,7 +412,9 @@ def observation_closed_detail(request, event_stream_id):
             "updates": filter(lambda x: isinstance(x, ObservationUpdated), events),
             "time_to_closed": time_to_closed,
             "insight": insight,
-            "complex_presenter": get_complex_presenter(observation_closed),
+            "complex_presenter": get_complex_presenter(
+                observation_closed, request.user
+            ),
         },
     )
 
@@ -485,12 +506,12 @@ def observation_edit(request, observation_id=None):
         request,
         "tree/observation_edit.html",
         {
-            "events": observation.get_events(),
+            "events": load_other_observations(observation.get_events(), request.user),
             "form": form,
             "formset": formset,
             "instance": observation,
             "thread_as_link": True,
-            "complex_presenter": get_complex_presenter(observation),
+            "complex_presenter": get_complex_presenter(observation, request.user),
             **sharing_context(
                 request, observation.event_stream if observation.pk else None
             ),
@@ -505,9 +526,11 @@ def _shared_observation(request, observation):
         "tree/observation_shared.html",
         {
             "instance": observation,
-            "events": observation.get_events().order_by("published"),
+            "events": load_other_observations(
+                observation.get_events().order_by("published"), request.user
+            ),
             "shared_by": observation.user,
-            "complex_presenter": get_complex_presenter(observation),
+            "complex_presenter": get_complex_presenter(observation, request.user),
         },
     )
 
@@ -613,8 +636,9 @@ def insight_edit(request, event_stream_id):
             }
         )
 
-    events = list(
-        Event.objects.filter(event_stream_id=event_stream_id).order_by("published")
+    events = load_other_observations(
+        Event.objects.filter(event_stream_id=event_stream_id).order_by("published"),
+        request.user,
     )
 
     return render(

@@ -1,1 +1,1 @@
-{% load model_presenters %}{% with other=event.other_observation %}{% if not other %}an observation{% elif event.other_event_stream_id|stream_visible_to:user %}<a href="{{ other.get_absolute_url }}">{{ other.situation_truncated }}</a>{% else %}{{ other.situation_truncated }}{% endif %}{% endwith %}
+{% with other=event.other_observation %}{% if not other %}an observation{% elif event.other_observation_visible %}<a href="{{ other.get_absolute_url }}">{{ other.situation_truncated }}</a>{% else %}{{ other.situation_truncated }}{% endif %}{% endwith %}

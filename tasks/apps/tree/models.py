@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from decimal import Decimal
 
 from django.conf import settings
@@ -365,6 +366,17 @@ class Event(PolymorphicModel):
             to_attr="trip_entries",
         )
 
+    @staticmethod
+    def prefetch_related_by_kind(events, lookups):
+        """``prefetch_related_objects`` for a list of events of mixed kinds,
+        where only some kinds have the relation, which ``prefetch_related``
+        can't do. ``lookups`` maps an event class to the lookups to prefetch
+        on the events of that class or its subclasses."""
+        for kind, kind_lookups in lookups.items():
+            models.prefetch_related_objects(
+                [event for event in events if isinstance(event, kind)], *kind_lookups
+            )
+
 
 class EventStreamEntry(models.Model):
     """An event's membership in a stream.
@@ -458,8 +470,9 @@ class Habit(models.Model):
         return ["#{}".format(keyword) for keyword in self.get_keywords()]
 
     def get_keywords(self):
-        """Get all keywords for this habit as a set"""
-        return set(self.keywords.values_list("keyword", flat=True))
+        """Get all keywords for this habit as a set. Reads ``keywords.all()``,
+        so a list of habits can prefetch them: ``prefetch_related("keywords")``."""
+        return {keyword.keyword for keyword in self.keywords.all()}
 
 
 class HabitKeyword(models.Model):
@@ -745,43 +758,89 @@ class ObservationPropertyEventMixin:
 
 
 class ObservationEventMixin:
-    def url(self):
-        try:
-            observation = Observation.objects.get(event_stream_id=self.event_stream_id)
-            return observation.get_absolute_url()
-        except Observation.DoesNotExist:
-            return reverse(
-                "public-observation-closed-detail",
-                kwargs={"event_stream_id": self.event_stream_id},
+    """An event in an observation's stream. A list of them can load what they
+    look up about their observation for all of them at once:
+    ``prefetch_open_observation`` and ``prefetch_situations``."""
+
+    @staticmethod
+    def _in(events):
+        return [event for event in events if isinstance(event, ObservationEventMixin)]
+
+    @cached_property
+    def open_observation(self):
+        """The event's observation while it is open, None once it is closed."""
+        return Observation.objects.filter(event_stream_id=self.event_stream_id).first()
+
+    @staticmethod
+    def prefetch_open_observation(events):
+        """Look up ``open_observation`` for the observation events among
+        ``events`` in one query."""
+        events = ObservationEventMixin._in(events)
+        observations = {
+            observation.event_stream_id: observation
+            for observation in Observation.objects.filter(
+                event_stream_id__in={event.event_stream_id for event in events}
             )
+        }
+        for event in events:
+            event.open_observation = observations.get(event.event_stream_id)
+
+    def url(self):
+        if self.open_observation is not None:
+            return self.open_observation.get_absolute_url()
+        return reverse(
+            "public-observation-closed-detail",
+            kwargs={"event_stream_id": self.event_stream_id},
+        )
+
+    @cached_property
+    def situations(self):
+        """(published, situation) of each event that set the observation's
+        situation (made, recontextualized), oldest first."""
+        return _situations_by_stream({self.event_stream_id})[self.event_stream_id]
+
+    @staticmethod
+    def prefetch_situations(events):
+        """Look up ``situations`` for the observation events among ``events``
+        in one query per kind of event."""
+        events = ObservationEventMixin._in(events)
+        situations = _situations_by_stream({event.event_stream_id for event in events})
+        for event in events:
+            event.situations = situations[event.event_stream_id]
 
     def situation(self):
         ### XXX Situation at the time of the event or current?
         ### For now, current is implemented here
-        event = (
-            Event.objects.instance_of(ObservationMade, ObservationRecontextualized)
-            .filter(event_stream_id=self.event_stream_id)
-            .order_by("-published")
-            .first()
-        )
-
-        if not event:
+        if not self.situations:
             raise Observation.DoesNotExist
 
-        return event.situation
+        return self.situations[-1][1]
 
     def situation_at_creation(self):
-        event = (
-            Event.objects.instance_of(ObservationMade, ObservationRecontextualized)
-            .filter(event_stream_id=self.event_stream_id, published__lte=self.published)
-            .order_by("-published")
-            .first()
-        )
+        earlier = [
+            situation
+            for published, situation in self.situations
+            if published <= self.published
+        ]
 
-        if not event:
+        if not earlier:
             raise Observation.DoesNotExist
 
-        return event.situation
+        return earlier[-1]
+
+
+def _situations_by_stream(stream_ids):
+    """(published, situation) of the made and recontextualized events of each
+    of ``stream_ids``, oldest first; an empty list for a stream without any."""
+    situations = defaultdict(list)
+    events = (
+        Event.objects.instance_of(ObservationMade, ObservationRecontextualized)
+        .filter(event_stream_id__in=stream_ids)
+        .order_by("published")
+    )
+    for event in events:
+        situations[event.event_stream_id].append((event.published, event.situation))
+    return situations
 
 
 class ObservationMade(Event, ObservationEventMixin, ObservationPropertyEventMixin):

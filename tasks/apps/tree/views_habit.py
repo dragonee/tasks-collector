@@ -48,10 +48,14 @@ class HabitViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         day = get_day_from_request(self.request)
 
-        return Habit.objects.filter(user=self.request.user).annotate(
-            today_tracked=Count(
-                "habittracked", filter=Q(habittracked__published__date=day)
-            ),
+        return (
+            Habit.objects.filter(user=self.request.user)
+            .annotate(
+                today_tracked=Count(
+                    "habittracked", filter=Q(habittracked__published__date=day)
+                ),
+            )
+            .prefetch_related("keywords")
         )
 
     def perform_create(self, serializer):
@@ -157,7 +161,11 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
 
     @cached_property
     def tracked_habits(self):
-        return HabitTracked.objects.filter(habit=self.object).order_by("-published")
+        return (
+            HabitTracked.objects.filter(habit=self.object)
+            .select_related("habit")
+            .order_by("-published")
+        )
 
     def get_context_data(self, **kwargs):
         start = timezone.now() - datetime.timedelta(days=365)
@@ -180,7 +188,7 @@ class HabitListView(LoginRequiredMixin, ListView):
     model = Habit
 
     def get_queryset(self):
-        return Habit.objects.filter(user=self.request.user)
+        return Habit.objects.filter(user=self.request.user).prefetch_related("keywords")
 
 
 def get_habit_keywords_for_user(user, all=False):
@@ -244,8 +252,12 @@ def my_habit_keywords(request):
     else:
         target_date = datetime.date.today()
 
-    habit_keywords = get_habit_keywords_for_user_and_date(
-        request.user, target_date, all=request.query_params.get("all") == "true"
+    habit_keywords = (
+        get_habit_keywords_for_user_and_date(
+            request.user, target_date, all=request.query_params.get("all") == "true"
+        )
+        .select_related("habit")
+        .prefetch_related("habit__keywords")
     )
 
     serializer = HabitKeywordSerializer(

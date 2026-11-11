@@ -2,9 +2,12 @@ from django.db.models import Q
 
 from .models import (
     Event,
+    EventStream,
     Observation,
     ObservationAttached,
+    ObservationClosed,
     ObservationDetached,
+    OtherObservationMixin,
 )
 
 
@@ -26,8 +29,10 @@ class ComplexPresenter:
     sharing a complex observation shares its attached observations.
     """
 
-    def __init__(self, observation_event_stream_id):
+    def __init__(self, observation_event_stream_id, user=None):
         self.observation_event_stream_id = observation_event_stream_id
+        # Who reads the attached events: see load_other_observations.
+        self.user = user
         self._replayed_stream_ids = None
 
     def _replay_attached_stream_ids(self):
@@ -92,8 +97,11 @@ class ComplexPresenter:
         if not attached_stream_ids:
             return Event.objects.none()
 
-        return Event.objects.filter(event_stream_id__in=attached_stream_ids).order_by(
-            "published"
+        return load_other_observations(
+            Event.objects.filter(event_stream_id__in=attached_stream_ids).order_by(
+                "published"
+            ),
+            self.user,
         )
 
     def all_attached_events_with_situation(self):
@@ -122,37 +130,78 @@ class ComplexPresenter:
 
         return event_presenters
 
-    def _get_observation_info(self, stream_id):
-        """Helper to get observation info for a given stream_id"""
-        from .models import ObservationClosed
-
-        # Try to get the open observation
-        try:
-            obs = Observation.objects.get(event_stream_id=stream_id)
-            return {
-                "event_stream_id": stream_id,
-                "observation": obs,
-                "is_closed": False,
-            }
-        except Observation.DoesNotExist:
-            # Must be closed - get the ObservationClosed
-            obs_closed = ObservationClosed.objects.get(event_stream_id=stream_id)
-            return {
-                "event_stream_id": stream_id,
-                "observation_closed": obs_closed,
-                "is_closed": True,
-            }
-
     def all_attached_observations_with_status(self):
         """
         Returns a list of dicts with info about all attached observations.
         Each dict contains: event_stream_id, observation (if open), observation_closed (if closed), is_closed
         """
-        return list(map(self._get_observation_info, self._replay_attached_stream_ids()))
+        stream_ids = self._replay_attached_stream_ids()
+        observations = observations_by_stream(stream_ids)
+
+        def info(stream_id):
+            observation = observations[stream_id]
+            if isinstance(observation, ObservationClosed):
+                return {
+                    "event_stream_id": stream_id,
+                    "observation_closed": observation,
+                    "is_closed": True,
+                }
+            return {
+                "event_stream_id": stream_id,
+                "observation": observation,
+                "is_closed": False,
+            }
+
+        return [
+            info(stream_id) for stream_id in stream_ids if stream_id in observations
+        ]
 
 
-def get_complex_presenter(observation):
+def observations_by_stream(stream_ids):
+    """The observation of each of ``stream_ids`` that has one, by stream id:
+    the Observation while it is open, its latest ObservationClosed once it is
+    closed. Two queries."""
+    found = {
+        observation.event_stream_id: observation
+        for observation in Observation.objects.filter(event_stream_id__in=stream_ids)
+    }
+    closed = ObservationClosed.objects.filter(
+        event_stream_id__in=set(stream_ids) - found.keys()
+    ).order_by("published")
+    for observation in closed:
+        found[observation.event_stream_id] = observation
+    return found
+
+
+def load_other_observations(events, user):
+    """``events`` as a list, each attach and detach event among them with the
+    observation on its other end (``other_observation``) and whether ``user``
+    may open it (``other_observation_visible``), which
+    ``events/_other_observation.html`` shows: three queries for all of them.
+    """
+    events = list(events)
+    linked = [event for event in events if isinstance(event, OtherObservationMixin)]
+    if not linked:
+        return events
+
+    stream_ids = {event.other_event_stream_id for event in linked}
+    observations = observations_by_stream(stream_ids)
+    visible = set()
+    if user is not None and user.is_authenticated:
+        visible = set(
+            EventStream.objects.visible_to(user)
+            .filter(pk__in=stream_ids)
+            .values_list("pk", flat=True)
+        )
+
+    for event in linked:
+        event.other_observation = observations.get(event.other_event_stream_id)
+        event.other_observation_visible = event.other_event_stream_id in visible
+    return events
+
+
+def get_complex_presenter(observation, user):
     if not observation.event_stream_id:
         return None
 
-    return ComplexPresenter(observation.event_stream_id)
+    return ComplexPresenter(observation.event_stream_id, user)

@@ -319,7 +319,7 @@ def today(request):
     habits = Habit.objects.filter(user=request.user)
     tracked_habits = HabitTracked.objects.filter(
         habit__user=request.user, published__range=period.as_tuple()
-    )
+    ).select_related("habit")
 
     if request.method == "POST":
         plan = PlanForm(request.POST, instance=today_plan, prefix="today_plan")

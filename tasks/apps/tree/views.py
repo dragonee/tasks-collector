@@ -17,6 +17,7 @@ from rest_framework.response import Response as RestResponse
 
 from .forms import *
 from .models import *
+from .presenters import load_other_observations
 from .serializers import *
 from .services.journalling import process_journal_entry
 from .services.photos import attach_photo_urls
@@ -67,7 +68,11 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
     serializer_class = JournalAddedSerializer
 
     def get_queryset(self):
-        return JournalAdded.objects.owned_by(self.request.user)
+        return (
+            JournalAdded.objects.owned_by(self.request.user)
+            .select_related("thread")
+            .prefetch_related("tags")
+        )
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -110,7 +115,11 @@ class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         # Only return the current user's profile
-        return Profile.objects.filter(user=self.request.user)
+        return (
+            Profile.objects.filter(user=self.request.user)
+            .select_related("default_board_thread__user")
+            .prefetch_related("habit_keywords__habit__keywords")
+        )
 
 
 class StoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -295,6 +304,9 @@ class EventArchiveContextMixin:
         # diary; without the URLs the template fails on any month with a photo.
         events = list(context["object_list"])
         prefetch_related_objects(events, Event.prefetch_trip())
+        Event.prefetch_related_by_kind(events, {HabitTracked: ["habit"]})
+        ObservationEventMixin.prefetch_situations(events)
+        load_other_observations(events, self.request.user)
         attach_photo_urls(events)
         context["object_list"] = events
 
@@ -418,11 +430,24 @@ def daily_events(request):
     thread_name = request.GET.get("thread", Thread.DAILY)
     thread = Thread.objects.filter(user=request.user, name=thread_name).first()
 
-    events = (
+    events = list(
         Event.objects.owned_by(request.user)
         .filter(published__date=day, thread=thread)
         .not_instance_of(BoardCommitted)
+        .select_related("thread")
     )
+    Event.prefetch_related_by_kind(
+        events,
+        {
+            JournalAdded: ["tags"],
+            HabitTracked: ["habit__keywords"],
+            ObservationMade: ["type"],
+            ObservationClosed: ["type"],
+            InsightRefined: ["type"],
+        },
+    )
+    ObservationEventMixin.prefetch_open_observation(events)
+    ObservationEventMixin.prefetch_situations(events)
     plan = Plan.objects.filter(pub_date=day, thread=thread).first()
     reflection = Reflection.objects.filter(pub_date=day, thread=thread).first()
 
