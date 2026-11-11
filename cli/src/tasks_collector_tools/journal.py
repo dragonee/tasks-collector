@@ -1,4 +1,9 @@
-"""Add journal entry."""
+"""Add journal entry.
+
+The template lists today's plans above the comment. Tick a task there to
+complete it: [x], or [~] / [^] for better / best. The ^t... that ends its
+line says which task it is, so the line can be reworded; keep the ^t...
+"""
 
 TEMPLATE = """
 > Thread: {thread}
@@ -63,8 +68,10 @@ def get_date_from_arguments(arguments):
 
 
 def format_plan(plan, title):
-    """Format a single plan with its title, only if it has content."""
-    plan_str = str(plan).strip()
+    """Format a single plan with its title, only if it has content. Its
+    lines carry the tasks' anchors: one ticked in the editor is sent back
+    (see ``ticked_in_plans``)."""
+    plan_str = plan.render(anchors=True).strip()
     if not plan_str:
         return ""
     return f"# {title}\n{plan_str}\n"
@@ -123,6 +130,35 @@ def template_from_payload(payload):
 
 title_re = re.compile(r"^# (Comment)")
 meta_re = re.compile(r"^> (Thread|Published|Tags|Story): (.*)$")
+
+# A line of a plan section, ticked, with the anchor of its task.
+ticked_re = re.compile(r"^\s*-\s*\[[x~^]\]\s*\S.*\s\^t([0-9a-f]{8})\s*$")
+
+
+def ticked_in_plans(lines, plans):
+    """The task lines ticked in the plan sections of the template: those of
+    ``lines`` (what the edited file has above ``# Comment``) that are ticked
+    now and whose task was not done when the template was made.
+
+    They are sent as part of the comment, where a ticked line that ends with
+    a task's anchor completes that task.
+    """
+    done_already = {
+        task["anchor"]
+        for plan in plans.values()
+        for task in plan.tasks
+        if task.get("anchor") and task["done"]
+    }
+    return [
+        line.strip()
+        for line in lines
+        if (m := ticked_re.match(line)) and m.group(1) not in done_already
+    ]
+
+
+def with_ticked_lines(comment, ticked):
+    """``comment`` with the ``ticked`` task lines before it."""
+    return "\n".join([*ticked, comment]).strip() if ticked else comment
 
 
 def add_meta_to_payload(payload, name, item):
@@ -290,6 +326,9 @@ def main(argv, prog):
         "published": datetime.now(),
     }
 
+    # What the file has above "# Comment": the plan sections.
+    above_comment = []
+
     with open(tmpfile.name) as f:
         current_name = None
         current_stack = []
@@ -300,6 +339,8 @@ def main(argv, prog):
             elif m := title_re.match(line):
                 if current_name is not None:
                     add_stack_to_payload(payload, current_name, current_stack)
+                else:
+                    above_comment = current_stack
 
                 current_name = m.group(1).strip()
                 current_stack = []
@@ -308,6 +349,10 @@ def main(argv, prog):
 
         if current_name is not None:
             add_stack_to_payload(payload, current_name, current_stack)
+
+    payload["comment"] = with_ticked_lines(
+        payload["comment"] or "", ticked_in_plans(above_comment, plans)
+    )
 
     payload = sanitize_fields(
         payload,

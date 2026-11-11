@@ -42,7 +42,7 @@ except ImportError:
 import re
 
 from .habits import add_habit
-from .plans import get_plan_for_today
+from .plans import anchored, get_plan_for_today
 from .story import get_active_stories, set_current_trip
 from .utils import command_parser, tc_command
 
@@ -333,17 +333,19 @@ def run_focus_clock(task_text, config):
     return result, elapsed
 
 
-def run_focus_journal(task_text, elapsed, complete=True):
+def run_focus_journal(task_text, elapsed, complete=True, task_line=None):
     """Open the journal pre-filled with the focus session for ``task_text``.
 
     When ``complete`` is true the entry crosses the task off (``- [x] TASK``)
     on top of the ``#focus`` line; otherwise only the ``#focus`` line is
-    seeded, leaving the task open.
+    seeded, leaving the task open. ``task_line`` is the task's text with its
+    anchor, when the task was picked from the plan: the server then knows
+    which task is meant however the line is reworded in the editor.
     """
     timer = format_focus_elapsed(elapsed)
     focus_line = f"#focus time={timer} {task_text}\n"
     if complete:
-        content = f"- [x] {task_text}\n{focus_line}"
+        content = f"- [x] {task_line or task_text}\n{focus_line}"
     else:
         content = focus_line
 
@@ -398,6 +400,8 @@ def focus_mode(args, config):
         print("Focus mode requires an interactive terminal.")
         return
 
+    task_line = None
+
     if args:
         task_text = " ".join(args)
     else:
@@ -414,12 +418,14 @@ def focus_mode(args, config):
             lambda t: t.isdigit() and 1 <= int(t) <= len(plan.tasks),
             prompt=f"Pick a task to focus on (1-{len(plan.tasks)}): ",
         )
-        task_text = plan.tasks[int(choice) - 1]["text"]
+        task = plan.tasks[int(choice) - 1]
+        task_text = task["text"]
+        task_line = anchored(task_text, task)
 
     result, elapsed = run_focus_clock(task_text, config)
 
     if result == "journal":
-        run_focus_journal(task_text, elapsed)
+        run_focus_journal(task_text, elapsed, task_line=task_line)
     elif result == "record":
         record_focus_habit(task_text, elapsed, config)
     elif result == "record_journal":

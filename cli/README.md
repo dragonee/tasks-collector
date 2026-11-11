@@ -13,6 +13,7 @@ uv tool install ./cli
 After pulling changes, run `uv tool install --reinstall ./cli` (or install with `--editable` to have `tc` follow the working tree).
 
 To work on the tools, run `uv sync` in this directory and call it with `uv run`, e.g. `uv run tc journal`.
+The tests run with `uv run --with pytest pytest tests`.
 
 ## All-in-one
 
@@ -94,6 +95,10 @@ usage: tc journal [-h] [--version] [-d DATE] [-T TAGS] [-Y] [-t THREAD]
 
 Add journal entry.
 
+The template lists today's plans above the comment. Tick a task there to
+complete it: [x], or [~] / [^] for better / best. The ^t... that ends its
+line says which task it is, so the line can be reworded; keep the ^t...
+
 options:
   -h, --help           show this help message and exit
   --version            show program's version number and exit
@@ -119,6 +124,10 @@ usage: tc trip journal [-h] [--version] [-d DATE] [-T TAGS] [-Y] [-t THREAD]
                        [-F] [-L]
 
 Add journal entry.
+
+The template lists today's plans above the comment. Tick a task there to
+complete it: [x], or [~] / [^] for better / best. The ^t... that ends its
+line says which task it is, so the line can be reworded; keep the ^t...
 
 options:
   -h, --help           show this help message and exit

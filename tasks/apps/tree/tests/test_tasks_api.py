@@ -600,6 +600,30 @@ class JournalAnchorTestCase(TaskAPITestCase):
         task.refresh_from_db()
         self.assertEqual((task.done_count, task.done), (3, True))
 
+    def test_lines_ticked_in_the_cli_journal_template(self):
+        # As `tc journal` sends them: the plan lines ticked in the editor,
+        # as the template showed them, before what was written.
+        bank = plan_text(self.user, "call bank", "Daily", DAY, DAY)
+        counted = plan_text(self.user, "Do x (3)", "Daily", DAY, DAY)
+        self._post("task-complete", {"day": DAY.isoformat()}, task_id=str(counted.pk))
+
+        journal = self._journal(
+            f"- [^] call bank ^t{bank.anchor}\r\n"
+            f"- [x] Do x (2/3) ^t{counted.anchor}\r\n"
+            "A good day."
+        )
+
+        bank.refresh_from_db()
+        counted.refresh_from_db()
+        self.assertTrue(bank.done)
+        self.assertEqual((counted.done_count, counted.done), (2, False))
+        reflection = Reflection.objects.get(pub_date=DAY, thread=self.daily)
+        self.assertEqual(reflection.best, "call bank")
+        self.assertEqual(reflection.good, "Do x (1)\nDo x (2)")
+        self.assertEqual(
+            journal.comment, "- [^] call bank\r\n- [x] Do x (2/3)\r\nA good day."
+        )
+
     def test_a_weeks_reflection_repeating_a_days_does_not_complete_twice(self):
         task = plan_text(self.user, "call bank", "Daily", DAY, DAY)
         self._journal(f"- [x] call bank ^t{task.anchor}")

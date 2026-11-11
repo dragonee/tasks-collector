@@ -13,29 +13,48 @@ PLAN_TEMPLATE = """
 """
 
 
+def anchored(text, task):
+    """``text`` as a line of ``task``: it ends with the task's anchor, which
+    is how the server knows which task a line is about whatever it says. A
+    plain line of a plan has no task yet, and no anchor."""
+    anchor = task.get("anchor")
+    return f"{text} ^t{anchor}" if anchor else text
+
+
+def task_line(task, anchors=False):
+    """A task as a checkbox line: ``[ ]`` open, ``[x]`` done, ``[~]`` /
+    ``[^]`` done and marked better / best."""
+    box = (task.get("mark") or "x") if task["done"] else " "
+    text = anchored(task["text"], task) if anchors else task["text"]
+    return f"- [{box}] {text}"
+
+
 @dataclass
 class Plan:
     """A single plan section (Daily / Weekly / Big-picture) for the journal
-    template. ``tasks`` is the backend-computed list of ``{"text", "done"}``
-    items, where ``done`` means the task has been crossed off (the line also
-    appears in that day's Reflection.good)."""
+    template. ``tasks`` is what the backend says of each line of the plan:
+    ``{"text", "done", "mark", "anchor", ...}``. ``done`` is the task's own,
+    whichever plan it is read from."""
 
     pub_date: str
     thread: str
     tasks: list = field(default_factory=list)
 
-    def __str__(self):
+    def render(self, anchors=False):
+        """The plan as checkbox lines. With ``anchors`` each task's line ends
+        with its anchor, for text that is sent back (the journal template):
+        ticking such a line completes that task."""
         if not self.tasks:
             return ""
 
-        lines = "\n".join(
-            "- [{}] {}".format("x" if task["done"] else " ", task["text"])
-            for task in self.tasks
-        )
+        lines = "\n".join(task_line(task, anchors) for task in self.tasks)
 
         focus = FOCUS_TEMPLATE.format(focus="\n" + lines)
 
         return PLAN_TEMPLATE.format(focus=focus).strip() + "\n"
+
+    def __str__(self):
+        return self.render()
 
 
 def _plan_from_payload(payload):
@@ -51,14 +70,13 @@ def _empty_plans():
     return {
         "daily": Plan(pub_date=today, thread="Daily"),
         "weekly": Plan(pub_date=today, thread="Weekly"),
-        "monthly": Plan(pub_date=today, thread="Big-picture"),
+        "monthly": Plan(pub_date=today, thread="big-picture"),
     }
 
 
 def get_plans_for_today_sync(config):
     """Fetch the Daily / Weekly / Big-picture plans for today in a single call,
-    each task already flagged with whether it has been crossed off. The backend
-    (reusing the Today service) computes the done state; we just render it.
+    each task with whether it is done and the anchor that names it.
 
     Returns empty plans on any connection/HTTP error so the journal still opens
     offline.
