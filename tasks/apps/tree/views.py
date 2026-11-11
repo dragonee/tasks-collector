@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import prefetch_related_objects
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django.views.generic.dates import MonthArchiveView
 
 from django_filters import rest_framework as filters
@@ -488,6 +489,41 @@ def todo(request):
         "tree/tasks.html",
         {
             "profile": profile,
+        },
+    )
+
+
+@login_required
+@require_POST
+def journal_entry_tag(request, journal_id):
+    """Tag one of the user's journal entries, making the tag if it is new
+    (the entry's "+Tag" form)."""
+    journal = get_object_or_404(
+        JournalAdded.objects.owned_by(request.user), pk=journal_id
+    )
+    form = JournalTagNameForm(request.POST, user=request.user)
+
+    if not form.is_valid():
+        return render(
+            request,
+            "tree/journal_tag/form.html",
+            {"journal_id": journal.pk, "form": form},
+            status=200 if request.htmx else 400,
+        )
+
+    tag = form.tag()
+    journal.tags.add(tag)
+
+    if not request.htmx:
+        return redirect("public-diary-archive-current-month")
+
+    return render(
+        request,
+        "tree/journal_tag/ok.html",
+        {
+            "tag": tag,
+            "journal_id": journal.pk,
+            "form": JournalTagNameForm(user=request.user),
         },
     )
 

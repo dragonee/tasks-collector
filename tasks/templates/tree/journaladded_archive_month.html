@@ -9,6 +9,12 @@
 
 <div class="split-layout content-rail">
 
+<datalist id="journal-tags">
+    {% for option_tag in tags %}
+        <option value="{{ option_tag.name }}"></option>
+    {% endfor %}
+</datalist>
+
 <div class="topbar">
     <div class="upper-pane">
         <h1>Journal Entries for {{ month|date:"F Y" }} {% if tag %}tagged "{{ tag.name }}"{% endif %}</h1>

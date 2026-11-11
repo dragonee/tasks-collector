@@ -391,8 +391,9 @@ without a row.
   the dev database: dragonee keeps the five tags with all their entries, and tester
   gets a "thoughts" of their own for their one entry. The diary's tag list and tag
   pages, the add form and the journal API's `tags` read the user's own tags only;
-  someone else's slug answers like an unknown one. Tags are still created only in
-  the admin, so a new user has none until one is made for them there.
+  someone else's slug answers like an unknown one. A user makes their tags with
+  the "+Tag" button next to "+Breakthrough" on a journal entry: it tags the entry
+  with the tag of that name (ignoring case) or slug, or with a new one.
 - [ ] **Sharing by username tells whether a username exists** ("There is no user
   called …"). Inherent to the design; acceptable among known users.
 

@@ -31,9 +31,18 @@ const nodeList = document.querySelectorAll(
 
 const journalAddedEvents = document.querySelectorAll('.event-content.journal-added');
 
-const addBreakthroughButtonListener = (event, habitName) => {
-    const button = event.querySelector('.add-breakthrough-button');
-    const form = event.querySelector('.habit-form');
+// An entry's +Breakthrough and +Tag buttons each open a small form under it,
+// with its text field prefilled. The buttons step aside while a form is open,
+// since they sit over its Save button. The form is looked up on every click:
+// htmx swaps it for a fresh one after each save.
+const INLINE_FORMS = {
+    breakthrough: { button: '.add-breakthrough-button', form: '.habit-form', field: 'text', prefill: '#breakthrough ' },
+    tag: { button: '.add-tag-button', form: '.tag-form', field: 'name', prefill: '' },
+};
+
+const addInlineFormListener = (event, { button: buttonSelector, form: formSelector, field, prefill }) => {
+    const button = event.querySelector(buttonSelector);
+    const form = event.querySelector(formSelector);
 
     // Read-only views (e.g. the trip page) omit these controls.
     if (!button || !form) {
@@ -44,14 +53,16 @@ const addBreakthroughButtonListener = (event, habitName) => {
         form.classList.remove('hidden');
         form.querySelector('form').classList.remove('hidden');
 
-        const textField = form.querySelector('[name=text]');
-        textField.value = habitName + ' ';
+        const textField = form.querySelector(`[name=${field}]`);
+        textField.value = prefill;
         textField.focus();
-        button.classList.add('hidden');
+        button.closest('.add-breakthrough').classList.add('hidden');
     })
 };
 
-[...journalAddedEvents].forEach((event) => addBreakthroughButtonListener(event, '#breakthrough'));
+[...journalAddedEvents].forEach((event) => {
+    Object.values(INLINE_FORMS).forEach((inlineForm) => addInlineFormListener(event, inlineForm));
+});
 
 // Trip notes/photos prepend a machine line like "#poi lat=.. lng=..". Hide
 // that line from the rendered comment and surface the coordinates as a small
@@ -127,25 +138,26 @@ document.addEventListener('click', (e) => {
     });
 });
 
-const onBreakthroughAdded = (element) => {
+// Called by the saved form's response: show the result for a moment, then
+// close the form and bring its button back.
+const onInlineFormSaved = (element, { button: buttonSelector, form: formSelector }) => {
     const closestJournalAdded = element.closest('.journal-added');
 
-    const form = closestJournalAdded.querySelector('.habit-form');
-    const button = closestJournalAdded.querySelector('.add-breakthrough-button');
-    const result = closestJournalAdded.querySelector('.result-ok');
-    
+    const form = closestJournalAdded.querySelector(formSelector);
+    const button = closestJournalAdded.querySelector(buttonSelector);
+    const result = form.querySelector('.result-ok');
+
     setTimeout(() => {
         result.remove();
 
-        addBreakthroughButtonListener(closestJournalAdded);
-
         form.classList.add('hidden');
-        button.classList.remove('hidden');
+        button.closest('.add-breakthrough').classList.remove('hidden');
         element.remove();
     }, 2000);
 }
 
-window.onBreakthroughAdded = onBreakthroughAdded;
+window.onBreakthroughAdded = (element) => onInlineFormSaved(element, INLINE_FORMS.breakthrough);
+window.onJournalTagAdded = (element) => onInlineFormSaved(element, INLINE_FORMS.tag);
 
 document.querySelectorAll('.breakthrough-outcome').forEach((outcome) => {
     const button = outcome.querySelector('button.accordion');
