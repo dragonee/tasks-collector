@@ -1,12 +1,13 @@
 """Pydantic models for tasks collector tools."""
 
-from datetime import datetime, date
-from typing import List, Optional, Literal, Union
+from datetime import date, datetime
+from typing import List, Literal, Optional, Union
+
 from pydantic import BaseModel
 
 
 def not_empty(text):
-    return text and text.strip() != '' and text.strip() != '?'
+    return text and text.strip() != "" and text.strip() != "?"
 
 
 class BaseEvent(BaseModel):
@@ -32,18 +33,19 @@ class Keyword(BaseModel):
     keyword: str
     habit: Habit
 
+
 class JournalAdded(BaseEvent):
-    resourcetype: Literal['JournalAdded']
+    resourcetype: Literal["JournalAdded"]
     comment: str
     tags: List[str]
 
 
 class PhotoAdded(JournalAdded):
-    resourcetype: Literal['PhotoAdded']
+    resourcetype: Literal["PhotoAdded"]
 
 
 class HabitTracked(BaseEvent):
-    resourcetype: Literal['HabitTracked']
+    resourcetype: Literal["HabitTracked"]
     note: str
     occured: bool
     habit: Habit
@@ -52,9 +54,10 @@ class HabitTracked(BaseEvent):
 class ObservationEvent(BaseEvent):
     event_stream_id: str
 
+
 class ObservationMade(ObservationEvent):
     url: str
-    resourcetype: Literal['ObservationMade']
+    resourcetype: Literal["ObservationMade"]
     type: str
     situation: str
     interpretation: Optional[str]
@@ -63,7 +66,7 @@ class ObservationMade(ObservationEvent):
 
 class ObservationUpdated(ObservationEvent):
     url: str
-    resourcetype: Literal['ObservationUpdated']
+    resourcetype: Literal["ObservationUpdated"]
     observation_id: Optional[int]
     situation_at_creation: str
     comment: str
@@ -71,14 +74,14 @@ class ObservationUpdated(ObservationEvent):
 
 class ObservationRecontextualized(ObservationEvent):
     url: str
-    resourcetype: Literal['ObservationRecontextualized']
+    resourcetype: Literal["ObservationRecontextualized"]
     situation: str
     old_situation: str
 
 
 class ObservationReinterpreted(ObservationEvent):
     url: str
-    resourcetype: Literal['ObservationReinterpreted']
+    resourcetype: Literal["ObservationReinterpreted"]
     interpretation: Optional[str]
     old_interpretation: Optional[str]
     situation_at_creation: str
@@ -86,7 +89,7 @@ class ObservationReinterpreted(ObservationEvent):
 
 class ObservationReflectedUpon(ObservationEvent):
     url: str
-    resourcetype: Literal['ObservationReflectedUpon']
+    resourcetype: Literal["ObservationReflectedUpon"]
     approach: Optional[str]
     old_approach: Optional[str]
     situation_at_creation: str
@@ -94,7 +97,7 @@ class ObservationReflectedUpon(ObservationEvent):
 
 class ObservationClosed(ObservationEvent):
     url: str
-    resourcetype: Literal['ObservationClosed']
+    resourcetype: Literal["ObservationClosed"]
     type: str
     situation: str
     interpretation: Optional[str]
@@ -103,25 +106,25 @@ class ObservationClosed(ObservationEvent):
 
 class InsightRefined(ObservationEvent):
     url: str
-    resourcetype: Literal['InsightRefined']
+    resourcetype: Literal["InsightRefined"]
     type: str
     situation: Optional[str]
     approach: Optional[str]
 
 
 class ObservationAttached(BaseEvent):
-    resourcetype: Literal['ObservationAttached']
+    resourcetype: Literal["ObservationAttached"]
     other_event_stream_id: str
     observation: Optional[int]
 
 
 class ObservationDetached(BaseEvent):
-    resourcetype: Literal['ObservationDetached']
+    resourcetype: Literal["ObservationDetached"]
     other_event_stream_id: str
 
 
 class ProjectedOutcomeMade(BaseEvent):
-    resourcetype: Literal['ProjectedOutcomeMade']
+    resourcetype: Literal["ProjectedOutcomeMade"]
     event_stream_id: str
     thread: str
     name: str
@@ -131,7 +134,7 @@ class ProjectedOutcomeMade(BaseEvent):
 
 
 class ProjectedOutcomeRedefined(BaseEvent):
-    resourcetype: Literal['ProjectedOutcomeRedefined']
+    resourcetype: Literal["ProjectedOutcomeRedefined"]
     event_stream_id: str
     thread: str
     old_name: Optional[str]
@@ -143,7 +146,7 @@ class ProjectedOutcomeRedefined(BaseEvent):
 
 
 class ProjectedOutcomeRescheduled(BaseEvent):
-    resourcetype: Literal['ProjectedOutcomeRescheduled']
+    resourcetype: Literal["ProjectedOutcomeRescheduled"]
     event_stream_id: str
     thread: str
     old_resolved_by: Optional[datetime]
@@ -151,7 +154,7 @@ class ProjectedOutcomeRescheduled(BaseEvent):
 
 
 class ProjectedOutcomeMoved(BaseEvent):
-    resourcetype: Literal['ProjectedOutcomeMoved']
+    resourcetype: Literal["ProjectedOutcomeMoved"]
     event_stream_id: str
     thread: str
     name: str
@@ -163,7 +166,7 @@ class ProjectedOutcomeMoved(BaseEvent):
 
 
 class ProjectedOutcomeClosed(BaseEvent):
-    resourcetype: Literal['ProjectedOutcomeClosed']
+    resourcetype: Literal["ProjectedOutcomeClosed"]
     event_stream_id: str
     thread: str
     name: str
@@ -173,7 +176,7 @@ class ProjectedOutcomeClosed(BaseEvent):
 
 
 class ProjectedOutcomeEvolved(BaseEvent):
-    resourcetype: Literal['ProjectedOutcomeEvolved']
+    resourcetype: Literal["ProjectedOutcomeEvolved"]
     event_stream_id: str
     thread: str
     note: str
@@ -181,7 +184,7 @@ class ProjectedOutcomeEvolved(BaseEvent):
 
 class Plan(BaseModel):
     id: int
-    focus: str|None
+    focus: str | None
     pub_date: date
 
     def empty(self):
@@ -203,10 +206,10 @@ class Reflection(BaseModel):
 
     def has_good(self):
         return not_empty(self.good)
-    
+
     def has_better(self):
         return not_empty(self.better)
-    
+
     def has_best(self):
         return not_empty(self.best)
 
@@ -215,11 +218,11 @@ Event = Union[
     PhotoAdded,
     JournalAdded,
     HabitTracked,
-    ObservationMade, 
-    ObservationUpdated, 
-    ObservationRecontextualized, 
-    ObservationReinterpreted, 
-    ObservationReflectedUpon, 
+    ObservationMade,
+    ObservationUpdated,
+    ObservationRecontextualized,
+    ObservationReinterpreted,
+    ObservationReflectedUpon,
     ObservationClosed,
     InsightRefined,
     ObservationAttached,
@@ -229,8 +232,9 @@ Event = Union[
     ProjectedOutcomeRescheduled,
     ProjectedOutcomeMoved,
     ProjectedOutcomeClosed,
-    ProjectedOutcomeEvolved
+    ProjectedOutcomeEvolved,
 ]
+
 
 class DefaultBoardThread(BaseModel):
     id: int
@@ -283,4 +287,4 @@ class StatsResponse(BaseModel):
     projected_outcome_rescheduled_count: int
     projected_outcome_closed_count: int
     word_count: int
-    word_count_updated: datetime 
+    word_count_updated: datetime
