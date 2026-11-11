@@ -7,9 +7,8 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..models import Plan, Reflection, Task
-from ..services.today import add_task, set_task_done
 from ..utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
-from .factories import make_thread
+from .factories import complete, make_thread, plan_task
 
 # A Thursday — end-of-week and end-of-month fall on distinct later dates.
 TODAY = date_cls(2026, 6, 25)
@@ -128,10 +127,9 @@ class TodayPlansAPITestCase(APITestCase):
         # it reads done wherever it is listed.
         eow = make_last_day_of_the_week(TODAY)
         Plan.objects.create(pub_date=eow, thread=self.weekly, focus="write report (2)")
-        add_task(self.user, "write report (2)", today=TODAY)
-        set_task_done(self.user, "write report (2)", True, today=TODAY)
-        set_task_done(self.user, "write report (2)", True, today=TODAY)
-        task = Task.objects.get()
+        task = plan_task(self.user, "write report (2)", TODAY)
+        complete(task, self.user, TODAY)
+        complete(task, self.user, TODAY)
 
         body = self._get().json()
 

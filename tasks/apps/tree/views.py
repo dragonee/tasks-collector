@@ -23,8 +23,8 @@ from .presenters import load_other_observations
 from .serializers import *
 from .services.journalling import process_journal_entry
 from .services.photos import attach_photo_urls
-from .services.tasks import documents
-from .services.today import plan_item, plan_tasks, plan_text
+from .services.tasks import agenda, documents
+from .services.today import plan_item, plan_text
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
 from .views_sharing import board_sharing_panels
@@ -234,9 +234,8 @@ def add_task_to_plan(request):
 
 
 def _serialize_plan(user, pub_date, thread_name):
-    """Build the {thread, pub_date, tasks:[{text, done}]} payload for one of
-    ``user``'s plans, delegating the crossed-off computation to the today
-    service."""
+    """The {thread, pub_date, tasks: [...]} payload of one of ``user``'s
+    plans; see ``services.tasks.agenda`` for what a task is shown as."""
     return {
         "thread": thread_name,
         "pub_date": pub_date.isoformat(),
@@ -251,7 +250,7 @@ def _serialize_plan(user, pub_date, thread_name):
                 "total": t.total,
                 "done_count": t.done_count,
             }
-            for t in plan_tasks(user, pub_date, thread_name)
+            for t in agenda.plan_tasks(user, pub_date, thread_name)
         ],
     }
 

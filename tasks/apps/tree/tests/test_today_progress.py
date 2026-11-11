@@ -8,8 +8,10 @@ from django.test import TestCase
 from ..board_operations import create_unscheduled_task
 from ..models import Board, Plan, Reflection
 from ..services.progress import parse_progress, render_progress
-from ..services.today import plan_tasks, set_task_done
-from .factories import make_board, make_profile, make_thread
+from ..services.tasks import agenda
+from ..services.tasks import operations as tasks
+from ..services.today import plan_item
+from .factories import complete, make_board, make_profile, make_thread, plan_task
 
 TODAY = date_cls(2026, 5, 21)
 
@@ -98,11 +100,16 @@ class ProgressLifecycleTestCase(TestCase):
         Reflection.objects.filter(thread=self.daily).delete()
 
     def _seed(self, text):
-        """Put the total-form task into Plan and on the board at root level.
-        Under the reflection-count model this text is never rewritten."""
-        Plan.objects.create(pub_date=TODAY, thread=self.daily, focus=text)
+        """A board item of ``text``, planned for the day: its task. Neither
+        the plan's nor the item's text is rewritten as steps are done."""
         self.board.state = [create_unscheduled_task(text)]
         self.board.save()
+        self.task = plan_item(
+            self.user, self.board.pk, self.board.state[0]["id"], "Daily", TODAY
+        )
+
+    def _step(self):
+        complete(self.task, self.user, TODAY)
 
     def _reload(self):
         self.board.refresh_from_db()
@@ -117,14 +124,14 @@ class ProgressLifecycleTestCase(TestCase):
         return self.board.state[0]
 
     def _display(self):
-        return [(t.text, t.done) for t in plan_tasks(self.user, TODAY, "Daily")]
+        return [(t.text, t.done) for t in agenda.plan_tasks(self.user, TODAY, "Daily")]
 
     # --- forward progression: Plan/Board text fixed, count logged ----------
 
     def test_first_tick_logs_count_and_derives_partial(self):
         self._seed("Do tasks (3)")
 
-        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self._step()
 
         plan, reflection = self._reload()
         # Plan and Board text are never rewritten.
@@ -139,13 +146,13 @@ class ProgressLifecycleTestCase(TestCase):
     def test_full_cycle_accumulates_counts_and_crosses_at_total(self):
         self._seed("Do tasks (3)")
 
-        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self._step()
         self.assertEqual(self._display(), [("Do tasks (2/3)", False)])
 
-        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self._step()
         self.assertEqual(self._display(), [("Do tasks (3/3)", False)])
 
-        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self._step()
         plan, reflection = self._reload()
         self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)\nDo tasks (3)")
         self.assertEqual(plan.focus, "Do tasks (3)")  # unchanged
@@ -156,7 +163,7 @@ class ProgressLifecycleTestCase(TestCase):
     def test_single_step_task_completes_on_first_tick(self):
         self._seed("Quick (1)")
 
-        set_task_done(self.user, "Quick (1)", True, today=TODAY)
+        self._step()
 
         plan, reflection = self._reload()
         self.assertEqual(reflection.good, "Quick (1)")
@@ -168,10 +175,10 @@ class ProgressLifecycleTestCase(TestCase):
     def test_add_another_past_full_keeps_advancing_and_crossed(self):
         self._seed("Do tasks (3)")
         for _ in range(3):
-            set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+            self._step()
         self.assertEqual(self._node()["data"]["state"], "done")
 
-        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)  # 4th
+        self._step()  # 4th
 
         _plan, reflection = self._reload()
         self.assertIn("Do tasks (4)", reflection.good)
@@ -183,10 +190,10 @@ class ProgressLifecycleTestCase(TestCase):
     def test_untick_from_complete_decrements_and_uncrosses(self):
         self._seed("Do tasks (3)")
         for _ in range(3):
-            set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+            self._step()
         self.assertEqual(self._node()["data"]["state"], "done")
 
-        set_task_done(self.user, "Do tasks (3)", False, today=TODAY)
+        tasks.reopen(self.task)
 
         _plan, reflection = self._reload()
         self.assertEqual(reflection.good, "Do tasks (1)\nDo tasks (2)")  # (3) removed
@@ -196,18 +203,17 @@ class ProgressLifecycleTestCase(TestCase):
     def test_untick_at_zero_is_noop(self):
         self._seed("Fresh (3)")
 
-        result = set_task_done(self.user, "Fresh (3)", False, today=TODAY)
+        self.assertFalse(tasks.reopen(self.task))
 
-        self.assertIsNone(result)
         _plan, reflection = self._reload()
         self.assertEqual(self._node()["data"]["state"], "open")
         self.assertTrue(reflection is None or not reflection.good)
 
     def test_untick_on_partial_decrements(self):
         self._seed("Mid (3)")
-        set_task_done(self.user, "Mid (3)", True, today=TODAY)  # N=1
+        self._step()  # N=1
 
-        set_task_done(self.user, "Mid (3)", False, today=TODAY)  # back to 0
+        tasks.reopen(self.task)  # back to 0
 
         _plan, reflection = self._reload()
         self.assertEqual(reflection.good, "")
@@ -218,7 +224,7 @@ class ProgressLifecycleTestCase(TestCase):
     def test_mid_text_marker_logs_count_base(self):
         self._seed("Buy (5) apples")
 
-        set_task_done(self.user, "Buy (5) apples", True, today=TODAY)
+        self._step()
 
         _plan, reflection = self._reload()
         self.assertEqual(reflection.good, "Buy (1) apples")
@@ -227,7 +233,7 @@ class ProgressLifecycleTestCase(TestCase):
     def test_leading_marker_logs_count_base(self):
         self._seed("(4) Walk 1km")
 
-        set_task_done(self.user, "(4) Walk 1km", True, today=TODAY)
+        self._step()
 
         _plan, reflection = self._reload()
         self.assertEqual(reflection.good, "(1) Walk 1km")
@@ -238,7 +244,7 @@ class ProgressLifecycleTestCase(TestCase):
     def test_plain_task_still_uses_boolean_path(self):
         self._seed("pay bills")
 
-        set_task_done(self.user, "pay bills", True, today=TODAY)
+        self._step()
 
         plan, reflection = self._reload()
         self.assertEqual(plan.focus, "pay bills")  # text unchanged
@@ -248,13 +254,10 @@ class ProgressLifecycleTestCase(TestCase):
     # --- co-existence with other tasks ------------------------------------
 
     def test_only_target_task_progresses(self):
-        Plan.objects.create(
-            pub_date=TODAY, thread=self.daily, focus="Do tasks (3)\nother task"
-        )
-        self.board.state = [create_unscheduled_task("Do tasks (3)")]
-        self.board.save()
+        self._seed("Do tasks (3)")
+        plan_task(self.user, "other task", TODAY)
 
-        set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+        self._step()
 
         plan, reflection = self._reload()
         self.assertEqual(plan.focus, "Do tasks (3)\nother task")  # unchanged
@@ -274,7 +277,7 @@ class ProgressLifecycleTestCase(TestCase):
             side_effect=DatabaseError("boom"),
         ):
             with self.assertRaises(DatabaseError):
-                set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
+                tasks.complete(self.task, self.user, day=TODAY)
 
         _plan, reflection = self._reload()
         self.assertEqual(self._node()["data"]["state"], "open")

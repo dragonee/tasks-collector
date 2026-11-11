@@ -1,15 +1,16 @@
-"""The Today list by text, for clients that don't know task ids yet.
+"""Planning by what a line says, and the lock every write to a day takes.
 
-The Android app and the CLI name a task by the text of its line. Each
-operation here finds the task that text means on the day's plan and hands
-over to ``services.tasks``; nothing is matched by text beyond that lookup.
+A task typed into a client, a board item added to a plan by its text and a
+line ticked in a journal name a task by its text. ``plan_text`` and
+``planned_task`` find the task that text means and hand over to
+``services.tasks``; nothing is matched by text beyond that lookup.
 
-Every write first row-locks the user's Daily thread, so two quick taps on the
-phone run one after the other instead of both reading the same plan.
+Every write first row-locks the user's Daily thread (``lock_day``), so two
+quick taps on the phone run one after the other instead of both reading the
+same plan.
 """
 
 from dataclasses import dataclass
-from datetime import date as date_cls
 from datetime import timedelta
 from typing import Optional
 
@@ -21,7 +22,6 @@ from ..boards import items
 from ..progress import base_of, parse_progress, render_count
 from ..tasks import agenda, documents
 from ..tasks import operations as tasks
-from ..tasks.agenda import AgendaTask as TodayTask
 from ..tasks.base import create_task
 from ..trips.operations import StoryNotFoundError, StoryStoppedError
 from . import board_tree
@@ -45,14 +45,6 @@ class BoardItem:
     board_id: int
     # Whether the item has a task; otherwise it is an unscheduled task.
     planned: bool
-
-
-def _today(today, published=None):
-    if today is not None:
-        return today
-    if published is not None:
-        return published.date()
-    return date_cls.today()
 
 
 def owned_active_story(user, story_id):
@@ -92,21 +84,6 @@ def _current_board(user, for_update=False):
             "create one in the web app before using the Android board picker."
         )
     return board
-
-
-def plan_tasks(user, pub_date, thread_name):
-    """The tasks of ``user``'s plan on ``thread_name`` for ``pub_date``, in
-    the plan's order. See ``services.tasks.agenda``."""
-    return agenda.plan_tasks(user, pub_date, thread_name)
-
-
-@transaction.atomic
-def list_today_tasks(user, today=None):
-    """The day's tasks, open ones first, the plan's order kept within each
-    group."""
-    tasks_of_the_day = plan_tasks(user, _today(today), Thread.DAILY)
-    tasks_of_the_day.sort(key=lambda task: task.done)
-    return tasks_of_the_day
 
 
 def _flatten_board(board, nodes, depth, out):
@@ -311,103 +288,3 @@ def plan_item(user, board_id, item_id, thread_name, pub_date):
     task = tasks.task_for_item(user, board, item)
     tasks.plan(task, plan)
     return task
-
-
-def add_task(user, text, today=None):
-    """Put the task ``text`` names on the day's plan (see ``plan_text``)."""
-    day = _today(today)
-    plan_text(user, text, Thread.DAILY, day, day)
-
-
-def _set_done(user, text, done, today, published, note=None, story_id=None):
-    day = _today(today, published)
-    daily = lock_day(user)
-    plan = documents.plan_for(daily, day, create=True)
-
-    line = _find_line(plan, text)
-    if line is not None:
-        task = _task_of(user, line)
-    elif done:
-        task = _task_for_text(user, text, day)
-        tasks.plan(task, plan)
-    else:
-        return None
-
-    if not done:
-        if not tasks.reopen(task):
-            return None
-        return tasks.display_text(task)
-
-    if task.done and parse_progress(task.text) is None:
-        return tasks.display_text(task)
-
-    story = owned_active_story(user, story_id) if story_id is not None else None
-    tasks.complete(task, user, day=day, at=published, note=note, story=story)
-    task.refresh_from_db()
-    return tasks.display_text(task)
-
-
-@transaction.atomic
-def set_task_done(user, text, done, today=None, published=None):
-    """Do a step of the task ``text`` names on the day's plan (``done``), or
-    take the last one back.
-
-    Returns the task's text as lists now show it, or None when there was
-    nothing to take back.
-    """
-    return _set_done(user, text, done, today, published)
-
-
-@transaction.atomic
-def complete_task(
-    user, text, done, today=None, note=None, published=None, story_id=None
-):
-    """As ``set_task_done``; a completion with a ``note``, or saved to the
-    trip ``story_id``, also makes a journal entry.
-
-    ``story_id`` raises ``StoryNotFoundError`` / ``StoryStoppedError`` like
-    the trip endpoints, and nothing is written.
-    """
-    _set_done(
-        user,
-        text,
-        done,
-        today,
-        published,
-        note=note if done else None,
-        story_id=story_id if done else None,
-    )
-
-
-@transaction.atomic
-def delete_task(user, text, today=None):
-    """Take the task ``text`` names off the day's plan. The board is left
-    alone, and so is what the reflection says."""
-    day = _today(today)
-    daily = lock_day(user)
-    plan = documents.plan_for(daily, day)
-
-    line = _find_line(plan, text)
-    if line is None:
-        return
-    if line.task_id:
-        tasks.unplan(line.task, plan)
-    else:
-        line.delete()
-        documents.write_cache(plan)
-
-
-@transaction.atomic
-def move_task(user, text, from_date, to_date):
-    """Move the task ``text`` names from one day's plan to another's. It is
-    the same task on the new day, with the steps done so far."""
-    daily = lock_day(user)
-    from_plan = documents.plan_for(daily, from_date)
-
-    line = _find_line(from_plan, text)
-    if line is None:
-        add_task(user, text, today=to_date)
-        return
-
-    task = _task_of(user, line)
-    tasks.move(task, from_plan, documents.plan_for(daily, to_date, create=True))
