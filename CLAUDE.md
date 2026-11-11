@@ -20,6 +20,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docker-compose up` (from docker/development/) - Start full development environment
 - `docker-compose exec tasks-backend bash` - Access running container
 
+### Several environments at once
+- `/devenv` (`.claude/skills/devenv`) gives a piece of work a worktree under `.claude/worktrees/` with a stack, database and ports of its own, and moves the session into it with EnterWorktree. `/devenv resume` goes back to it after /clear.
+- It runs `docker/development/devenv.py` (`start | list | status | resume | down`). The worktree's `docker/development/.env` sets `TASKS_PORT_PREFIX`: prefix 4 is the project `tasks-4` with the app on localhost:4000. Unset (the main checkout), ports stay 8000, 9000, 9001 and 7079.
+- Inside an environment the commands above reach its stack unchanged. A new database is seeded by `manage.py seed_dev` (django / django, and alice / django who is shared a board and an observation).
+
 ## Architecture Overview
 
 ### Core Structure

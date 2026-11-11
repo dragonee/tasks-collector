@@ -349,3 +349,4 @@ REVISION
 .codegraph/
 .codeignore
 knowledge.sqlite*
+.claude/worktrees/
