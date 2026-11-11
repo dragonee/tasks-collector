@@ -37,6 +37,13 @@ This is a Django-based personal productivity application with a Vue.js frontend.
    - **Event sourcing**: All activities tracked as polymorphic events
    - Key models: Thread, Event, Board, Habit, Observation, Plan, Reflection, JournalAdded, QuickNote, Breakthrough
 
+### Multi-user and sharing
+- Every user owns their threads (Daily, Weekly and big-picture are provisioned and can't be deleted), habits, breakthroughs and statistics.
+- Every stream is an `EventStream` row with an access list (`EventStreamAccess`: one owner, optional viewers); events belong to a home stream and may be members of others (`EventStreamEntry`, e.g. a trip). `Event.created_by` is provenance only.
+- Query with `owned_by(user)` for personal pages and writes, `visible_to(user)` for what can be read (own + shared). Trips, observations and projected outcomes can be shared view-only (`services/streams.py`).
+- `tests/test_route_isolation.py` walks every route as a second user; a new route with an unknown URL parameter fails it.
+- Design and history: `docs/design/multiuser-event-streams.md`.
+
 ### Key Architectural Patterns
 
 - **Event Sourcing**: All changes tracked as events with stream IDs

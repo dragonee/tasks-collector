@@ -34,12 +34,16 @@
 
         {% for insight in object_list %}
             <article class="observation-detail" data-obs="{{ insight.pk }}" id="insight-{{ insight.pk }}">
-                <div class="meta">{{ insight.published|date }} (<span class="type" style="color: {{ insight.type.color }};">{{ insight.type }}</span>; <span class="thread">{{ insight.thread }}</span> <a href="{% url 'public-insight-edit' insight.event_stream_id %}">edit</a>)</div>
+                <div class="meta">{{ insight.published|date }} (<span class="type" style="color: {{ insight.type.color }};">{{ insight.type }}</span>; <span class="thread">{{ insight.thread }}</span>{% if insight.created_by_id == request.user.id %} <a href="{% url 'public-insight-edit' insight.event_stream_id %}">edit</a>{% else %}; shared by {{ insight.created_by.username }}{% endif %})</div>
                 <div class="strong">{{ insight.approach|linebreaks }}</div>
                 <div class="situation-italic">{{ insight.situation|linebreaks }}</div>
 
                 <div class="detail-actions">
-                    <a href="{% url 'public-insight-edit' insight.event_stream_id %}" class="btn">Edit insight</a>
+                    {% if insight.created_by_id == request.user.id %}
+                        <a href="{% url 'public-insight-edit' insight.event_stream_id %}" class="btn">Edit insight</a>
+                    {% else %}
+                        <a href="{% url 'public-observation-closed-detail' insight.event_stream_id %}" class="btn">View timeline</a>
+                    {% endif %}
                 </div>
             </article>
         {% endfor %}

@@ -52,6 +52,7 @@ from .serializers import (
 from .services.observations.closing import close_observation
 from .services.observations.event_creation import create_observation_change_events
 from .services.observations.insights import extract_insight
+from .views_sharing import sharing_context
 
 # Viewset actions that only read. Everything else changes data, which only
 # the owner may do.
@@ -251,7 +252,7 @@ class ObservationListView(ObservationListFilterMixin, LoginRequiredMixin, ListVi
         queryset = (
             Observation.objects.visible_to(self.request.user)
             .with_attached_count()
-            .select_related("thread", "type")
+            .select_related("thread", "type", "user")
             .prefetch_related("observationupdated_set")
         )
         return self.apply_observation_filters(queryset)
@@ -321,7 +322,7 @@ class InsightsListView(ObservationListFilterMixin, LoginRequiredMixin, ListView)
         queryset = (
             InsightRefined.objects.visible_to(self.request.user)
             .filter(pk__in=Subquery(latest_ids))
-            .select_related("thread", "type")
+            .select_related("thread", "type", "created_by")
         )
         return self.apply_observation_filters(queryset)
 
@@ -349,10 +350,16 @@ def observation_closed_detail(request, event_stream_id):
         .first()
     )
 
+    is_owner = observation_closed.event_stream.created_by_id == request.user.id
     return render(
         request,
         "tree/observationclosed_detail.html",
         {
+            **sharing_context(request, observation_closed.event_stream),
+            "is_owner": is_owner,
+            "shared_by": (
+                None if is_owner else observation_closed.event_stream.created_by
+            ),
             "instance": observation_closed,
             "events": events,
             "updates": filter(lambda x: isinstance(x, ObservationUpdated), events),
@@ -381,8 +388,13 @@ def _get_initial_dict_for_observation(user, observation):
 def observation_edit(request, observation_id=None):
     if observation_id is not None:
         observation = get_object_or_404(
-            Observation.objects.owned_by(request.user), id=observation_id
+            Observation.objects.visible_to(request.user), id=observation_id
         )
+        if observation.user_id != request.user.id:
+            # Shared with this user: they read it, they don't change it.
+            if request.method != "GET":
+                raise Http404
+            return _shared_observation(request, observation)
     else:
         observation = Observation()
 
@@ -450,6 +462,22 @@ def observation_edit(request, observation_id=None):
             "instance": observation,
             "thread_as_link": True,
             "complex_presenter": get_complex_presenter(observation, request.user),
+            **sharing_context(
+                request, observation.event_stream if observation.pk else None
+            ),
+        },
+    )
+
+
+def _shared_observation(request, observation):
+    """An open observation shared with the user, read-only."""
+    return render(
+        request,
+        "tree/observation_shared.html",
+        {
+            "instance": observation,
+            "events": observation.get_events().order_by("published"),
+            "shared_by": observation.user,
         },
     )
 
@@ -599,9 +627,7 @@ def _require_own_observation(user, observation_id):
 
 def _event_stream_id_from_observation_id(user, observation_id):
     try:
-        return (
-            Observation.objects.visible_to(user).get(pk=observation_id).event_stream_id
-        )
+        return Observation.objects.owned_by(user).get(pk=observation_id).event_stream_id
     except TypeError, ValueError:
         raise ValidationError({"error": "other_observation_id must be an integer"})
     except Observation.DoesNotExist:
@@ -622,13 +648,14 @@ def _parse_event_stream_id(value):
 
 def _validate_event_stream_id(user, value):
     """Return a client-supplied event stream id as a UUID, if it is the stream
-    of an observation (open or closed) ``user`` can access. Others answer as
-    if they didn't exist.
+    of an observation (open or closed) ``user`` owns. Others answer as if they
+    didn't exist: only your own observations can be attached, not ones shared
+    with you.
     """
     event_stream_id = _parse_event_stream_id(value)
 
     if (
-        EventStream.objects.visible_to(user)
+        EventStream.objects.owned_by(user)
         .filter(pk=event_stream_id, type=EventStream.Type.OBSERVATION)
         .exists()
     ):

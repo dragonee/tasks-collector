@@ -12,6 +12,7 @@ from . import (
     views_habit,
     views_habit_api,
     views_observation,
+    views_sharing,
     views_today,
     views_trip,
 )
@@ -308,6 +309,12 @@ urlpatterns = [
         "diary/<slug:slug>/<int:year>/<int:month>/",
         views.JournalTagArchiveMonthView.as_view(month_format="%m"),
         name="public-diary-archive-month-tag",
+    ),
+    # === Sharing a trip, observation or projected outcome (views_sharing) ===
+    path(
+        "streams/<uuid:stream_id>/sharing/",
+        views_sharing.stream_sharing,
+        name="stream-sharing",
     ),
     # === Trips (views_trip) — web mirror of the Android trips ===
     path("trips/", views_trip.trip_list, name="trip-list"),

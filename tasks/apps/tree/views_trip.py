@@ -28,6 +28,7 @@ from .models import EventStreamEntry, PhotoAdded, Story
 from .services.photos import attach_photo_urls
 from .services.trips import operations as trip_ops
 from .utils.datetime import parse_aware_datetime
+from .views_sharing import sharing_context
 
 # Trip notes/photos prepend a machine line like "#poi lat=.. lng=..". This is
 # the server-side twin of POI_LINE_RE in tasks/assets/app.js — keep the two in
@@ -41,17 +42,17 @@ POI_LINE_RE = re.compile(
 )
 
 
-def _cover_photos_by_story(user):
+def _cover_photos_by_story(stories):
     """Map of story_id -> latest PhotoAdded in it (the tile cover).
 
-    One pass over the photos in the user's trip streams (newest first); the
+    One pass over the photos in the given trips' streams (newest first); the
     first row seen per story is its latest photo. PhotoAdded shares its pk
     with the base Event, so the entry's event_id keys straight into
     ``in_bulk``.
     """
     rows = (
         EventStreamEntry.objects.filter(
-            stream__story__user=user, event__journaladded__photoadded__isnull=False
+            stream__story__in=stories, event__journaladded__photoadded__isnull=False
         )
         .order_by("stream__story", "-event__published")
         .values_list("stream__story", "event_id")
@@ -130,15 +131,22 @@ def _trip_date_label(story):
 @login_required
 def trip_list(request):
     """Index of the user's trips as tiles (cover photo + title + dates),
-    grouped by month with a month archive sidebar like the diary."""
-    trips = list(Story.objects.filter(user=request.user).order_by("-started"))
-    months = Story.objects.filter(user=request.user).dates(
+    grouped by month with a month archive sidebar like the diary, followed by
+    the trips others share with the user."""
+    trips = list(Story.objects.owned_by(request.user).order_by("-started"))
+    shared = list(
+        Story.objects.visible_to(request.user)
+        .exclude(user=request.user)
+        .select_related("user")
+        .order_by("-started")
+    )
+    months = Story.objects.owned_by(request.user).dates(
         "started", "month", order="DESC"
     )
 
-    covers = _cover_photos_by_story(request.user)
+    covers = _cover_photos_by_story(trips + shared)
     attach_photo_urls(list(covers.values()))
-    for trip in trips:
+    for trip in trips + shared:
         trip.cover_photo = covers.get(trip.id)
         trip.date_label = _trip_date_label(trip)
 
@@ -147,6 +155,7 @@ def trip_list(request):
         "tree/trips/trip_list.html",
         {
             "trips": trips,
+            "shared_trips": shared,
             "months": months,
         },
     )
@@ -159,15 +168,19 @@ def _detail_context(request, story):
     ``can_add`` gates the owner-only "add to trip" panel and its JS: only the
     owner of an *active* trip may attach notes/photos (the service layer rejects
     writes to a stopped trip anyway). The public shared view builds its own
-    context without these flags, so the panel never appears there.
+    context without these flags, so the panel never appears there; so does a
+    user the trip is shared with, who sees it read-only.
     """
     events = _story_events(story)
+    is_owner = story.user_id == request.user.id
     return {
         **_share_context(request, story),
+        **sharing_context(request, story.event_stream),
         "events": events,
         "map_points": _map_points(events),
-        "show_share_control": True,
-        "can_add": story.stopped is None,
+        "show_share_control": is_owner,
+        "can_add": is_owner and story.stopped is None,
+        "shared_by": None if is_owner else story.user,
     }
 
 
@@ -190,8 +203,16 @@ def _render_entries(request, story_id):
 
 @login_required
 def trip_detail(request, story_id):
-    """A single trip with all its journal/photo entries, newest first."""
-    story = _owned_story_or_404(request, story_id)
+    """A single trip with all its journal/photo entries, newest first. Its
+    owner can change it; a user it is shared with only reads it."""
+    story = (
+        Story.objects.visible_to(request.user)
+        .select_related("user", "event_stream")
+        .filter(pk=story_id)
+        .first()
+    )
+    if story is None:
+        raise Http404("Trip not found")
     return render(
         request, "tree/trips/trip_detail.html", _detail_context(request, story)
     )

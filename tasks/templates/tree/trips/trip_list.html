@@ -40,6 +40,29 @@
         {% empty %}
             <p>No trips yet.</p>
         {% endfor %}
+
+        {% if shared_trips %}
+            <section class="trip-month" id="shared">
+                <h3>Shared with you</h3>
+                <div class="trip-tiles">
+                    {% for story in shared_trips %}
+                        <a class="trip-tile" href="{% url 'trip-detail' story.id %}">
+                            <div class="trip-tile-photo">
+                                {% if story.cover_photo %}
+                                    <img src="{{ story.cover_photo.thumbnail_url|default:story.cover_photo.original_url }}" alt="" loading="lazy">
+                                {% else %}
+                                    <div class="trip-tile-noimg">🧳</div>
+                                {% endif %}
+                            </div>
+                            <div class="trip-tile-body">
+                                <span class="trip-tile-title">{{ story }}</span>
+                                <span class="trip-tile-dates">{{ story.date_label }} &middot; {{ story.user.username }}</span>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
     </main>
 </div>
 
@@ -52,6 +75,9 @@
                     <a href="#{{ month|date:"Y-m" }}">{{ month|date:"F Y" }}</a>
                 </li>
             {% endfor %}
+            {% if shared_trips %}
+                <li><a href="#shared">Shared with you</a></li>
+            {% endif %}
         </ul>
     </aside>
 </div>

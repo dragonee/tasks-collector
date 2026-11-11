@@ -180,6 +180,7 @@ class RouteIsolationTestCase(APITestCase):
             "event_id": self.photo.pk,
             "event_stream_id": self.closed_stream_id,
             "share_uuid": self.share.uuid,
+            "stream_id": self.story.event_stream_id,
             "slug": self.habit.slug,
             "year": self.day.year,
             "month": self.day.month,
@@ -219,6 +220,8 @@ class RouteIsolationTestCase(APITestCase):
             "key": f"photos/{self.alice.pk}/a.jpg",
             "content_type": "image/jpeg",
             "done": True,
+            "action": "share",
+            "username": "bob",
         }
 
     def alices_data(self):
