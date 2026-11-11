@@ -54,6 +54,26 @@ class JournalStoryAPITestCase(APITestCase):
         self.assertFalse(trip_links(story=story).exists())
         self.assertFalse(JournalAdded.objects.exists())
 
+    def test_someone_elses_story_answers_like_an_unknown_one(self):
+        story = Story.objects.create(user=self.other, title="t")
+
+        theirs = self._post(story=story.pk).json()["story"][0]
+        unknown = self._post(story=999999).json()["story"][0]
+
+        self.assertEqual(
+            theirs.replace(str(story.pk), "?"), unknown.replace("999999", "?")
+        )
+
+    def test_the_browsable_api_lists_only_own_stories(self):
+        Story.objects.create(user=self.user, title="MY-TRIP")
+        Story.objects.create(user=self.other, title="THEIR-TRIP")
+
+        resp = self.client.get(reverse("journaladded-list"), HTTP_ACCEPT="text/html")
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("MY-TRIP", resp.content.decode())
+        self.assertNotIn("THEIR-TRIP", resp.content.decode())
+
     def test_post_without_story_creates_no_story_event(self):
         resp = self._post()
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)

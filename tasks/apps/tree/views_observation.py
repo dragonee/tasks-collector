@@ -156,11 +156,30 @@ class ObservationViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
+def _visible_observations(request):
+    if request is None or not request.user.is_authenticated:
+        return Observation.objects.none()
+    return Observation.objects.visible_to(request.user)
+
+
+class ObservationUpdatedFilter(filters.FilterSet):
+    # Declared explicitly: the generated filter chose among every user's
+    # observations, so the browsable API listed them all and an unknown id
+    # answered differently from someone else's.
+    observation_id = filters.ModelChoiceFilter(
+        field_name="observation", queryset=_visible_observations
+    )
+
+    class Meta:
+        model = ObservationUpdated
+        fields = []
+
+
 class ObservationUpdatedViewSet(viewsets.ModelViewSet):
     queryset = ObservationUpdated.objects.order_by("published")
 
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["observation_id"]
+    filterset_class = ObservationUpdatedFilter
 
     def get_queryset(self):
         if self.action in READ_ACTIONS:
