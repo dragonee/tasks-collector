@@ -48,9 +48,11 @@ from ..models import (
     ObservationUpdated,
     PhotoAdded,
     Plan,
+    PlanLine,
     Profile,
     ProjectedOutcome,
     Reflection,
+    ReflectionLine,
     SharedStory,
     Story,
     Task,
@@ -157,8 +159,8 @@ class RouteIsolationTestCase(APITestCase):
 
         # A task of hers, planned for the day and done: its completion is an
         # event in the stream of her board.
-        plan_text(alice, f"{SECRET} task", Thread.DAILY, cls.day, cls.day)
-        complete(Task.objects.get(), alice, day=cls.day, at=now)
+        cls.task = plan_text(alice, f"{SECRET} task", Thread.DAILY, cls.day, cls.day)
+        complete(cls.task, alice, day=cls.day, at=now)
 
         cls.tag = JournalTag.objects.create(
             user=alice, name=f"{SECRET}-tag", slug="secret-tag"
@@ -300,8 +302,15 @@ class RouteIsolationTestCase(APITestCase):
         story = both("story_id", "story")
         outcome = both("projected_outcome_id", "outcome")
         streams = self.stream_targets()
+        task = private(task_id=self.task.pk)
 
         return {
+            "task-detail": task,
+            "task-plan": task,
+            "task-unplan": task,
+            "task-move": task,
+            "task-complete": task,
+            "task-reopen": task,
             "board-summary": private(id=self.commit.pk),
             "boards/<int:id>/commit/": private(id=self.board.pk),
             "public-habit-detail": private(slug=self.habit.slug),
@@ -436,7 +445,12 @@ class RouteIsolationTestCase(APITestCase):
             "projected_outcome": p["outcome"].pk,
             "keyword": "secret",
             "date": self.day.isoformat(),
+            "day": self.day.isoformat(),
+            "from_date": self.day.isoformat(),
+            "to_date": self.day.replace(day=1).isoformat(),
             "pub_date": self.day.isoformat(),
+            "board_id": self.board.pk,
+            "item_id": "1",
             "resolved_by": self.day.replace(month=12, day=31).isoformat(),
             "key": f"photos/{self.alice.pk}/standalone.jpg",
             "content_type": "image/jpeg",
@@ -501,6 +515,13 @@ class RouteIsolationTestCase(APITestCase):
                 map(repr, Event.objects.owned_by(alice).values().order_by("pk"))
             ),
             "plans": list(Plan.objects.filter(thread__user=alice).values()),
+            "tasks": list(Task.objects.filter(user=alice).values()),
+            "plan_lines": list(
+                PlanLine.objects.filter(plan__thread__user=alice).values()
+            ),
+            "reflection_lines": list(
+                ReflectionLine.objects.filter(reflection__thread__user=alice).values()
+            ),
             "reflections": list(Reflection.objects.filter(thread__user=alice).values()),
             "boards": list(Board.objects.filter(thread__user=alice).values()),
             "threads": list(Thread.objects.filter(user=alice).values()),

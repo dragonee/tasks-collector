@@ -13,6 +13,7 @@ document) notices and makes the rows say what the text says.
 
 import datetime
 import difflib
+import re
 
 from django.db import transaction
 
@@ -25,6 +26,30 @@ REFLECTION_FIELDS = ("good", "better", "best")
 # How alike two wordings must be to be the same line reworded, not one line
 # removed and another typed in its place.
 REWORDED_RATIO = 0.5
+
+
+# A line that ends with " ^t" and a task's anchor is that task's line,
+# whatever its wording.
+ANCHOR_RE = re.compile(r"[ \t]+\^t([0-9a-f]{8})[ \t]*$")
+ANCHORS_RE = re.compile(r"[ \t]+\^t[0-9a-f]{8}(?=[ \t]*\r?$)", re.MULTILINE)
+
+
+def split_anchor(line):
+    """(the line without its anchor, the anchor or None)."""
+    match = ANCHOR_RE.search(line)
+    if match is None:
+        return line, None
+    return line[: match.start()], match.group(1)
+
+
+def anchored(text, task):
+    """``text`` as the line of ``task``."""
+    return f"{text} ^t{task.anchor}"
+
+
+def strip_anchors(text):
+    """``text`` with the anchor taken off every line that ends with one."""
+    return ANCHORS_RE.sub("", text)
 
 
 def split(text):

@@ -66,6 +66,16 @@ def set_ticked(board, task, ticked):
     board.save()
 
 
+def set_text(board, task):
+    """Give the item of ``task`` on ``board`` the task's text and save the
+    board, if there is anything to change."""
+    item = item_of(task, board)
+    if item is None or items.text_of(item) == task.text:
+        return
+    items.set_text(item, task.text)
+    board.save()
+
+
 def reapply(board):
     """Put the links the tasks know of back onto a tree that came from
     outside, in place. An item names a task only when that task names the

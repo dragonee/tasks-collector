@@ -1,8 +1,8 @@
 """Shared helpers for creating photo events from confirmed S3 uploads.
 
 Extracted from ``services.trips.operations`` so the storyless photo path
-(``services.photos.standalone``) can reuse the exactly-once lookup, the EXIF
-capture-time read, and the Daily-thread resolution without importing the trips
+(``services.photos.standalone``) can reuse the EXIF capture-time read and the
+Daily-thread resolution without importing the trips
 module — which would create a ``trips`` <-> ``photos`` circular import.
 """
 
@@ -23,25 +23,6 @@ def daily_thread(user):
     from ...models import Thread
 
     return Thread.objects.daily(user)
-
-
-def existing_event(model, user, idempotency_key):
-    """The event ``user`` previously created with ``idempotency_key``, or None.
-
-    Used for exactly-once writes: a retried request (whose first response was
-    lost) re-uses the existing event instead of creating a duplicate.
-
-    Raises ``ValueError`` for a key longer than ``Event.idempotency_key``
-    allows: no event can carry it, and the insert that follows would fail.
-    """
-    if not idempotency_key:
-        return None
-    max_length = model._meta.get_field("idempotency_key").max_length
-    if len(idempotency_key) > max_length:
-        raise ValueError(f"idempotency_key must be at most {max_length} characters")
-    return model.objects.filter(
-        created_by=user, idempotency_key=idempotency_key
-    ).first()
 
 
 def capture_datetime_from_storage(key, default_tz=None):

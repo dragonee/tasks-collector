@@ -13,6 +13,7 @@ from . import (
     views_habit_api,
     views_observation,
     views_sharing,
+    views_tasks,
     views_today,
     views_trip,
 )
@@ -97,6 +98,27 @@ urlpatterns = [
         "api/v1/android/task/move/",
         views_android_api.AndroidTaskMoveView.as_view(),
         name="android-task-move",
+    ),
+    # === Tasks by id (views_tasks) ===
+    path("api/v1/tasks/agenda/", views_tasks.task_agenda, name="task-agenda"),
+    path("api/v1/tasks/", views_tasks.task_create, name="task-create"),
+    path("api/v1/tasks/<uuid:task_id>/", views_tasks.task_detail, name="task-detail"),
+    path("api/v1/tasks/<uuid:task_id>/plan/", views_tasks.task_plan, name="task-plan"),
+    path(
+        "api/v1/tasks/<uuid:task_id>/unplan/",
+        views_tasks.task_unplan,
+        name="task-unplan",
+    ),
+    path("api/v1/tasks/<uuid:task_id>/move/", views_tasks.task_move, name="task-move"),
+    path(
+        "api/v1/tasks/<uuid:task_id>/complete/",
+        views_tasks.task_complete,
+        name="task-complete",
+    ),
+    path(
+        "api/v1/tasks/<uuid:task_id>/reopen/",
+        views_tasks.task_reopen,
+        name="task-reopen",
     ),
     path(
         "api/v1/android/board/items/",
