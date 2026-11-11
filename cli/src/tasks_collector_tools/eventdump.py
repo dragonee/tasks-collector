@@ -1,16 +1,18 @@
 """Dump daily events to markdown."""
 
+import json
+import sys
 from collections import Counter
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from textwrap import fill
 from typing import List
 
-import requests
 from dateutil.parser import parse
-from requests.auth import HTTPBasicAuth
+from requests.exceptions import RequestException
 
 from .config.tasks import TasksConfigFile
+from .days import get_days
 from .models import (
     HabitTracked,
     JournalAdded,
@@ -85,32 +87,6 @@ def parse_result(result_data: dict) -> Result:
     return Result.model_validate(result_data)
 
 
-def get_daily_events(config: TasksConfigFile, arguments, dt: date = None):
-    if dt is None:
-        dt = datetime.now().date()
-
-    dt_string = "?date={}".format(dt.strftime("%Y-%m-%d"))
-
-    if arguments.thread:
-        dt_string += "&thread={}".format(arguments.thread)
-
-    url = "{}/api/events/daily/{}".format(
-        config.url,
-        dt_string,
-    )
-
-    auth = HTTPBasicAuth(config.user, config.password)
-
-    r = requests.get(url, auth=auth)
-
-    out = r.json()
-
-    if not r.ok:
-        raise RuntimeError("{}: {}".format(r.status_code, str(out)))
-
-    return parse_result(out)
-
-
 def do_fill(text, width=80):
     # preserve links
     if any(a in text for a in ("](", "http://", "https://")):
@@ -183,7 +159,7 @@ class ObservationStatistics:
             _stats = stats(id in self.closed, id in self.added, self.counter[id])
 
             self.renders[id] = "- [{situation}]({url}){updates}".format(
-                situation=first_line(self.situation_fields[id]),
+                situation=first_line(self.situation_fields.get(id) or "No situation"),
                 url=self.urls[id],
                 updates=_stats,
             )
@@ -275,8 +251,33 @@ def parse_arguments(argv, prog):
     parser.add_argument(
         "--no-reflections", action="store_true", help="Exclude reflections from output."
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the days as the server gives them, as JSON, in place of"
+        " markdown.",
+    )
 
-    return parser.parse_args(argv)
+    arguments = parser.parse_args(argv)
+
+    if arguments.json and arguments.path:
+        parser.error("--json prints; it writes no files to PATH")
+
+    return arguments
+
+
+def as_data(fetched, arguments):
+    """What --json prints: the days with something on them, as the server
+    gives them, without what --no-plans and --no-reflections leave out."""
+    left_out = {"plan"} if arguments.no_plans else set()
+    if arguments.no_reflections:
+        left_out.add("reflection")
+
+    return [
+        {key: value for key, value in day.items() if key not in left_out}
+        for day in fetched
+        if not parse_result(day).empty()
+    ]
 
 
 def main(argv, prog):
@@ -302,19 +303,34 @@ def main(argv, prog):
         )
         end_date = parse(arguments.date_to).date() if arguments.date_to else start_date
 
-    def date_range(start_date, end_date, delta):
-        current_date = start_date
-        while current_date <= end_date:
-            yield current_date
-            current_date += delta
+    try:
+        fetched = get_days(config, start_date, end_date, arguments.thread)
+    except (RequestException, RuntimeError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if arguments.json:
+        print(
+            json.dumps(
+                {
+                    "from": start_date.isoformat(),
+                    "to": end_date.isoformat(),
+                    "thread": arguments.thread or "Daily",
+                    "days": as_data(fetched, arguments),
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return
 
     already_deleted = set()
 
-    for dt in date_range(start_date, end_date, timedelta(days=1)):
+    for result in map(parse_result, fetched):
+        dt = result.date
+
         if path:
             print("Processing... {}".format(dt), "\r", end="")
-
-        result = get_daily_events(config, arguments, dt)
 
         if result.empty():
             continue

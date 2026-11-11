@@ -5,6 +5,7 @@ from functools import cached_property
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -20,8 +21,12 @@ from rest_framework.response import Response as RestResponse
 from .forms import HabitForm, OnlyTextSingleHabitTrackedForm, SingleHabitTrackedForm
 from .models import Habit, HabitTracked, Profile, Thread
 from .serializers import HabitKeywordSerializer, HabitSerializer
+from .services.idempotency import existing_event
 from .utils.datetime import DayCount, adjust_start_date_to_monday, date_range_generator
 from .utils.itertools import itemize
+
+# Room for ":<index>" in Event.idempotency_key (64).
+HABIT_KEY_LENGTH = 60
 
 
 def get_day_from_request(request):
@@ -83,19 +88,42 @@ def track_habit(request):
             )
         return RestResponse(form.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # A client that may retry sends an ``idempotency_key``: the habits a line
+    # tracks get ``key:0``, ``key:1``..., and the line sent again tracks
+    # nothing more.
+    key = request.data.get("idempotency_key") or None
+    if key is not None:
+        if not isinstance(key, str) or len(key) > HABIT_KEY_LENGTH:
+            return RestResponse(
+                {"idempotency_key": [f"At most {HABIT_KEY_LENGTH} characters."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if existing_event(HabitTracked, request.user, f"{key}:0") is not None:
+            return RestResponse({"ok": True}, status=status.HTTP_200_OK)
+
     habits_tracked = []
 
-    for occured, habit, note in form.cleaned_data["triplets"]:
-        obj = HabitTracked.objects.create(
-            occured=occured,
-            habit=habit,
-            note=note,
-            published=form.cleaned_data["published"],
-            thread=form.cleaned_data["thread"],
-            created_by=request.user,
-        )
+    try:
+        with transaction.atomic():
+            for index, (occured, habit, note) in enumerate(
+                form.cleaned_data["triplets"]
+            ):
+                obj = HabitTracked.objects.create(
+                    occured=occured,
+                    habit=habit,
+                    note=note,
+                    published=form.cleaned_data["published"],
+                    thread=form.cleaned_data["thread"],
+                    created_by=request.user,
+                    idempotency_key=f"{key}:{index}" if key else None,
+                )
 
-        habits_tracked.append(obj)
+                habits_tracked.append(obj)
+    except IntegrityError:
+        # The same key, sent twice at once: the other one tracked them.
+        if existing_event(HabitTracked, request.user, f"{key}:0") is None:
+            raise
+        return RestResponse({"ok": True}, status=status.HTTP_200_OK)
 
     if request.htmx:
         initial_dict = {}

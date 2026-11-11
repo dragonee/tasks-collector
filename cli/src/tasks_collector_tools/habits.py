@@ -2,12 +2,13 @@
 
 import json
 import sys
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import requests
 from dateutil.parser import parse
-from requests.auth import HTTPBasicAuth
+from requests.exceptions import ConnectionError
 
 from .config.tasks import TasksConfigFile
 from .models import HabitWithTracked, Keyword
@@ -15,16 +16,24 @@ from .utils import command_parser, smart_open
 
 
 def add_habit(config, text, published=None):
+    """Track the habits ``text`` names ("#workout 100 push-ups"). Returns
+    whether the server took it."""
     if published is None:
         published = datetime.now()
 
-    payload = {"text": text, "published": published.astimezone().isoformat()}
+    payload = {
+        "text": text,
+        "published": published.astimezone().isoformat(),
+        # The same with the retry below, so the habits are tracked once.
+        "idempotency_key": uuid.uuid4().hex,
+    }
 
     url = "{}/habit/track/".format(config.url)
 
-    r = requests.post(
-        url, json=payload, auth=HTTPBasicAuth(config.user, config.password)
-    )
+    try:
+        r = requests.post(url, json=payload, auth=config.auth)
+    except ConnectionError:
+        r = requests.post(url, json=payload, auth=config.auth)
 
     if r.ok:
         print("Habit tracked")
@@ -33,6 +42,8 @@ def add_habit(config, text, published=None):
             print(json.dumps(r.json(), indent=4, sort_keys=True))
         except json.decoder.JSONDecodeError:
             print("HTTP {}\n{}".format(r.status_code, r.text))
+
+    return r.ok
 
 
 def format_habit_list(habits):
@@ -45,10 +56,11 @@ def format_habit_list(habits):
 def get_habit_list(config, stderr, date=None):
     url = f"{config.url}/habit-api/"
 
+    params = {"page_size": 1000}
     if date is not None:
-        url += f"?date={date.isoformat()}"
+        params["date"] = date.isoformat()
 
-    r = requests.get(url, auth=HTTPBasicAuth(config.user, config.password))
+    r = requests.get(url, params=params, auth=config.auth)
 
     if r.ok:
         return r.json()["results"]
@@ -68,9 +80,7 @@ def get_keyword_list(config, stderr, date=None, all_keywords=False):
     if all_keywords:
         params["all"] = "true"
 
-    r = requests.get(
-        url, params=params, auth=HTTPBasicAuth(config.user, config.password)
-    )
+    r = requests.get(url, params=params, auth=config.auth)
 
     if r.ok:
         return [Keyword(**kw) for kw in r.json()]
@@ -82,11 +92,33 @@ def get_keyword_list(config, stderr, date=None, all_keywords=False):
         return []
 
 
-def print_habit_list(config, filename="-"):
-    with smart_open(filename, "w", pipe=sys.stdout) as f:
-        habits = get_habit_list(config, sys.stderr)
+def habits_as_data(habits):
+    """The habits as ``--list --json`` gives them: each one's name, slug,
+    description and keywords."""
+    return [
+        {
+            "name": habit["name"],
+            "slug": habit["slug"],
+            "description": habit.get("description"),
+            "keywords": sorted(habit.get("keywords", [])),
+        }
+        for habit in habits
+    ]
 
-        f.write(format_habit_list(habits) + "\n")
+
+def print_habit_list(config, filename="-", as_json=False):
+    habits = get_habit_list(config, sys.stderr)
+
+    if habits is None:
+        sys.exit(1)
+
+    with smart_open(filename, "w", pipe=sys.stdout) as f:
+        if as_json:
+            f.write(
+                json.dumps(habits_as_data(habits), indent=2, ensure_ascii=False) + "\n"
+            )
+        else:
+            f.write(format_habit_list(habits) + "\n")
 
 
 def match_occurrence(entry, words, no_words):
@@ -187,11 +219,25 @@ def parse_arguments(argv, prog):
     )
     parser.add_argument("-l", "--list", action="store_true", help="List habits.")
     parser.add_argument(
+        "--json",
+        action="store_true",
+        help="With -l, list each habit's name, slug, description and keywords"
+        " as JSON.",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         metavar="FILENAME",
         default="-",
         help="If listing, output to file [default: %(default)s].",
+    )
+    parser.add_argument(
+        "-t",
+        "--track",
+        metavar="LINE",
+        action="append",
+        help='Track the habits LINE names, without asking: "#workout 100'
+        ' push-ups", "!alcohol". May be given more than once.',
     )
 
     return parser.parse_args(argv)
@@ -205,7 +251,15 @@ def main(argv, prog):
     published = get_date_from_arguments(arguments)
 
     if arguments.list:
-        print_habit_list(config, arguments.output)
+        print_habit_list(config, arguments.output, as_json=arguments.json)
+        return
+
+    if arguments.track:
+        tracked = [
+            add_habit(config, line, published=published) for line in arguments.track
+        ]
+        if not all(tracked):
+            sys.exit(1)
         return
 
     keywords = get_keyword_list(

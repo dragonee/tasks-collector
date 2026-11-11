@@ -16,17 +16,20 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response as RestResponse
+from rest_framework.views import APIView
 
 from .forms import *
 from .models import *
 from .presenters import load_other_observations
 from .serializers import *
 from .services.journalling import process_journal_entry
+from .services.journalling.preview import preview as preview_journal_entry
 from .services.photos import attach_photo_urls
 from .services.tasks import agenda, documents
 from .services.today import plan_item, plan_text
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
+from .views_idempotency import IdempotentCreateMixin
 
 
 class PlanFilter(filters.FilterSet):
@@ -72,9 +75,13 @@ class ReflectionViewSet(viewsets.ModelViewSet):
 
 
 # XXX should we permit only POST here?
-class JournalAddedViewSet(viewsets.ModelViewSet):
+class JournalAddedViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
+    """Journal entries. An entry sent again with its ``idempotency_key`` is
+    not added twice (``IdempotentCreateMixin``)."""
+
     queryset = JournalAdded.objects.none()
     serializer_class = JournalAddedSerializer
+    idempotent_model = JournalAdded
 
     def get_queryset(self):
         return (
@@ -94,6 +101,31 @@ class JournalAddedViewSet(viewsets.ModelViewSet):
             story=story,
             user=self.request.user,
         )
+
+
+class JournalPreview(APIView):
+    """What sending a journal entry would do, without doing it: POST what
+    ``journal/`` takes, get back what it would add (see
+    ``services.journalling.preview``). It changes nothing, so a token that
+    can only read may ask it."""
+
+    read_only_tokens = True
+
+    def post(self, request):
+        serializer = JournalAddedSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        # Not kept, so not checked against the entries made with keys.
+        serializer.validated_data.pop("idempotency_key", None)
+
+        result = preview_journal_entry(
+            lambda: serializer.save(created_by=request.user),
+            user=request.user,
+            skip_habits="reflection" in request.data,
+            story=serializer.validated_data.get("story"),
+        )
+        return RestResponse(result)
 
 
 class ThreadPagination(PageNumberPagination):
@@ -459,24 +491,18 @@ def _as_text(serializer_class, document, request, anchors):
     return data
 
 
-@api_view(["GET"])
-def daily_events(request):
-    """What happened on ``date`` on one of the caller's threads, with that
-    day's plan and reflection as text. ``anchors=1`` gives the text with
-    anchors, for a client that sends lines back (``tc reflect``)."""
-    day = request.GET.get("date", timezone.now().date())
-    anchors = request.GET.get("anchors") in ("1", "true")
-
-    thread_name = request.GET.get("thread", Thread.DAILY)
-    thread = Thread.objects.filter(user=request.user, name=thread_name).first()
-
+def _events_of(user, thread, **published):
+    """The user's events on ``thread``, as the day endpoints give them."""
     events = list(
-        Event.objects.owned_by(request.user)
-        .filter(published__date=day, thread=thread)
+        Event.objects.owned_by(user)
+        .filter(thread=thread, **published)
         # Not completions: clients of this endpoint know a closed set of
         # event types; they read what was done from the reflection.
         .not_instance_of(BoardCommitted, TaskCompleted)
         .select_related("thread")
+        # The same order whichever endpoint asks: habits tracked for a day
+        # share a moment.
+        .order_by("published", "pk")
     )
     Event.prefetch_related_by_kind(
         events,
@@ -490,17 +516,98 @@ def daily_events(request):
     )
     ObservationEventMixin.prefetch_open_observation(events)
     ObservationEventMixin.prefetch_situations(events)
+    return events
+
+
+def _day(request, day, events, plan, reflection, anchors):
+    return {
+        "date": day,
+        "events": EventSerializer(events, many=True, context={"request": request}).data,
+        "plan": _as_text(PlanSerializer, plan, request, anchors),
+        "reflection": _as_text(ReflectionSerializer, reflection, request, anchors),
+    }
+
+
+@api_view(["GET"])
+def daily_events(request):
+    """What happened on ``date`` on one of the caller's threads, with that
+    day's plan and reflection as text. ``anchors=1`` gives the text with
+    anchors, for a client that sends lines back (``tc reflect``)."""
+    day = request.GET.get("date", timezone.now().date())
+    anchors = request.GET.get("anchors") in ("1", "true")
+
+    thread_name = request.GET.get("thread", Thread.DAILY)
+    thread = Thread.objects.filter(user=request.user, name=thread_name).first()
+
+    events = _events_of(request.user, thread, published__date=day)
     plan = Plan.objects.filter(pub_date=day, thread=thread).first()
     reflection = Reflection.objects.filter(pub_date=day, thread=thread).first()
 
+    return RestResponse(_day(request, day, events, plan, reflection, anchors))
+
+
+# The longest span ``events_between`` answers at once; a client splits a
+# longer one.
+MAX_DAYS = 366
+
+
+@api_view(["GET"])
+def events_between(request):
+    """What happened ``from`` .. ``to`` (both included, at most ``MAX_DAYS``
+    days) on one of the caller's threads: the days ``daily_events`` gives one
+    at a time, in one request. Days with nothing on them are left out.
+    ``thread`` (default Daily) and ``anchors=1`` as there."""
+    try:
+        start = date_cls.fromisoformat(request.GET["from"])
+        end = date_cls.fromisoformat(request.GET["to"])
+    except KeyError, ValueError:
+        return RestResponse(
+            {"detail": "from and to are dates, YYYY-MM-DD."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if end < start or (end - start).days >= MAX_DAYS:
+        return RestResponse(
+            {"detail": f"from .. to is 1 to {MAX_DAYS} days."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    anchors = request.GET.get("anchors") in ("1", "true")
+
+    thread_name = request.GET.get("thread", Thread.DAILY)
+    thread = Thread.objects.filter(user=request.user, name=thread_name).first()
+    if thread is None:
+        return RestResponse(
+            {"detail": f"You have no thread {thread_name!r}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    events_by_day = {}
+    for event in _events_of(request.user, thread, published__date__range=(start, end)):
+        day = timezone.localtime(event.published).date()
+        events_by_day.setdefault(day, []).append(event)
+    in_range = {"thread": thread, "pub_date__range": (start, end)}
+    plans = {plan.pub_date: plan for plan in Plan.objects.filter(**in_range)}
+    reflections = {
+        reflection.pub_date: reflection
+        for reflection in Reflection.objects.filter(**in_range)
+    }
+
+    days = sorted(set(events_by_day) | set(plans) | set(reflections))
     return RestResponse(
         {
-            "date": day,
-            "events": EventSerializer(
-                events, many=True, context={"request": request}
-            ).data,
-            "plan": _as_text(PlanSerializer, plan, request, anchors),
-            "reflection": _as_text(ReflectionSerializer, reflection, request, anchors),
+            "from": start,
+            "to": end,
+            "thread": thread.name,
+            "days": [
+                _day(
+                    request,
+                    day,
+                    events_by_day.get(day, []),
+                    plans.get(day),
+                    reflections.get(day),
+                    anchors,
+                )
+                for day in days
+            ],
         }
     )
 

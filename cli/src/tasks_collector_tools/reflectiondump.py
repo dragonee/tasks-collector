@@ -17,11 +17,11 @@ from urllib.parse import urlencode
 
 import requests
 from dateutil.parser import parse
-from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 from slugify import slugify
 
 from .config.tasks import TasksConfigFile
+from .days import get_days
 from .models import (
     Event,
     Habit,
@@ -98,35 +98,87 @@ def parse_result(result_data: dict) -> Result:
     return Result.model_validate(result_data)
 
 
-def get_daily_events(config: TasksConfigFile, arguments, dt: date = None):
-    if dt is None:
-        dt = datetime.now().date()
+# A line of a plan or a reflection: an optional "- [x] " in front, and the
+# anchor of its task at the end.
+LINE_RE = re.compile(
+    r"^\s*(?:[-*+]\s+)?(?:\[[x~^ ]\]\s+)?(?P<text>.*?)(?:[ \t]+\^t(?P<anchor>[0-9a-f]{8}))?\s*$"
+)
 
-    params = {
-        "date": dt.strftime("%Y-%m-%d"),
-        "thread": arguments.thread if arguments.thread else "Daily",
-    }
 
-    if arguments.anchors:
-        params["anchors"] = "1"
+def lines_of(text):
+    """The lines of a plan's or a reflection's text, each {"text", "anchor"}."""
+    return [
+        LINE_RE.match(line).groupdict()
+        for line in (text or "").splitlines()
+        if line.strip()
+    ]
 
-    dt_string = urlencode(params)
 
-    url = "{}/api/events/daily/?{}".format(
-        config.url,
-        dt_string,
+def situation_of(event: ObservationEvent):
+    return getattr(event, "situation", None) or getattr(
+        event, "situation_at_creation", None
     )
 
-    auth = HTTPBasicAuth(config.user, config.password)
 
-    r = requests.get(url, auth=auth)
+def as_data(results: List[Result], arguments):
+    """What --json prints: each day with something on it, its reflection
+    and plan line by line, its habits, observations and journals; the
+    sections the options leave out of the markdown are left out here too."""
+    days = []
 
-    out = r.json()
+    for result in results:
+        day = {"date": result.date.isoformat()}
 
-    if not r.ok:
-        raise RuntimeError("{}: {}".format(r.status_code, str(out)))
+        if not arguments.no_summary:
+            reflection = result.reflection
+            day["reflection"] = {
+                field: lines_of(getattr(reflection, field) if reflection else None)
+                for field in ("good", "better", "best")
+            }
 
-    return parse_result(out)
+        day["plan"] = lines_of(result.plan.focus if result.plan else None)
+
+        if not arguments.no_habits:
+            day["habits"] = [
+                {
+                    "habit": event.habit.name,
+                    "keywords": event.habit.keywords,
+                    "occured": event.occured,
+                    "note": event.note,
+                    "published": event.published.isoformat(),
+                }
+                for event in result.events
+                if isinstance(event, HabitTracked)
+            ]
+
+        if not arguments.no_observations:
+            day["observations"] = [
+                {
+                    "event": event.resourcetype,
+                    "observation": event.event_stream_id,
+                    "situation": situation_of(event),
+                    "url": getattr(event, "url", None),
+                    "published": event.published.isoformat(),
+                }
+                for event in result.events
+                if isinstance(event, ObservationEvent)
+            ]
+
+        if not arguments.skip_journals:
+            day["journals"] = [
+                {
+                    "published": event.published.isoformat(),
+                    # tc sends a comment's lines ending in \r\n.
+                    "comment": event.comment.replace("\r\n", "\n"),
+                    "tags": event.tags,
+                }
+                for event in result.events
+                if isinstance(event, JournalAdded)
+            ]
+
+        days.append(day)
+
+    return {"thread": arguments.thread or "Daily", "days": days}
 
 
 def do_fill(text, width=80):
@@ -201,7 +253,7 @@ class ObservationStatistics:
             _stats = stats(id in self.closed, id in self.added, self.counter[id])
 
             self.renders[id] = "- [{situation}]({url}){updates}".format(
-                situation=first_line(self.situation_fields[id]),
+                situation=first_line(self.situation_fields.get(id) or "No situation"),
                 url=self.urls[id],
                 updates=_stats,
             )
@@ -440,6 +492,13 @@ def parse_arguments(argv, prog):
         action="store_true",
         help="Print only dates without reflection entries.",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print JSON in place of markdown: day by day, the reflection and"
+        " plan line by line (each line's text and its task's anchor), habits,"
+        " observations and journals.",
+    )
 
     return parser.parse_args(argv)
 
@@ -468,37 +527,39 @@ def main(argv, prog):
             yield current_date
             current_date += delta
 
-    def try_get_daily_events(dt, config, arguments):
-        try:
-            return get_daily_events(config, arguments, dt)
-        except RequestException as e:
-            print(f"Error fetching data for {dt}: {str(e)}", file=sys.stderr)
-            return None
-
-    date_results = list(
-        map(
-            lambda dt: (dt, try_get_daily_events(dt, config, arguments)),
-            date_range(start_date, end_date),
+    try:
+        fetched = get_days(
+            config, start_date, end_date, arguments.thread, arguments.anchors
         )
-    )
+    except (RequestException, RuntimeError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    results = {result.date: result for result in map(parse_result, fetched)}
 
     if arguments.missing:
-        missing_dates = [
-            dt
-            for dt, result in date_results
-            if result is None or not result.reflection or result.reflection.empty()
-        ]
-
-        for dt in missing_dates:
-            print(dt.strftime("%Y-%m-%d"))
+        for dt in date_range(start_date, end_date):
+            result = results.get(dt)
+            if result is None or not result.reflection or result.reflection.empty():
+                print(dt.strftime("%Y-%m-%d"))
 
         return
 
-    valid_results = [
-        result
-        for _, result in date_results
-        if result is not None and not result.empty()
-    ]
+    valid_results = [results[dt] for dt in sorted(results) if not results[dt].empty()]
+
+    if arguments.json:
+        print(
+            json.dumps(
+                {
+                    "from": start_date.isoformat(),
+                    "to": end_date.isoformat(),
+                    **as_data(valid_results, arguments),
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return
 
     aggregator = ResultAggregator(
         valid_results,

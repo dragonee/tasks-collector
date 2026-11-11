@@ -23,6 +23,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Revoke the user's tokens of that name first",
         )
+        parser.add_argument(
+            "--read-only",
+            action="store_true",
+            help="A token that can only read: what would change something is refused",
+        )
 
     def handle(self, *args, **options):
         User = get_user_model()
@@ -36,5 +41,7 @@ class Command(BaseCommand):
         if options["rotate"]:
             ApiToken.objects.filter(user=user, name=options["name"]).delete()
 
-        _token, key = ApiToken.objects.issue(user, options["name"])
+        _token, key = ApiToken.objects.issue(
+            user, options["name"], read_only=options["read_only"]
+        )
         self.stdout.write(key)

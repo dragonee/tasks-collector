@@ -25,7 +25,6 @@ from difflib import SequenceMatcher
 import requests
 from colored import attr, fg
 from more_itertools import consume, repeatfunc
-from requests.auth import HTTPBasicAuth
 
 from .config.tasks import TasksConfigFile
 from .models import ProfileResponse, StatsResponse
@@ -70,7 +69,7 @@ def load_default_thread_from_profile(config):
     """Load default board thread from user profile API."""
     try:
         url = f"{config.url}/profile/"
-        r = requests.get(url, auth=HTTPBasicAuth(config.user, config.password))
+        r = requests.get(url, auth=config.auth)
 
         if r.ok:
             profile_response = ProfileResponse.parse_obj(r.json())
@@ -148,9 +147,7 @@ def show_stats(args, config):
     params = {"year": year} if year else {}
 
     try:
-        r = requests.get(
-            url, params=params, auth=HTTPBasicAuth(config.user, config.password)
-        )
+        r = requests.get(url, params=params, auth=config.auth)
 
         if r.ok:
             stats = StatsResponse.parse_obj(r.json())
@@ -533,9 +530,7 @@ def add_unscheduled_task(config, default_thread, text):
 
     url = "{}/boards/append/".format(config.url)
 
-    r = requests.post(
-        url, json=payload, auth=HTTPBasicAuth(config.user, config.password)
-    )
+    r = requests.post(url, json=payload, auth=config.auth)
 
     if r.ok:
         print(GOTOURL.format(url=config.url, name=thread).strip())

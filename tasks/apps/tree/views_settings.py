@@ -6,7 +6,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
-from .forms import DefaultBoardForm, HabitKeywordsForm, MapProviderForm, UserForm
+from tasks.apps.common.models import ApiToken
+
+from .forms import (
+    ApiTokenForm,
+    DefaultBoardForm,
+    HabitKeywordsForm,
+    MapProviderForm,
+    UserForm,
+)
 from .models import Profile
 from .views_sharing import board_sharing_panels
 
@@ -91,7 +99,29 @@ def profile(request):
 
 @login_required
 def devices(request):
-    return _page(request, DEVICES, api_tokens=request.user.api_tokens.all())
+    """The tokens logged in as the user, and a form to issue one for a
+    script. A new token's key is on the page that answers the form, and
+    nowhere else."""
+    form = ApiTokenForm(_posted(request))
+    issued = None
+    if form.is_valid():
+        token, key = ApiToken.objects.issue(
+            request.user,
+            form.cleaned_data["name"],
+            read_only=form.cleaned_data["read_only"],
+        )
+        issued = {"token": token, "key": key}
+        form = ApiTokenForm()
+    response = _page(
+        request,
+        DEVICES,
+        api_tokens=request.user.api_tokens.all(),
+        form=form,
+        issued=issued,
+    )
+    if issued is not None:
+        response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required

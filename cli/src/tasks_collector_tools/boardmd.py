@@ -16,7 +16,6 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
-from requests.auth import HTTPBasicAuth
 
 from .config.tasks import TasksConfigFile
 from .utils import command_parser
@@ -111,7 +110,7 @@ def main(argv, prog):
 
     url = "{}/threads/".format(config.url)
 
-    auth = HTTPBasicAuth(config.user, config.password)
+    auth = config.auth
 
     r = requests.get(url, auth=auth)
 

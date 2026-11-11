@@ -14,6 +14,36 @@ from .services.tasks import documents
 from .templatetags.model_presenters import first_line
 
 
+class IdempotencyKeyField(serializers.CharField):
+    """The key a client sends with a create it may retry: the retry gives
+    back what the first one made (``views_idempotency``). Write-only. A blank
+    key is no key: many events may have none, not the same one."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("allow_null", True)
+        kwargs.setdefault("allow_blank", True)
+        kwargs.setdefault("max_length", 64)
+        kwargs.setdefault("write_only", True)
+        super().__init__(**kwargs)
+
+    def run_validation(self, data=serializers.empty):
+        return super().run_validation(data) or None
+
+
+class SituationAtCreationField(serializers.ReadOnlyField):
+    """The observation's situation when the event happened; empty when no
+    event says what it was (an update outliving the record of its
+    observation being made), as the observation page shows it. Empty, not
+    null: clients take it for a string."""
+
+    def get_attribute(self, instance):
+        try:
+            return instance.situation_at_creation()
+        except Observation.DoesNotExist:
+            return ""
+
+
 class AbsoluteURLSerializerMixin:
     """Mixin providing get_url method that returns absolute URL when request is available."""
 
@@ -221,6 +251,8 @@ class ObservationUserSerializer(serializers.ModelSerializer):
 class ObservationSerializer(BaseTypeThreadSerializer):
     user = ObservationUserSerializer(read_only=True)
     last_event_published = serializers.DateTimeField(read_only=True)
+    # Kept on the ObservationMade of a new observation.
+    idempotency_key = IdempotencyKeyField()
 
     class Meta:
         model = Observation
@@ -234,6 +266,7 @@ class ObservationSerializer(BaseTypeThreadSerializer):
             "approach",
             "user",
             "last_event_published",
+            "idempotency_key",
         ]
 
     @transaction.atomic
@@ -242,6 +275,7 @@ class ObservationSerializer(BaseTypeThreadSerializer):
         from .utils.db import get_object_or_new
 
         previous = get_object_or_new(Observation, self.instance)
+        key = self.validated_data.pop("idempotency_key", None)
 
         new_obj = super().save(*args, **kwargs)
 
@@ -251,6 +285,8 @@ class ObservationSerializer(BaseTypeThreadSerializer):
         ):
             if request is not None:
                 event.created_by = request.user
+            if isinstance(event, ObservationMade):
+                event.idempotency_key = key
             event.save()
 
         return new_obj
@@ -283,10 +319,18 @@ class ObservationUpdatedSerializer(serializers.ModelSerializer):
     # The FK is nullable only so updates survive their observation being
     # closed; a new update must belong to an open observation of the caller.
     observation = OwnObservationField()
+    idempotency_key = IdempotencyKeyField()
 
     class Meta:
         model = ObservationUpdated
-        fields = ["id", "comment", "published", "observation_fields", "observation"]
+        fields = [
+            "id",
+            "comment",
+            "published",
+            "observation_fields",
+            "observation",
+            "idempotency_key",
+        ]
 
 
 class MultipleObservationUpdatedSerializer(serializers.ModelSerializer):
@@ -315,9 +359,19 @@ class JournalAddedSerializer(serializers.ModelSerializer):
     # a non-existent attribute and the POST response stays unchanged.
     story = OwnStoryField(required=False, allow_null=True, write_only=True)
 
+    idempotency_key = IdempotencyKeyField()
+
     class Meta:
         model = JournalAdded
-        fields = ["id", "comment", "published", "thread", "tags", "story"]
+        fields = [
+            "id",
+            "comment",
+            "published",
+            "thread",
+            "tags",
+            "story",
+            "idempotency_key",
+        ]
 
     def create(self, validated_data):
         # `story` is not a model field; JournalAddedViewSet.perform_create adds
@@ -382,6 +436,7 @@ class ObservationReinterpretedSerializer(
     AbsoluteURLSerializerMixin, BaseTypeThreadSerializer
 ):
     url = serializers.SerializerMethodField()
+    situation_at_creation = SituationAtCreationField()
 
     class Meta:
         model = ObservationReinterpreted
@@ -401,6 +456,7 @@ class ObservationReflectedUponSerializer(
     AbsoluteURLSerializerMixin, BaseTypeThreadSerializer
 ):
     url = serializers.SerializerMethodField()
+    situation_at_creation = SituationAtCreationField()
 
     class Meta:
         model = ObservationReflectedUpon
@@ -589,6 +645,7 @@ class ObservationUpdatedEventSerializer(
     AbsoluteURLSerializerMixin, serializers.ModelSerializer
 ):
     url = serializers.SerializerMethodField()
+    situation_at_creation = SituationAtCreationField()
 
     class Meta:
         model = ObservationUpdated

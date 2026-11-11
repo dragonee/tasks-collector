@@ -29,6 +29,10 @@ Everything is a subcommand of `tc`. A word written as `obs[ervation]` can be sho
 
 [$ make-readme -h 3 tc trip journal]
 
+`tc today` is `tc reflect dump` of one day: today, unless `-d DATE` says another.
+
+[$ make-readme -h 3 tc today]
+
 ## Observations
 
 [$ make-readme -h 3 tc observation]
@@ -52,3 +56,18 @@ TODO: write up process on how to do a periodical reflection.
 [$ make-readme -h 3 tc reflect dump]
 
 [$ make-readme -h 3 tc events dump]
+
+## For scripts and assistants
+
+What opens an editor also runs without one, and what prints markdown also prints JSON:
+
+- `tc journal --no-edit -f FILE` sends FILE (`-f -`: standard input) as the comment. `--dry-run` asks the server what the entry would do (its reflection lines, the habits it tracks, the tasks it completes) and sends nothing.
+- `tc observation --no-edit -f FILE` sends a filled-in observation template, and `tc update ID --no-edit -f FILE` an update.
+- `tc habits --track "#workout 100 push-ups"` tracks habits without asking, and `tc habits --list --json` lists them with their keywords.
+- `tc reflect dump --json` (`tc today --json` for today) and `tc events dump --json` print the days as JSON. A span is fetched in one request per year.
+
+Each journal entry, observation, update and tracked habit is sent with a key of its own: one queued after a failed connection and sent again is added once.
+
+A token can stand in for the password. Issue one in the account settings (Devices), ticking *Can only read* for one that changes nothing, and put it under `[Tasks]` as `token = …`. A token that can only read may still ask for a `--dry-run`. `tc --config FILE` (or `TC_CONFIG=FILE`) reads that configuration file alone, and `tc whoami` says which files were read and who the server takes tc for.
+
+[$ make-readme -h 3 tc whoami]

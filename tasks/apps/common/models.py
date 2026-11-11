@@ -20,11 +20,14 @@ def _digest(secret):
 
 
 class ApiTokenManager(models.Manager):
-    def issue(self, user, name):
+    def issue(self, user, name, read_only=False):
         """A new token of ``user``'s: (the row, its key). The key exists
         here and with whoever is handed it; it can't be read back."""
         key = secrets.token_urlsafe(32)
-        return self.create(user=user, name=name, digest=_digest(key)), key
+        token = self.create(
+            user=user, name=name, digest=_digest(key), read_only=read_only
+        )
+        return token, key
 
     def for_key(self, key):
         """The token with this key, or None."""
@@ -51,6 +54,10 @@ class ApiToken(models.Model):
     digest = models.CharField(max_length=64, unique=True, editable=False)
     created = models.DateTimeField(auto_now_add=True)
     last_used = models.DateTimeField(null=True, blank=True, editable=False)
+    # A token that can only read: whatever it asks that would change
+    # something is refused (``authentication.TokenAuthentication``). For a
+    # script or an assistant that only looks.
+    read_only = models.BooleanField(default=False)
 
     objects = ApiTokenManager()
 

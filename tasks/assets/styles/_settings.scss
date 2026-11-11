@@ -191,6 +191,14 @@ body.page-settings {
     color: #777;
 }
 
+// A token's key, shown once: on a line of its own, to be copied whole.
+.settings-token {
+    margin: 0.75rem 0 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: all;
+}
+
 .settings-field {
     min-width: 0;
     margin: 0 0 1.25rem;

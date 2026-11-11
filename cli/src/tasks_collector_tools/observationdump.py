@@ -14,7 +14,6 @@ from urllib.parse import urlencode
 
 import requests
 from dateutil.parser import parse
-from requests.auth import HTTPBasicAuth
 from slugify import slugify
 
 from .config.tasks import TasksConfigFile
@@ -309,7 +308,7 @@ def main(argv, prog):
         urlencode(params_from_arguments(arguments)),
     )
 
-    auth = HTTPBasicAuth(config.user, config.password)
+    auth = config.auth
 
     observations = {}
 
