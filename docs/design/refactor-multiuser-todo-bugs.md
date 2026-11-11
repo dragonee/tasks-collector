@@ -291,7 +291,15 @@ editor field (the attach search has no `name`, and the detach buttons are
 
 ### 10. `stats` in the CLI fails until the word count has been computed
 
-- [ ] Fix — clients (CLI)
+- [x] Fixed — clients (CLI)
+
+Fixed in the CLI: `word_count` and `word_count_updated` are optional, and `stats`
+prints "not calculated yet" without them, as the web page says "Not calculated". The
+server keeps answering null, which says that more truly than 0. Checked by feeding
+tester's `/stats/json/` from the dev server to `show_stats`: the old model fails with
+the pydantic error, the new one prints, and a computed count prints as before.
+
+What follows is the problem as found.
 
 `get_word_count_statistic` (`utils/statistics.py:168`) returns `(None, None)` when the
 user has no `Statistics` row. `/stats/json/` passes the nulls on, and the CLI model

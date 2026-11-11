@@ -286,5 +286,6 @@ class StatsResponse(BaseModel):
     projected_outcome_redefined_count: int
     projected_outcome_rescheduled_count: int
     projected_outcome_closed_count: int
-    word_count: int
-    word_count_updated: datetime
+    # Null until the server's word count job has run for the user.
+    word_count: Optional[int]
+    word_count_updated: Optional[datetime]
