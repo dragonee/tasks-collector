@@ -17,7 +17,7 @@ import re
 
 from django.db import transaction
 
-from ...models import Plan, PlanLine, Reflection, ReflectionLine, Thread
+from ...models import Plan, PlanLine, Reflection, ReflectionLine, Task, Thread
 from .base import collect_garbage, create_task
 
 PLAN_FIELDS = ("focus",)
@@ -45,6 +45,15 @@ def split_anchor(line):
 def anchored(text, task):
     """``text`` as the line of ``task``."""
     return f"{text} ^t{task.anchor}"
+
+
+def render_anchored(doc, field):
+    """The lines of ``field`` of ``doc`` as text someone edits: a line of a
+    task ends with the task's anchor."""
+    return render(
+        anchored(row.content, row.task) if row.task_id else row.content
+        for row in rows(doc, field)
+    )
 
 
 def strip_anchors(text):
@@ -133,10 +142,13 @@ class DocumentEdit:
 
     ``sync`` makes the lines of a document say what its text columns say,
     keeping the rows of lines that are still there (and with them their
-    tasks). ``finish`` settles what is left: a line taken out in one place
-    and typed in at another, with the same text, is still the line of its
-    task; other lines typed into a plan become tasks; and a task taken off
-    for good is forgotten unless something remembers it.
+    tasks). It reads plain text, so which line is which is worked out from
+    the wording. ``apply`` reads text whose lines carry anchors, and knows.
+
+    ``finish`` settles what is left: a plain line taken out in one place and
+    typed in at another, with the same text, is still the line of its task;
+    other lines typed into a plan become tasks; and a task taken off for good
+    is forgotten unless something remembers it.
     """
 
     def __init__(self):
@@ -147,12 +159,20 @@ class DocumentEdit:
         # Plan lines typed in: (row, whether it is to become a task).
         self._typed = []
         self._typed_reflection_lines = []
+        # Reflection lines put in by their anchor, to be given the completion
+        # of the line of that task taken out elsewhere (a line moved from
+        # good to best).
+        self._anchored_reflection_lines = []
         self._renamed = []
         self._touched = []
 
     def sync(self, doc, create_tasks):
         for field in fields_of(doc):
             self._sync_field(doc, field, split(getattr(doc, field)), create_tasks)
+
+    def write(self, doc, field, text, create_tasks=True):
+        """Write plain ``text`` (no anchors) as ``field`` of ``doc``."""
+        self._sync_field(doc, field, split(text), create_tasks)
 
     def _sync_field(self, doc, field, wanted, create_tasks):
         current = rows(doc, field)
@@ -196,6 +216,129 @@ class DocumentEdit:
         if doc not in self._touched:
             self._touched.append(doc)
 
+    def apply(self, doc, field, text, base=None, create_tasks=True):
+        """Write ``text`` as ``field`` of ``doc``: lines as an editor has
+        them, a line of a task ending with the task's anchor.
+
+        ``base`` is the text the editor started from. Only what differs from
+        it is applied, so what happened to the document meanwhile stays: a
+        line added from the phone since the page was loaded is not removed
+        because the page didn't have it, and one taken off elsewhere is not
+        put back. Without ``base`` the text replaces what is there.
+
+        - An anchor kept: the same line. Reworded, it renames the task (in a
+          plan) or is the line's new wording (in a reflection).
+        - A line taken out: off the plan, or out of the reflection (the task
+          stays done).
+        - A line without an anchor put in: a task (in a plan, see
+          ``plans_tasks``), or a line of its own.
+        - An anchor put in: that task is planned here too, or the line is
+          that task's. An anchor of no task the document's owner can change
+          is dropped.
+        """
+        current = rows(doc, field)
+        is_plan = isinstance(doc, Plan)
+        makes_tasks = create_tasks and is_plan and plans_tasks(doc)
+
+        def key_of(line_text, anchor):
+            return ("task", anchor) if anchor else ("text", line_text)
+
+        def key_of_row(row):
+            return key_of(row.content, row.task.anchor if row.task_id else None)
+
+        submitted = [split_anchor(line) for line in split(text)]
+        if base is None:
+            loaded = [
+                (row.content, row.task.anchor if row.task_id else None)
+                for row in current
+            ]
+        else:
+            loaded = [split_anchor(line) for line in split(base)]
+
+        if submitted == loaded:
+            return
+
+        loaded_keys = [key_of(*line) for line in loaded]
+        loaded_wording = {anchor: line_text for line_text, anchor in loaded if anchor}
+
+        pool = list(current)
+
+        def take(key):
+            for row in pool:
+                if key_of_row(row) == key:
+                    pool.remove(row)
+                    return row
+            return None
+
+        result = []
+        reworded = []
+        placed = set()
+
+        for line_text, anchor in submitted:
+            if anchor in placed:
+                # The same anchor twice: one line per task.
+                anchor = None
+            key = key_of(line_text, anchor)
+            row = None
+
+            if key in loaded_keys:
+                loaded_keys.remove(key)
+                row = take(key)
+                if row is None:
+                    # Taken out elsewhere since the editor loaded it.
+                    continue
+                was = loaded_wording.get(anchor, row.content)
+            elif anchor:
+                task = (
+                    Task.objects.editable_by(doc.thread.user)
+                    .filter(anchor=anchor)
+                    .first()
+                )
+                if task is None:
+                    anchor, key = None, key_of(line_text, None)
+                else:
+                    row = take(key)
+                    if row is None:
+                        row = self._anchored_row(doc, field, line_text, task)
+                    was = row.content
+
+            if row is None:
+                row = self._new_row(doc, field, line_text, makes_tasks, rebind=False)
+            elif anchor:
+                placed.add(anchor)
+                if line_text.strip() and line_text != was and line_text != row.content:
+                    if row.pk is None:
+                        row.position = len(result)
+                        row.save()
+                    self._reword(row, line_text, makes_tasks)
+                    reworded.append(row)
+            result.append(row)
+
+        for row in pool:
+            key = key_of_row(row)
+            if key in loaded_keys:
+                # The editor had it and no longer does.
+                loaded_keys.remove(key)
+                self._drop(row)
+            else:
+                # Put in elsewhere since the editor loaded the document.
+                result.append(row)
+
+        for position, row in enumerate(result):
+            if row.pk is None or row.position != position or row in reworded:
+                row.position = position
+                row.save()
+
+        if doc not in self._touched:
+            self._touched.append(doc)
+
+    def _anchored_row(self, doc, field, text, task):
+        if isinstance(doc, Plan):
+            return PlanLine(plan=doc, task=task)
+        row = ReflectionLine(reflection=doc, field=field, text=text, task=task)
+        self._anchored_reflection_lines.append(row)
+        return row
+
     def discard(self, doc):
         """Delete ``doc``; the tasks on it are let go like those of any line
         taken off a plan."""
@@ -229,15 +372,19 @@ class DocumentEdit:
 
         row.text = text
         if isinstance(row, PlanLine):
-            self._typed.append((row, makes_tasks and worth_a_task(text)))
+            self._typed.append((row, makes_tasks and worth_a_task(text), True))
 
-    def _new_row(self, doc, field, text, makes_tasks):
+    def _new_row(self, doc, field, text, makes_tasks, rebind=True):
+        """A line typed in. ``rebind`` lets it be the line of a task taken
+        out elsewhere in this edit under the same text; an editor that
+        carries anchors says so itself."""
         if isinstance(doc, Plan):
             row = PlanLine(plan=doc, text=text)
-            self._typed.append((row, makes_tasks and worth_a_task(text)))
+            self._typed.append((row, makes_tasks and worth_a_task(text), rebind))
         else:
             row = ReflectionLine(reflection=doc, field=field, text=text)
-            self._typed_reflection_lines.append(row)
+            if rebind:
+                self._typed_reflection_lines.append(row)
         return row
 
     def _take_released(self, text):
@@ -248,8 +395,8 @@ class DocumentEdit:
         return None
 
     def finish(self):
-        for row, makes_task in self._typed:
-            task = self._take_released(row.text)
+        for row, makes_task, rebind in self._typed:
+            task = self._take_released(row.text) if rebind else None
             if task is not None and line_of(row.plan, task) is not None:
                 # Already on this plan: the typed line is another task.
                 self._released.append(task)
@@ -269,6 +416,15 @@ class DocumentEdit:
                     self._unlinked.remove(link)
                     row.task, row.completion = task, completion
                     row.save(update_fields=["task", "completion"])
+                    break
+
+        for row in self._anchored_reflection_lines:
+            for link in self._unlinked:
+                _text, task, completion = link
+                if task == row.task:
+                    self._unlinked.remove(link)
+                    row.completion = completion
+                    row.save(update_fields=["completion"])
                     break
 
         collect_garbage(self._released)

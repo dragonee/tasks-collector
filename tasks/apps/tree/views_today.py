@@ -3,15 +3,15 @@ from abc import ABC, abstractmethod
 from datetime import date
 
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from .forms import PlanForm, ReflectionForm
-from .models import Habit, HabitTracked, JournalAdded, Plan, Reflection, Thread
+from .models import Habit, HabitTracked, JournalAdded, Plan, Thread
 from .services.photos import attach_photo_urls
-from .services.tasks.documents import DocumentEdit, fields_of
+from .services.tasks import agenda, documents
+from .services.tasks.documents import DocumentEdit
 from .utils.datetime import (
     adjust_start_date_to_monday,
     make_last_day_of_the_month,
@@ -199,40 +199,58 @@ class Monthly(Period):
         return Monthly(next_month_start).canonical()
 
 
-def save_document(edit, document):
-    """Save a plan or a reflection whose text columns a form just filled in,
-    as part of ``edit`` (a ``DocumentEdit``): its lines follow the text, and
-    what is written into a plan becomes tasks. One that was emptied is
-    deleted."""
-    is_empty = not any(getattr(document, field) for field in fields_of(document))
-
-    if is_empty:
-        edit.discard(document)
-        return
-
-    _save_the_one_for_its_day(document)
-    edit.sync(document, create_tasks=True)
+# The page's editors: (name of the form field, which document, which of its
+# fields, the prompt shown while it is empty).
+EDITORS = (
+    ("today_plan-focus", "today_plan", "focus", "Today's focus"),
+    ("tomorrow_plan-focus", "tomorrow_plan", "focus", "Tomorrow's focus"),
+    ("reflection-good", "reflection", "good", "Good"),
+    ("reflection-better", "reflection", "better", "Better"),
+    ("reflection-best", "reflection", "best", "Best"),
+)
 
 
-def _save_the_one_for_its_day(object):
-    """Save a plan or reflection. A thread has one per date: when another
-    request made it since this one was loaded (a double submit, a tick on the
-    phone), this text goes into that row."""
-    if object.pk is not None:
-        object.save()
-        return
+def save_editors(post, sources):
+    """Save what the page's editors hold. ``sources`` maps a document's name
+    to ``(getter, thread, date)``, the getter being ``documents.plan_for`` or
+    ``reflection_for``.
 
-    try:
-        with transaction.atomic():
-            object.save()
-    except IntegrityError:
-        object.pk = (
-            type(object)
-            .objects.values_list("pk", flat=True)
-            .get(thread=object.thread, pub_date=object.pub_date)
-        )
-        object._state.adding = False
-        object.save()
+    Each editor posts its text, a line of a task ending with the task's
+    anchor, and the text it was loaded with (``<name>-base``); only what
+    differs between the two is applied (see ``DocumentEdit.apply``). A post
+    without the base is plain text, written as such. The three documents are
+    one edit: a line moved from today's plan to tomorrow's is the same task.
+    A document left without a line is deleted.
+    """
+    edit = DocumentEdit()
+    saved = {}
+
+    for name, source, field, _prompt in EDITORS:
+        if name not in post:
+            continue
+        text = post[name]
+        getter, thread, pub_date = sources[source]
+
+        if source not in saved:
+            saved[source] = getter(thread, pub_date, create=bool(text.strip()))
+        elif saved[source] is None and text.strip():
+            saved[source] = getter(thread, pub_date, create=True)
+        if saved[source] is None:
+            continue
+
+        base = post.get(f"{name}-base")
+        if base is None:
+            edit.write(saved[source], field, text)
+        else:
+            edit.apply(saved[source], field, text, base=base)
+
+    edit.finish()
+
+    for document in saved.values():
+        if document is not None and not any(
+            row.content.strip() for row in documents.rows(document)
+        ):
+            document.delete()
 
 
 def is_before_noon():
@@ -300,14 +318,6 @@ def get_period_from_request(request, thread):
     return period_cls(today)
 
 
-def get_or_initial(model_class, **kwargs):
-    """Get existing object or create new one with given kwargs"""
-    try:
-        return model_class.objects.get(**kwargs)
-    except model_class.DoesNotExist:
-        return model_class(**kwargs)
-
-
 @login_required
 def today(request):
     if request.method == "POST":
@@ -330,49 +340,66 @@ def today(request):
     next_period = period.get_next()
     prev_period = period.get_previous()
 
-    today_plan = get_or_initial(Plan, pub_date=canonical_date, thread=thread)
-    tomorrow_plan = get_or_initial(
-        Plan, pub_date=next_period.get_canonical_date(), thread=thread
-    )
-    reflection = get_or_initial(Reflection, pub_date=canonical_date, thread=thread)
+    sources = {
+        "today_plan": (documents.plan_for, thread, canonical_date),
+        "tomorrow_plan": (
+            documents.plan_for,
+            thread,
+            next_period.get_canonical_date(),
+        ),
+        "reflection": (documents.reflection_for, thread, canonical_date),
+    }
+
+    if request.method == "POST":
+        with transaction.atomic():
+            save_editors(request.POST, sources)
+
+        return redirect(request.get_full_path())
 
     habits = Habit.objects.filter(user=request.user)
     tracked_habits = HabitTracked.objects.filter(
         habit__user=request.user, published__range=period.as_tuple()
     ).select_related("habit")
 
-    if request.method == "POST":
-        plan = PlanForm(request.POST, instance=today_plan, prefix="today_plan")
-        tomorrow_plan = PlanForm(
-            request.POST, instance=tomorrow_plan, prefix="tomorrow_plan"
-        )
-        reflection = ReflectionForm(
-            request.POST, instance=reflection, prefix="reflection"
-        )
+    loaded = {
+        source: getter(thread_, pub_date)
+        for source, (getter, thread_, pub_date) in sources.items()
+    }
+    editors = {}
+    page_tasks = {}
+    for name, source, field, prompt in EDITORS:
+        document = loaded[source]
+        editors[name.replace("-", "_")] = {
+            "name": name,
+            "prompt": prompt,
+            "kind": "plan" if source != "reflection" else "reflection",
+            "text": (
+                documents.render_anchored(document, field)
+                if document is not None
+                else ""
+            ),
+        }
+        for row in documents.rows(document, field) if document is not None else []:
+            if row.task_id:
+                page_tasks[row.task.anchor] = row.task
 
-        today_plan_form, tomorrow_plan_form, reflection_form = forms = (
-            plan,
-            tomorrow_plan,
-            reflection,
-        )
+    # What the editor draws each anchor with, by anchor.
+    shown = agenda.describe(
+        [agenda.task_shown(task, request.user) for task in page_tasks.values()],
+        request.user,
+    )
+    chips = {
+        task["anchor"]: {
+            key: task[key]
+            for key in ("id", "text", "display", "done", "total", "done_count")
+        }
+        for task in shown
+    }
 
-        # A list, not a generator: every form is validated, so each shows
-        # its own errors.
-        if all([form.is_valid() for form in forms]):
-            # One edit for the three: a line moved from today's plan to
-            # tomorrow's is the same task.
-            with transaction.atomic():
-                edit = DocumentEdit()
-                for form in forms:
-                    save_document(edit, form.instance)
-                edit.finish()
-
-            return redirect(request.get_full_path())
-
-    else:
-        today_plan_form = PlanForm(instance=today_plan, prefix="today_plan")
-        tomorrow_plan_form = PlanForm(instance=tomorrow_plan, prefix="tomorrow_plan")
-        reflection_form = ReflectionForm(instance=reflection, prefix="reflection")
+    larger_plans = [
+        {"thread": plan.thread, "tasks": agenda.tasks_of(plan, request.user)}
+        for plan in get_larger_plans(period, thread)
+    ]
 
     # Materialise so we can attach presigned photo URLs; prefetch the trip
     # each entry is part of, so the per-entry trip badge costs no extra
@@ -389,12 +416,6 @@ def today(request):
 
     actual_today = timezone.now().date()
 
-    # Labels are hidden in the UI; surface the prompts as field placeholders.
-    today_plan_form.fields["focus"].widget.attrs["placeholder"] = "Today's focus"
-    tomorrow_plan_form.fields["focus"].widget.attrs["placeholder"] = "Tomorrow's focus"
-    for field in reflection_form.fields.values():
-        field.widget.attrs["placeholder"] = field.label
-
     return render(
         request,
         "today.html",
@@ -404,13 +425,12 @@ def today(request):
             "actual_today": actual_today,
             "is_today": canonical_date == actual_today,
             "tomorrow": next_period.get_canonical_date(),
-            "today_plan": today_plan,
-            "tomorrow_plan": tomorrow_plan,
-            "reflection": reflection,
-            "larger_plans": get_larger_plans(period, thread),
-            "today_plan_form": today_plan_form,
-            "tomorrow_plan_form": tomorrow_plan_form,
-            "reflection_form": reflection_form,
+            "larger_plans": larger_plans,
+            "editors": editors,
+            "chips": chips,
+            # The day a task ticked on this page is done on: the page's own
+            # day for a daily page, the reader's today otherwise.
+            "completion_day": canonical_date if thread.name == Thread.DAILY else None,
             "habits": habits,
             "tracked_habits": tracked_habits,
             "thread": thread,

@@ -215,3 +215,8 @@ if (document.getElementById('trip-add-modal')) {
 if (document.querySelector('[data-trip-actions]')) {
     import(/* webpackChunkName: "trip_actions" */ "./trip_actions.js");
 }
+// The day page's plan and reflection editors (CodeMirror): only that page
+// has such textareas, and they work as plain textareas until this arrives.
+if (document.querySelector('textarea[data-task-document]')) {
+    import(/* webpackChunkName: "task_document_editor" */ "./task_document_editor.js");
+}

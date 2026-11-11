@@ -66,6 +66,64 @@ body.page-daily {
             font-size: 0.9em;
             color: #999;
         }
+
+        // The editor that takes a textarea's place (task_document_editor.js).
+        .task-document .cm-line.task-done {
+            text-decoration: line-through;
+            text-decoration-color: #c9a27e;
+            color: #b98a5e;
+        }
+    }
+
+    // A task's anchor, drawn in place of " ^t91bd0a44" at the end of a line.
+    .task-chip {
+        display: inline-block;
+        margin-left: 0.5em;
+        padding: 0 0.5em;
+        min-width: 1.9em;
+
+        border: 1px solid #d8dbdb;
+        border-radius: 1em;
+        background: #fff;
+
+        color: #888;
+        font-size: 0.7em;
+        line-height: 1.5;
+        text-align: center;
+        text-decoration: none;
+        vertical-align: 0.15em;
+        user-select: none;
+
+        &[role="button"] {
+            cursor: pointer;
+
+            &:hover {
+                border-color: #e27410;
+                color: #e27410;
+            }
+        }
+
+        &.done {
+            border-color: #9fcf9a;
+            background: #e8f5e2;
+            color: #3a7d33;
+        }
+
+        &.busy {
+            opacity: 0.5;
+        }
+    }
+
+    // The week's and the month's plan above the day's: what is done is struck.
+    .plan-tasks {
+        margin: 0.5rem 0;
+        padding-left: 0;
+        list-style: none;
+
+        li.done {
+            color: #999;
+            text-decoration: line-through;
+        }
     }
 
     .split-right {

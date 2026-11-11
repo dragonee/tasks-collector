@@ -9,10 +9,8 @@ from .models import (
     JournalAdded,
     JournalTag,
     Observation,
-    Plan,
     Profile,
     ProjectedOutcome,
-    Reflection,
     Thread,
 )
 
@@ -42,18 +40,6 @@ class UserThreadFormMixin:
                 if user is not None
                 else JournalAdded.objects.none()
             )
-
-
-class PlanForm(forms.ModelForm):
-    class Meta:
-        model = Plan
-        exclude = ("pub_date", "thread")
-
-
-class ReflectionForm(forms.ModelForm):
-    class Meta:
-        model = Reflection
-        exclude = ("pub_date", "thread")
 
 
 class ObservationForm(UserThreadFormMixin, forms.ModelForm):
