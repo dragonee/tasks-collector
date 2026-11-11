@@ -285,6 +285,13 @@ class EventArchiveContextMixin:
             "published", "month", order="DESC"
         )
 
+        # Photo entries render with presigned URLs and a trip badge, as in the
+        # diary; without the URLs the template fails on any month with a photo.
+        events = list(context["object_list"])
+        prefetch_related_objects(events, Event.prefetch_trip())
+        attach_photo_urls(events)
+        context["object_list"] = events
+
         return context
 
 
