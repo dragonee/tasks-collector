@@ -53,10 +53,13 @@ from ..models import (
     Reflection,
     SharedStory,
     Story,
+    Task,
     Thread,
 )
 from ..services.observations.closing import close_observation
 from ..services.streams import share
+from ..services.tasks.operations import complete
+from ..services.today import plan_text
 from ..services.trips import add_trip_note, share_trip, start_trip
 from .factories import make_habit, make_thread
 from .html import nested_forms
@@ -151,6 +154,11 @@ class RouteIsolationTestCase(APITestCase):
         cls.reflection = Reflection.objects.create(
             pub_date=cls.day, thread=daily, good=SECRET
         )
+
+        # A task of hers, planned for the day and done: its completion is an
+        # event in the stream of her board.
+        plan_text(alice, f"{SECRET} task", Thread.DAILY, cls.day, cls.day)
+        complete(Task.objects.get(), alice, day=cls.day, at=now)
 
         cls.tag = JournalTag.objects.create(
             user=alice, name=f"{SECRET}-tag", slug="secret-tag"

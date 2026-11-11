@@ -23,7 +23,8 @@ from .presenters import load_other_observations
 from .serializers import *
 from .services.journalling import process_journal_entry
 from .services.photos import attach_photo_urls
-from .services.today import plan_tasks
+from .services.tasks import documents
+from .services.today import plan_tasks, plan_text
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
 from .views_sharing import board_sharing_panels
@@ -55,6 +56,16 @@ class PlanViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Plan.objects.filter(thread__user=self.request.user)
 
+    # Text written here is a plan: its lines become tasks.
+    def perform_create(self, serializer):
+        documents.sync_lines(serializer.save(), create_tasks=True)
+
+    def perform_update(self, serializer):
+        documents.sync_lines(serializer.save(), create_tasks=True)
+
+    def perform_destroy(self, instance):
+        documents.delete(instance)
+
 
 class ReflectionViewSet(viewsets.ModelViewSet):
     queryset = Reflection.objects.none()
@@ -62,6 +73,12 @@ class ReflectionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Reflection.objects.filter(thread__user=self.request.user)
+
+    def perform_create(self, serializer):
+        documents.sync_lines(serializer.save(), create_tasks=False)
+
+    def perform_update(self, serializer):
+        documents.sync_lines(serializer.save(), create_tasks=False)
 
 
 # XXX should we permit only POST here?
@@ -150,8 +167,6 @@ def _add_task_to_plan(user, text, timeframe, today=None):
     """
     from datetime import date, timedelta
 
-    from .services.today import text_lines
-
     if today is None:
         today = date.today()
 
@@ -167,20 +182,8 @@ def _add_task_to_plan(user, text, timeframe, today=None):
     else:
         raise ValueError(f"Invalid timeframe: {timeframe}")
 
-    thread = Thread.objects.get(user=user, name=thread_name)
-
-    plan, _created = Plan.objects.get_or_create(
-        pub_date=focus_date, thread=thread, defaults={"focus": text}
-    )
-    # A line already in the plan isn't added again (but still returns success).
-    # Matching goes through text_lines so a CRLF focus, as saved by the web
-    # plan form, still finds the line.
-    new_focus = text_lines.add_unique_line(plan.focus, text)
-    if new_focus != (plan.focus or ""):
-        plan.focus = new_focus
-        plan.save()
-
-    return plan
+    # The text is that of a board item, of whichever board the user had open.
+    return plan_text(user, text, thread_name, focus_date, today, any_board=True)
 
 
 @api_view(["POST"])
@@ -232,7 +235,16 @@ def _serialize_plan(user, pub_date, thread_name):
         "thread": thread_name,
         "pub_date": pub_date.isoformat(),
         "tasks": [
-            {"text": t.text, "done": t.done, "mark": t.mark}
+            {
+                "text": t.text,
+                "done": t.done,
+                "mark": t.mark,
+                # None for a plain line: one nothing was done with as a task.
+                "id": t.id,
+                "anchor": t.anchor,
+                "total": t.total,
+                "done_count": t.done_count,
+            }
             for t in plan_tasks(user, pub_date, thread_name)
         ],
     }
@@ -449,7 +461,9 @@ def daily_events(request):
     events = list(
         Event.objects.owned_by(request.user)
         .filter(published__date=day, thread=thread)
-        .not_instance_of(BoardCommitted)
+        # Not completions: clients of this endpoint know a closed set of
+        # event types; they read what was done from the reflection.
+        .not_instance_of(BoardCommitted, TaskCompleted)
         .select_related("thread")
     )
     Event.prefetch_related_by_kind(

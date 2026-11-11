@@ -13,8 +13,19 @@ from rest_framework.test import APITestCase
 
 from ..board_operations import board_thread_for, create_unscheduled_task
 from ..forms import ProfileForm
-from ..models import Board, BoardCommitted, EventStreamAccess, Plan, Profile, Thread
+from ..models import (
+    Board,
+    BoardCommitted,
+    EventStreamAccess,
+    Plan,
+    Profile,
+    Reflection,
+    Task,
+    TaskCompleted,
+    Thread,
+)
 from ..services.streams import SharingError, revoke, share, shared_with
+from ..services.today import add_task, list_today_tasks, set_task_done
 from .factories import make_board, make_profile, make_thread
 
 User = get_user_model()
@@ -196,11 +207,66 @@ class EditorTestCase(SharedBoardTestCase):
             format="json",
         )
 
+        planned = self.client.post(
+            reverse("android-task-add"),
+            {"text": "buy bread", "date": TODAY.isoformat()},
+            format="json",
+        )
+
         self.assertEqual([i["text"] for i in items.json()["items"]], ["buy bread"])
         self.assertEqual(added.status_code, status.HTTP_200_OK)
-        self.assertEqual(_texts(self._board()), ["buy bread", "call the plumber"])
+        self.assertEqual(planned.status_code, status.HTTP_200_OK)
+        # What he typed in is a task, not an item of the board.
+        self.assertEqual(_texts(self._board()), ["buy bread"])
         plan = Plan.objects.get(pub_date=TODAY)
         self.assertEqual(plan.thread, Thread.objects.daily(self.bob))
+        self.assertEqual(plan.focus, "call the plumber\nbuy bread")
+
+        # Both tasks live in the stream of the shared board: whoever has the
+        # board has them.
+        typed, from_board = Task.objects.order_by("created")
+        self.assertEqual(self._board().state[0]["data"]["taskId"], str(from_board.pk))
+        for task in (typed, from_board):
+            self.assertEqual(task.event_stream_id, self.together.board_stream_id)
+        self.assertEqual(set(Task.objects.visible_to(self.alice)), {typed, from_board})
+        self.assertEqual(set(Task.objects.editable_by(self.bob)), {typed, from_board})
+
+    def test_a_shared_item_planned_by_both_is_one_task(self):
+        make_profile(self.alice, default_board_thread=self.together)
+        make_profile(self.bob, default_board_thread=self.together)
+
+        add_task(self.bob, "buy bread", today=TODAY)
+        add_task(self.alice, "buy bread", today=TODAY)
+
+        task = Task.objects.get()
+        self.assertEqual(task.user, self.bob)
+        self.assertEqual(
+            {line.plan.thread.user for line in task.plan_lines.all()},
+            {self.alice, self.bob},
+        )
+
+        # Either of them completes it; both get it in their reflection, and
+        # the board item is ticked.
+        set_task_done(self.alice, "buy bread", True, today=TODAY)
+
+        for user in (self.alice, self.bob):
+            (shown,) = list_today_tasks(user, today=TODAY)
+            self.assertTrue(shown.done)
+            reflection = Reflection.objects.get(
+                pub_date=TODAY, thread=Thread.objects.daily(user)
+            )
+            self.assertEqual(reflection.good, "buy bread")
+        self.assertTrue(self._board().state[0]["state"]["checked"])
+        completion = TaskCompleted.objects.get()
+        self.assertEqual(completion.created_by, self.alice)
+        self.assertEqual(completion.thread, self.together)
+
+    def test_a_stranger_cannot_see_the_tasks_of_the_board(self):
+        make_profile(self.bob, default_board_thread=self.together)
+        add_task(self.bob, "buy bread", today=TODAY)
+        carol = User.objects.create_user(username="carol2", password="x")
+
+        self.assertFalse(Task.objects.visible_to(carol).exists())
 
     def test_the_profile_offers_the_shared_board(self):
         form = ProfileForm(user=self.bob, instance=Profile.objects.get(user=self.bob))

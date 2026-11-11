@@ -71,9 +71,8 @@ def _no_board_response():
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AndroidTaskListView(APIView):
-    """Return today's tasks: every line in today's Plan.focus, with a
-    ``done`` flag for those that also appear in today's Reflection.good.
-    Unchecked items first.
+    """Return the day's tasks: the lines of the day's plan, each with whether
+    its task is done. Open ones first.
 
     ``date`` query parameter is required (YYYY-MM-DD) — the client sends
     the device's local date so the call follows the user's day regardless
@@ -87,10 +86,7 @@ class AndroidTaskListView(APIView):
         today = _parse_date(request.query_params.get("date"))
         if today is None:
             return _bad_request("date is required (YYYY-MM-DD)")
-        try:
-            items = list_today_tasks(request.user, today=today)
-        except NoBoardError:
-            return _no_board_response()
+        items = list_today_tasks(request.user, today=today)
         return Response(
             {
                 "items": [
@@ -146,10 +142,7 @@ class AndroidTaskAddView(APIView):
         today = _parse_date(request.data.get("date"))
         if today is None:
             return _bad_request("date is required (YYYY-MM-DD)")
-        try:
-            add_task(request.user, text, today=today)
-        except NoBoardError:
-            return _no_board_response()
+        add_task(request.user, text, today=today)
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -205,8 +198,6 @@ class AndroidTaskCompleteView(APIView):
                 note=note,
                 story_id=story_id,
             )
-        except NoBoardError:
-            return _no_board_response()
         except StoryNotFoundError:
             return Response(
                 {"error": "story not found"}, status=status.HTTP_404_NOT_FOUND
@@ -260,10 +251,7 @@ class AndroidTaskDeleteView(APIView):
         today = _parse_date(request.data.get("date"))
         if today is None:
             return _bad_request("date is required (YYYY-MM-DD)")
-        try:
-            delete_task(request.user, text, today=today)
-        except NoBoardError:
-            return _no_board_response()
+        delete_task(request.user, text, today=today)
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -287,8 +275,5 @@ class AndroidTaskMoveView(APIView):
             return _bad_request("to_date is required (YYYY-MM-DD)")
         if from_date == to_date:
             return _bad_request("from_date and to_date must differ")
-        try:
-            move_task(request.user, text, from_date, to_date)
-        except NoBoardError:
-            return _no_board_response()
+        move_task(request.user, text, from_date, to_date)
         return Response({"ok": True}, status=status.HTTP_200_OK)

@@ -139,6 +139,12 @@ def close_board(board, created_by=None):
     board.date_started = now
     board.save()
 
+    # Imported here: services.tasks imports this module.
+    from .services.tasks import board_links
+
+    for changed in board_links.follow([board, *other_boards]):
+        changed.save()
+
     return board
 
 

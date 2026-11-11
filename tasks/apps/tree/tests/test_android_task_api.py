@@ -17,8 +17,9 @@ from ..models import (
     Plan,
     Reflection,
     Story,
+    Task,
 )
-from ..services.today import board_tree
+from ..services.boards import items
 from .factories import make_board, make_profile, make_thread, trip_links
 
 TODAY = date_cls(2026, 5, 21)
@@ -89,24 +90,38 @@ class AndroidTaskAPITestCase(APITestCase):
         an optional MoSCoW marker, work state, and children.
         """
         node = create_unscheduled_task(text)
-        board_tree.set_state(node, state)
+        items.set_checked(node, state == "done")
         node["data"]["meaningfulMarkers"]["moscow"] = moscow
         node["children"] = children or []
         return node
 
-    def test_add_creates_board_node_and_plan_line(self):
+    def test_add_makes_a_task_on_the_days_plan_not_a_board_item(self):
         self._auth()
         response = self._add("buy bread")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), {"ok": True})
 
         self.board.refresh_from_db()
-        self.assertEqual(len(self.board.state), 1)
-        self.assertEqual(self.board.state[0]["text"], "buy bread")
+        self.assertEqual(self.board.state, [])
         plan = Plan.objects.get(thread=self.daily)
         self.assertEqual(plan.pub_date, TODAY)
+        self.assertEqual(plan.focus, "buy bread")
+        self.assertEqual(Task.objects.get().text, "buy bread")
+
+    def test_add_plans_the_board_item_of_that_text(self):
+        self.board.state = [self._node("buy bread", moscow="must")]
+        self.board.save()
+        self._auth()
+
+        self._add("buy bread")
+
+        self.board.refresh_from_db()
+        (item,) = self.board.state
+        self.assertEqual(item["data"]["taskId"], str(Task.objects.get().pk))
 
     def test_move_changes_plans_and_keeps_board_node(self):
+        self.board.state = [self._node("buy bread")]
+        self.board.save()
         self._auth()
         tomorrow = TODAY + timedelta(days=1)
         self._add("buy bread")
@@ -121,6 +136,7 @@ class AndroidTaskAPITestCase(APITestCase):
         self.assertEqual(self.board.state[0]["text"], "buy bread")
         self.assertEqual(Plan.objects.get(pub_date=TODAY).focus, "")
         self.assertEqual(Plan.objects.get(pub_date=tomorrow).focus, "buy bread")
+        self.assertEqual(Task.objects.count(), 1)
 
     def test_move_rejects_invalid_input(self):
         self._auth()
@@ -146,7 +162,7 @@ class AndroidTaskAPITestCase(APITestCase):
                     "buy bread",
                 )
 
-    def test_move_without_board_returns_conflict(self):
+    def test_move_needs_no_board(self):
         self._auth()
         Board.objects.all().delete()
 
@@ -154,7 +170,8 @@ class AndroidTaskAPITestCase(APITestCase):
             text="buy bread", from_date=TODAY_ISO, to_date="2026-05-22"
         )
 
-        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Plan.objects.get(pub_date="2026-05-22").focus, "buy bread")
 
     def test_move_requires_authentication(self):
         response = self._move(
@@ -326,11 +343,16 @@ class AndroidTaskAPITestCase(APITestCase):
         response = self._list(date="2026/05/21")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_no_board_returns_409(self):
+    def test_tasks_need_no_board(self):
+        # A task typed in on the phone is not a board item.
         Board.objects.all().delete()
         self._auth()
-        response = self._add("x")
-        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+        self.assertEqual(self._add("x").status_code, status.HTTP_200_OK)
+        self.assertEqual(self._complete("x", True).status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            self._list().json(), {"items": [{"text": "x", "done": True, "mark": None}]}
+        )
 
     def test_board_items_flatten_order_and_depth(self):
         # root -> child -> grandchild, plus a second root sibling.
@@ -406,6 +428,8 @@ class AndroidTaskAPITestCase(APITestCase):
         """A (3) task starts displaying (1/3); each /complete logs the next
         count and advances the display, crossing the board node at the total.
         Board/Plan text is never rewritten."""
+        self.board.state = [self._node("Do tasks (3)")]
+        self.board.save()
         self._auth()
         self._add("Do tasks (3)")
 
@@ -522,6 +546,8 @@ class AndroidTaskAPITestCase(APITestCase):
     def test_add_another_advances_past_full(self):
         """Ticking past completion keeps logging counts (over-quota) while the
         display caps at (M/M) and the row stays checked."""
+        self.board.state = [self._node("Do tasks (1)")]
+        self.board.save()
         self._auth()
         self._add("Do tasks (1)")
         # First tick completes it: N=1 >= 1 -> display (1/1), done.

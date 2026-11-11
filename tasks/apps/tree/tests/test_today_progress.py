@@ -5,14 +5,10 @@ from django.contrib.auth import get_user_model
 from django.db import DatabaseError
 from django.test import TestCase
 
+from ..board_operations import create_unscheduled_task
 from ..models import Board, Plan, Reflection
-from ..services.today import board_tree, plan_tasks, set_task_done, text_lines
-from ..services.today.progress import (
-    parse_progress,
-    remaining_after,
-    render_carried,
-    render_progress,
-)
+from ..services.progress import parse_progress, render_progress
+from ..services.today import plan_tasks, set_task_done
 from .factories import make_board, make_profile, make_thread
 
 TODAY = date_cls(2026, 5, 21)
@@ -85,73 +81,6 @@ class ProgressRenderTestCase(TestCase):
         )
 
 
-class RemainingAfterTestCase(TestCase):
-    def test_nothing_done_carries_full_total(self):
-        # (1/3) means nothing done yet -> all 3 remain.
-        self.assertEqual(remaining_after("New task (1/3)"), 3)
-
-    def test_partway_carries_remaining(self):
-        # (2/3) means one done -> two remain.
-        self.assertEqual(remaining_after("New task (2/3)"), 2)
-
-    def test_last_step_carries_one(self):
-        # (3/3) means two done -> one remains.
-        self.assertEqual(remaining_after("New task (3/3)"), 1)
-
-    def test_bare_count_is_already_canonical(self):
-        # A single-number (K) form is the stored/canonical shape already.
-        self.assertIsNone(remaining_after("New task (3)"))
-
-    def test_no_marker(self):
-        self.assertIsNone(remaining_after("pay bills"))
-        self.assertIsNone(remaining_after(""))
-        self.assertIsNone(remaining_after(None))
-
-    def test_overshoot_leaves_nothing_to_carry(self):
-        # Over-quota display never reaches the client (it caps at (K/K)), but
-        # a hand-typed (4/3) has -1 remaining -> nothing to carry.
-        self.assertIsNone(remaining_after("New task (4/3)"))
-
-    def test_uses_first_marker(self):
-        self.assertEqual(remaining_after("Do (2/3) the (5) thing"), 2)
-
-
-class RenderCarriedTestCase(TestCase):
-    def test_multiple_remaining_keeps_counter(self):
-        self.assertEqual(render_carried("New task (2/3)", 2), "New task (2)")
-
-    def test_one_remaining_drops_marker(self):
-        # Last item / finished task -> plain, counter-less task.
-        self.assertEqual(render_carried("New task (3/3)", 1), "New task")
-
-    def test_one_remaining_drops_mid_text_marker(self):
-        self.assertEqual(render_carried("Buy (2/2) apples", 1), "Buy apples")
-
-    def test_no_marker_unchanged(self):
-        self.assertEqual(render_carried("pay bills", 1), "pay bills")
-
-
-class ReplaceLineTestCase(TestCase):
-    def test_replaces_only_matching_line(self):
-        self.assertEqual(
-            text_lines.replace_line("a\nb\nc", "b", "B"),
-            "a\nB\nc",
-        )
-
-    def test_returns_value_when_old_absent(self):
-        self.assertEqual(text_lines.replace_line("a\nb", "x", "X"), "a\nb")
-
-    def test_handles_empty(self):
-        self.assertEqual(text_lines.replace_line("", "a", "b"), "")
-        self.assertEqual(text_lines.replace_line(None, "a", "b"), "")
-
-    def test_replaces_all_occurrences(self):
-        self.assertEqual(
-            text_lines.replace_line("a\nb\na", "a", "A"),
-            "A\nb\nA",
-        )
-
-
 class ProgressLifecycleTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -172,7 +101,7 @@ class ProgressLifecycleTestCase(TestCase):
         """Put the total-form task into Plan and on the board at root level.
         Under the reflection-count model this text is never rewritten."""
         Plan.objects.create(pub_date=TODAY, thread=self.daily, focus=text)
-        self.board.state = [board_tree.append_unscheduled_task_at_root([], text)]
+        self.board.state = [create_unscheduled_task(text)]
         self.board.save()
 
     def _reload(self):
@@ -322,9 +251,7 @@ class ProgressLifecycleTestCase(TestCase):
         Plan.objects.create(
             pub_date=TODAY, thread=self.daily, focus="Do tasks (3)\nother task"
         )
-        self.board.state = [
-            board_tree.append_unscheduled_task_at_root([], "Do tasks (3)")
-        ]
+        self.board.state = [create_unscheduled_task("Do tasks (3)")]
         self.board.save()
 
         set_task_done(self.user, "Do tasks (3)", True, today=TODAY)
@@ -343,7 +270,7 @@ class ProgressLifecycleTestCase(TestCase):
         self._seed("Do tasks (3)")
 
         with mock.patch(
-            "tasks.apps.tree.services.today.operations.Reflection.save",
+            "tasks.apps.tree.services.tasks.documents.ReflectionLine.objects.create",
             side_effect=DatabaseError("boom"),
         ):
             with self.assertRaises(DatabaseError):

@@ -9,6 +9,8 @@ import re
 from calendar import monthrange
 from datetime import timedelta
 
+from django.db import transaction
+
 REFLECTION_LINE_PREFIXES = (
     ("[x] ", "good"),
     ("[~] ", "better"),
@@ -51,7 +53,7 @@ def extract_reflection_lines(note):
         List of (field_name, line_content) tuples.
     """
     # Lazy: ``today`` at module scope would cycle back through journalling.
-    from ..today.progress import coerce_to_count
+    from ..progress import coerce_to_count
 
     normalized = note.replace("\r\n", "\n").replace("\r", "\n")
     result = []
@@ -64,54 +66,173 @@ def extract_reflection_lines(note):
     return result
 
 
-def add_reflection_items(journal_added, comment=None):
-    """
-    Extract reflection items from a journal entry and add them to the Reflection.
-
-    Parses the journal comment for reflection prefixes and adds the extracted
-    items to the appropriate Reflection for the journal's thread and date.
-
-    For Weekly threads, items are added to the end-of-week reflection.
-    For big-picture threads, items are added to the end-of-month reflection.
-
-    Args:
-        journal_added: A JournalAdded instance to extract reflections from.
-        comment: Optional pre-processed comment text. Defaults to
-            ``journal_added.comment``.
-    """
-    # Imports here to avoid circular imports. ``text_lines`` lives under
-    # ``services/today``; importing it at module scope would run
-    # ``today/__init__`` -> ``operations`` -> ``trips`` -> back into
-    # ``journalling`` (a cycle), so it is imported lazily.
-    from ...models import Reflection
-    from ..today import text_lines
-
-    if comment is None:
-        comment = journal_added.comment
-
+def reflection_date(journal_added):
+    """The date of the reflection a journal entry's lines go into: the day it
+    was written for a daily entry, the end of the week for one on the Weekly
+    thread and the end of the month for one on big-picture, so that a whole
+    week or month contributes to one reflection."""
     pub_date = journal_added.published.date()
 
-    # This allows us to contribute to one weekly/monthly reflection
     if journal_added.thread.name == "Weekly":
         pub_date = pub_date + timedelta(days=(6 - pub_date.weekday()))
 
     if journal_added.thread.name == "big-picture":
         pub_date = pub_date.replace(day=monthrange(pub_date.year, pub_date.month)[1])
 
+    return pub_date
+
+
+def _add_once(reflection, field, text, task=None):
+    """Add the line to the reflection unless that field already says it."""
+    from ..tasks import documents
+
+    if any(row.text == text for row in documents.rows(reflection, field)):
+        return
+    documents.append_reflection_line(reflection, field, text, task=task)
+
+
+def _record_on_task(task, author, field, text, day, at, reflection):
+    """A reflection line that names a task: do the steps of the task the line
+    says are done. A line about a task already that far along (a week's
+    reflection repeating a day's) is added as a line of the task, and nothing
+    is done twice."""
+    from ..progress import marker_value, parse_progress
+    from ..tasks import operations as tasks
+
+    if parse_progress(task.text) is None:
+        steps = 0 if task.done else 1
+    elif parse_progress(text) is not None:
+        steps = marker_value(text) - task.done_count
+    else:
+        steps = 1
+
+    if steps <= 0:
+        _add_once(reflection, field, text, task=task)
+        return
+
+    for _ in range(steps):
+        tasks.complete(
+            task,
+            author,
+            day=day,
+            at=at,
+            mark=tasks.MARK_BY_FIELD[field],
+            reflection=reflection,
+        )
+        task.refresh_from_db()
+
+
+def _tick_unscheduled_task(item, text, daily_reflection):
+    """A reflection line that names an unscheduled task on the board: tick
+    it. One with a step counter is ticked once the day's reflection has
+    counted up to its total. Returns whether the item changed."""
+    from ..boards import items
+    from ..progress import base_of, marker_value, parse_progress
+    from ..tasks import documents
+
+    progress = parse_progress(items.text_of(item))
+    if progress is None:
+        checked = True
+    else:
+        rows = documents.rows(daily_reflection) if daily_reflection else []
+        steps = max(
+            (
+                marker_value(row.text) or 0
+                for row in rows
+                if base_of(row.text) == base_of(text)
+            ),
+            default=0,
+        )
+        checked = steps >= progress.total
+
+    if items.is_checked(item) == checked:
+        return False
+    items.set_checked(item, checked)
+    return True
+
+
+@transaction.atomic
+def add_reflection_items(journal_added, comment=None, user=None):
+    """
+    Extract reflection items from a journal entry and record them.
+
+    Each line marked ``[x]`` / ``[~]`` / ``[^]`` goes to the good / better /
+    best of the reflection of the journal's thread (see ``reflection_date``).
+    What the line's text names decides what else happens:
+
+    - a task its author has planned for that day, week or month: the task is
+      completed (a counted one by as many steps as the line says), and the
+      line is the task's;
+    - otherwise, when ``user`` is given, an item of their current board: the
+      item's task is completed if it has one, else the unscheduled task is
+      ticked;
+    - otherwise nothing: it is a line of its own.
+
+    Text is only used here, to find what a typed line means.
+
+    Args:
+        journal_added: A JournalAdded instance to extract reflections from.
+        comment: Optional pre-processed comment text. Defaults to
+            ``journal_added.comment``.
+        user: Whose board a line may name. Passed by the console and web
+            journal callers.
+    """
+    # Imports here to avoid circular imports: ``services.today`` and
+    # ``services.tasks`` reach ``trips``, which imports ``journalling``.
+    from ...models import ReflectionLine, Task, Thread
+    from ..progress import base_of
+    from ..tasks import documents
+    from ..today import board_tree
+    from ..today import operations as today
+
+    if comment is None:
+        comment = journal_added.comment
+
     reflection_lines = extract_reflection_lines(comment)
 
     if not reflection_lines:
         return
 
-    reflection, _created = Reflection.objects.get_or_create(
-        pub_date=pub_date, thread=journal_added.thread
+    author = journal_added.thread.user
+    day = journal_added.published.date()
+
+    today._lock_day(author)
+    reflection = documents.reflection_for(
+        journal_added.thread, reflection_date(journal_added), create=True
     )
 
-    for field_name in ("good", "better", "best"):
-        items = [line for field, line in reflection_lines if field == field_name]
+    for field, text in reflection_lines:
+        field = ReflectionLine.Field(field)
 
-        new_value = text_lines.add_unique_lines(getattr(reflection, field_name), items)
+        task = today.planned_task(author, text, day)
+        board = item = None
+        if task is None and user is not None:
+            # Read anew for each line: completing a task saves its board.
+            try:
+                board = today._current_board(user, for_update=True)
+            except today.NoBoardError:
+                board = None
+        if board is not None:
+            hit = board_tree.find_unscheduled_task_by_base(board.state, base_of(text))
+            if hit is not None:
+                item = hit[2]
+                task_id = (item.get("data") or {}).get("taskId")
+                task = Task.objects.filter(
+                    pk=task_id, completed_at__isnull=True
+                ).first()
 
-        setattr(reflection, field_name, new_value)
+        if task is not None:
+            _record_on_task(
+                task, author, field, text, day, journal_added.published, reflection
+            )
+            continue
 
-    reflection.save()
+        _add_once(reflection, field, text)
+
+        if item is not None:
+            daily = Thread.objects.filter(user=user, name=Thread.DAILY).first()
+            daily_reflection = (
+                documents.reflection_for(daily, day) if daily is not None else None
+            )
+            if _tick_unscheduled_task(item, text, daily_reflection):
+                board.save()

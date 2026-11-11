@@ -48,3 +48,19 @@ def normalise(items):
             item["state"] = {}
         item["state"]["checked"] = checked
     return items
+
+
+def set_checked(item, checked):
+    """Tick or untick the item: ``state.checked`` is what the web board
+    draws, ``data.state`` what everything else reads."""
+    item.setdefault("data", {})["state"] = "done" if checked else "open"
+    item.setdefault("state", {})["checked"] = checked
+
+
+def text_of(item):
+    """The item's text: ``data.text``, or the top-level copy the web board
+    edits when there is none."""
+    text = (item.get("data") or {}).get("text")
+    if text is None:
+        text = item.get("text", "")
+    return text

@@ -11,6 +11,7 @@ from django.utils import timezone
 from .forms import PlanForm, ReflectionForm
 from .models import Habit, HabitTracked, JournalAdded, Plan, Reflection, Thread
 from .services.photos import attach_photo_urls
+from .services.tasks.documents import DocumentEdit, fields_of
 from .utils.datetime import (
     adjust_start_date_to_monday,
     make_last_day_of_the_month,
@@ -198,13 +199,19 @@ class Monthly(Period):
         return Monthly(next_month_start).canonical()
 
 
-def save_or_remove_object_if_empty(object, fields):
-    is_empty = not any(getattr(object, field) for field in fields)
+def save_document(edit, document):
+    """Save a plan or a reflection whose text columns a form just filled in,
+    as part of ``edit`` (a ``DocumentEdit``): its lines follow the text, and
+    what is written into a plan becomes tasks. One that was emptied is
+    deleted."""
+    is_empty = not any(getattr(document, field) for field in fields_of(document))
 
-    if not is_empty:
-        _save_the_one_for_its_day(object)
-    elif object.pk:
-        object.delete()
+    if is_empty:
+        edit.discard(document)
+        return
+
+    _save_the_one_for_its_day(document)
+    edit.sync(document, create_tasks=True)
 
 
 def _save_the_one_for_its_day(object):
@@ -226,15 +233,6 @@ def _save_the_one_for_its_day(object):
         )
         object._state.adding = False
         object.save()
-
-
-def validate_form_and_perform_save_or_delete(form, fields):
-    is_valid = form.is_valid()
-
-    if is_valid:
-        save_or_remove_object_if_empty(form.instance, fields)
-
-    return is_valid, form
 
 
 def is_before_noon():
@@ -352,17 +350,23 @@ def today(request):
             request.POST, instance=reflection, prefix="reflection"
         )
 
-        today_valid, today_plan_form = validate_form_and_perform_save_or_delete(
-            plan, ["focus"]
-        )
-        tomorrow_valid, tomorrow_plan_form = validate_form_and_perform_save_or_delete(
-            tomorrow_plan, ["focus"]
-        )
-        reflection_valid, reflection_form = validate_form_and_perform_save_or_delete(
-            reflection, ["good", "better", "best"]
+        today_plan_form, tomorrow_plan_form, reflection_form = forms = (
+            plan,
+            tomorrow_plan,
+            reflection,
         )
 
-        if all((today_valid, tomorrow_valid, reflection_valid)):
+        # A list, not a generator: every form is validated, so each shows
+        # its own errors.
+        if all([form.is_valid() for form in forms]):
+            # One edit for the three: a line moved from today's plan to
+            # tomorrow's is the same task.
+            with transaction.atomic():
+                edit = DocumentEdit()
+                for form in forms:
+                    save_document(edit, form.instance)
+                edit.finish()
+
             return redirect(request.get_full_path())
 
     else:

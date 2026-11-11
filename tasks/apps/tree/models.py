@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from collections import defaultdict
 from decimal import Decimal
@@ -15,6 +16,7 @@ from polymorphic.models import PolymorphicModel
 from polymorphic.query import PolymorphicQuerySet
 
 from .services.boards import items as board_items
+from .services.progress import parse_progress
 from .utils.datetime import aware_from_date
 from .utils.strings import coalesce
 
@@ -1115,6 +1117,201 @@ class JournalTag(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class TaskQuerySet(models.QuerySet):
+    def visible_to(self, user):
+        """Tasks ``user`` can see: those of the boards they have access to."""
+        return self.filter(event_stream__access__user=user)
+
+    def editable_by(self, user):
+        """Tasks ``user`` may plan, complete and rename: those of their own
+        boards and of the boards shared with them to edit."""
+        return self.filter(
+            event_stream__access__user=user,
+            event_stream__access__role__in=EventStreamAccess.WRITE_ROLES,
+        )
+
+
+class Task(models.Model):
+    """Something planned: for a day, a week, a month.
+
+    A board item is an unscheduled task and has no row here. Planning it, or
+    writing a line into a plan, makes the task; the plans it is on are its
+    ``plan_lines``. It stays once it is done.
+
+    A task lives in the stream of a board (``Thread.board_stream``): the
+    board its item is on, or its maker's default board when it was typed
+    into a plan. Whoever has access to that board has access to the task.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Who made it. Provenance only, like Event.created_by: access is the
+    # stream's.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tasks"
+    )
+
+    # May carry a step counter, "Do x (3)": see ``total``.
+    text = models.TextField()
+
+    # Steps done. One for a plain task that is done; may pass ``total``.
+    done_count = models.PositiveIntegerField(default=0)
+    # When ``done_count`` reached ``total``; None while the task is open.
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    created = models.DateTimeField(default=timezone.now)
+
+    # Short name of the task inside plan and reflection text: a line ending
+    # with "^t<anchor>" is this task's, whatever its wording.
+    anchor = models.CharField(max_length=8, unique=True, editable=False)
+
+    # The board item the task was planned from, if any, and still is on.
+    board = models.ForeignKey(
+        "Board", on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks"
+    )
+    board_item_id = models.CharField(max_length=64, null=True, blank=True)
+
+    # CASCADE: when a board's stream goes (with its owner), so do the tasks
+    # others made on it.
+    event_stream = models.ForeignKey(
+        EventStream, on_delete=models.CASCADE, related_name="tasks", editable=False
+    )
+
+    objects = TaskQuerySet.as_manager()
+
+    class Meta:
+        ordering = ("created",)
+
+    def __str__(self):
+        return self.text
+
+    def save(self, *args, **kwargs):
+        if not self.anchor:
+            self.anchor = secrets.token_hex(4)
+            while Task.objects.filter(anchor=self.anchor).exists():
+                self.anchor = secrets.token_hex(4)
+        super().save(*args, **kwargs)
+
+    @property
+    def total(self):
+        """How many steps the task has: the counter in its text, else one."""
+        progress = parse_progress(self.text)
+        return progress.total if progress else 1
+
+    @property
+    def done(self):
+        return self.done_count >= self.total
+
+
+class PlanLine(models.Model):
+    """A line of a plan, in order.
+
+    A line with a task shows the task's text, so the task reads the same on
+    every plan it is on. A line without one is plain text: what was written
+    before tasks had rows, a separator, a line on a thread that plans no
+    tasks.
+    """
+
+    plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name="lines")
+    position = models.PositiveIntegerField()
+
+    task = models.ForeignKey(
+        Task, on_delete=models.CASCADE, null=True, blank=True, related_name="plan_lines"
+    )
+    text = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ("position", "pk")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["plan", "task"], name="planline_plan_task_unique"
+            ),
+        ]
+
+    def __str__(self):
+        return self.content
+
+    @property
+    def content(self):
+        return self.task.text if self.task_id else self.text
+
+
+class ReflectionLine(models.Model):
+    """A line of one of a reflection's three fields, in order.
+
+    The wording is the line's own. A line written when a task was completed
+    stays linked to the task however it is reworded; other lines have no
+    task.
+    """
+
+    class Field(models.TextChoices):
+        GOOD = "good", _("Good")
+        BETTER = "better", _("Better")
+        BEST = "best", _("Best")
+
+    reflection = models.ForeignKey(
+        Reflection, on_delete=models.CASCADE, related_name="lines"
+    )
+    field = models.CharField(max_length=8, choices=Field.choices)
+    position = models.PositiveIntegerField()
+
+    text = models.TextField(blank=True, default="")
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reflection_lines",
+    )
+    completion = models.ForeignKey(
+        "TaskCompleted",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reflection_lines",
+    )
+
+    class Meta:
+        ordering = ("position", "pk")
+
+    def __str__(self):
+        return self.text
+
+    @property
+    def content(self):
+        return self.text
+
+
+class TaskCompleted(Event):
+    """A step of a task was done: the whole task, or one of its counted
+    steps. Undoing it deletes the event."""
+
+    # event_stream_id <- Task
+    # thread <- the thread of the task's board
+
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="completions")
+
+    # The day it was done on for whoever did it; ``published`` is the moment.
+    day = models.DateField()
+
+    # The task's text when it was done, with the step reached: "Do x (2)".
+    text = models.TextField()
+
+    # The note written with it, if any.
+    journal = models.ForeignKey(
+        JournalAdded, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    template = "tree/events/task_completed.html"
+
+    def derived_event_stream_id(self):
+        return self.task.event_stream_id
+
+    def __str__(self):
+        return self.text
 
 
 class Breakthrough(models.Model):
