@@ -19,6 +19,7 @@ from ..models import (
     ObservationType,
 )
 from ..presenters import ComplexPresenter
+from ..services.streams import share
 from .factories import make_thread
 
 
@@ -134,3 +135,72 @@ class ObservationAttachDetachAPITestCase(APITestCase):
 
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertFalse(ObservationDetached.objects.exists())
+
+
+class AttachPickerTestCase(APITestCase):
+    """The attach pickers (the editor's search and the list's attach mode)
+    offer only the user's own observations: one shared with them can't be
+    attached. Outside attach mode both still show shared observations."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="u", password="x")
+        cls.other = User.objects.create_user(username="o", password="x")
+        type = ObservationType.objects.create(name="Error", slug="error")
+
+        def observation(user, situation):
+            return Observation.objects.create(
+                user=user,
+                thread=make_thread(user, "Daily"),
+                type=type,
+                pub_date=date(2026, 10, 20),
+                situation=situation,
+            )
+
+        cls.complex = observation(cls.user, "complex")
+        cls.mine = observation(cls.user, "lighthouse mine")
+        cls.shared = observation(cls.other, "lighthouse shared")
+        share(cls.other, cls.shared.event_stream, "u")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        self.client.force_authenticate(user=self.user)
+
+    def _search(self, **params):
+        resp = self.client.get("/observations/search/", params)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        return {o["id"] for o in data.get("results", data)}
+
+    def test_search_for_attaching_finds_only_own_observations(self):
+        found = self._search(q="lighthouse", observation=self.complex.pk)
+
+        self.assertEqual(found, {self.mine.pk})
+
+    def test_search_by_id_for_attaching_finds_only_own_observations(self):
+        found = self._search(q=f"#{self.shared.pk}", observation=self.complex.pk)
+
+        self.assertEqual(found, set())
+
+    def test_search_outside_attaching_finds_shared_observations(self):
+        found = self._search(q="lighthouse")
+
+        self.assertEqual(found, {self.mine.pk, self.shared.pk})
+
+    def test_attach_mode_lists_only_own_observations(self):
+        resp = self.client.get(
+            "/observations/all/",
+            {"attach_mode": "true", "observation_id": self.complex.pk},
+        )
+
+        listed = {o.pk for o in resp.context["object_list"]}
+        self.assertEqual(listed, {self.complex.pk, self.mine.pk})
+
+    def test_the_list_offers_attach_mode_only_for_own_observations(self):
+        resp = self.client.get("/observations/all/")
+
+        listed = {o.pk for o in resp.context["object_list"]}
+        self.assertEqual(listed, {self.complex.pk, self.mine.pk, self.shared.pk})
+        self.assertContains(resp, f"observation_id={self.mine.pk}")
+        self.assertNotContains(resp, f"observation_id={self.shared.pk}")
