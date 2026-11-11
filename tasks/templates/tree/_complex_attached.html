@@ -1,0 +1,33 @@
+<div class="attached-section">
+    <h4>Attached{% if complex_presenter %} ({{ complex_presenter.total_unique_observations_count }}){% endif %}</h4>
+    <div id="attached-observations" class="attached-list">
+        {% if complex_presenter %}
+            {% for attached_info in complex_presenter.all_attached_observations_with_status %}
+                <div class="attached-row{% if attached_info.is_closed %} closed{% endif %}"{% if editable %} data-stream-id="{{ attached_info.event_stream_id }}"{% endif %}>
+                    <span class="attached-sit">{% if attached_info.is_closed %}[closed] {{ attached_info.observation_closed.situation_truncated }}{% else %}{{ attached_info.observation.situation_truncated }}{% endif %}</span>
+                    {% if editable %}
+                        <button type="button" class="detach-btn" data-stream-id="{{ attached_info.event_stream_id }}" aria-label="Detach">×</button>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p class="no-attached">No observations attached yet.</p>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+{% if complex_presenter %}
+<div class="attached-events-section">
+    <h4>Events from attached</h4>
+    <div class="attached-events">
+        {% for event in complex_presenter.all_attached_events_chronological %}
+            <div class="attached-event">
+                <div class="event-meta">{{ event.published|date:"M d, Y H:i" }}</div>
+                {% if event.template %}{% include event.template %}{% else %}{{ event }}{% endif %}
+            </div>
+        {% empty %}
+            <p class="no-events">No events from attached observations.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

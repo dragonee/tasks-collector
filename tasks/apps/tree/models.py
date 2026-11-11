@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.functional import cached_property
 from django.utils.text import Truncator, slugify
 from django.utils.translation import gettext_lazy as _
 
@@ -913,6 +914,12 @@ class ObservationClosed(Event, ObservationEventMixin, ObservationPropertyEventMi
     def situation_truncated(self):
         return Truncator(self.situation).words(6)
 
+    def get_absolute_url(self):
+        return reverse(
+            "public-observation-closed-detail",
+            kwargs={"event_stream_id": self.event_stream_id},
+        )
+
     @staticmethod
     def from_observation(observation, published=None):
         return ObservationClosed(
@@ -1289,7 +1296,27 @@ class ProjectedOutcomeEvolved(Event, ProjectedOutcomeEventMixin):
         )
 
 
-class ObservationAttached(Event, ObservationEventMixin):
+class OtherObservationMixin:
+    """Attach and detach events: the observation on the other end."""
+
+    @cached_property
+    def other_observation(self):
+        """The Observation while it is open, its ObservationClosed once it is
+        closed, None when neither is found."""
+        observation = Observation.objects.filter(
+            event_stream_id=self.other_event_stream_id
+        ).first()
+        if observation is not None:
+            return observation
+
+        return (
+            ObservationClosed.objects.filter(event_stream_id=self.other_event_stream_id)
+            .order_by("-published")
+            .first()
+        )
+
+
+class ObservationAttached(Event, ObservationEventMixin, OtherObservationMixin):
     observation = models.ForeignKey(
         Observation, on_delete=models.SET_NULL, null=True, blank=True
     )
@@ -1316,7 +1343,7 @@ class ObservationAttached(Event, ObservationEventMixin):
             return f"Attached observation (stream: {self.other_event_stream_id})"
 
 
-class ObservationDetached(Event, ObservationEventMixin):
+class ObservationDetached(Event, ObservationEventMixin, OtherObservationMixin):
     # When that observation's stream is deleted (it was journalized), this
     # record of it goes too.
     other_event_stream = models.ForeignKey(

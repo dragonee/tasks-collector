@@ -2,7 +2,6 @@ from django.db.models import Q
 
 from .models import (
     Event,
-    EventStream,
     Observation,
     ObservationAttached,
     ObservationDetached,
@@ -23,29 +22,13 @@ class ObservationEventPresenter:
 class ComplexPresenter:
     """Presenter class that can replay Attached/Detached events and provide complex observation information
 
-    Given a ``user``, it shows only the attached observations that user can
-    access; ``is_attached`` always answers from the full replay.
+    Whoever can read the complex observation sees everything attached to it:
+    sharing a complex observation shares its attached observations.
     """
 
-    def __init__(self, observation_event_stream_id, user=None):
+    def __init__(self, observation_event_stream_id):
         self.observation_event_stream_id = observation_event_stream_id
-        self.user = user
         self._replayed_stream_ids = None
-        self._attached_stream_ids = None
-
-    def _get_attached_stream_ids(self):
-        """Currently attached observation stream IDs, limited to what the user
-        can access when there is one."""
-        if self._attached_stream_ids is None:
-            attached = self._replay_attached_stream_ids()
-            if self.user is not None and attached:
-                attached = set(
-                    EventStream.objects.visible_to(self.user)
-                    .filter(pk__in=attached)
-                    .values_list("pk", flat=True)
-                )
-            self._attached_stream_ids = attached
-        return self._attached_stream_ids
 
     def _replay_attached_stream_ids(self):
         """Replay attach/detach events to get currently attached observation stream IDs"""
@@ -73,7 +56,7 @@ class ComplexPresenter:
 
     def open_observations_count(self):
         """Number of open Observations currently attached"""
-        attached_stream_ids = self._get_attached_stream_ids()
+        attached_stream_ids = self._replay_attached_stream_ids()
         if not attached_stream_ids:
             return 0
 
@@ -83,11 +66,11 @@ class ComplexPresenter:
 
     def total_unique_observations_count(self):
         """Number of total unique Observations currently attached (number of unique event_stream_id's)"""
-        return len(self._get_attached_stream_ids())
+        return len(self._replay_attached_stream_ids())
 
     def get_attached_stream_ids(self):
         """Get the set of currently attached observation stream IDs"""
-        return self._get_attached_stream_ids()
+        return self._replay_attached_stream_ids()
 
     def is_attached(self, event_stream_id):
         """Check if an observation with the given event_stream_id is currently attached"""
@@ -95,7 +78,7 @@ class ComplexPresenter:
 
     def open_observations_list(self):
         """List of open Observations currently attached"""
-        attached_stream_ids = self._get_attached_stream_ids()
+        attached_stream_ids = self._replay_attached_stream_ids()
         if not attached_stream_ids:
             return Observation.objects.none()
 
@@ -105,7 +88,7 @@ class ComplexPresenter:
 
     def all_attached_events_chronological(self):
         """All events, chronologically sorted, for all the currently attached Observations"""
-        attached_stream_ids = self._get_attached_stream_ids()
+        attached_stream_ids = self._replay_attached_stream_ids()
         if not attached_stream_ids:
             return Event.objects.none()
 
@@ -165,11 +148,11 @@ class ComplexPresenter:
         Returns a list of dicts with info about all attached observations.
         Each dict contains: event_stream_id, observation (if open), observation_closed (if closed), is_closed
         """
-        return list(map(self._get_observation_info, self._get_attached_stream_ids()))
+        return list(map(self._get_observation_info, self._replay_attached_stream_ids()))
 
 
-def get_complex_presenter(observation, user=None):
+def get_complex_presenter(observation):
     if not observation.event_stream_id:
         return None
 
-    return ComplexPresenter(observation.event_stream_id, user)
+    return ComplexPresenter(observation.event_stream_id)

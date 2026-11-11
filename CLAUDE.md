@@ -40,7 +40,7 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 ### Multi-user and sharing
 - Every user owns their threads (Daily, Weekly and big-picture are provisioned and can't be deleted), habits, breakthroughs and statistics.
 - Every stream is an `EventStream` row with an access list (`EventStreamAccess`: one owner, optional viewers); events belong to a home stream and may be members of others (`EventStreamEntry`, e.g. a trip). `Event.created_by` is provenance only.
-- Query with `owned_by(user)` for personal pages and writes, `visible_to(user)` for what can be read (own + shared). Trips, observations and projected outcomes can be shared view-only; a board (not Daily, Weekly or big-picture) can be shared to edit, and board code uses `Board.objects.editable_by(user)` / `Thread.objects.board_editable_by(user)` (`services/streams.py`).
+- Query with `owned_by(user)` for personal pages and writes, `visible_to(user)` for what can be read (own + shared). Trips, observations and projected outcomes can be shared view-only (a shared complex observation shares what's attached to it); a board (not Daily, Weekly or big-picture) can be shared to edit, and board code uses `Board.objects.editable_by(user)` / `Thread.objects.board_editable_by(user)` (`services/streams.py`).
 - `tests/test_route_isolation.py` walks every route as a second user; a new route with an unknown URL parameter fails it.
 - Design and history: `docs/design/multiuser-event-streams.md`.
 

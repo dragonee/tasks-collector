@@ -32,6 +32,12 @@
             <div class="label">How should you approach it in the future?</div>
             <div class="value">{{ instance.approach|linebreaks }}</div>
         </div>
+
+        {% if complex_presenter.total_unique_observations_count %}
+            <div class="closed-complex">
+                {% include "tree/_complex_attached.html" %}
+            </div>
+        {% endif %}
     </div>
 
     <div class="closed-history">

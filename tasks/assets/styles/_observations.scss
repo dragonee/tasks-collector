@@ -855,7 +855,18 @@ body.page-observation-edit {
     }
 
     .no-results,
-    .search-error,
+    .search-error {
+        color: #999;
+        font-style: italic;
+        font-size: 0.85rem;
+        padding: 0.4rem 0;
+    }
+}
+
+// Attached observations and their events: the editor's Complex drawer and the
+// read-only observation pages.
+.observation-editor,
+.observation-closed {
     .no-attached,
     .no-events {
         color: #999;
@@ -919,6 +930,10 @@ body.page-observation-edit {
             font-size: 0.75rem;
             margin-bottom: 0.2rem;
         }
+    }
+
+    .closed-complex h4 {
+        color: #999;
     }
 }
 

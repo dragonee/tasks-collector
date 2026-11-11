@@ -365,6 +365,7 @@ def observation_closed_detail(request, event_stream_id):
             "updates": filter(lambda x: isinstance(x, ObservationUpdated), events),
             "time_to_closed": time_to_closed,
             "insight": insight,
+            "complex_presenter": get_complex_presenter(observation_closed),
         },
     )
 
@@ -461,7 +462,7 @@ def observation_edit(request, observation_id=None):
             "formset": formset,
             "instance": observation,
             "thread_as_link": True,
-            "complex_presenter": get_complex_presenter(observation, request.user),
+            "complex_presenter": get_complex_presenter(observation),
             **sharing_context(
                 request, observation.event_stream if observation.pk else None
             ),
@@ -478,6 +479,7 @@ def _shared_observation(request, observation):
             "instance": observation,
             "events": observation.get_events().order_by("published"),
             "shared_by": observation.user,
+            "complex_presenter": get_complex_presenter(observation),
         },
     )
 
@@ -701,9 +703,7 @@ def observation_attach(request, observation_id):
     # Check if the observation is already attached by replaying events
     from .presenters import ComplexPresenter
 
-    complex_presenter = ComplexPresenter(
-        complex_observation.event_stream_id, request.user
-    )
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
 
     if complex_presenter.is_attached(other_event_stream_id):
         # Already attached, find the most recent attach event and return it
@@ -762,9 +762,7 @@ def observation_detach(request, observation_id):
     # Check if the observation is currently attached by replaying events
     from .presenters import ComplexPresenter
 
-    complex_presenter = ComplexPresenter(
-        complex_observation.event_stream_id, request.user
-    )
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
 
     if not complex_presenter.is_attached(other_event_stream_id):
         # Not attached, find the most recent detach event and return it
@@ -815,7 +813,7 @@ def filter_out_attached_observations(user, observations, observation_id):
         base_observation = Observation.objects.visible_to(user).get(pk=observation_id)
         from .presenters import ComplexPresenter
 
-        complex_presenter = ComplexPresenter(base_observation.event_stream_id, user)
+        complex_presenter = ComplexPresenter(base_observation.event_stream_id)
         attached_stream_ids = complex_presenter.get_attached_stream_ids()
 
         # Exclude the base observation itself and any attached observations
@@ -934,9 +932,7 @@ def observation_attachments(request, observation_id):
 
     from .presenters import ComplexPresenter
 
-    complex_presenter = ComplexPresenter(
-        complex_observation.event_stream_id, request.user
-    )
+    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
 
     # Get all currently attached stream IDs
     attached_stream_ids = complex_presenter.get_attached_stream_ids()
