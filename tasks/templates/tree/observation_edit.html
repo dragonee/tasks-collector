@@ -12,9 +12,9 @@
 
 {% block content %}
 
-<form class="observation-editor{% if instance.pk %} with-drawer{% endif %}"
-      method="POST"
-      data-observation-id="{{ instance.pk|default:'' }}">
+<div class="observation-editor{% if instance.pk %} with-drawer{% endif %}"
+     data-observation-id="{{ instance.pk|default:'' }}">
+<form class="observation-editor-form" method="POST">
     {% csrf_token %}
 
     {# --- Topbar: truncated situation (left) + Close / Save actions (right) --- #}
@@ -112,6 +112,8 @@
         {% endfor %}
     </div>
 
+</form>
+
     {# --- Right column: collapsible drawer (History / Complex) --- #}
     {% if instance.pk %}
     <div class="editor-drawer">
@@ -153,6 +155,6 @@
     </div>
     {% endif %}
 
-</form>
+</div>
 
 {% endblock %}

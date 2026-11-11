@@ -252,7 +252,17 @@ the data was fixed since or the note describes the older dump.
 
 ### 9. The observation editor can't save, share or stop sharing
 
-- [ ] Fix — clients (Chrome)
+- [x] Fixed — clients (Chrome)
+
+Fixed: the whole drawer moved after `</form>`. A wrapper `div.observation-editor`
+is the grid now and carries `data-observation-id`. The `<form>` inside it has
+`display: contents`, so its topbar, form column and updates stay on that grid.
+`tests/html.py` has `nested_forms()`, and the editor page is checked with it. In
+Chrome, on tester's observation 438: Share and Stop sharing post to
+`/streams/<id>/sharing/` and update the panel, and Save posts the editor with the
+Username box empty. The layout and the drawer look as before.
+
+What follows is the problem as found.
 
 `observation_edit.html:120` includes `tree/_stream_sharing.html` inside
 `<form class="observation-editor">` (lines 15–186). An HTML parser drops a `<form>`

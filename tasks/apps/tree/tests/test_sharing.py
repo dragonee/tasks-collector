@@ -24,6 +24,7 @@ from ..models import (
 from ..services.observations.closing import close_observation
 from ..services.streams import SharingError, revoke, share, shared_with
 from ..services.trips import add_trip_note, start_trip
+from .html import nested_forms
 
 User = get_user_model()
 
@@ -348,6 +349,28 @@ class SharedObservationTestCase(SharingTestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+
+class ObservationEditorSharingTestCase(SharingTestCase):
+    """The editor's sharing panel sits outside the editor form: a form inside
+    a form is dropped by the browser, so Share and Stop sharing would post the
+    editor, and the panel's required username box would block Save."""
+
+    def setUp(self):
+        self.client.force_login(self.alice)
+        share(self.alice, self.observation.event_stream, "bob")
+        self.page = self.client.get(f"/observations/{self.observation.pk}/")
+
+    def test_the_editor_has_no_form_inside_another(self):
+        self.assertEqual(self.page.status_code, 200)
+        self.assertEqual(nested_forms(self.page.content.decode()), [])
+
+    def test_the_panel_posts_to_the_sharing_endpoint(self):
+        self.assertContains(
+            self.page,
+            f'action="/streams/{self.observation.event_stream_id}/sharing/"',
+            count=2,
+        )
 
 
 class SharedOutcomeTestCase(SharingTestCase):
