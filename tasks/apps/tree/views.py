@@ -447,9 +447,26 @@ def stats_json(request):
     return RestResponse(get_aggregate_statistics(request.user, year))
 
 
+def _as_text(serializer_class, document, request, anchors):
+    """A plan or a reflection as its serializer gives it. With ``anchors`` its
+    lines are as someone edits them: a task's line ends with the task's
+    anchor, so the line can be sent back reworded and still be that task's."""
+    if document is None:
+        return None
+    data = dict(serializer_class(document, context={"request": request}).data)
+    if anchors:
+        for field in documents.fields_of(document):
+            data[field] = documents.render_anchored(document, field)
+    return data
+
+
 @api_view(["GET"])
 def daily_events(request):
+    """What happened on ``date`` on one of the caller's threads, with that
+    day's plan and reflection as text. ``anchors=1`` gives the text with
+    anchors, for a client that sends lines back (``tc reflect``)."""
     day = request.GET.get("date", timezone.now().date())
+    anchors = request.GET.get("anchors") in ("1", "true")
 
     thread_name = request.GET.get("thread", Thread.DAILY)
     thread = Thread.objects.filter(user=request.user, name=thread_name).first()
@@ -483,16 +500,8 @@ def daily_events(request):
             "events": EventSerializer(
                 events, many=True, context={"request": request}
             ).data,
-            "plan": (
-                PlanSerializer(plan, context={"request": request}).data
-                if plan
-                else None
-            ),
-            "reflection": (
-                ReflectionSerializer(reflection, context={"request": request}).data
-                if reflection
-                else None
-            ),
+            "plan": _as_text(PlanSerializer, plan, request, anchors),
+            "reflection": _as_text(ReflectionSerializer, reflection, request, anchors),
         }
     )
 

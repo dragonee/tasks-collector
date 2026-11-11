@@ -217,6 +217,11 @@ usage: tc reflect [-h] [--version] [-d DATE] [-w] [-m] [-y] [-M]
 
 Reflect on a day, week or month.
 
+For a week or a month the editor lists the reflections and plans of its days
+(or weeks). Tick a line to take it into the reflection: [x], or [~] / [^] for
+better / best. The ^t... that ends a task's line says which task it is, so
+the line can be reworded; keep the ^t...
+
 options:
   -h, --help       show this help message and exit
   --version        show program's version number and exit
@@ -270,8 +275,8 @@ options:
 ```
 usage: tc reflect dump [-h] [--version] [-T THREAD] [--skip-journals]
                        [--no-summary] [--no-titles] [--no-habits]
-                       [--no-observations] [--prefix PREFIX] [-d DATE_FROM]
-                       [-D DATE_TO] [--year YEAR] [-M]
+                       [--no-observations] [--prefix PREFIX] [--anchors]
+                       [-d DATE_FROM] [-D DATE_TO] [--year YEAR] [-M]
 
 Dump reflections and journals to markdown.
 
@@ -286,6 +291,8 @@ options:
   --no-habits           Skip habits section.
   --no-observations     Skip observations section.
   --prefix PREFIX       Prefix each line of journal entries with PREFIX.
+  --anchors             End each task's line with its anchor (^t...), for text
+                        that is sent back.
   -d, --from DATE_FROM  Dump from specific date.
   -D, --to DATE_TO      Dump to specific date.
   --year YEAR           Dump specific year.
