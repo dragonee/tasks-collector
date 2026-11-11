@@ -90,7 +90,8 @@ def match_token_to_habit(token, habits_from_keywords):
         raise ValueError(f"Match failed on {token}")
 
     habit = habits_from_keywords[keyword]
-    note = token.split("\n")[0]
+    # Its first line, whatever ends it: tc and the web form send \r\n.
+    note = token.splitlines()[0]
 
     return (occurred, habit, note)
 

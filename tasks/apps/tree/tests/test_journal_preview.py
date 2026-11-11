@@ -81,6 +81,17 @@ class JournalPreviewTestCase(APITestCase):
         )
         self.assertEqual(data["unscheduled_tasks_ticked"], ["water plants"])
 
+    def test_lines_end_in_newlines_as_tc_sends_them(self):
+        # tc sends \r\n.
+        data = self._preview(
+            "Makimo\r\n\r\n- [x] A talk #breakthrough\r\n- [~] Second line"
+        ).json()
+
+        self.assertEqual(
+            data["comment"], "Makimo\n\n- [x] A talk #breakthrough\n- [~] Second line"
+        )
+        self.assertEqual([habit["note"] for habit in data["habits"]], ["#breakthrough"])
+
     def test_it_changes_nothing(self):
         self._preview(
             f"- [x] Called the client\n- [^] Done ^t{self.task.anchor}\n#breakthrough"
