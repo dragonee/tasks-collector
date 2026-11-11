@@ -15,7 +15,8 @@
             <div class="editor-title">{{ instance.situation|truncatechars:100 }}</div>
 
             <div class="editor-actions on-right">
-                {% if insight %}
+                {% if not is_owner %}
+                {% elif insight %}
                     <a class="btn-primary" href="{% url 'public-insight-edit' instance.event_stream_id %}">Insight</a>
                 {% else %}
                     <form method="post" action="{% url 'public-observation-extract-insight' instance.event_stream_id %}">
@@ -26,6 +27,7 @@
             </div>
         </div>
         <div class="lower-pane">
+            {% if shared_by %}<span class="meta">Shared with you by {{ shared_by.username }}</span>{% endif %}
             <span class="stream-id">{{ instance.event_stream_id }}</span>
             <span class="closed-meta">Opened for {{ time_to_closed }}</span>
         </div>
@@ -49,6 +51,7 @@
 
     {# --- Right: the full event history --- #}
     <div class="closed-history">
+        {% include "tree/_stream_sharing.html" %}
         <h3>History</h3>
         <p class="meta">{{ events|length }} event{{ events|length|pluralize }} total</p>
         {% for event in events %}

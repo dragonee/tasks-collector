@@ -117,6 +117,7 @@
     <div class="editor-drawer">
         <div class="drawer-panels">
             <div class="drawer-panel drawer-history">
+                {% include "tree/_stream_sharing.html" %}
                 <h3>History</h3>
                 {% for event in events %}
                     <div class="event">

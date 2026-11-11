@@ -20,6 +20,7 @@ from .models import (
     ProjectedOutcome,
     ProjectedOutcomeClosed,
     ProjectedOutcomeEvolved,
+    ProjectedOutcomeMade,
     ProjectedOutcomeMoved,
 )
 from .services.breakthrough.operations import (
@@ -27,6 +28,7 @@ from .services.breakthrough.operations import (
     evolve_projected_outcome,
     move_projected_outcome_to_next_year,
 )
+from .views_sharing import sharing_context
 
 
 @login_required
@@ -105,6 +107,11 @@ def breakthrough(request, year):
             "formset": formset,
             "closed_outcomes": closed_outcomes,
             "moved_outcomes": moved_outcomes,
+            # Outcomes others share with the user, by the name they started with.
+            "shared_outcomes": ProjectedOutcomeMade.objects.visible_to(request.user)
+            .exclude(event_stream__created_by=request.user)
+            .select_related("event_stream__created_by")
+            .order_by("resolved_by"),
         },
     )
 
@@ -115,11 +122,13 @@ def projected_outcome_events_history(request, event_stream_id):
     from .presentation import ProjectedOutcomePresentation
 
     # Only streams the user can access; others look like unknown ones.
-    if (
-        not EventStream.objects.visible_to(request.user)
+    stream = (
+        EventStream.objects.visible_to(request.user)
         .filter(pk=event_stream_id, type=EventStream.Type.PROJECTED_OUTCOME)
-        .exists()
-    ):
+        .select_related("created_by")
+        .first()
+    )
+    if stream is None:
         raise Http404("No projected outcome with this event stream")
 
     # Create a presentation object that handles both active and complete scenarios
@@ -136,6 +145,10 @@ def projected_outcome_events_history(request, event_stream_id):
         "tree/projected_outcome_events_history.html",
         {
             "presentation": presentation,
+            **sharing_context(request, stream),
+            "shared_by": (
+                None if stream.created_by_id == request.user.id else stream.created_by
+            ),
             # Legacy context for backwards compatibility (can be removed once template is updated)
             "projected_outcome": presentation.active_instance,
             "latest_closed_event": (

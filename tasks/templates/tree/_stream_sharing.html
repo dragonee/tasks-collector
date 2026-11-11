@@ -1,0 +1,34 @@
+{% if sharing %}
+<section class="stream-sharing">
+    <h3>Shared with</h3>
+    {% if sharing.viewers %}
+        <ul class="stream-sharing-viewers">
+            {% for viewer in sharing.viewers %}
+                <li>
+                    <span class="stream-sharing-user">{{ viewer.username }}</span>
+                    <form method="post" action="{% url 'stream-sharing' sharing.stream.pk %}" hx-post="{% url 'stream-sharing' sharing.stream.pk %}" hx-target="closest .stream-sharing" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="revoke">
+                        <input type="hidden" name="username" value="{{ viewer.username }}">
+                        <input type="hidden" name="next" value="{{ sharing.next }}">
+                        <button type="submit" class="btn-link">Stop sharing</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="meta">Only you can see this.</p>
+    {% endif %}
+    <form class="stream-sharing-add" method="post" action="{% url 'stream-sharing' sharing.stream.pk %}" hx-post="{% url 'stream-sharing' sharing.stream.pk %}" hx-target="closest .stream-sharing" hx-swap="outerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="share">
+        <input type="hidden" name="next" value="{{ sharing.next }}">
+        <input type="text" name="username" placeholder="Username" required autocomplete="off">
+        <button type="submit">Share</button>
+    </form>
+    <p class="meta">They can see everything in it, now and later, and change nothing.</p>
+    {% if sharing.error %}
+        <p class="stream-sharing-error">{{ sharing.error }}</p>
+    {% endif %}
+</section>
+{% endif %}

@@ -25,6 +25,10 @@
 
     {# --- Left: current status --- #}
     <div class="outcome-status">
+        {% if shared_by %}
+            <p class="meta">Shared with you by {{ shared_by.username }}</p>
+        {% endif %}
+        {% include "tree/_stream_sharing.html" %}
         {% if projected_outcome %}
             <h3>Current Status</h3>
             <div class="field-readonly">

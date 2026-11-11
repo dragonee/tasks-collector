@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block body_class %}page-observation-edit{% endblock %}
+
+{% block title %}{{ instance.situation_truncated }}{% endblock %}
+
+{% block content %}
+
+<div class="observation-closed">
+
+    <div class="topbar">
+        <div class="upper-pane">
+            <a class="back-chevron" href="{% url 'public-observation-list-all' %}" aria-label="Back to observations">&lsaquo;</a>
+            <div class="editor-title">{{ instance.situation|truncatechars:100 }}</div>
+        </div>
+        <div class="lower-pane">
+            <span class="meta">Shared with you by {{ shared_by.username }}</span>
+            <span class="closed-meta">{{ instance.pub_date }} &middot; {{ instance.type }}</span>
+        </div>
+    </div>
+
+    <div class="closed-fields">
+        <div class="field-readonly">
+            <div class="label">Situation</div>
+            <div class="value">{{ instance.situation|linebreaks }}</div>
+        </div>
+        <div class="field-readonly">
+            <div class="label">How you saw it, what you felt?</div>
+            <div class="value">{{ instance.interpretation|linebreaks }}</div>
+        </div>
+        <div class="field-readonly">
+            <div class="label">How should you approach it in the future?</div>
+            <div class="value">{{ instance.approach|linebreaks }}</div>
+        </div>
+    </div>
+
+    <div class="closed-history">
+        <h3>History</h3>
+        <p class="meta">{{ events|length }} event{{ events|length|pluralize }} total</p>
+        {% for event in events %}
+            <div class="event">
+                {% if event.template %}
+                    {% include event.template %}
+                {% else %}
+                    {{ event }}
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

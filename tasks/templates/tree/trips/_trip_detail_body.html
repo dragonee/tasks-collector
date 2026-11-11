@@ -42,6 +42,10 @@
 {% endif %}
 
 <div class="{% if map_points %}split-right{% else %}split-left{% endif %}">
+    {% if shared_by %}
+        <p class="meta trip-shared-by">Shared with you by {{ shared_by.username }}</p>
+    {% endif %}
+    {% include "tree/_stream_sharing.html" %}
     <section class="journal trip-entries">
         {% if map_points %}
         <div id="trip-history-filter" class="trip-history-filter hidden">

@@ -281,6 +281,23 @@ As built:
 - Not in this stage: editor role, attaching someone else's shared observation to your
   own, Android/CLI surfaces for sharing, user-deletion teardown.
 
+As built:
+- `services/streams.py`: `share(owner, stream, username)` / `revoke(...)` /
+  `viewers(stream)`; only the owner, only trip, observation and projected-outcome
+  streams, never to themselves. `POST streams/<id>/sharing/` (`views_sharing.py`)
+  answers HTMX with the re-rendered panel (`tree/_stream_sharing.html`), otherwise
+  redirects back to a local `next`.
+- Owners see the panel on the trip page, the observation edit page, the closed
+  observation page and the projected-outcome history. Viewers get the trip page
+  without its controls, a read-only observation page (`observation_shared.html`),
+  the closed observation without "Extract insight", and the outcome history.
+- "Shared with you": trips list, observation lists ("shared by"), insights (link to
+  the timeline instead of the editor), breakthrough page.
+- Attaching is limited to your own observations: a shared observation can't be
+  attached, so a viewer's complex observation never depends on someone else's.
+- Personal pages stay personal: shared trip notes don't appear in the viewer's
+  diary, event archive, today page or daily events.
+
 ## Critical files
 `tasks/apps/tree/models.py`, `signals.py`, `uuid_generators.py`, `serializers.py`,
 `forms.py`, `views*.py`, `board_operations.py`, `observation_operations.py`,

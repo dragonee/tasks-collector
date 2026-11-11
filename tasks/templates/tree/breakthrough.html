@@ -277,6 +277,20 @@
             </div>
         </main>
     </form>
+
+    {% if shared_outcomes %}
+    <section class="breakthrough-shared">
+        <h2>Shared with you</h2>
+        <ul>
+            {% for outcome in shared_outcomes %}
+                <li>
+                    <a href="{% url 'projected-outcome-events-history' event_stream_id=outcome.event_stream_id %}">{{ outcome.name }}</a>
+                    <span class="meta">{{ outcome.resolved_by }} &middot; {{ outcome.event_stream.created_by.username }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
 </div>
 
 <script>
