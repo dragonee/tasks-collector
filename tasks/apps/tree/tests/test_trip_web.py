@@ -583,18 +583,15 @@ class TripWebTestCase(TestCase):
 
     # --- map provider profile setting ---
 
-    def test_account_settings_shows_map_provider(self):
-        r = self.client.get(reverse("account-settings"))
+    def test_the_settings_show_the_map_provider(self):
+        r = self.client.get(reverse("settings-maps"))
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'name="map_provider"')
         self.assertContains(r, "OpenStreetMap")
         self.assertContains(r, "Google Maps")
 
-    def test_account_settings_saves_map_provider(self):
-        r = self.client.post(
-            reverse("account-settings"),
-            {"map_provider": "google", "first_name": "", "last_name": ""},
-        )
+    def test_the_settings_save_the_map_provider(self):
+        r = self.client.post(reverse("settings-maps"), {"map_provider": "google"})
         self.assertEqual(r.status_code, 302)
         self.assertEqual(Profile.objects.get(user=self.user).map_provider, "google")
 

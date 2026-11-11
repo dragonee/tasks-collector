@@ -288,21 +288,21 @@ class TokenTestCase(OAuthTestCase):
         self.assertEqual(self._agenda_with(key).status_code, 401)
         self.assertEqual(self._agenda_with(mine).status_code, 200)
 
-    def test_account_settings_list_the_devices_and_log_one_out(self):
+    def test_the_settings_list_the_devices_and_log_one_out(self):
         key = self._key()
         token = ApiToken.objects.get()
 
-        page = self.client.get(reverse("account-settings"))
+        page = self.client.get(reverse("settings-devices"))
         self.assertContains(page, "Tasks Health on Pixel 8")
         self.assertContains(page, reverse("api-token-revoke", args=[token.pk]))
 
         response = self.client.post(reverse("api-token-revoke", args=[token.pk]))
 
-        self.assertRedirects(response, reverse("account-settings"))
+        self.assertRedirects(response, reverse("settings-devices"))
         self.assertFalse(ApiToken.objects.exists())
         self.assertEqual(self._agenda_with(key).status_code, 401)
         self.assertContains(
-            self.client.get(reverse("account-settings")), "Nothing is logged in."
+            self.client.get(reverse("settings-devices")), "Nothing is logged in."
         )
 
     def test_nobody_logs_out_someone_elses_device(self):
@@ -311,7 +311,7 @@ class TokenTestCase(OAuthTestCase):
         theirs = Client()
         theirs.force_login(self.other)
 
-        page = theirs.get(reverse("account-settings"))
+        page = theirs.get(reverse("settings-devices"))
         response = theirs.post(reverse("api-token-revoke", args=[token.pk]))
         anonymous = Client().post(reverse("api-token-revoke", args=[token.pk]))
 

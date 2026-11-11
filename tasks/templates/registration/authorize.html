@@ -10,7 +10,7 @@
         {% if client %}
             <h1>Log {{ token_name }} in?</h1>
 
-            <p>It will read and change everything in Tasks Collector as <strong>{{ user.username }}</strong>, until you log it out in your account settings.</p>
+            <p>It will read and change everything in Tasks Collector as <strong>{{ user.username }}</strong>, until you log it out under Devices in your settings.</p>
 
             <form method="post">
                 {% csrf_token %}

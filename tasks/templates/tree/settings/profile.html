@@ -1,0 +1,12 @@
+{% extends "tree/settings/base.html" %}
+
+{% block settings %}
+<form method="post" class="settings-card">
+    {% csrf_token %}
+    {% include "tree/settings/_field.html" with field=form.first_name %}
+    {% include "tree/settings/_field.html" with field=form.last_name %}
+    <div class="settings-actions">
+        <button type="submit" class="submit">Save</button>
+    </div>
+</form>
+{% endblock %}

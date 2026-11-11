@@ -165,8 +165,8 @@ def revoke(request):
 @login_required
 @require_POST
 def revoke_token(request, pk):
-    """Revoke one of the caller's tokens, from their account settings."""
+    """Revoke one of the caller's tokens, from the devices in their settings."""
     found = get_object_or_404(ApiToken, pk=pk, user=request.user)
     found.delete()
     messages.success(request, f"{found.name} is logged out.")
-    return redirect("account-settings")
+    return redirect("settings-devices")

@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..board_operations import board_thread_for, create_unscheduled_task
-from ..forms import ProfileForm
+from ..forms import DefaultBoardForm
 from ..models import (
     Board,
     BoardCommitted,
@@ -100,16 +100,20 @@ class ShareBoardTestCase(SharedBoardTestCase):
     def test_the_owner_shares_from_the_settings_page(self):
         self.client.force_login(self.alice)
 
-        page = self.client.get(reverse("account-settings"))
+        page = self.client.get(reverse("settings-boards"))
 
-        self.assertContains(page, 'id="board-sharing"')
+        self.assertContains(page, 'id="shared-boards"')
         self.assertContains(page, "Together")
         self.assertContains(page, "change this board")
-        self.assertContains(page, 'class="board-sharing-thread"', count=1)
+        self.assertContains(page, 'class="settings-shared-board"', count=1)
 
         response = self.client.post(
             f"/streams/{self.together.board_stream_id}/sharing/",
-            {"action": "share", "username": "carol", "next": "/accounts/settings/"},
+            {
+                "action": "share",
+                "username": "carol",
+                "next": reverse("settings-boards"),
+            },
             HTTP_HX_REQUEST="true",
         )
 
@@ -121,9 +125,9 @@ class ShareBoardTestCase(SharedBoardTestCase):
     def test_a_user_without_custom_boards_gets_no_sharing_section(self):
         self.client.force_login(self.carol)
 
-        page = self.client.get(reverse("account-settings"))
+        page = self.client.get(reverse("settings-boards"))
 
-        self.assertNotContains(page, 'id="board-sharing"')
+        self.assertNotContains(page, 'id="shared-boards"')
 
 
 class EditorTestCase(SharedBoardTestCase):
@@ -280,15 +284,16 @@ class EditorTestCase(SharedBoardTestCase):
         self.assertFalse(Task.objects.visible_to(carol).exists())
 
     def test_the_profile_offers_the_shared_board(self):
-        form = ProfileForm(user=self.bob, instance=Profile.objects.get(user=self.bob))
+        form = DefaultBoardForm(
+            user=self.bob, instance=Profile.objects.get(user=self.bob)
+        )
 
         choices = [label for _, label in form.fields["default_board_thread"].choices]
 
         self.assertIn("Together (shared by alice)", choices)
         self.client.force_login(self.bob)
         self.client.post(
-            reverse("account-settings"),
-            {"default_board_thread": self.together.pk, "map_provider": "google"},
+            reverse("settings-boards"), {"default_board_thread": self.together.pk}
         )
         self.assertEqual(board_thread_for(self.bob), self.together)
 
@@ -316,8 +321,8 @@ class NoAccessTestCase(SharedBoardTestCase):
         self.assertNotIn("Together", names)
 
     def test_the_profile_refuses_a_board_not_shared(self):
-        form = ProfileForm(
-            {"default_board_thread": self.together.pk, "map_provider": "google"},
+        form = DefaultBoardForm(
+            {"default_board_thread": self.together.pk},
             user=self.carol,
             instance=Profile.objects.get(user=self.carol),
         )
