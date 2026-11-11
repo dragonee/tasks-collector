@@ -102,7 +102,8 @@ def preview(save, *, user, skip_habits=False, story=None):
         result = {
             "thread": journal.thread.name,
             "published": journal.published,
-            "comment": journal.comment,
+            # As kept, but with \n line endings: tc sends \r\n.
+            "comment": journal.comment.replace("\r\n", "\n"),
             "reflection": {"date": day, **added},
             "habits": habits,
             "tasks_completed": completed,

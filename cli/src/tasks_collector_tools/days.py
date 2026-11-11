@@ -5,8 +5,7 @@ A span is fetched in one request per year (`api/events/`); a server older
 than that endpoint is asked a day at a time.
 """
 
-import sys
-from datetime import date, timedelta
+from datetime import timedelta
 
 import requests
 from requests.exceptions import RequestException
@@ -43,7 +42,8 @@ def _get(config, path, params):
     try:
         out = r.json()
     except ValueError:
-        out = r.text
+        # An error page (a proxy's 502), not the API's answer.
+        out = r.reason
 
     if not r.ok:
         raise RuntimeError(f"{r.status_code}: {out}")
@@ -83,12 +83,15 @@ def get_days(config, start, end, thread=None, anchors=False):
 
 
 def _day_by_day(config, start, end, thread, anchors):
+    """As ``get_days``, a request a day. A day that can't be fetched stops
+    it, as a failed span does: left out, it would read as a day with
+    nothing on it."""
     days = []
     day = start
     while day <= end:
         try:
             days.append(get_day(config, day, thread, anchors))
         except (RequestException, RuntimeError) as e:
-            print(f"Error fetching data for {day}: {e}", file=sys.stderr)
+            raise RuntimeError(f"{day}: {e}") from e
         day += timedelta(days=1)
     return days

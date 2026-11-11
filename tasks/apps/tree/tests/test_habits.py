@@ -49,6 +49,13 @@ class HabitParsingTestCase(TestCase):
             self.assertEqual(habit, expected_habit)
             self.assertEqual(note, expected_note)
 
+    def test_a_note_ends_with_its_line_whatever_ends_it(self):
+        # tc and the web form send \r\n.
+        self._parse_and_check(
+            "Makimo\r\n\r\n- [x] a talk #food pizza\r\n- [~] second line",
+            [(True, self.food_habit, "#food pizza")],
+        )
+
     def test_a_single_habit_tracked_can_be_parsed(self):
         """A single tracked habit (#) can be parsed."""
         self._parse_and_check(

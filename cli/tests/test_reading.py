@@ -138,6 +138,32 @@ def test_an_older_server_is_asked_a_day_at_a_time(server):
     ] * 3
 
 
+def test_a_day_that_cant_be_fetched_stops_the_dump(server, capsys):
+    def not_json():
+        raise ValueError("not JSON")
+
+    def daily(params):
+        if params["date"] == "2026-11-10":
+            # A proxy's error page while the server restarts.
+            return SimpleNamespace(
+                ok=False, status_code=502, reason="Bad Gateway", json=not_json
+            )
+        return response(body=day(params["date"]))
+
+    server.answers["/api/events/"] = response(404, {"detail": "Not found."})
+    server.answers["/api/events/daily/"] = daily
+
+    with pytest.raises(SystemExit) as exit:
+        reflectiondump.main(
+            ["-d", "2026-11-09", "-D", "2026-11-11", "--json"], "tc reflect dump"
+        )
+
+    out, err = capsys.readouterr()
+    assert exit.value.code == 1
+    assert out == ""
+    assert err.strip() == "Error: 2026-11-10: 502: Bad Gateway"
+
+
 def test_the_reflection_dump_as_json(server, capsys):
     server.answers["/api/events/"] = lambda params: response(
         body={
