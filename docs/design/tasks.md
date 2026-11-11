@@ -222,6 +222,18 @@ as the task's and nothing is done twice. Anchors are taken out of the entry's
 stored text. An anchor that names no task of the author's is dropped and the line
 is read by its text.
 
+## The CLI
+
+`tc journal` lists the day's, the week's and the month's plan above the comment
+(`api/v1/plans/today/`), each task's line ending with its anchor. A line ticked
+there in the editor (`[x]`, or `[~]` / `[^]`) is sent as part of the comment
+(`journal.ticked_in_plans`), where its anchor completes the task; lines that were
+done already are not sent again. `tc focus` on a task picked from the plan seeds
+its journal with the task's anchored line.
+
+`tc reflect` works from dumps of plans and reflections as text, without anchors:
+a line ticked there finds its task by its text, as a typed one does.
+
 ## Boards
 
 - `Board.save` keeps items in one shape (`services/boards/items.py`).
@@ -268,7 +280,8 @@ the current Weekly and big-picture). Older lines are plain lines, word for word.
 
 ## What is next
 
-1. The CLI by task id.
-2. The text endpoints (`api/v1/android/task/*`, once no installed build uses
+1. The text endpoints (`api/v1/android/task/*`, once no installed build uses
    them) and the text columns go.
-3. Android: task calls made offline are lost; they could go through the outbox.
+2. Android: task calls made offline are lost; they could go through the outbox.
+3. `tc reflect` could carry anchors, so a reworded line stays its task's in the
+   week's and the month's reflection.

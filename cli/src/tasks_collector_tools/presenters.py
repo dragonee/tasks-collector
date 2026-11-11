@@ -32,7 +32,7 @@ from .models import (
 from .utils import render_template
 
 # Parse - [x] or - [~] or - [^] or - [ ] and strip it from beginning of line
-CUTREGEX = re.compile(r"^\s*\-\s*(?:\[x\^\~\s\])?\s*")
+CUTREGEX = re.compile(r"^\s*\-\s*(?:\[[x^~\s]\])?\s*")
 
 
 def listize(text, prefix="- ", cutregex=CUTREGEX):
