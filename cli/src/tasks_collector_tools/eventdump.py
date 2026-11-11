@@ -14,32 +14,30 @@ Options:
     --version        Show version information.
 """
 
-VERSION = '1.0'
-
-from docopt import docopt
-
-from datetime import datetime, date, timedelta
-
-import requests
-from requests.auth import HTTPBasicAuth
-
-from pathlib import Path
-
-from .config.tasks import TasksConfigFile
-
-from dateutil.parser import parse
-
-from textwrap import fill
-
-from typing import List
+VERSION = "1.0"
 
 from collections import Counter
-from .utils import render_template
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from textwrap import fill
+from typing import List
+
+import requests
+from dateutil.parser import parse
+from docopt import docopt
+from requests.auth import HTTPBasicAuth
+
+from .config.tasks import TasksConfigFile
 from .models import (
-    JournalAdded, HabitTracked, ObservationEvent,
-    ObservationMade, ObservationClosed, Result
+    HabitTracked,
+    JournalAdded,
+    ObservationClosed,
+    ObservationEvent,
+    ObservationMade,
+    Result,
 )
-from .presenters import get_presenter, get_plan_presenter, get_reflection_presenter
+from .presenters import get_plan_presenter, get_presenter, get_reflection_presenter
+from .utils import render_template
 
 EVENT_TEMPLATE = """
 ### {{ resourcetype }}: {{ published }}
@@ -90,11 +88,12 @@ TEMPLATE = """
 {% endif %}
 """
 
+
 def first_line(text):
-    splitted = text.split('\n')
+    splitted = text.split("\n")
 
     if len(splitted) > 1:
-        return splitted[0].rstrip().rstrip('.…') + '…'
+        return splitted[0].rstrip().rstrip(".…") + "…"
 
     return text
 
@@ -107,12 +106,12 @@ def get_daily_events(config: TasksConfigFile, arguments: dict, dt: date = None):
     if dt is None:
         dt = datetime.now().date()
 
-    dt_string = '?date={}'.format(dt.strftime('%Y-%m-%d'))
+    dt_string = "?date={}".format(dt.strftime("%Y-%m-%d"))
 
-    if arguments.get('--thread'):
-        dt_string += '&thread={}'.format(arguments['--thread'])
+    if arguments.get("--thread"):
+        dt_string += "&thread={}".format(arguments["--thread"])
 
-    url = '{}/api/events/daily/{}'.format(
+    url = "{}/api/events/daily/{}".format(
         config.url,
         dt_string,
     )
@@ -131,7 +130,7 @@ def get_daily_events(config: TasksConfigFile, arguments: dict, dt: date = None):
 
 def do_fill(text, width=80):
     # preserve links
-    if any(a in text for a in ('](', 'http://', 'https://')):
+    if any(a in text for a in ("](", "http://", "https://")):
         return text
 
     return fill(text, width=width)
@@ -139,23 +138,24 @@ def do_fill(text, width=80):
 
 def wrap_text_preserve_linebreaks(text, width=80):
     paragraphs = text.splitlines()
-    
+
     wrapped_paragraphs = [do_fill(paragraph, width=width) for paragraph in paragraphs]
-    
-    return '\n'.join(wrapped_paragraphs)
+
+    return "\n".join(wrapped_paragraphs)
 
 
 def stats(closed, added, count):
     if closed:
-        return ' (closed)'
+        return " (closed)"
 
     if added:
-        return ' (added)'
+        return " (added)"
 
     if count > 1:
-        return f' ({count} updates)'
+        return f" ({count} updates)"
 
-    return ''
+    return ""
+
 
 class ObservationStatistics:
     added: set
@@ -165,6 +165,7 @@ class ObservationStatistics:
     renders: dict
     counter: Counter
     count: int
+
     def __init__(self, observations: List[ObservationEvent]):
         self.added = set()
         self.closed = set()
@@ -183,48 +184,65 @@ class ObservationStatistics:
             elif isinstance(observation, ObservationClosed):
                 self.closed.add(observation.event_stream_id)
 
-            if hasattr(observation, 'url'):
+            if hasattr(observation, "url"):
                 self.urls[observation.event_stream_id] = observation.url
 
-            if hasattr(observation, 'situation'):
-                self.situation_fields[observation.event_stream_id] = observation.situation
-            elif hasattr(observation, 'situation_at_creation'):
-                self.situation_fields[observation.event_stream_id] = observation.situation_at_creation
+            if hasattr(observation, "situation"):
+                self.situation_fields[observation.event_stream_id] = (
+                    observation.situation
+                )
+            elif hasattr(observation, "situation_at_creation"):
+                self.situation_fields[observation.event_stream_id] = (
+                    observation.situation_at_creation
+                )
 
         for id in self.all:
-            _stats = stats(
-                id in self.closed, 
-                id in self.added, 
-                self.counter[id]
-            )
+            _stats = stats(id in self.closed, id in self.added, self.counter[id])
 
-            self.renders[id] = '- [{situation}]({url}){updates}'.format(
+            self.renders[id] = "- [{situation}]({url}){updates}".format(
                 situation=first_line(self.situation_fields[id]),
                 url=self.urls[id],
-                updates=_stats
+                updates=_stats,
             )
 
     def get_context(self):
         return {
-            'count': self.count,
-            'renders': '\n'.join(self.renders.values()),
+            "count": self.count,
+            "renders": "\n".join(self.renders.values()),
         }
 
+
 def render_daily_events(result: Result, print_plans=True, print_reflections=True):
-    observations = [event for event in result.events if isinstance(event, ObservationEvent)]
+    observations = [
+        event for event in result.events if isinstance(event, ObservationEvent)
+    ]
     observation_stats = ObservationStatistics(observations)
 
     # Create presenters for plan and reflection
-    plan_presenter = get_plan_presenter(result.plan) if result.plan and print_plans else None
-    reflection_presenter = get_reflection_presenter(result.reflection) if result.reflection and print_reflections else None
+    plan_presenter = (
+        get_plan_presenter(result.plan) if result.plan and print_plans else None
+    )
+    reflection_presenter = (
+        get_reflection_presenter(result.reflection)
+        if result.reflection and print_reflections
+        else None
+    )
 
     dct = {
-        'date': result.date.strftime('%-d %B (%A)'),
-        'habits': '\n'.join(get_presenter(event).render() for event in result.events if isinstance(event, HabitTracked)),
-        'events': '\n'.join(get_presenter(event).render() for event in result.events if isinstance(event, JournalAdded)),
-        'plan': plan_presenter,
-        'reflection': reflection_presenter,
-        'observation_stats': observation_stats.get_context(),
+        "date": result.date.strftime("%-d %B (%A)"),
+        "habits": "\n".join(
+            get_presenter(event).render()
+            for event in result.events
+            if isinstance(event, HabitTracked)
+        ),
+        "events": "\n".join(
+            get_presenter(event).render()
+            for event in result.events
+            if isinstance(event, JournalAdded)
+        ),
+        "plan": plan_presenter,
+        "reflection": reflection_presenter,
+        "observation_stats": observation_stats.get_context(),
     }
 
     rendered = render_template(TEMPLATE, dct)
@@ -234,36 +252,41 @@ def render_daily_events(result: Result, print_plans=True, print_reflections=True
 
 def save_to_file(directory: Path, dt: date, rendered: str):
     file_path = directory / f'{dt.strftime("%m-%B").lower()}.md'
-    
-    with open(file_path, 'a') as f:
+
+    with open(file_path, "a") as f:
         f.write(rendered)
 
 
-def delete_file_if_needed(already_deleted: set,directory: Path, dt: date):
+def delete_file_if_needed(already_deleted: set, directory: Path, dt: date):
     file_path = directory / f'{dt.strftime("%m-%B").lower()}.md'
-    
+
     if file_path.exists() and file_path not in already_deleted:
         file_path.unlink()
         already_deleted.add(file_path)
 
+
 def main():
     arguments = docopt(__doc__, version=VERSION)
 
-    path = arguments['PATH']
+    path = arguments["PATH"]
 
     if path:
         directory = Path(path).resolve(strict=True)
-    
+
     config = TasksConfigFile()
 
-    year = int(arguments['--year']) if arguments['--year'] else None
+    year = int(arguments["--year"]) if arguments["--year"] else None
 
     if year:
         start_date = date(year, 1, 1)
         end_date = date(year, 12, 31)
     else:
-        start_date = parse(arguments['--from']).date() if arguments['--from'] else datetime.now().date()
-        end_date = parse(arguments['--to']).date() if arguments['--to'] else start_date
+        start_date = (
+            parse(arguments["--from"]).date()
+            if arguments["--from"]
+            else datetime.now().date()
+        )
+        end_date = parse(arguments["--to"]).date() if arguments["--to"] else start_date
 
     def date_range(start_date, end_date, delta):
         current_date = start_date
@@ -275,7 +298,7 @@ def main():
 
     for dt in date_range(start_date, end_date, timedelta(days=1)):
         if path:
-            print("Processing... {}".format(dt), "\r", end='')
+            print("Processing... {}".format(dt), "\r", end="")
 
         result = get_daily_events(config, arguments, dt)
 
@@ -284,8 +307,8 @@ def main():
 
         rendered = render_daily_events(
             result,
-            print_plans=not arguments['--no-plans'],
-            print_reflections=not arguments['--no-reflections']
+            print_plans=not arguments["--no-plans"],
+            print_reflections=not arguments["--no-reflections"],
         )
 
         if path:
@@ -293,8 +316,6 @@ def main():
             save_to_file(directory, dt, rendered)
         else:
             print(rendered)
-    
+
     if path:
         print("\nDone.")
-
-
