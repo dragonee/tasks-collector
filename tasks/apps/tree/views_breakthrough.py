@@ -15,6 +15,7 @@ from rest_framework.response import Response as RestResponse
 from .forms import BreakthroughForm, ProjectedOutcomeEvolvedForm, ProjectedOutcomeForm
 from .models import (
     Breakthrough,
+    EventStream,
     HabitTracked,
     ProjectedOutcome,
     ProjectedOutcomeClosed,
@@ -113,6 +114,14 @@ def projected_outcome_events_history(request, event_stream_id):
     """Display the event history for a specific ProjectedOutcome by event_stream_id"""
     from .presentation import ProjectedOutcomePresentation
 
+    # Only streams the user can access; others look like unknown ones.
+    if (
+        not EventStream.objects.visible_to(request.user)
+        .filter(pk=event_stream_id, type=EventStream.Type.PROJECTED_OUTCOME)
+        .exists()
+    ):
+        raise Http404("No projected outcome with this event stream")
+
     # Create a presentation object that handles both active and complete scenarios
     try:
         presentation = ProjectedOutcomePresentation.from_event_stream_id(
@@ -145,7 +154,9 @@ def projected_outcome_events_history(request, event_stream_id):
 
 @api_view(["POST"])
 def projected_outcome_close(request, projected_outcome_id):
-    projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
+    projected_outcome = get_object_or_404(
+        ProjectedOutcome.objects.owned_by(request.user), pk=projected_outcome_id
+    )
 
     close_projected_outcome(projected_outcome, created_by=request.user)
 
@@ -160,7 +171,9 @@ def projected_outcome_close(request, projected_outcome_id):
 @require_POST
 @login_required
 def projected_outcome_evolve(request, projected_outcome_id):
-    projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
+    projected_outcome = get_object_or_404(
+        ProjectedOutcome.objects.owned_by(request.user), pk=projected_outcome_id
+    )
 
     form = ProjectedOutcomeEvolvedForm(request.POST)
     if not form.is_valid():
@@ -184,7 +197,9 @@ def projected_outcome_evolve(request, projected_outcome_id):
 
 @api_view(["POST"])
 def projected_outcome_move(request, projected_outcome_id):
-    projected_outcome = get_object_or_404(ProjectedOutcome, pk=projected_outcome_id)
+    projected_outcome = get_object_or_404(
+        ProjectedOutcome.objects.owned_by(request.user), pk=projected_outcome_id
+    )
 
     old_breakthrough = projected_outcome.breakthrough
 

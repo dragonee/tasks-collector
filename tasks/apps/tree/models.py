@@ -8,7 +8,9 @@ from django.utils import timezone
 from django.utils.text import Truncator, slugify
 from django.utils.translation import gettext_lazy as _
 
+from polymorphic.managers import PolymorphicManager
 from polymorphic.models import PolymorphicModel
+from polymorphic.query import PolymorphicQuerySet
 
 from .utils.datetime import aware_from_date
 from .utils.strings import coalesce
@@ -22,7 +24,16 @@ def default_state():
     return []
 
 
-class EventStreamManager(models.Manager):
+class EventStreamQuerySet(models.QuerySet):
+    def owned_by(self, user):
+        return self.filter(access__user=user, access__role=EventStreamAccess.Role.OWNER)
+
+    def visible_to(self, user):
+        """Streams ``user`` has any access to (owns, or was shared)."""
+        return self.filter(access__user=user)
+
+
+class EventStreamManager(models.Manager.from_queryset(EventStreamQuerySet)):
     def create_for(self, user, type):
         """A new stream of ``type`` created by and owned by ``user``."""
         with transaction.atomic():
@@ -172,6 +183,27 @@ class Thread(models.Model):
         ]
 
 
+class EventQuerySet(PolymorphicQuerySet):
+    def owned_by(self, user):
+        """Events whose home stream ``user`` owns: their diary, boards, habits,
+        observations and outcomes. What personal pages list."""
+        return self.filter(
+            event_stream__access__user=user,
+            event_stream__access__role=EventStreamAccess.Role.OWNER,
+        )
+
+    def visible_to(self, user):
+        """Events in any stream ``user`` can access, home or not: their own
+        plus what was shared with them."""
+        return self.filter(
+            models.Exists(
+                EventStreamEntry.objects.filter(
+                    event=models.OuterRef("pk"), stream__access__user=user
+                )
+            )
+        )
+
+
 class Event(PolymorphicModel):
     published = models.DateTimeField(default=timezone.now)
 
@@ -206,6 +238,8 @@ class Event(PolymorphicModel):
         related_name="created_events",
         editable=False,
     )
+
+    objects = PolymorphicManager.from_queryset(EventQuerySet)()
 
     class Meta:
         indexes = [
@@ -532,6 +566,13 @@ class ObservationType(models.Model):
 
 
 class ObservationQuerySet(models.QuerySet):
+    def owned_by(self, user):
+        return self.filter(user=user)
+
+    def visible_to(self, user):
+        """Observations ``user`` can access (theirs, or shared with them)."""
+        return self.filter(event_stream__access__user=user)
+
     def with_last_event_published(self):
         """Annotate queryset with the last event published date"""
         from django.db.models import OuterRef, Subquery
@@ -587,15 +628,8 @@ class ObservationQuerySet(models.QuerySet):
         return self.annotate(attached_count=Coalesce(Subquery(currently_attached), 0))
 
 
-class ObservationManager(models.Manager):
-    def get_queryset(self):
-        return ObservationQuerySet(self.model, using=self._db)
-
-    def with_last_event_published(self):
-        return self.get_queryset().with_last_event_published()
-
-    def with_attached_count(self):
-        return self.get_queryset().with_attached_count()
+class ObservationManager(models.Manager.from_queryset(ObservationQuerySet)):
+    pass
 
 
 class Observation(models.Model):
@@ -987,8 +1021,19 @@ class Breakthrough(models.Model):
         ]
 
 
+class ProjectedOutcomeQuerySet(models.QuerySet):
+    def owned_by(self, user):
+        return self.filter(breakthrough__user=user)
+
+    def visible_to(self, user):
+        """Outcomes ``user`` can access (theirs, or shared with them)."""
+        return self.filter(event_stream__access__user=user)
+
+
 class ProjectedOutcome(models.Model):
     breakthrough = models.ForeignKey(Breakthrough, on_delete=models.CASCADE)
+
+    objects = ProjectedOutcomeQuerySet.as_manager()
 
     published = models.DateTimeField(default=timezone.now)
 
@@ -1307,7 +1352,18 @@ class Profile(models.Model):
         return f"Profile for {self.user.username}"
 
 
+class StoryQuerySet(models.QuerySet):
+    def owned_by(self, user):
+        return self.filter(user=user)
+
+    def visible_to(self, user):
+        """Trips ``user`` can access (theirs, or shared with them)."""
+        return self.filter(event_stream__access__user=user)
+
+
 class Story(models.Model):
+    objects = StoryQuerySet.as_manager()
+
     class Type(models.TextChoices):
         TRIP = "trip", _("Trip")
 

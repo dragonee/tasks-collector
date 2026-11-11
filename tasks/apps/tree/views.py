@@ -40,22 +40,32 @@ class PlanFilter(filters.FilterSet):
 
 
 class PlanViewSet(viewsets.ModelViewSet):
-    queryset = Plan.objects.all()
+    # The class queryset only names the router basename; see get_queryset.
+    queryset = Plan.objects.none()
     serializer_class = PlanSerializer
 
     filter_backends = [DjangoFilterBackend]
     filterset_class = PlanFilter
 
+    def get_queryset(self):
+        return Plan.objects.filter(thread__user=self.request.user)
+
 
 class ReflectionViewSet(viewsets.ModelViewSet):
-    queryset = Reflection.objects.all()
+    queryset = Reflection.objects.none()
     serializer_class = ReflectionSerializer
+
+    def get_queryset(self):
+        return Reflection.objects.filter(thread__user=self.request.user)
 
 
 # XXX should we permit only POST here?
 class JournalAddedViewSet(viewsets.ModelViewSet):
-    queryset = JournalAdded.objects.all()
+    queryset = JournalAdded.objects.none()
     serializer_class = JournalAddedSerializer
+
+    def get_queryset(self):
+        return JournalAdded.objects.owned_by(self.request.user)
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -241,7 +251,7 @@ class JournalArchiveContextMixin:
         return self.request.GET.get("order", "desc")
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().owned_by(self.request.user)
 
         return queryset.order_by(
             "published" if self.get_order() == "asc" else "-published"
@@ -266,9 +276,15 @@ class JournalArchiveContextMixin:
 
 
 class EventArchiveContextMixin:
+    def get_queryset(self):
+        return super().get_queryset().owned_by(self.request.user)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["dates"] = Event.objects.dates("published", "month", order="DESC")
+        context["dates"] = Event.objects.owned_by(self.request.user).dates(
+            "published", "month", order="DESC"
+        )
+
         return context
 
 
@@ -383,8 +399,10 @@ def daily_events(request):
     thread_name = request.GET.get("thread", Thread.DAILY)
     thread = Thread.objects.filter(user=request.user, name=thread_name).first()
 
-    events = Event.objects.filter(published__date=day, thread=thread).not_instance_of(
-        BoardCommitted
+    events = (
+        Event.objects.owned_by(request.user)
+        .filter(published__date=day, thread=thread)
+        .not_instance_of(BoardCommitted)
     )
     plan = Plan.objects.filter(pub_date=day, thread=thread).first()
     reflection = Reflection.objects.filter(pub_date=day, thread=thread).first()

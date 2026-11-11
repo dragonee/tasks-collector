@@ -164,15 +164,25 @@ class ObservationSerializer(BaseTypeThreadSerializer):
         return new_obj
 
 
+class OwnObservationField(serializers.PrimaryKeyRelatedField):
+    """An observation by id, among those the requesting user owns."""
+
+    def get_queryset(self):
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return Observation.objects.none()
+        return Observation.objects.owned_by(request.user)
+
+
 class ObservationUpdatedSerializer(serializers.ModelSerializer):
     observation_fields = ObservationSerializer(read_only=True)
+    # The FK is nullable only so updates survive their observation being
+    # closed; a new update must belong to an open observation of the caller.
+    observation = OwnObservationField()
 
     class Meta:
         model = ObservationUpdated
         fields = ["id", "comment", "published", "observation_fields", "observation"]
-        # The FK is nullable only so updates survive their observation being
-        # closed; a new update must belong to an open observation.
-        extra_kwargs = {"observation": {"required": True, "allow_null": False}}
 
 
 class MultipleObservationUpdatedSerializer(serializers.ModelSerializer):

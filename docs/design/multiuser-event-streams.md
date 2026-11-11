@@ -255,6 +255,24 @@ As built (0090–0092):
 
 Exit: a second user logs into an empty app. Only now is it safe to create one.
 
+As built:
+- `owned_by(user)` / `visible_to(user)` on `Event` (home stream owner / any stream
+  membership the user has access to), `Observation`, `ProjectedOutcome`, `Story`
+  and `EventStream`. Personal pages (diary, event archive, summaries, daily events)
+  and every write use `owned_by`; object pages and observation lists use
+  `visible_to`, so sharing needs no further changes to them.
+- `ComplexPresenter(stream, user)` shows only attached observations the user can
+  access; `is_attached` still answers from the full replay, so an owner can always
+  detach. The attach target and `other_event_stream_id` are checked against access
+  (no more probing other users' stream ids).
+- `test_route_isolation.py` walks every route of the app with every method as a
+  second user pointed at the first user's objects: no response may contain the
+  first user's data, none may be a server error, and the first user's data must be
+  unchanged afterwards. A route with an unknown URL parameter fails the test.
+- Checked on the production dump: the owner sees every one of their observations,
+  insights, diary entries, plans, reflections, outcomes and trips; the only things
+  no longer visible are the other account's observation and its two events.
+
 ### Stage 7 — Sharing (view-only)
 - `services/streams`: `share(stream, owner, user)`, `revoke(...)`; owner-only.
 - UI + API on trip, observation and projected-outcome pages; "shared with me" on the
