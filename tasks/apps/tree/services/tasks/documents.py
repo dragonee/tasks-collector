@@ -5,10 +5,6 @@ lists of ``ReflectionLine`` rows (good, better, best). As text
 (``Plan.focus``, ``Reflection.good``...) a document is its lines, one to a
 line; text is written into one with ``write`` (plain) or ``DocumentEdit.apply``
 (from an editor, with anchors).
-
-The database still has the text columns the lines came from. Nothing reads
-them; ``write_copy`` keeps them saying what the lines say, so that the release
-before this one could be put back.
 """
 
 import datetime
@@ -86,19 +82,6 @@ def rows(doc, field=None):
     return list(lines)
 
 
-def write_copy(doc):
-    """Set the text columns of ``doc`` from its lines."""
-    changed = []
-    for field in fields_of(doc):
-        column = f"{field}_copy"
-        text = render(row.content for row in rows(doc, field))
-        if (getattr(doc, column) or "") != text:
-            setattr(doc, column, text)
-            changed.append(column)
-    if changed:
-        doc.save(update_fields=changed)
-
-
 def plans_tasks(plan):
     """Whether a line typed into ``plan`` becomes a task: on the plans of the
     built-in threads, and not once their period is over (yesterday still
@@ -163,8 +146,6 @@ class DocumentEdit:
         # of the line of that task taken out elsewhere (a line moved from
         # good to best).
         self._anchored_reflection_lines = []
-        self._renamed = []
-        self._touched = []
 
     def write(self, doc, field, text, create_tasks=True):
         """Write plain ``text`` (no anchors) as ``field`` of ``doc``.
@@ -211,9 +192,6 @@ class DocumentEdit:
             if row.pk is None or row.position != position or row in reworded:
                 row.position = position
                 row.save()
-
-        if doc not in self._touched:
-            self._touched.append(doc)
 
     def apply(self, doc, field, text, base=None, create_tasks=True):
         """Write ``text`` as ``field`` of ``doc``: lines as an editor has
@@ -328,9 +306,6 @@ class DocumentEdit:
                 row.position = position
                 row.save()
 
-        if doc not in self._touched:
-            self._touched.append(doc)
-
     def _anchored_row(self, doc, field, text, task):
         if isinstance(doc, Plan):
             return PlanLine(plan=doc, task=task)
@@ -345,8 +320,6 @@ class DocumentEdit:
             return
         for row in rows(doc):
             self._drop(row)
-        if doc in self._touched:
-            self._touched.remove(doc)
         doc.delete()
 
     def _drop(self, row):
@@ -360,7 +333,6 @@ class DocumentEdit:
         if isinstance(row, PlanLine) and row.task_id:
             row.task.text = text
             row.task.save(update_fields=["text"])
-            self._renamed.append(row.task)
             return
 
         row.text = text
@@ -422,14 +394,6 @@ class DocumentEdit:
 
         collect_garbage(self._released)
 
-        recache = list(self._touched)
-        for task in self._renamed:
-            for plan in Plan.objects.filter(lines__task=task):
-                if plan not in recache:
-                    recache.append(plan)
-        for doc in recache:
-            write_copy(doc)
-
 
 @transaction.atomic
 def write(doc, texts, create_tasks=False):
@@ -484,15 +448,12 @@ def append_task(plan, task):
         line = PlanLine.objects.create(
             plan=plan, task=task, position=_next_position(plan)
         )
-        write_copy(plan)
     return line
 
 
 def remove_task(plan, task):
     """Take ``task`` off ``plan``. Returns whether it was on it."""
     deleted, _ = PlanLine.objects.filter(plan=plan, task=task).delete()
-    if deleted:
-        write_copy(plan)
     return bool(deleted)
 
 
@@ -504,7 +465,7 @@ def bind(line, task):
 
 
 def append_reflection_line(reflection, field, text, task=None, completion=None):
-    line = ReflectionLine.objects.create(
+    return ReflectionLine.objects.create(
         reflection=reflection,
         field=field,
         text=text,
@@ -512,21 +473,3 @@ def append_reflection_line(reflection, field, text, task=None, completion=None):
         completion=completion,
         position=_next_position(reflection, field),
     )
-    write_copy(reflection)
-    return line
-
-
-def remove_reflection_lines(lines):
-    """Delete reflection ``lines`` and refresh the text of their reflections."""
-    reflections = []
-    for line in lines:
-        if line.reflection not in reflections:
-            reflections.append(line.reflection)
-        line.delete()
-    for reflection in reflections:
-        write_copy(reflection)
-
-
-def plans_of(task):
-    """The plans ``task`` is on."""
-    return list(Plan.objects.filter(lines__task=task))

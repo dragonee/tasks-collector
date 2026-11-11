@@ -571,18 +571,6 @@ class Reflection(models.Model):
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    # The lines as text, written along with them and read by nothing: what
-    # the release before lines read. See ``documents.write_copy``.
-    good_copy = models.TextField(
-        db_column="good", null=True, blank=True, editable=False
-    )
-    better_copy = models.TextField(
-        db_column="better", null=True, blank=True, editable=False
-    )
-    best_copy = models.TextField(
-        db_column="best", null=True, blank=True, editable=False
-    )
-
     class Meta:
         ordering = ("-pub_date",)
         constraints = [
@@ -626,11 +614,6 @@ class Plan(models.Model):
     pub_date = models.DateField()
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
-
-    # As ``Reflection.good_copy``.
-    focus_copy = models.TextField(
-        db_column="focus", null=True, blank=True, editable=False
-    )
 
     class Meta:
         ordering = ("-pub_date",)

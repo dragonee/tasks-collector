@@ -137,8 +137,6 @@ def rename(task, text):
 
     task.text = text
     task.save(update_fields=["text"])
-    for plan in documents.plans_of(task):
-        documents.write_copy(plan)
 
     if board is not None:
         board_links.set_text(board, task)
@@ -274,15 +272,13 @@ def reopen(task):
 
     completion = task.completions.order_by("-published", "-pk").first()
     if completion is not None:
-        lines = list(completion.reflection_lines.select_related("reflection"))
+        lines = completion.reflection_lines.all()
     else:
         # Done before completions were events (see ``adopt``).
-        lines = list(
-            task.reflection_lines.filter(
-                completion__isnull=True, text=step_text(task, task.done_count)
-            ).select_related("reflection")
+        lines = task.reflection_lines.filter(
+            completion__isnull=True, text=step_text(task, task.done_count)
         )
-    documents.remove_reflection_lines(lines)
+    lines.delete()
     if completion is not None:
         completion.delete()
 
