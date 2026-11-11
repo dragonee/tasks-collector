@@ -195,6 +195,16 @@ class OwnObservationField(serializers.PrimaryKeyRelatedField):
         return Observation.objects.owned_by(request.user)
 
 
+class OwnStoryField(serializers.PrimaryKeyRelatedField):
+    """A trip by id, among those the requesting user owns."""
+
+    def get_queryset(self):
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return Story.objects.none()
+        return Story.objects.owned_by(request.user)
+
+
 class ObservationUpdatedSerializer(serializers.ModelSerializer):
     observation_fields = ObservationSerializer(read_only=True)
     # The FK is nullable only so updates survive their observation being
@@ -234,26 +244,11 @@ class JournalAddedSerializer(serializers.ModelSerializer):
     # JournalAdded has no `story` attribute; the viewset adds the entry to the
     # trip's stream. Write-only so output never tries to read
     # a non-existent attribute and the POST response stays unchanged.
-    story = serializers.PrimaryKeyRelatedField(
-        queryset=Story.objects.all(),
-        required=False,
-        allow_null=True,
-        write_only=True,
-    )
+    story = OwnStoryField(required=False, allow_null=True, write_only=True)
 
     class Meta:
         model = JournalAdded
         fields = ["id", "comment", "published", "thread", "tags", "story"]
-
-    def validate_story(self, story):
-        request = self.context.get("request")
-        if (
-            story is not None
-            and request is not None
-            and story.user_id != request.user.id
-        ):
-            raise serializers.ValidationError("Story not found for this user.")
-        return story
 
     def create(self, validated_data):
         # `story` is not a model field; JournalAddedViewSet.perform_create adds

@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..models import Observation, ObservationType, ObservationUpdated
+from ..services.streams import share
 from .factories import make_thread
 
 UPDATES_URL = "/updates/"
@@ -66,3 +67,64 @@ class ObservationUpdatedAPITestCase(APITestCase):
 
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("observation", resp.json())
+
+
+class ObservationUpdatedFilterTestCase(APITestCase):
+    """``updates/?observation_id=`` chooses among the observations the caller
+    can see, so the browsable API lists no one else's and someone else's id
+    answers like an unknown one."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="u", password="x")
+        cls.other = User.objects.create_user(username="o", password="x")
+        type = ObservationType.objects.create(name="Error", slug="error")
+        cls.mine = cls._observation(cls.user, type, "mine")
+        cls.theirs = cls._observation(cls.other, type, "THEIRS-PRIVATE")
+        cls.shared = cls._observation(cls.other, type, "theirs, shared")
+        share(cls.other, cls.shared.event_stream, "u")
+
+        for observation in (cls.mine, cls.theirs, cls.shared):
+            ObservationUpdated.objects.create(
+                observation=observation, comment=f"on {observation.situation}"
+            )
+
+    @classmethod
+    def _observation(cls, user, type, situation):
+        return Observation.objects.create(
+            user=user,
+            thread=make_thread(user, f"Daily {situation}"),
+            type=type,
+            pub_date=date(2026, 10, 20),
+            situation=situation,
+        )
+
+    def setUp(self):
+        self.client.force_authenticate(user=self.user)
+
+    def _comments(self, observation_id):
+        resp = self.client.get(UPDATES_URL, {"observation_id": observation_id})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        return [update["comment"] for update in resp.json()["results"]]
+
+    def test_filters_by_an_observation_the_user_can_see(self):
+        self.assertEqual(self._comments(self.mine.pk), ["on mine"])
+        self.assertEqual(self._comments(self.shared.pk), ["on theirs, shared"])
+
+    def test_someone_elses_observation_answers_like_an_unknown_one(self):
+        theirs = self.client.get(UPDATES_URL, {"observation_id": self.theirs.pk})
+        unknown = self.client.get(UPDATES_URL, {"observation_id": 999999})
+
+        self.assertEqual(theirs.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(unknown.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            theirs.json()["observation_id"][0].replace(str(self.theirs.pk), "?"),
+            unknown.json()["observation_id"][0].replace("999999", "?"),
+        )
+
+    def test_the_browsable_api_lists_only_visible_observations(self):
+        resp = self.client.get(UPDATES_URL, HTTP_ACCEPT="text/html")
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertNotIn("THEIRS-PRIVATE", resp.content.decode())

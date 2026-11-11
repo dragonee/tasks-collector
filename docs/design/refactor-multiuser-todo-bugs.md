@@ -115,7 +115,15 @@ viewing user can access its stream, otherwise a neutral "an observation".
 
 ### 3. Two browsable-API forms list every user's observations and trips
 
-- [ ] Fix — reproduced by the audit; querysets confirmed by reading
+- [x] Fixed — reproduced by the audit; querysets confirmed by reading
+
+Fixed: `updates/` filters through `ObservationUpdatedFilter`, whose
+`observation_id` chooses among the observations the caller can see
+(`visible_to`, as the list itself reads), and the journal's `story` is an
+`OwnStoryField` over the caller's own trips. The browsable API lists only those, and
+someone else's id now answers like an unknown one (400 with the same message).
+
+What follows is the problem as found.
 
 DRF's HTML renderer is on (`REST_FRAMEWORK` in `tasks/settings/base.py` sets no
 renderers), so opening an API URL in a browser renders filter and POST forms.
