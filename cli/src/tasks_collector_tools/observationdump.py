@@ -1,21 +1,4 @@
-"""Dump observations to markdown files.
-
-Usage:
-    observationdump [options] PATH
-
-Options:
-    --open           Dump only open observations.
-    --closed         Dump only closed observations.
-    -d DATE_FROM, --from FROM  Dump from specific date.
-    -D DATE_TO, --to DATE_TO   Dump to specific date.
-    -f, --force      Overwrite existing files.
-    --stream ID      Dump object with specific Event Stream ID.
-    --year YEAR      Dump specific year.
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
-
-VERSION = "1.1"
+"""Dump observations to markdown files."""
 
 import json
 import os
@@ -31,11 +14,11 @@ from urllib.parse import urlencode
 
 import requests
 from dateutil.parser import parse
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 from slugify import slugify
 
 from .config.tasks import TasksConfigFile
+from .utils import command_parser
 
 TEMPLATE = """
 > Date: {published}
@@ -213,22 +196,22 @@ def write_observation(observation: Observation, path, force=False):
 def params_from_arguments(arguments):
     def _params_from_arguments(arguments):
 
-        if arguments["--stream"]:
-            return {"event_stream_id": arguments["--stream"]}
-        if arguments["--year"]:
-            year = arguments["--year"]
+        if arguments.stream:
+            return {"event_stream_id": arguments.stream}
+        if arguments.year:
+            year = arguments.year
 
             return {
                 "published__gte": f"{year}-01-01 00:00:00",
                 "published__lte": f"{year}-12-31 23:59:59",
             }
 
-        if arguments["--from"]:
+        if arguments.date_from:
             return {
-                "published__gte": arguments["--from"] + " 00:00:00",
+                "published__gte": arguments.date_from + " 00:00:00",
                 "published__lte": (
-                    arguments["--to"] + " 23:59:59"
-                    if arguments["--to"]
+                    arguments.date_to + " 23:59:59"
+                    if arguments.date_to
                     else datetime.now()
                 ),
             }
@@ -242,10 +225,10 @@ def params_from_arguments(arguments):
         }
     )
 
-    if arguments["--open"]:
+    if arguments.open:
         params["open"] = "true"
 
-    if arguments["--closed"]:
+    if arguments.closed:
         params["open"] = "false"
 
     return params
@@ -283,10 +266,41 @@ def update_observation_with_event(observation: Observation, event: dict):
     observation.events.append(event)
 
 
-def main():
-    arguments = docopt(__doc__, version=VERSION)
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
 
-    directory = Path(arguments["PATH"]).resolve(strict=True)
+    parser.add_argument("path", metavar="PATH", help="Directory to write the files to.")
+    parser.add_argument(
+        "--open", action="store_true", help="Dump only open observations."
+    )
+    parser.add_argument(
+        "--closed", action="store_true", help="Dump only closed observations."
+    )
+    parser.add_argument(
+        "-d",
+        "--from",
+        dest="date_from",
+        metavar="DATE_FROM",
+        help="Dump from specific date.",
+    )
+    parser.add_argument(
+        "-D", "--to", dest="date_to", metavar="DATE_TO", help="Dump to specific date."
+    )
+    parser.add_argument(
+        "-f", "--force", action="store_true", help="Overwrite existing files."
+    )
+    parser.add_argument(
+        "--stream", metavar="ID", help="Dump object with specific Event Stream ID."
+    )
+    parser.add_argument("--year", type=int, help="Dump specific year.")
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
+
+    directory = Path(arguments.path).resolve(strict=True)
 
     config = TasksConfigFile()
 
@@ -329,7 +343,7 @@ def main():
         ):
             continue
 
-        filename = write_observation(observation, directory, force=arguments["--force"])
+        filename = write_observation(observation, directory, force=arguments.force)
 
         if filename:
             print("Create {}".format(filename))

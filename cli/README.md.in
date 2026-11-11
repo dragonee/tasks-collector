@@ -4,46 +4,50 @@ These tools add CLI support to the [Tasks Collector](https://github.com/dragonee
 
 ## Installation
 
-The project is managed with [uv](https://docs.astral.sh/uv/). To put the commands on your `PATH`:
+The project is managed with [uv](https://docs.astral.sh/uv/). To put the `tc` command on your `PATH`:
 
 ```
 uv tool install ./cli
 ```
 
-After pulling changes, run `uv tool install --reinstall ./cli` (or install with `--editable` to have the commands follow the working tree).
+After pulling changes, run `uv tool install --reinstall ./cli` (or install with `--editable` to have `tc` follow the working tree).
 
-To work on the tools, run `uv sync` in this directory and call a command with `uv run`, e.g. `uv run tasks`.
+To work on the tools, run `uv sync` in this directory and call it with `uv run`, e.g. `uv run tc journal`.
 
 ## All-in-one
 
-[$ make-readme -h 3 tasks]
+Everything is a subcommand of `tc`. A word written as `obs[ervation]` can be shortened down to `obs`.
+
+[$ make-readme -h 3 tc]
+
+[$ make-readme -h 3 tc tasks]
 
 ## Journalling
 
-[$ make-readme -h 3 journal]
+[$ make-readme -h 3 tc journal]
+
+[$ make-readme -h 3 tc trip journal]
 
 ## Observations
 
-[$ make-readme -h 3 observation]
+[$ make-readme -h 3 tc observation]
 
-[$ make-readme -h 3 update]
+[$ make-readme -h 3 tc update]
 
 ## Habits
 
-[$ make-readme -h 3 habits]
+[$ make-readme -h 3 tc habits]
 
 ## Tools for periodical reflections
 
 TODO: write up process on how to do a periodical reflection.
 
-[$ make-readme -h 3 reflect]
+[$ make-readme -h 3 tc reflect]
 
-[$ make-readme -h 3 observationdump]
+[$ make-readme -h 3 tc observation dump]
 
-[$ make-readme -h 3 boardmd]
+[$ make-readme -h 3 tc board dump]
 
-[$ make-readme -h 3 reflectiondump]
+[$ make-readme -h 3 tc reflect dump]
 
-[$ make-readme -h 3 eventdump]
-
-[$ make-readme -h 3 reflect]
+[$ make-readme -h 3 tc events dump]

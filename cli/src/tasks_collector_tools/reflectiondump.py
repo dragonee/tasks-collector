@@ -1,25 +1,4 @@
-"""Dump observations to markdown files.
-
-Usage:
-    reflectiondump [options]
-
-Options:
-    -T, --thread THREAD  Dump specific thread.
-    --skip-journals     Skip journals.
-    --no-summary        Skip Good/Better/Best summary.
-    --no-titles         Skip section headers ("# Reflection", "# Journals", etc).
-    --no-habits         Skip habits section.
-    --no-observations   Skip observations section.
-    --prefix PREFIX     Prefix each line of journal entries with PREFIX.
-    -d DATE_FROM, --from FROM  Dump from specific date.
-    -D DATE_TO, --to DATE_TO   Dump to specific date.
-    --year YEAR      Dump specific year.
-    -M, --missing    Print only dates without reflection entries.
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
-
-VERSION = "1.0"
+"""Dump reflections and journals to markdown."""
 
 import json
 import os
@@ -38,7 +17,6 @@ from urllib.parse import urlencode
 
 import requests
 from dateutil.parser import parse
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import RequestException
 from slugify import slugify
@@ -55,7 +33,7 @@ from .models import (
     Result,
 )
 from .presenters import get_plan_presenter, get_presenter, get_reflection_presenter
-from .utils import render_template
+from .utils import command_parser, render_template
 
 EVENT_TEMPLATE = """
 ### {{ resourcetype }}: {{ published }}
@@ -120,13 +98,13 @@ def parse_result(result_data: dict) -> Result:
     return Result.model_validate(result_data)
 
 
-def get_daily_events(config: TasksConfigFile, arguments: dict, dt: date = None):
+def get_daily_events(config: TasksConfigFile, arguments, dt: date = None):
     if dt is None:
         dt = datetime.now().date()
 
     params = {
         "date": dt.strftime("%Y-%m-%d"),
-        "thread": arguments["--thread"] if arguments["--thread"] else "Daily",
+        "thread": arguments.thread if arguments.thread else "Daily",
     }
 
     dt_string = urlencode(params)
@@ -417,23 +395,64 @@ class ResultAggregator:
         }
 
 
-def main():
-    arguments = docopt(__doc__, version=VERSION)
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
+
+    parser.add_argument("-T", "--thread", help="Dump specific thread.")
+    parser.add_argument("--skip-journals", action="store_true", help="Skip journals.")
+    parser.add_argument(
+        "--no-summary", action="store_true", help="Skip Good/Better/Best summary."
+    )
+    parser.add_argument(
+        "--no-titles",
+        action="store_true",
+        help='Skip section headers ("# Reflection", "# Journals", etc).',
+    )
+    parser.add_argument("--no-habits", action="store_true", help="Skip habits section.")
+    parser.add_argument(
+        "--no-observations", action="store_true", help="Skip observations section."
+    )
+    parser.add_argument(
+        "--prefix", help="Prefix each line of journal entries with PREFIX."
+    )
+    parser.add_argument(
+        "-d",
+        "--from",
+        dest="date_from",
+        metavar="DATE_FROM",
+        help="Dump from specific date.",
+    )
+    parser.add_argument(
+        "-D", "--to", dest="date_to", metavar="DATE_TO", help="Dump to specific date."
+    )
+    parser.add_argument("--year", type=int, help="Dump specific year.")
+    parser.add_argument(
+        "-M",
+        "--missing",
+        action="store_true",
+        help="Print only dates without reflection entries.",
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
 
-    year = int(arguments["--year"]) if arguments["--year"] else None
+    year = arguments.year
 
     if year:
         start_date = date(year, 1, 1)
         end_date = date(year, 12, 31)
     else:
         start_date = (
-            parse(arguments["--from"]).date()
-            if arguments["--from"]
+            parse(arguments.date_from).date()
+            if arguments.date_from
             else datetime.now().date()
         )
-        end_date = parse(arguments["--to"]).date() if arguments["--to"] else start_date
+        end_date = parse(arguments.date_to).date() if arguments.date_to else start_date
 
     def date_range(start_date, end_date, delta=timedelta(days=1)):
         current_date = start_date
@@ -455,7 +474,7 @@ def main():
         )
     )
 
-    if arguments["--missing"]:
+    if arguments.missing:
         missing_dates = [
             dt
             for dt, result in date_results
@@ -475,11 +494,11 @@ def main():
 
     aggregator = ResultAggregator(
         valid_results,
-        skip_journals=arguments["--skip-journals"],
-        skip_summary=arguments["--no-summary"],
-        skip_titles=arguments["--no-titles"],
-        skip_habits=arguments["--no-habits"],
-        skip_observations=arguments["--no-observations"],
-        journal_prefix=arguments["--prefix"] or "",
+        skip_journals=arguments.skip_journals,
+        skip_summary=arguments.no_summary,
+        skip_titles=arguments.no_titles,
+        skip_habits=arguments.no_habits,
+        skip_observations=arguments.no_observations,
+        journal_prefix=arguments.prefix or "",
     )
     print(render_template(TEMPLATE, aggregator.get_context()))

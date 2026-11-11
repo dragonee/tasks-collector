@@ -1,13 +1,5 @@
 """Connect to the Tasks Collector.
 
-Usage:
-    tasks [options]
-
-Options:
-    --thread THREAD  Use specific thread.
-    -h, --help       Show this message.
-    --version        Show version information.
-
 By default, tasks are added to the thread from your profile.
 By prefixing a line with `!` or `#`, it will be added to the Habit Tracker instead.
 """
@@ -31,7 +23,6 @@ from difflib import SequenceMatcher
 
 import requests
 from colored import attr, fg
-from docopt import docopt
 from more_itertools import consume, repeatfunc
 from requests.auth import HTTPBasicAuth
 
@@ -52,6 +43,7 @@ import re
 from .habits import add_habit
 from .plans import get_plan_for_today
 from .story import get_active_stories, set_current_trip
+from .utils import command_parser, tc_command
 
 
 def get_input_until(predicate, prompt=None):
@@ -359,7 +351,7 @@ def run_focus_journal(task_text, elapsed, complete=True):
         tmpfile.write(content)
 
     try:
-        subprocess.call(["journal", "-f", tmpfile.name, "-F"])
+        subprocess.call(tc_command("journal", "-f", tmpfile.name, "-F"))
     finally:
         try:
             os.unlink(tmpfile.name)
@@ -434,24 +426,23 @@ def focus_mode(args, config):
 
 
 commands = {
-    "observation": "observation",
-    "olist": ["observation", "-l"],
-    "habits": "habits",
-    "hlist": ["habits", "-l"],
+    "observation": tc_command("observation"),
+    "olist": tc_command("observation", "-l"),
+    "habits": tc_command("habits"),
+    "hlist": tc_command("habits", "-l"),
     "oedit": open_observation,
     "edit": open_observation,
-    "journal": "journal",
-    "sjournal": "sjournal",
+    "journal": tc_command("journal"),
     "trip": select_trip,
-    "tjournal": ["journal", "--current-trip"],
-    "tripjournal": ["journal", "--current-trip"],
-    "thought": ["journal", "-T", "thoughts"],
-    "update": "update",
+    "tjournal": tc_command("trip", "journal"),
+    "tripjournal": tc_command("trip", "journal"),
+    "thought": tc_command("journal", "-T", "thoughts"),
+    "update": tc_command("update"),
     "help": print_help,
     "clear": "clear",
-    "wtf": ["journal", "-T", "wtf"],
-    "nove": ["journal", "-T", "nove"],
-    "reflect": "reflect",
+    "wtf": tc_command("journal", "-T", "wtf"),
+    "nove": tc_command("journal", "-T", "nove"),
+    "reflect": tc_command("reflect"),
     "thread": change_thread,
     "stats": show_stats,
     "focus": focus_mode,
@@ -548,8 +539,16 @@ def add_task(config, default_thread, text):
             print("HTTP {}\n{}".format(r.status_code, r.text))
 
 
-def main():
-    arguments = docopt(__doc__ + help(), version="1.0.2")
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__, epilog=help().strip())
+
+    parser.add_argument("--thread", help="Use specific thread.")
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
 
@@ -563,7 +562,7 @@ def main():
     print(plan)
 
     # Load default thread from profile if not specified via command line
-    thread_from_args = arguments["--thread"]
+    thread_from_args = arguments.thread
     if thread_from_args:
         config.current_thread = thread_from_args
     else:

@@ -1,17 +1,4 @@
-"""Track habits daily or list them.
-
-Usage:
-    habits [options]
-
-Options:
-    -a, --all        Track all habits.
-    -d, --date DATE  Use this date for tracking habits.
-    -Y, --yesterday  Set the date to yesterday.
-    -l, --list       List habits
-    -o, --output FILENAME  If listing, output to file [default: -]
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
+"""Track habits daily or list them."""
 
 import json
 import sys
@@ -20,12 +7,11 @@ from datetime import datetime, timedelta
 
 import requests
 from dateutil.parser import parse
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 
 from .config.tasks import TasksConfigFile
 from .models import HabitWithTracked, Keyword
-from .utils import smart_open
+from .utils import command_parser, smart_open
 
 
 def add_habit(config, text, published=None):
@@ -181,9 +167,9 @@ def format_line(keyword, answer, text):
 
 def get_date_from_arguments(arguments):
     """Get the date from command line arguments."""
-    if arguments["--date"]:
-        return parse(arguments["--date"])
-    elif arguments["--yesterday"]:
+    if arguments.date:
+        return parse(arguments.date)
+    elif arguments.yesterday:
         return (datetime.now() - timedelta(days=1)).replace(
             hour=23, minute=59, second=59, microsecond=0
         )
@@ -191,19 +177,39 @@ def get_date_from_arguments(arguments):
     return datetime.now()
 
 
-def main():
-    arguments = docopt(__doc__, version="1.1")
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
+
+    parser.add_argument("-a", "--all", action="store_true", help="Track all habits.")
+    parser.add_argument("-d", "--date", help="Use this date for tracking habits.")
+    parser.add_argument(
+        "-Y", "--yesterday", action="store_true", help="Set the date to yesterday."
+    )
+    parser.add_argument("-l", "--list", action="store_true", help="List habits.")
+    parser.add_argument(
+        "-o",
+        "--output",
+        metavar="FILENAME",
+        default="-",
+        help="If listing, output to file [default: %(default)s].",
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
 
     published = get_date_from_arguments(arguments)
 
-    if arguments["--list"]:
-        print_habit_list(config, arguments["--output"])
+    if arguments.list:
+        print_habit_list(config, arguments.output)
         return
 
     keywords = get_keyword_list(
-        config, sys.stderr, date=published, all_keywords=arguments["--all"]
+        config, sys.stderr, date=published, all_keywords=arguments.all
     )
 
     print(

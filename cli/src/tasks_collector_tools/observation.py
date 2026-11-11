@@ -1,21 +1,4 @@
-"""Add an observation.
-
-Usage:
-    observation [options]
-
-Options:
-    -l, --list       List last couple of observations.
-    -a, --all        With -l, show all observations (not just mine).
-    -n, --number N   With -l, show N observations [default: {observation_list_count}].
-    -c, --chars N    With -l, show N chars of the situation [default: {observation_list_characters}].
-    -u, --sort-by-update  With -l, sort by last event time (most recent first).
-    --date DATE      Use specific date.
-    -s, --save       Save as default for updates [default: False].
-    --thread THREAD  Use specific thread [default: big-picture].
-    --type TYPE      Choose type [default: observation].
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
+"""Add an observation."""
 
 TEMPLATE = """
 > Date: {pub_date}
@@ -51,13 +34,13 @@ from datetime import datetime
 
 import requests
 from colored import attr, fg
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError, ReadTimeout
 
 from .config.tasks import TasksConfigFile
 from .utils import (
     SHORT_TIMEOUT,
+    command_parser,
     ensure_directory_exists,
     queue_failed_request,
     retry_failed_requests,
@@ -175,9 +158,9 @@ def time_ago_colored(date_string_or_seconds: str | int | None) -> str:
 
 def template_from_arguments(arguments):
     return TEMPLATE.format(
-        pub_date=arguments["--date"] or datetime.today().strftime("%Y-%m-%d"),
-        thread=arguments["--thread"],
-        type=arguments["--type"],
+        pub_date=arguments.date or datetime.today().strftime("%Y-%m-%d"),
+        thread=arguments.thread,
+        type=arguments.type,
         situation="",
         interpretation="",
         approach="",
@@ -263,25 +246,69 @@ def list_observations(
         print("#{}: {}{}".format(item["id"], situation_text, time_info))
 
 
-def main():
-    config = TasksConfigFile()
+def parse_arguments(argv, prog, config):
+    parser = command_parser(prog, __doc__)
 
-    arguments = docopt(
-        __doc__.format(
-            observation_list_count=config.observation_list_count,
-            observation_list_characters=config.observation_list_characters,
-        ),
-        version="1.0.2",
+    parser.add_argument(
+        "-l", "--list", action="store_true", help="List last couple of observations."
+    )
+    parser.add_argument(
+        "-a",
+        "--all",
+        action="store_true",
+        help="With -l, show all observations (not just mine).",
+    )
+    parser.add_argument(
+        "-n",
+        "--number",
+        metavar="N",
+        type=int,
+        default=config.observation_list_count,
+        help="With -l, show N observations [default: %(default)s].",
+    )
+    parser.add_argument(
+        "-c",
+        "--chars",
+        metavar="N",
+        type=int,
+        default=config.observation_list_characters,
+        help="With -l, show N chars of the situation [default: %(default)s].",
+    )
+    parser.add_argument(
+        "-u",
+        "--sort-by-update",
+        action="store_true",
+        help="With -l, sort by last event time (most recent first).",
+    )
+    parser.add_argument("--date", help="Use specific date.")
+    parser.add_argument(
+        "-s", "--save", action="store_true", help="Save as default for updates."
+    )
+    parser.add_argument(
+        "--thread",
+        default="big-picture",
+        help="Use specific thread [default: %(default)s].",
+    )
+    parser.add_argument(
+        "--type", default="observation", help="Choose type [default: %(default)s]."
     )
 
-    if arguments["--list"]:
-        ownership = "all" if arguments["--all"] else "mine"
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    config = TasksConfigFile()
+
+    arguments = parse_arguments(argv, prog, config)
+
+    if arguments.list:
+        ownership = "all" if arguments.all else "mine"
         list_observations(
             config,
-            int(arguments["--chars"]),
-            int(arguments["--number"]),
+            arguments.chars,
+            arguments.number,
             ownership,
-            arguments["--sort-by-update"],
+            arguments.sort_by_update,
         )
 
         return
@@ -375,7 +402,7 @@ def main():
 
         os.unlink(tmpfile.name)
 
-        if arguments["--save"]:
+        if arguments.save:
             with open(OBSERVATION_FILE_PATH, "w") as f:
                 f.write(str(new_payload["id"]) + "\n")
     else:

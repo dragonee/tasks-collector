@@ -1,11 +1,40 @@
+import argparse
 import contextlib
 import json
 import os
 import re
 import sys
 from datetime import datetime
+from importlib.metadata import version
 
 SHORT_TIMEOUT = 3.05
+
+
+def package_version():
+    return version("tasks-collector-tools")
+
+
+def command_parser(prog, description, **kwargs):
+    """Start the argument parser of a `tc` command; `prog` is its full name."""
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        **kwargs,
+    )
+    parser.add_argument("--version", action="version", version=package_version())
+
+    return parser
+
+
+def tc_command(*args):
+    """Build the argv that runs a `tc` command with this interpreter.
+
+    Commands call each other as subprocesses; going through the interpreter
+    doesn't depend on `tc` being on the PATH.
+    """
+    return [sys.executable, "-m", "tasks_collector_tools", *args]
+
 
 DEAD_LETTER_DIRECTORY = os.path.expanduser(os.path.join("~", ".tasks", "queue"))
 
