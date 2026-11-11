@@ -7,18 +7,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.polybrain.tasks.health.data.UnscheduledTaskRequest
 import org.polybrain.tasks.health.data.BoardItem
+import org.polybrain.tasks.health.data.PlanItemRequest
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
-import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
+import org.polybrain.tasks.health.data.UnscheduledTaskRequest
 
 /**
  * Backs the "add from board" picker: loads the flattened board, tracks the
- * MoSCoW filter and the multi-selection, and copies the selected items onto
- * a given day's Today list by reusing the existing /task/add/ endpoint.
+ * MoSCoW filter and the multi-selection, and plans the selected items for a
+ * given day: each becomes a task (or is the task it already has).
  *
  * Mirrors [TodayViewModel]'s settings / buildApi / reload / error handling.
  */
@@ -38,8 +38,7 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
     private val _configured = MutableStateFlow(false)
     val configured: StateFlow<Boolean> = _configured.asStateFlow()
 
-    /** Texts of the currently-selected items. Keyed by text to match the rest
-     * of the system (TodayTask, board lookups by text). */
+    /** Ids of the currently-selected items. */
     private val _selected = MutableStateFlow<Set<String>>(emptySet())
     val selected: StateFlow<Set<String>> = _selected.asStateFlow()
 
@@ -70,9 +69,9 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun toggleSelection(text: String) {
+    fun toggleSelection(itemId: String) {
         _selected.value = _selected.value.toMutableSet().apply {
-            if (!add(text)) remove(text)
+            if (!add(itemId)) remove(itemId)
         }
     }
 
@@ -93,17 +92,17 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     /**
-     * Add every selected item to [date]'s Today list, then invoke [onDone].
+     * Plan every selected item for [date], then invoke [onDone].
      *
-     * Items are sent sequentially in board order via the existing /task/add/
-     * endpoint (idempotent on the server via add_unique_line, so a retry that
-     * re-adds an already-present line is harmless). On full success we call
-     * [onDone] so the caller can pop back to Today; on partial failure we
-     * surface an error and keep the failed items selected for retry.
+     * Items are sent one after the other in board order, each named by its
+     * board and its id. Planning an item that is on the day already changes
+     * nothing, so a retry is harmless. On full success we call [onDone] so
+     * the caller can pop back to Today; on partial failure we surface an
+     * error and keep the failed items selected for retry.
      */
     fun addSelected(date: String, onDone: () -> Unit) {
-        val texts = _selected.value
-        if (texts.isEmpty()) return
+        val ids = _selected.value
+        if (ids.isEmpty()) return
         viewModelScope.launch {
             val snapshot = settings.snapshot()
             _configured.value = snapshot.isConfigured
@@ -114,18 +113,20 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
             val api = buildApi(snapshot)
             val failures = mutableListOf<String>()
             // Preserve board order so the lines land deterministically.
-            for (item in _items.value.filter { it.text in texts }) {
+            for (item in _items.value) {
+                val id = item.id ?: continue
+                if (id !in ids) continue
                 try {
-                    api.addTodayTask(TaskTextRequest(item.text, date))
+                    api.planItem(PlanItemRequest(item.boardId, id, date))
                 } catch (t: Throwable) {
-                    failures.add(item.text)
+                    failures.add(id)
                 }
             }
             if (failures.isEmpty()) {
                 _selected.value = emptySet()
                 onDone()
             } else {
-                _error.value = "Failed to add ${failures.size} of ${texts.size} item(s)."
+                _error.value = "Failed to add ${failures.size} of ${ids.size} item(s)."
                 _selected.value = failures.toSet()
             }
         }

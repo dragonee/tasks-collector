@@ -3,23 +3,23 @@ package org.polybrain.tasks.health.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
-import java.time.temporal.TemporalAdjusters
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.polybrain.tasks.health.data.HabitKeyword
+import org.polybrain.tasks.health.data.PlanRef
+import org.polybrain.tasks.health.data.PlanTextRequest
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
+import org.polybrain.tasks.health.data.Task
 import org.polybrain.tasks.health.data.TaskCompleteRequest
 import org.polybrain.tasks.health.data.TaskMoveRequest
-import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
-import org.polybrain.tasks.health.data.TodayTask
 import org.polybrain.tasks.health.data.TrackHabitRequest
 import org.polybrain.tasks.health.data.TripSummary
 
@@ -27,12 +27,16 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = Settings(application)
 
-    private val _tasks = MutableStateFlow<List<TodayTask>>(emptyList())
-    val tasks: StateFlow<List<TodayTask>> = _tasks.asStateFlow()
+    /** The selected day's tasks, open ones first. */
+    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
+    val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
 
-    /** This week's plan focus lines (Weekly thread, current week). */
-    private val _weekPlan = MutableStateFlow<List<String>>(emptyList())
-    val weekPlan: StateFlow<List<String>> = _weekPlan.asStateFlow()
+    /**
+     * The tasks of the week the selected day is in (Weekly thread). Each
+     * knows whether it is done, wherever that was ticked.
+     */
+    private val _weekPlan = MutableStateFlow<List<Task>>(emptyList())
+    val weekPlan: StateFlow<List<Task>> = _weekPlan.asStateFlow()
 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -58,25 +62,25 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
      * which dialog (if any) is shown. ``null`` = no pending interaction.
      */
     sealed class PendingComplete {
-        abstract val text: String
+        abstract val task: Task
 
         /** Tick on an unchecked task → opens the "Add a note" dialog. */
-        data class AddNote(override val text: String) : PendingComplete()
+        data class AddNote(override val task: Task) : PendingComplete()
 
         /**
-         * Tap on a checked progress task (`(K/N)` with `K >= N`) → opens
-         * the completed-task dialog with Add another / Reset / Cancel.
-         * Plain boolean done tasks skip this path and untick immediately.
+         * Tap on a checked counted task (all its steps done) → opens the
+         * completed-task dialog with Add another / Reset / Cancel. Plain
+         * done tasks skip this path and untick immediately.
          */
-        data class CompletedAction(override val text: String) : PendingComplete()
+        data class CompletedAction(override val task: Task) : PendingComplete()
     }
 
     private val _pendingComplete = MutableStateFlow<PendingComplete?>(null)
     val pendingComplete: StateFlow<PendingComplete?> = _pendingComplete.asStateFlow()
 
     /**
-     * Text of the task the user is currently focusing on, or null when focus
-     * mode is off. In focus mode the screen hides everything except this task
+     * Key ([Task.key]) of the task the user is currently focusing on, or null
+     * when focus mode is off. In focus mode the screen hides everything except this task
      * and already-finished ones, so only the one thing left to do is in view.
      * Cleared on day change and when the focused task disappears from a reload
      * (so its "exit focus" menu item can never become unreachable).
@@ -144,65 +148,55 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
      * mode if this task is already the focused one. Pure view state — nothing is
      * sent to the server.
      */
-    fun toggleFocus(text: String) {
-        _focusedTask.value = if (_focusedTask.value == text) null else text
+    fun toggleFocus(task: Task) {
+        _focusedTask.value = if (_focusedTask.value == task.key) null else task.key
     }
 
+    /** A task typed in: planned for the selected day. Not written to the board. */
     fun add(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            mutate { api -> api.addTodayTask(TaskTextRequest(trimmed, today())) }
+            mutate { api -> api.planText(PlanTextRequest(trimmed, today())) }
         }
     }
 
     /**
-     * Pull a line from this week's plan into today's tasks. Reuses the
-     * same /add path as a manually typed task — the weekly plan line stays
-     * put (it's the source for the week), the text is copied onto today's
-     * Daily plan. `mutate`'s reload then refreshes both lists, so the item
-     * appears under today's tasks and drops out of the week-plan section
-     * (which filters out lines already on today).
+     * Pull a task of this week's plan into the selected day. It is the same
+     * task on both plans, so ticking it on the day ticks it for the week.
+     * `mutate`'s reload then moves it from the week-plan section (which
+     * leaves out what is on the day already) to the day's list.
      */
-    fun addPlanItemToToday(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+    fun addPlanItemToToday(task: Task) {
         viewModelScope.launch {
-            mutate { api -> api.addTodayTask(TaskTextRequest(trimmed, today())) }
+            mutate { api -> planOn(api, task, today()) }
         }
     }
 
     /**
-     * Copy a task onto the actual current day. Offered from a task's context
-     * menu only while browsing some other day. Reuses the same /add path as a
-     * typed task, but pins the date to the real today rather than the selected
-     * day, so the task lands on today's Daily plan while staying put on the day
-     * being viewed. `mutate`'s reload refreshes the day in view (unchanged when
-     * that isn't today); navigating to today then shows the copy.
+     * Put a task on the actual current day as well. Offered from a task's
+     * context menu only while browsing some other day. `mutate`'s reload
+     * refreshes the day in view (unchanged when that isn't today);
+     * navigating to today then shows it.
      */
-    fun copyToToday(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+    fun copyToToday(task: Task) {
         viewModelScope.launch {
-            mutate { api ->
-                api.addTodayTask(TaskTextRequest(trimmed, LocalDate.now().toString()))
-            }
+            mutate { api -> planOn(api, task, LocalDate.now().toString()) }
         }
     }
 
     /**
-     * Move a task to tomorrow's Daily plan via /move, which keeps its board node
-     * (unlike /delete). Offered from a task's context menu only while viewing
+     * Move a task to tomorrow's plan. It is the same task there, steps done
+     * so far included. Offered from a task's context menu only while viewing
      * today. `mutate`'s reload reflects the result — the row leaves today and
      * reappears when you step to tomorrow.
      */
-    fun moveToTomorrow(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+    fun moveToTomorrow(task: Task) {
         viewModelScope.launch {
             mutate { api ->
-                api.moveTodayTask(
-                    TaskMoveRequest(trimmed, today(), LocalDate.now().plusDays(1).toString())
+                api.moveTask(
+                    idOf(api, task),
+                    TaskMoveRequest(today(), LocalDate.now().plusDays(1).toString()),
                 )
             }
         }
@@ -215,30 +209,24 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
      * - `done = true` (ticking an unchecked row) → stash an [AddNote]
      *   pending state; the UI opens the add-note dialog and the API
      *   call doesn't fire until [confirmCompletion]. No optimistic flip.
-     * - `done = false` on a fully-complete *progress* task (`(K/N)`
-     *   with `K >= N`) → stash a [CompletedAction] pending state; the
-     *   UI opens the completed-task dialog with Add another / Reset /
-     *   Cancel. No optimistic flip — the row keeps its checked look
-     *   until the user picks Reset.
-     * - `done = false` on a plain task → fire `/complete` immediately,
-     *   no modal, no journal entry.
+     * - `done = false` on a counted task with all its steps done → stash a
+     *   [CompletedAction] pending state; the UI opens the completed-task
+     *   dialog with Add another / Reset / Cancel. No optimistic flip — the
+     *   row keeps its checked look until the user picks Reset.
+     * - `done = false` on a plain task → take it back immediately, no modal.
      */
-    fun requestSetDone(text: String, done: Boolean) {
+    fun requestSetDone(task: Task, done: Boolean) {
         if (done) {
-            _pendingComplete.value = PendingComplete.AddNote(text)
+            _pendingComplete.value = PendingComplete.AddNote(task)
             return
         }
-        if (isCompleteProgressTask(text)) {
-            _pendingComplete.value = PendingComplete.CompletedAction(text)
+        if (task.isCountedAndDone) {
+            _pendingComplete.value = PendingComplete.CompletedAction(task)
             return
         }
         viewModelScope.launch {
-            _tasks.value = _tasks.value.map { t ->
-                if (t.text == text) t.copy(done = false) else t
-            }
-            mutate { api ->
-                api.completeTodayTask(TaskCompleteRequest(text, false, nowIso()))
-            }
+            showDone(task, false)
+            mutate { api -> api.reopenTask(idOf(api, task)) }
         }
     }
 
@@ -261,55 +249,43 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         _pendingComplete.value = null
         // Crossing off the focused task ends focus mode — its one job is done,
         // so fall back to the full list (the completed task included).
-        if (_focusedTask.value == pending.text) _focusedTask.value = null
+        if (_focusedTask.value == pending.task.key) _focusedTask.value = null
+        val request = completeRequest(note, storyId)
         viewModelScope.launch {
-            _tasks.value = _tasks.value.map { t ->
-                if (t.text == pending.text) t.copy(done = true) else t
+            // A counted task with steps left stays open after this one; the
+            // reload shows where it stands.
+            if (pending.task.doneCount + 1 >= pending.task.total) {
+                showDone(pending.task, true)
             }
-            mutate { api ->
-                api.completeTodayTask(
-                    TaskCompleteRequest(pending.text, true, nowIso(), note, storyId)
-                )
-            }
+            mutate { api -> api.completeTask(idOf(api, pending.task), request) }
         }
     }
 
     /**
-     * Add another button on the completed-task dialog. Sends `done=true`
-     * — on the backend that advances `(K/N)` to `(K+1/N)` and keeps the
-     * row checked. The optional note flows through as a journal entry
-     * just like a normal tick.
+     * Add another button on the completed-task dialog: one more step of a
+     * counted task that has all of them. The row stays checked. The optional
+     * note flows through as a journal entry just like a normal tick.
      */
     fun confirmAddAnother(note: String) {
         val pending = _pendingComplete.value as? PendingComplete.CompletedAction ?: return
         _pendingComplete.value = null
+        val request = completeRequest(note, storyId = null)
         viewModelScope.launch {
             // Row stays visually checked; no optimistic change needed.
-            mutate { api ->
-                api.completeTodayTask(
-                    TaskCompleteRequest(pending.text, true, nowIso(), note)
-                )
-            }
+            mutate { api -> api.completeTask(idOf(api, pending.task), request) }
         }
     }
 
     /**
-     * Reset button on the completed-task dialog. Sends `done=false` —
-     * on the backend that returns `(K/N)` to pristine `(N)` and clears
-     * `Reflection.good`. No note, no journal entry.
+     * Reset button on the completed-task dialog: takes back the last step
+     * done, and its line in the reflection. No note, no journal entry.
      */
     fun confirmReset() {
         val pending = _pendingComplete.value as? PendingComplete.CompletedAction ?: return
         _pendingComplete.value = null
         viewModelScope.launch {
-            _tasks.value = _tasks.value.map { t ->
-                if (t.text == pending.text) t.copy(done = false) else t
-            }
-            mutate { api ->
-                api.completeTodayTask(
-                    TaskCompleteRequest(pending.text, false, nowIso())
-                )
-            }
+            showDone(pending.task, false)
+            mutate { api -> api.reopenTask(idOf(api, pending.task)) }
         }
     }
 
@@ -318,10 +294,14 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         _pendingComplete.value = null
     }
 
-    fun delete(text: String) {
+    /**
+     * Take the task off the selected day's plan. The board is left alone, and
+     * a task that was done stays done.
+     */
+    fun delete(task: Task) {
         viewModelScope.launch {
-            _tasks.value = _tasks.value.filterNot { it.text == text }
-            mutate { api -> api.deleteTodayTask(TaskTextRequest(text, today())) }
+            _tasks.value = _tasks.value.filterNot { it.key == task.key }
+            mutate { api -> api.unplanTask(idOf(api, task), PlanRef(today())) }
         }
     }
 
@@ -410,20 +390,16 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         _loading.value = true
         try {
             val api = buildApi(snapshot)
-            _tasks.value = api.listTodayTasks(today()).items
-            // Drop focus if its task is gone (deleted, or its text changed),
-            // otherwise the "exit focus mode" item would vanish with the row.
-            if (_focusedTask.value != null && _tasks.value.none { it.text == _focusedTask.value }) {
+            val agenda = api.agenda(today())
+            // Open ones first; the plan's order within each group (sortedBy
+            // is stable).
+            _tasks.value = agenda.daily.tasks.sortedBy { it.done }
+            // Drop focus if its task is gone, otherwise the "exit focus mode"
+            // item would vanish with the row.
+            if (_focusedTask.value != null && _tasks.value.none { it.key == _focusedTask.value }) {
                 _focusedTask.value = null
             }
-            _weekPlan.value = api.listPlans("Weekly", endOfWeek()).results
-                .firstOrNull()
-                ?.focus
-                ?.lineSequence()
-                ?.map { it.trim() }
-                ?.filter { it.isNotEmpty() }
-                ?.toList()
-                ?: emptyList()
+            _weekPlan.value = agenda.weekly.tasks
             _activeTrip.value = api.listTrips(page = 1, pageSize = 1).active.firstOrNull()
             _error.value = null
         } catch (t: Throwable) {
@@ -452,27 +428,50 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     private fun buildApi(snapshot: SettingsSnapshot): TasksApi =
         TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
 
-    // The selected day in ISO 8601 (YYYY-MM-DD). Used by /add, /delete,
-    // /move, /list — they only need to know which day the user means.
+    /** Show [task] as done or not before the server answers. */
+    private fun showDone(task: Task, done: Boolean) {
+        _tasks.value = _tasks.value.map { t ->
+            if (t.key == task.key) t.copy(done = done) else t
+        }
+    }
+
+    /**
+     * The id of [task]. A plain line of a plan has none until something is
+     * done with it: planning its text where it already is makes it a task.
+     */
+    private suspend fun idOf(api: TasksApi, task: Task): String =
+        task.id ?: checkNotNull(api.planText(PlanTextRequest(task.text, today())).id)
+
+    /** Put [task] on the Daily plan of [date] as well. */
+    private suspend fun planOn(api: TasksApi, task: Task, date: String) {
+        val id = task.id
+        if (id == null) {
+            // A plain line (of the week's plan, say): the server finds it by
+            // its text and makes it a task on both plans.
+            api.planText(PlanTextRequest(task.text, date))
+        } else {
+            api.planTask(id, PlanRef(date))
+        }
+    }
+
+    private fun completeRequest(note: String, storyId: Long?) = TaskCompleteRequest(
+        day = today(),
+        at = nowIso(),
+        note = note,
+        storyId = storyId,
+        idempotencyKey = UUID.randomUUID().toString(),
+    )
+
+    // The selected day in ISO 8601 (YYYY-MM-DD): the day every call here is
+    // about.
     private fun today(): String = _selectedDate.value.toString()
 
-    // Canonical pub_date of the Weekly plan covering the selected day: the
-    // Sunday ending that week. Mirrors the server's make_last_day_of_the_week
-    // (utils/datetime.py), which is also what /plans/add-task/ uses for the
-    // "this_week" timeframe. Keyed off the selected day so the week-plan
-    // section follows the date you're browsing.
-    private fun endOfWeek(): String =
-        _selectedDate.value
-            .with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-            .toString()
-
     // Full wall-clock timestamp with the device's current offset, ISO
-    // 8601 (e.g. 2026-05-21T15:42:33.123+02:00). Used by /complete so the
-    // server records the exact moment as the JournalAdded published time.
-    // When browsing a different day, we keep the current time-of-day but
-    // swap the date to the selected one, so the server's
-    // pub_date = published.date() lands the Plan/Reflection write on the
-    // day being viewed rather than on the real today.
+    // 8601 (e.g. 2026-05-21T15:42:33.123+02:00): the published time of the
+    // journal entry a completion note makes. When browsing a different day,
+    // we keep the current time-of-day but swap the date to the selected one,
+    // so the entry is filed under the day being viewed, like the completion
+    // itself.
     private fun nowIso(): String {
         val now = OffsetDateTime.now()
         val selected = _selectedDate.value
@@ -482,28 +481,5 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
             .withMonth(selected.monthValue)
             .withDayOfMonth(selected.dayOfMonth)
             .toString()
-    }
-
-    companion object {
-        // Mirrors services/today/progress.py:PROGRESS_RE. Used only to
-        // decide which dialog to open on an "untick" tap — the server
-        // is still the source of truth for actual progression.
-        private val PROGRESS_RE = Regex("""\((\d+)(?:/(\d+))?\)""")
-
-        /**
-         * True when [text] carries a progress marker `(K/N)` whose
-         * current step is at or past its total — i.e. a state where the
-         * row is rendered as checked. `(N)` pristine markers and
-         * partial `(K/N)` (K<N) return false.
-         */
-        internal fun isCompleteProgressTask(text: String): Boolean {
-            val match = PROGRESS_RE.find(text) ?: return false
-            val current = match.groupValues[1].toIntOrNull() ?: return false
-            val totalRaw = match.groupValues[2]
-            if (totalRaw.isEmpty()) return false  // (N) form — never complete
-            val total = totalRaw.toIntOrNull() ?: return false
-            if (total < 1) return false
-            return current >= total
-        }
     }
 }
