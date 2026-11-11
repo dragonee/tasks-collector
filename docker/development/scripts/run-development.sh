@@ -16,6 +16,11 @@ DJANGO_SUPERUSER_PASSWORD=django $MANAGE_PY createsuperuser --noinput --username
 
 set -e
 
-$MANAGE_PY loaddata tasks/fixtures/dev/initial_state.json
+# Seed observation types into an empty database only. The fixture sets them
+# by primary key, so loading it into a copy of real data would relabel them.
+HAS_TYPES=$($MANAGE_PY shell --no-imports -c 'from tasks.apps.tree.models import ObservationType; print(ObservationType.objects.exists())')
+if [ "$HAS_TYPES" = "False" ]; then
+    $MANAGE_PY loaddata tasks/fixtures/dev/initial_state.json
+fi
 
 $MANAGE_PY runserver 0.0.0.0:8000
