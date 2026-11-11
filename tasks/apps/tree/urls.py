@@ -74,31 +74,6 @@ urlpatterns = [
         views_habit_api.TrackHabitAPIView.as_view(),
         name="track-habit-api",
     ),
-    path(
-        "api/v1/android/task/today/",
-        views_android_api.AndroidTaskListView.as_view(),
-        name="android-task-today",
-    ),
-    path(
-        "api/v1/android/task/add/",
-        views_android_api.AndroidTaskAddView.as_view(),
-        name="android-task-add",
-    ),
-    path(
-        "api/v1/android/task/complete/",
-        views_android_api.AndroidTaskCompleteView.as_view(),
-        name="android-task-complete",
-    ),
-    path(
-        "api/v1/android/task/delete/",
-        views_android_api.AndroidTaskDeleteView.as_view(),
-        name="android-task-delete",
-    ),
-    path(
-        "api/v1/android/task/move/",
-        views_android_api.AndroidTaskMoveView.as_view(),
-        name="android-task-move",
-    ),
     # === Tasks by id (views_tasks) ===
     path("api/v1/tasks/agenda/", views_tasks.task_agenda, name="task-agenda"),
     path("api/v1/tasks/", views_tasks.task_create, name="task-create"),

@@ -14,6 +14,9 @@ from ..models import (
     Profile,
     Thread,
 )
+from ..services.tasks import agenda
+from ..services.tasks import operations as tasks
+from ..services.today import plan_text
 
 
 def make_thread(user, name="Daily"):
@@ -74,3 +77,17 @@ def make_profile(user, **fields):
     set."""
     profile, _ = Profile.objects.update_or_create(user=user, defaults=fields)
     return profile
+
+
+def plan_task(user, text, day, thread_name=Thread.DAILY):
+    """The task ``text`` names, on ``user``'s plan of ``thread_name`` that
+    ``day`` falls in: what typing it into a client does."""
+    return plan_text(user, text, thread_name, agenda.period_end(thread_name, day), day)
+
+
+def complete(task, user, day, **how):
+    """Have ``user`` do a step of ``task`` on ``day``; the task as it is
+    then."""
+    tasks.complete(task, user, day=day, **how)
+    task.refresh_from_db()
+    return task

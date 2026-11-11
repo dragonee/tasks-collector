@@ -1,65 +1,14 @@
-from datetime import date as date_cls
-
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.exceptions import ValidationError
-from rest_framework.fields import BooleanField
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .services.health import latest_weight
-from .services.today import (
-    NoBoardError,
-    add_task,
-    complete_task,
-    delete_task,
-    list_board_items,
-    list_today_tasks,
-    move_task,
-)
-from .services.trips import StoryNotFoundError, StoryStoppedError
-from .utils.datetime import parse_aware_datetime
-
-
-def _text_error(text):
-    """Why ``text`` can't be used as a task, or None when it can. A task is a
-    single line of Plan.focus / Reflection.good, so it must be a non-blank
-    string with no line breaks — an embedded break would split it into several
-    plan lines while the board keeps it as one node."""
-    if not isinstance(text, str) or not text.strip():
-        return "text is required"
-    if "\n" in text or "\r" in text:
-        return "text must be a single line"
-    return None
-
-
-def _parse_bool(value):
-    """Parse a JSON or form boolean (``true``/``false``, ``"true"``/``"false"``,
-    ``1``/``0``, ...). Returns the bool, or None when ``value`` is missing or
-    not a boolean — plain truthiness would read the string ``"false"`` as
-    True."""
-    try:
-        return BooleanField().to_internal_value(value)
-    except ValidationError:
-        return None
-
-
-def _parse_date(value):
-    """Parse a YYYY-MM-DD string. Returns the date or None on any failure."""
-    if not value:
-        return None
-    try:
-        return date_cls.fromisoformat(str(value))
-    except TypeError, ValueError:
-        return None
-
-
-def _bad_request(message):
-    return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+from .services.today import NoBoardError, list_board_items
 
 
 def _no_board_response():
@@ -67,34 +16,6 @@ def _no_board_response():
         {"error": "no board configured for user"},
         status=status.HTTP_409_CONFLICT,
     )
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class AndroidTaskListView(APIView):
-    """Return the day's tasks: the lines of the day's plan, each with whether
-    its task is done. Open ones first.
-
-    ``date`` query parameter is required (YYYY-MM-DD) — the client sends
-    the device's local date so the call follows the user's day regardless
-    of the server's timezone.
-    """
-
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        today = _parse_date(request.query_params.get("date"))
-        if today is None:
-            return _bad_request("date is required (YYYY-MM-DD)")
-        items = list_today_tasks(request.user, today=today)
-        return Response(
-            {
-                "items": [
-                    {"text": it.text, "done": it.done, "mark": it.mark} for it in items
-                ]
-            },
-            status=status.HTTP_200_OK,
-        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -134,87 +55,6 @@ class AndroidBoardListView(APIView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class AndroidTaskAddView(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        text = request.data.get("text")
-        error = _text_error(text)
-        if error is not None:
-            return _bad_request(error)
-        today = _parse_date(request.data.get("date"))
-        if today is None:
-            return _bad_request("date is required (YYYY-MM-DD)")
-        add_task(request.user, text, today=today)
-        return Response({"ok": True}, status=status.HTTP_200_OK)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class AndroidTaskCompleteView(APIView):
-    """Set the desired done-state of a task. ``done`` is required and is
-    the target state (not a toggle).
-
-    The ``date`` field carries a full ISO 8601 timestamp (with offset, to
-    second precision or better) — the device's wall-clock moment of the
-    tap. The server uses it both to derive the day for Plan / Reflection
-    writes and as the ``published`` time of any ``JournalAdded`` recorded
-    for this completion. An optional ``note`` field captures free-form
-    text from the journal-note modal; when present, a ``JournalAdded``
-    line ``[x] <post-tick text>`` (plus the note on subsequent lines) is
-    created. Empty-string notes are kept (just the marker line). Missing
-    ``note`` means no journal entry.
-
-    An optional ``story_id`` ("Save to trip") links the journal entry to
-    that active trip (adds it to the trip's stream). Story errors mirror the trip
-    endpoints: 404 for missing/not-owned, 409 for a stopped trip.
-    """
-
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        text = request.data.get("text")
-        error = _text_error(text)
-        if error is not None:
-            return _bad_request(error)
-        done = _parse_bool(request.data.get("done"))
-        if done is None:
-            return _bad_request("done is required (true or false)")
-        published = parse_aware_datetime(request.data.get("date"))
-        if published is None:
-            return _bad_request("date is required (full ISO 8601 timestamp)")
-        note = request.data.get("note")
-        if note is not None and not isinstance(note, str):
-            return _bad_request("note must be a string")
-        story_id = request.data.get("story_id")
-        if story_id is not None:
-            try:
-                story_id = int(story_id)
-            except TypeError, ValueError:
-                return _bad_request("story_id must be an integer")
-        try:
-            complete_task(
-                request.user,
-                text,
-                done,
-                published=published,
-                note=note,
-                story_id=story_id,
-            )
-        except StoryNotFoundError:
-            return Response(
-                {"error": "story not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        except StoryStoppedError:
-            return Response(
-                {"error": "trip is stopped; cannot add notes"},
-                status=status.HTTP_409_CONFLICT,
-            )
-        return Response({"ok": True}, status=status.HTTP_200_OK)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
 class AndroidHealthDataView(APIView):
     """Return server-side health data for the Health screen.
 
@@ -240,44 +80,3 @@ class AndroidHealthDataView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class AndroidTaskDeleteView(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        text = request.data.get("text")
-        error = _text_error(text)
-        if error is not None:
-            return _bad_request(error)
-        today = _parse_date(request.data.get("date"))
-        if today is None:
-            return _bad_request("date is required (YYYY-MM-DD)")
-        delete_task(request.user, text, today=today)
-        return Response({"ok": True}, status=status.HTTP_200_OK)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class AndroidTaskMoveView(APIView):
-    """Move a task from one day's plan to another's, keeping its board node."""
-
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        text = request.data.get("text")
-        error = _text_error(text)
-        if error is not None:
-            return _bad_request(error)
-        from_date = _parse_date(request.data.get("from_date"))
-        if from_date is None:
-            return _bad_request("from_date is required (YYYY-MM-DD)")
-        to_date = _parse_date(request.data.get("to_date"))
-        if to_date is None:
-            return _bad_request("to_date is required (YYYY-MM-DD)")
-        if from_date == to_date:
-            return _bad_request("from_date and to_date must differ")
-        move_task(request.user, text, from_date, to_date)
-        return Response({"ok": True}, status=status.HTTP_200_OK)

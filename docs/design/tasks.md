@@ -257,18 +257,21 @@ a line ticked there finds its task by its text, as a typed one does.
   whose item left the boards is unlinked, and a done task's item that stays (a
   repeating item) is unscheduled again.
 
-## Text from clients that don't know ids
+## Naming a task by its text
 
-`services/today/operations.py` serves `api/v1/android/task/*` and `plans/add-task/`.
-A client names a task by the text of its line; the lookup is, in order: a line of
-that plan; the task of that text on the week's or the month's plan, or an open one
-on a recent day; the board item of that text; a new task. A counted task is found
-with its counter in any form (`Do x (3)`, `Do x (2/3)`).
+Clients name a task by its id. Text is left in three places, where someone
+types what they mean (`services/today/operations.py`):
 
-A journal line marked `[x]` / `[~]` / `[^]` (`services/journalling/`) completes the
-task of that text planned for that day, week or month. Failing that it ticks the
-unscheduled task of that text on the author's board. Otherwise it is a reflection
-line of its own.
+- `POST api/v1/tasks/` with `text`, and `plans/add-task/` with `text`
+  (`plan_text`). The lookup is, in order: a line of that plan; the task of that
+  text on the week's or the month's plan, or an open one on a recent day; the
+  board item of that text; a new task. A counted task is found with its counter
+  in any form (`Do x (3)`, `Do x (2/3)`).
+- A journal line marked `[x]` / `[~]` / `[^]` without an anchor
+  (`services/journalling/`, `planned_task`). It completes the task of that text
+  planned for that day, week or month. Failing that it ticks the unscheduled
+  task of that text on the author's board. Otherwise it is a reflection line of
+  its own.
 
 Text is only used there, to find what a typed line means. Nothing is linked by it.
 
@@ -280,8 +283,7 @@ the current Weekly and big-picture). Older lines are plain lines, word for word.
 
 ## What is next
 
-1. The text endpoints (`api/v1/android/task/*`, once no installed build uses
-   them) and the text columns go.
+1. The text columns go.
 2. Android: task calls made offline are lost; they could go through the outbox.
 3. `tc reflect` could carry anchors, so a reworded line stays its task's in the
    week's and the month's reflection.

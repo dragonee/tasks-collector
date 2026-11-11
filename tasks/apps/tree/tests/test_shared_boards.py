@@ -25,8 +25,8 @@ from ..models import (
     Thread,
 )
 from ..services.streams import SharingError, revoke, share, shared_with
-from ..services.today import add_task, list_today_tasks, set_task_done
-from .factories import make_board, make_profile, make_thread
+from ..services.tasks import agenda
+from .factories import complete, make_board, make_profile, make_thread, plan_task
 
 User = get_user_model()
 
@@ -201,21 +201,26 @@ class EditorTestCase(SharedBoardTestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 
         items = self.client.get(reverse("android-board-items"))
+        (bread,) = items.json()["items"]
         added = self.client.post(
-            reverse("android-task-add"),
+            reverse("task-create"),
             {"text": "call the plumber", "date": TODAY.isoformat()},
             format="json",
         )
 
         planned = self.client.post(
-            reverse("android-task-add"),
-            {"text": "buy bread", "date": TODAY.isoformat()},
+            reverse("task-create"),
+            {
+                "board_id": bread["board_id"],
+                "item_id": bread["id"],
+                "date": TODAY.isoformat(),
+            },
             format="json",
         )
 
-        self.assertEqual([i["text"] for i in items.json()["items"]], ["buy bread"])
-        self.assertEqual(added.status_code, status.HTTP_200_OK)
-        self.assertEqual(planned.status_code, status.HTTP_200_OK)
+        self.assertEqual(bread["text"], "buy bread")
+        self.assertEqual(added.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(planned.status_code, status.HTTP_201_CREATED)
         # What he typed in is a task, not an item of the board.
         self.assertEqual(_texts(self._board()), ["buy bread"])
         plan = Plan.objects.get(pub_date=TODAY)
@@ -235,8 +240,8 @@ class EditorTestCase(SharedBoardTestCase):
         make_profile(self.alice, default_board_thread=self.together)
         make_profile(self.bob, default_board_thread=self.together)
 
-        add_task(self.bob, "buy bread", today=TODAY)
-        add_task(self.alice, "buy bread", today=TODAY)
+        plan_task(self.bob, "buy bread", TODAY)
+        plan_task(self.alice, "buy bread", TODAY)
 
         task = Task.objects.get()
         self.assertEqual(task.user, self.bob)
@@ -247,10 +252,10 @@ class EditorTestCase(SharedBoardTestCase):
 
         # Either of them completes it; both get it in their reflection, and
         # the board item is ticked.
-        set_task_done(self.alice, "buy bread", True, today=TODAY)
+        complete(task, self.alice, TODAY)
 
         for user in (self.alice, self.bob):
-            (shown,) = list_today_tasks(user, today=TODAY)
+            (shown,) = agenda.plan_tasks(user, TODAY, Thread.DAILY)
             self.assertTrue(shown.done)
             reflection = Reflection.objects.get(
                 pub_date=TODAY, thread=Thread.objects.daily(user)
@@ -263,7 +268,7 @@ class EditorTestCase(SharedBoardTestCase):
 
     def test_a_stranger_cannot_see_the_tasks_of_the_board(self):
         make_profile(self.bob, default_board_thread=self.together)
-        add_task(self.bob, "buy bread", today=TODAY)
+        plan_task(self.bob, "buy bread", TODAY)
         carol = User.objects.create_user(username="carol2", password="x")
 
         self.assertFalse(Task.objects.visible_to(carol).exists())

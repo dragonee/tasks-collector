@@ -5,9 +5,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from ..models import Plan, Reflection, Task
-from ..services.tasks import documents
-from ..services.today import add_task, plan_tasks, set_task_done
-from .factories import make_thread
+from ..services.tasks import agenda, documents
+from ..services.tasks import operations as tasks
+from .factories import complete, make_thread, plan_task
 
 DAY = datetime.date(2026, 11, 11)
 
@@ -101,7 +101,7 @@ class TodayPageTasksTestCase(TestCase):
         )
 
     def _tasks(self, day):
-        return [t for t in plan_tasks(self.user, day, "Daily")]
+        return agenda.plan_tasks(self.user, day, "Daily")
 
     def test_each_line_of_a_plan_is_a_task(self):
         self._post(**{"today_plan-focus": "water plants\r\n---\r\ncall bank"})
@@ -146,7 +146,7 @@ class TodayPageTasksTestCase(TestCase):
 
     def test_a_done_task_stays_when_its_line_is_removed(self):
         self._post(**{"today_plan-focus": "call bank"})
-        set_task_done(self.user, "call bank", True, today=self.today)
+        complete(Task.objects.get(text="call bank"), self.user, self.today)
 
         self._post(**{"reflection-good": "call bank"})
 
@@ -168,7 +168,7 @@ class TodayPageTasksTestCase(TestCase):
 
     def test_a_reworded_reflection_line_keeps_its_task(self):
         self._post(**{"today_plan-focus": "call bank"})
-        set_task_done(self.user, "call bank", True, today=self.today)
+        complete(Task.objects.get(text="call bank"), self.user, self.today)
 
         self._post(
             **{
@@ -248,7 +248,7 @@ class TodayPageEditorTestCase(TestCase):
         return Task.objects.get(text=text)
 
     def test_the_page_shows_a_task_line_with_its_anchor(self):
-        add_task(self.user, "call bank", today=self.today)
+        plan_task(self.user, "call bank", self.today)
         task = self._task("call bank")
 
         response = self.client.get(self.url)
@@ -273,7 +273,7 @@ class TodayPageEditorTestCase(TestCase):
         )
 
     def test_a_reworded_line_renames_its_task_whatever_the_new_wording(self):
-        add_task(self.user, "call bank", today=self.today)
+        plan_task(self.user, "call bank", self.today)
         task = self._task("call bank")
         page = self._load()
 
@@ -287,11 +287,10 @@ class TodayPageEditorTestCase(TestCase):
         self.assertEqual(Task.objects.count(), 1)
 
     def test_a_line_added_elsewhere_since_the_page_loaded_stays(self):
-        add_task(self.user, "call bank", today=self.today)
+        plan_task(self.user, "call bank", self.today)
         page = self._load()
         # From the phone, while the page sits open in a tab.
-        add_task(self.user, "buy bread", today=self.today)
-        set_task_done(self.user, "buy bread", True, today=self.today)
+        complete(plan_task(self.user, "buy bread", self.today), self.user, self.today)
 
         self._save(
             page,
@@ -307,13 +306,15 @@ class TodayPageEditorTestCase(TestCase):
         self.assertTrue(self._task("buy bread").done)
 
     def test_a_line_taken_off_elsewhere_is_not_put_back(self):
-        add_task(self.user, "call bank", today=self.today)
-        add_task(self.user, "buy bread", today=self.today)
+        plan_task(self.user, "call bank", self.today)
+        plan_task(self.user, "buy bread", self.today)
         page = self._load()
         # Moved to tomorrow from the phone.
-        from ..services.today import move_task
-
-        move_task(self.user, "buy bread", self.today, self.tomorrow)
+        tasks.move(
+            self._task("buy bread"),
+            self._plan(),
+            documents.plan_for(self.daily, self.tomorrow, create=True),
+        )
 
         self._save(page, **{"reflection-good": "slept well"})
 
@@ -321,8 +322,8 @@ class TodayPageEditorTestCase(TestCase):
         self.assertEqual(self._plan(self.tomorrow).focus, "buy bread")
 
     def test_a_line_removed_on_the_page_goes(self):
-        add_task(self.user, "call bank", today=self.today)
-        add_task(self.user, "buy bread", today=self.today)
+        plan_task(self.user, "call bank", self.today)
+        plan_task(self.user, "buy bread", self.today)
         bank = self._task("call bank")
         page = self._load()
 
@@ -332,7 +333,7 @@ class TodayPageEditorTestCase(TestCase):
         self.assertFalse(Task.objects.filter(text="buy bread").exists())
 
     def test_a_line_cut_from_today_and_pasted_into_tomorrow_is_the_same_task(self):
-        add_task(self.user, "call bank", today=self.today)
+        plan_task(self.user, "call bank", self.today)
         task = self._task("call bank")
         page = self._load()
 
@@ -350,8 +351,7 @@ class TodayPageEditorTestCase(TestCase):
         self.assertFalse(Plan.objects.filter(pub_date=self.today).exists())
 
     def test_an_anchor_taken_off_a_plan_line_makes_it_another_task(self):
-        add_task(self.user, "call bank", today=self.today)
-        set_task_done(self.user, "call bank", True, today=self.today)
+        complete(plan_task(self.user, "call bank", self.today), self.user, self.today)
         done = self._task("call bank")
         page = self._load()
 
@@ -365,8 +365,7 @@ class TodayPageEditorTestCase(TestCase):
         self.assertFalse(done.plan_lines.exists())
 
     def test_a_reflection_line_keeps_its_task_reworded_and_moved(self):
-        add_task(self.user, "call bank", today=self.today)
-        set_task_done(self.user, "call bank", True, today=self.today)
+        complete(plan_task(self.user, "call bank", self.today), self.user, self.today)
         task = self._task("call bank")
         page = self._load()
         self.assertEqual(page["reflection-good"], f"call bank ^t{task.anchor}")
@@ -390,8 +389,7 @@ class TodayPageEditorTestCase(TestCase):
         self.assertEqual(task.text, "call bank")
 
     def test_an_anchor_taken_off_a_reflection_line_leaves_the_task_done(self):
-        add_task(self.user, "call bank", today=self.today)
-        set_task_done(self.user, "call bank", True, today=self.today)
+        complete(plan_task(self.user, "call bank", self.today), self.user, self.today)
         task = self._task("call bank")
         page = self._load()
 
@@ -405,7 +403,7 @@ class TodayPageEditorTestCase(TestCase):
 
     def test_an_anchor_of_someone_elses_task_is_dropped(self):
         other = get_user_model().objects.create_user(username="other", password="x")
-        add_task(other, "theirs", today=self.today)
+        plan_task(other, "theirs", self.today)
         theirs = self._task("theirs")
         page = self._load()
 
@@ -422,8 +420,9 @@ class TodayPageEditorTestCase(TestCase):
             thread=self.weekly, pub_date=sunday, focus="write report\nread a book"
         )
         documents.sync_lines(week, create_tasks=True)
-        add_task(self.user, "write report", today=self.today)
-        set_task_done(self.user, "write report", True, today=self.today)
+        complete(
+            plan_task(self.user, "write report", self.today), self.user, self.today
+        )
 
         response = self.client.get(self.url)
 

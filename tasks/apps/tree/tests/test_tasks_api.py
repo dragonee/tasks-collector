@@ -2,14 +2,15 @@
 anchor: plans/add-task/, the board picker, journal lines."""
 
 import datetime
+import threading
 
 from django.contrib.auth import get_user_model
-from django.db import connection
+from django.db import connection, transaction
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIClient, APITestCase, APITransactionTestCase
 
 from ..board_operations import create_unscheduled_task
 from ..models import (
@@ -23,9 +24,17 @@ from ..models import (
     Thread,
 )
 from ..services.streams import share
+from ..services.tasks import operations as tasks
 from ..services.today import plan_text
+from ..services.today.operations import lock_day
 from ..services.trips import start_trip, stop_trip
-from .factories import make_board, make_profile, make_thread, trip_links
+from .factories import (
+    make_board,
+    make_profile,
+    make_thread,
+    plan_task,
+    trip_links,
+)
 
 DAY = datetime.date(2026, 6, 25)  # a Thursday
 SUNDAY = datetime.date(2026, 6, 28)
@@ -353,8 +362,15 @@ class ChangeTestCase(TaskAPITestCase):
             {"day": DAY.isoformat(), "story_id": 999999},
             task_id=task["id"],
         )
+        someone = get_user_model().objects.create_user(username="someone")
+        theirs = self._post(
+            "task-complete",
+            {"day": DAY.isoformat(), "story_id": start_trip(someone, title="X").pk},
+            task_id=task["id"],
+        )
         self.assertEqual(stopped.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(unknown.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(theirs.status_code, status.HTTP_404_NOT_FOUND)
         self.assertFalse(TaskCompleted.objects.exists())
 
         saved = self._post(
@@ -422,6 +438,92 @@ class ChangeTestCase(TaskAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(TaskCompleted.objects.exists())
+
+    def test_every_write_locks_the_day_before_reading_it(self):
+        # The caller's Daily thread is row-locked before a plan or a
+        # reflection is read, so two quick taps run one after the other.
+        task = self._create(text="Do x (3)")
+        friday = (DAY + datetime.timedelta(days=1)).isoformat()
+        day = DAY.isoformat()
+        writes = [
+            ("task-complete", {"day": day}),
+            ("task-reopen", {}),
+            ("task-plan", {"thread": "Weekly", "date": day}),
+            ("task-move", {"from_date": day, "to_date": friday}),
+            ("task-unplan", {"thread": "Weekly", "date": day}),
+        ]
+
+        for name, body in writes:
+            with self.subTest(name):
+                with CaptureQueriesContext(connection) as ctx:
+                    response = self._post(name, body, task_id=task["id"])
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+                sqls = [query["sql"] for query in ctx.captured_queries]
+                lock = next(
+                    index
+                    for index, sql in enumerate(sqls)
+                    if 'FROM "tree_thread"' in sql and "FOR UPDATE" in sql
+                )
+                day_read = next(
+                    index
+                    for index, sql in enumerate(sqls)
+                    if '"tree_plan"' in sql or '"tree_reflection"' in sql
+                )
+                self.assertLess(lock, day_read)
+
+
+class ConcurrentWritesTestCase(APITransactionTestCase):
+    """Two writes to a day in flight at once (two quick taps on the phone,
+    each its own request) both land."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="u", password="x")
+        self.daily = Thread.objects.daily(self.user)
+        self.bread = plan_task(self.user, "buy bread", DAY)
+        self.dog = plan_task(self.user, "walk dog", DAY)
+
+    def _complete_on_another_connection(self, task):
+        errors = []
+
+        def run():
+            try:
+                client = APIClient()
+                client.force_authenticate(user=self.user)
+                response = client.post(
+                    reverse("task-complete", kwargs={"task_id": task.pk}),
+                    {"day": DAY.isoformat()},
+                    format="json",
+                )
+                if response.status_code != status.HTTP_200_OK:
+                    errors.append(response.content)
+            except Exception as error:
+                errors.append(error)
+            finally:
+                connection.close()
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        return thread, errors
+
+    def test_concurrent_completions_both_land(self):
+        with transaction.atomic():
+            lock_day(self.user)
+            tasks.complete(self.bread, self.user, day=DAY)
+            # The first hasn't committed yet; the second waits for it rather
+            # than work from the reflection it would see now.
+            thread, errors = self._complete_on_another_connection(self.dog)
+            thread.join(timeout=0.5)
+            self.assertTrue(thread.is_alive())
+        thread.join(timeout=10)
+
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            [task.done for task in Task.objects.order_by("created")], [True, True]
+        )
+        reflection = Reflection.objects.get(pub_date=DAY, thread=self.daily)
+        self.assertEqual(reflection.good, "buy bread\nwalk dog")
 
 
 class AccessTestCase(TaskAPITestCase):
