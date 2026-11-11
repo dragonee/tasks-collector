@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -64,8 +65,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 import org.polybrain.tasks.health.R
 import org.polybrain.tasks.health.data.HabitKeyword
+import org.polybrain.tasks.health.data.OutboxItem
 import org.polybrain.tasks.health.data.Task
 import org.polybrain.tasks.health.data.weekPlanLeft
 
@@ -84,6 +87,8 @@ fun TodayScreen(
     val pendingComplete by vm.pendingComplete.collectAsState()
     val selectedDate by vm.selectedDate.collectAsState()
     val focusedTask by vm.focusedTask.collectAsState()
+    val waiting by vm.waiting.collectAsState()
+    val failed by vm.failed.collectAsState()
 
     var fabExpanded by remember { mutableStateOf(false) }
 
@@ -104,6 +109,13 @@ fun TodayScreen(
             AddTaskRow(onAdd = vm::add, enabled = configured)
 
             error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
+
+            SyncStatus(
+                waiting = waiting,
+                failed = failed,
+                onRetry = vm::retrySync,
+                onDiscard = vm::discardSync,
+            )
 
             PullToRefreshBox(
                 isRefreshing = loading,
@@ -802,6 +814,66 @@ private fun SpeedDialItem(
         }
     }
 }
+
+/**
+ * What was done to tasks here and is not on the server yet. A call that is
+ * sent within a moment says nothing; one that waits (no connection) says so,
+ * and one the server refused is listed with Retry / Discard — the list does
+ * not show it done.
+ */
+@Composable
+private fun SyncStatus(
+    waiting: Int,
+    failed: List<OutboxItem>,
+    onRetry: (OutboxItem) -> Unit,
+    onDiscard: (OutboxItem) -> Unit,
+) {
+    var lingering by remember { mutableStateOf(false) }
+    LaunchedEffect(waiting > 0) {
+        lingering = false
+        if (waiting > 0) {
+            delay(SYNC_NOTICE_DELAY_MS)
+            lingering = true
+        }
+    }
+    if (lingering && waiting > 0) {
+        Text(
+            text = pluralStringResource(R.plurals.today_sync_waiting, waiting, waiting),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+    }
+    failed.forEach { item ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+                .background(MaterialTheme.colorScheme.errorContainer)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.today_sync_failed,
+                    item.task?.task?.shown.orEmpty(),
+                    item.lastError.orEmpty(),
+                ),
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { onRetry(item) }) {
+                Text(stringResource(R.string.today_sync_retry))
+            }
+            TextButton(onClick = { onDiscard(item) }) {
+                Text(stringResource(R.string.today_sync_discard))
+            }
+        }
+    }
+}
+
+// How long a task call may sit in the queue before the screen mentions it.
+private const val SYNC_NOTICE_DELAY_MS = 2_000L
 
 @Composable
 private fun ErrorBanner(message: String, onDismiss: () -> Unit) {

@@ -3,7 +3,8 @@ package org.polybrain.tasks.health.data
 import kotlinx.serialization.Serializable
 
 /**
- * One queued trip write awaiting delivery to the server.
+ * One queued write awaiting delivery to the server: a trip note, a photo, or
+ * something done to a task ([task]).
  *
  * Everything needed to send is frozen at enqueue time so the entry survives an
  * offline period, an app kill, or a reboot: the [comment] already carries the
@@ -18,6 +19,9 @@ import kotlinx.serialization.Serializable
  * [storyId] is null for a standalone photo (a `PhotoTaken` with no trip): the
  * drainer then delivers it through the storyless photo endpoints instead of the
  * trip ones, and [forStory] never returns it.
+ *
+ * A task call ([Kind.TASK]) has no story and no comment of its own: what it
+ * does is in [task], and [published] is the moment of the tap.
  */
 @Serializable
 data class OutboxItem(
@@ -38,6 +42,9 @@ data class OutboxItem(
     // confirm-failure retry skips straight to confirm and never re-uploads.
     val presignedKey: String? = null,
     val uploaded: Boolean = false,
+    // Task calls only: what to do, to which task. The drainer writes the
+    // task's id back here once it knows it, so a retry names the same task.
+    val task: TaskOp? = null,
     // Delivery bookkeeping, surfaced in the timeline.
     val attempts: Int = 0,
     val lastError: String? = null,
@@ -45,7 +52,9 @@ data class OutboxItem(
     // the user can manually retry or discard.
     val failedPermanently: Boolean = false,
 ) {
-    enum class Kind { NOTE, PHOTO }
+    enum class Kind { NOTE, PHOTO, TASK }
 
     val isPhoto: Boolean get() = kind == Kind.PHOTO
+
+    val isTask: Boolean get() = kind == Kind.TASK
 }

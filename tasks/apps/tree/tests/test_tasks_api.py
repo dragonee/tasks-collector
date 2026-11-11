@@ -405,11 +405,17 @@ class ChangeTestCase(TaskAPITestCase):
         self.assertTrue(done.json()["done"])
         self.assertFalse(JournalAdded.objects.exists())
 
+        # Before its calls went through the outbox it sent no body here.
         reopened = self.client.post(
             reverse("task-reopen", kwargs={"task_id": task["id"]}),
             data=None,
             content_type="application/json",
         )
+        self.assertEqual(reopened.status_code, status.HTTP_200_OK, reopened.content)
+        self.assertFalse(reopened.json()["done"])
+
+        self._post("task-complete", {"day": DAY.isoformat()}, task_id=task["id"])
+        reopened = self._post("task-reopen", {"done_count": 1}, task_id=task["id"])
         self.assertEqual(reopened.status_code, status.HTTP_200_OK, reopened.content)
         self.assertFalse(reopened.json()["done"])
 
@@ -431,6 +437,61 @@ class ChangeTestCase(TaskAPITestCase):
         )
         self.assertEqual(gone.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(gone.content, b"")
+
+    def test_a_call_sent_again_changes_nothing_more(self):
+        # The phone queues its calls and sends one again when the answer was
+        # lost; each must leave things as the first one did.
+        day, friday = DAY.isoformat(), (DAY + datetime.timedelta(days=1)).isoformat()
+        task = self._create(text="Do x (3)")
+        self.assertEqual(self._create(text="Do x (3)")["id"], task["id"])
+
+        for _ in range(2):
+            self._post(
+                "task-complete",
+                {"day": day, "idempotency_key": "a"},
+                task_id=task["id"],
+            )
+        for _ in range(2):
+            self._post(
+                "task-complete",
+                {"day": day, "idempotency_key": "b"},
+                task_id=task["id"],
+            )
+        for _ in range(2):
+            reopened = self._post("task-reopen", {"done_count": 2}, task_id=task["id"])
+            self.assertEqual(reopened.status_code, status.HTTP_200_OK)
+        self.assertEqual(reopened.json()["done_count"], 1)
+        self.assertEqual(TaskCompleted.objects.count(), 1)
+        self.assertEqual(Reflection.objects.get(pub_date=DAY).good, "Do x (1)")
+
+        for _ in range(2):
+            moved = self._post(
+                "task-move", {"from_date": day, "to_date": friday}, task_id=task["id"]
+            )
+            self.assertEqual(moved.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._agenda()["daily"]["tasks"], [])
+        self.assertEqual(
+            [
+                t["id"]
+                for t in self._agenda(DAY + datetime.timedelta(days=1))["daily"][
+                    "tasks"
+                ]
+            ],
+            [task["id"]],
+        )
+
+        for _ in range(2):
+            planned = self._post("task-plan", {"date": day}, task_id=task["id"])
+            self.assertEqual(planned.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(self._agenda()["daily"]["tasks"]), 1)
+
+        # A task nothing remembers is gone with its last plan: taking it off
+        # again finds no task, which is what was asked for.
+        fresh = self._create(text="call bank")
+        first = self._post("task-unplan", {"date": day}, task_id=fresh["id"])
+        again = self._post("task-unplan", {"date": day}, task_id=fresh["id"])
+        self.assertEqual(first.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(again.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_the_day_is_required(self):
         task = self._create(text="call bank")

@@ -3,31 +3,60 @@ package org.polybrain.tasks.health.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import java.time.LocalDate
 import java.time.OffsetDateTime
-import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import org.polybrain.tasks.health.data.AgendaResponse
 import org.polybrain.tasks.health.data.HabitKeyword
-import org.polybrain.tasks.health.data.PlanRef
-import org.polybrain.tasks.health.data.PlanTextRequest
+import org.polybrain.tasks.health.data.Outbox
+import org.polybrain.tasks.health.data.OutboxItem
+import org.polybrain.tasks.health.data.QueuedTaskOps
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.Task
-import org.polybrain.tasks.health.data.TaskCompleteRequest
-import org.polybrain.tasks.health.data.TaskMoveRequest
+import org.polybrain.tasks.health.data.TaskOp
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TrackHabitRequest
 import org.polybrain.tasks.health.data.TripSummary
+import org.polybrain.tasks.health.data.withPending
+import org.polybrain.tasks.health.sync.SyncScheduler
 
+/**
+ * The Today list. What is done to a task here is not sent from here: it is
+ * queued in the [Outbox] (see [queueOp]) and delivered by the outbox worker,
+ * now or when there is a connection again. The lists show what the server
+ * last said with what is queued on top ([show]), so a tick shows at once and
+ * stays through an offline spell.
+ */
 class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = Settings(application)
+    private val outbox = Outbox(application)
+    private val workManager = WorkManager.getInstance(application)
 
-    /** The selected day's tasks, open ones first. */
+    /** The plans of [agendaDay] as the server last gave them. */
+    private var agenda = AgendaResponse()
+    private var agendaDay: String? = null
+
+    /** The task calls shown on top of [agenda]. */
+    private val queue = QueuedTaskOps()
+
+    /** Counts fetches of the plans, so that only the latest one's answer is used. */
+    private var reloads = 0
+
+    /** Task calls are queued one at a time, in the order they were made. */
+    private val queueing = Mutex()
+
+    /** The selected day's tasks, open ones first, with what is queued for them. */
     private val _tasks = MutableStateFlow<List<Task>>(emptyList())
     val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
 
@@ -37,6 +66,17 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
      */
     private val _weekPlan = MutableStateFlow<List<Task>>(emptyList())
     val weekPlan: StateFlow<List<Task>> = _weekPlan.asStateFlow()
+
+    /** How many task calls are waiting to be sent. */
+    private val _waiting = MutableStateFlow(0)
+    val waiting: StateFlow<Int> = _waiting.asStateFlow()
+
+    /**
+     * Task calls the server refused. They are not shown as done, and stay
+     * queued until the user sends them again or throws them away.
+     */
+    private val _failed = MutableStateFlow<List<OutboxItem>>(emptyList())
+    val failed: StateFlow<List<OutboxItem>> = _failed.asStateFlow()
 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -120,6 +160,16 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     private val _habitError = MutableStateFlow<String?>(null)
     val habitError: StateFlow<String?> = _habitError.asStateFlow()
 
+    init {
+        // Whenever the outbox worker gets somewhere: see what is left of the
+        // queue, and fetch the plans again once calls have been sent.
+        viewModelScope.launch {
+            workManager.getWorkInfosForUniqueWorkFlow(SyncScheduler.OUTBOX).collect {
+                if (syncQueue()) refresh() else show()
+            }
+        }
+    }
+
     fun refresh() {
         viewModelScope.launch { reload() }
     }
@@ -156,50 +206,40 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     fun add(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
-        viewModelScope.launch {
-            mutate { api -> api.planText(PlanTextRequest(trimmed, today())) }
-        }
+        queueOp(TaskOp.Type.PLAN, Task(text = trimmed))
     }
 
     /**
      * Pull a task of this week's plan into the selected day. It is the same
      * task on both plans, so ticking it on the day ticks it for the week.
-     * `mutate`'s reload then moves it from the week-plan section (which
-     * leaves out what is on the day already) to the day's list.
+     * It moves from the week-plan section (which leaves out what is on the
+     * day already) to the day's list. A plain line of the week's plan has no
+     * id: the server finds it by its text and makes it a task on both plans.
      */
     fun addPlanItemToToday(task: Task) {
-        viewModelScope.launch {
-            mutate { api -> planOn(api, task, today()) }
-        }
+        queueOp(TaskOp.Type.PLAN, task)
     }
 
     /**
      * Put a task on the actual current day as well. Offered from a task's
-     * context menu only while browsing some other day. `mutate`'s reload
-     * refreshes the day in view (unchanged when that isn't today);
-     * navigating to today then shows it.
+     * context menu only while browsing some other day. The day in view
+     * stays as it is; navigating to today then shows it.
      */
     fun copyToToday(task: Task) {
-        viewModelScope.launch {
-            mutate { api -> planOn(api, task, LocalDate.now().toString()) }
-        }
+        queueOp(TaskOp.Type.PLAN, task, date = LocalDate.now().toString())
     }
 
     /**
      * Move a task to tomorrow's plan. It is the same task there, steps done
      * so far included. Offered from a task's context menu only while viewing
-     * today. `mutate`'s reload reflects the result — the row leaves today and
-     * reappears when you step to tomorrow.
+     * today. The row leaves today and reappears when you step to tomorrow.
      */
     fun moveToTomorrow(task: Task) {
-        viewModelScope.launch {
-            mutate { api ->
-                api.moveTask(
-                    idOf(api, task),
-                    TaskMoveRequest(today(), LocalDate.now().plusDays(1).toString()),
-                )
-            }
-        }
+        queueOp(
+            TaskOp.Type.MOVE,
+            task,
+            toDate = LocalDate.now().plusDays(1).toString(),
+        )
     }
 
     /**
@@ -207,12 +247,12 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
      *
      * Branching:
      * - `done = true` (ticking an unchecked row) → stash an [AddNote]
-     *   pending state; the UI opens the add-note dialog and the API
-     *   call doesn't fire until [confirmCompletion]. No optimistic flip.
+     *   pending state; the UI opens the add-note dialog and nothing is
+     *   queued until [confirmCompletion]. The row stays unchecked till then.
      * - `done = false` on a counted task with all its steps done → stash a
      *   [CompletedAction] pending state; the UI opens the completed-task
-     *   dialog with Add another / Reset / Cancel. No optimistic flip — the
-     *   row keeps its checked look until the user picks Reset.
+     *   dialog with Add another / Reset / Cancel. The row keeps its checked
+     *   look until the user picks Reset.
      * - `done = false` on a plain task → take it back immediately, no modal.
      */
     fun requestSetDone(task: Task, done: Boolean) {
@@ -224,10 +264,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
             _pendingComplete.value = PendingComplete.CompletedAction(task)
             return
         }
-        viewModelScope.launch {
-            showDone(task, false)
-            mutate { api -> api.reopenTask(idOf(api, task)) }
-        }
+        queueOp(TaskOp.Type.REOPEN, task)
     }
 
     /** Save button on the add-note dialog. */
@@ -250,15 +287,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         // Crossing off the focused task ends focus mode — its one job is done,
         // so fall back to the full list (the completed task included).
         if (_focusedTask.value == pending.task.key) _focusedTask.value = null
-        val request = completeRequest(note, storyId)
-        viewModelScope.launch {
-            // A counted task with steps left stays open after this one; the
-            // reload shows where it stands.
-            if (pending.task.doneCount + 1 >= pending.task.total) {
-                showDone(pending.task, true)
-            }
-            mutate { api -> api.completeTask(idOf(api, pending.task), request) }
-        }
+        queueOp(TaskOp.Type.COMPLETE, pending.task, note = note, storyId = storyId)
     }
 
     /**
@@ -269,11 +298,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     fun confirmAddAnother(note: String) {
         val pending = _pendingComplete.value as? PendingComplete.CompletedAction ?: return
         _pendingComplete.value = null
-        val request = completeRequest(note, storyId = null)
-        viewModelScope.launch {
-            // Row stays visually checked; no optimistic change needed.
-            mutate { api -> api.completeTask(idOf(api, pending.task), request) }
-        }
+        queueOp(TaskOp.Type.COMPLETE, pending.task, note = note)
     }
 
     /**
@@ -283,10 +308,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     fun confirmReset() {
         val pending = _pendingComplete.value as? PendingComplete.CompletedAction ?: return
         _pendingComplete.value = null
-        viewModelScope.launch {
-            showDone(pending.task, false)
-            mutate { api -> api.reopenTask(idOf(api, pending.task)) }
-        }
+        queueOp(TaskOp.Type.REOPEN, pending.task)
     }
 
     /** Cancel / backdrop dismiss on either dialog. */
@@ -299,9 +321,27 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
      * a task that was done stays done.
      */
     fun delete(task: Task) {
+        queueOp(TaskOp.Type.UNPLAN, task)
+    }
+
+    /** Send a task call the server refused once more. */
+    fun retrySync(item: OutboxItem) {
         viewModelScope.launch {
-            _tasks.value = _tasks.value.filterNot { it.key == task.key }
-            mutate { api -> api.unplanTask(idOf(api, task), PlanRef(today())) }
+            withContext(Dispatchers.IO) {
+                outbox.update(item.copy(failedPermanently = false, lastError = null))
+            }
+            syncQueue()
+            show()
+            SyncScheduler.drainOutbox(getApplication())
+        }
+    }
+
+    /** Throw a task call away without sending it. */
+    fun discardSync(item: OutboxItem) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { outbox.remove(item) }
+            queue.discard(item.id)
+            show()
         }
     }
 
@@ -382,93 +422,119 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         val snapshot = settings.snapshot()
         _configured.value = snapshot.isConfigured
         if (!snapshot.isConfigured) {
+            agenda = AgendaResponse()
+            agendaDay = null
             _tasks.value = emptyList()
             _weekPlan.value = emptyList()
             _activeTrip.value = null
             return
         }
+        val generation = ++reloads
+        val day = today()
+        syncQueue()
+        // The calls sent before the plans are asked for are in the answer.
+        val covered = queue.sent
         _loading.value = true
         try {
             val api = buildApi(snapshot)
-            val agenda = api.agenda(today())
-            // Open ones first; the plan's order within each group (sortedBy
-            // is stable).
-            _tasks.value = agenda.daily.tasks.sortedBy { it.done }
-            // Drop focus if its task is gone, otherwise the "exit focus mode"
-            // item would vanish with the row.
-            if (_focusedTask.value != null && _tasks.value.none { it.key == _focusedTask.value }) {
-                _focusedTask.value = null
-            }
-            _weekPlan.value = agenda.weekly.tasks
-            _activeTrip.value = api.listTrips(page = 1, pageSize = 1).active.firstOrNull()
+            val fetched = api.agenda(day)
+            val trip = api.listTrips(page = 1, pageSize = 1).active.firstOrNull()
+            // A later fetch is on its way: its answer is the one to show.
+            if (generation != reloads) return
+            agenda = fetched
+            agendaDay = day
+            queue.fetched(covered)
+            _activeTrip.value = trip
             _error.value = null
         } catch (t: Throwable) {
+            if (generation != reloads) return
             _error.value = t.message ?: t.javaClass.simpleName
+            if (agendaDay != day) {
+                // Nothing of this day in hand (no connection): what is queued
+                // for it shows on an otherwise empty list.
+                agenda = AgendaResponse()
+                agendaDay = day
+            }
         } finally {
-            _loading.value = false
+            if (generation == reloads) _loading.value = false
+        }
+        // Calls sent while the plans were on their way are not in them.
+        if (syncQueue()) refresh()
+        show()
+    }
+
+    /**
+     * Queue something done to [task] and show it done. [date] is the day of
+     * the plan it is about: the selected day unless said otherwise.
+     */
+    private fun queueOp(
+        type: TaskOp.Type,
+        task: Task,
+        date: String = today(),
+        toDate: String? = null,
+        note: String? = null,
+        storyId: Long? = null,
+    ) {
+        val op = TaskOp(type, task, date, toDate = toDate, note = note, storyId = storyId)
+        // The moment of the tap, not of the delivery.
+        val published = nowIso()
+        viewModelScope.launch {
+            queueing.withLock {
+                val snapshot = settings.snapshot()
+                _configured.value = snapshot.isConfigured
+                if (!snapshot.isConfigured) {
+                    _error.value = "Configure server URL and API token first."
+                    return@launch
+                }
+                withContext(Dispatchers.IO) { outbox.enqueueTask(op, published) }
+                syncQueue()
+                show()
+            }
+            SyncScheduler.drainOutbox(getApplication())
         }
     }
 
-    private suspend fun mutate(block: suspend (TasksApi) -> Unit) {
-        val snapshot = settings.snapshot()
-        _configured.value = snapshot.isConfigured
-        if (!snapshot.isConfigured) {
-            _error.value = "Configure server URL and API token first."
-            return
+    /** Take the task calls of the outbox as they are now; see [QueuedTaskOps.sync]. */
+    private suspend fun syncQueue(): Boolean =
+        queue.sync(withContext(Dispatchers.IO) { outbox.tasks() })
+
+    /**
+     * Put the lists on screen: what the server last said, with the queued
+     * task calls done to it. Calls the server refused are left out of that
+     * and listed for the user instead.
+     */
+    private fun show() {
+        _failed.value = queue.items.filter { it.failedPermanently }
+        _waiting.value = queue.items.count { !it.failedPermanently && it.id !in queue.sent }
+
+        // The day was changed and its plans aren't in yet: the list in view
+        // stays until they are.
+        val day = agendaDay ?: return
+        if (day != today()) return
+
+        val ops = queue.items.filterNot { it.failedPermanently }.mapNotNull { it.task }
+        // Open ones first; the plan's order within each group (sortedBy is
+        // stable).
+        _tasks.value = agenda.daily.tasks.withPending(ops, day).sortedBy { it.done }
+        // Drop focus if its task is gone, otherwise the "exit focus mode"
+        // item would vanish with the row.
+        if (_focusedTask.value != null && _tasks.value.none { it.key == _focusedTask.value }) {
+            _focusedTask.value = null
         }
-        try {
-            block(buildApi(snapshot))
-            reload()
-        } catch (t: Throwable) {
-            _error.value = t.message ?: t.javaClass.simpleName
-            reload()
-        }
+        _weekPlan.value = agenda.weekly.tasks.withPending(ops, null)
     }
 
     private fun buildApi(snapshot: SettingsSnapshot): TasksApi =
         TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
-
-    /** Show [task] as done or not before the server answers. */
-    private fun showDone(task: Task, done: Boolean) {
-        _tasks.value = _tasks.value.map { t ->
-            if (t.key == task.key) t.copy(done = done) else t
-        }
-    }
-
-    /**
-     * The id of [task]. A plain line of a plan has none until something is
-     * done with it: planning its text where it already is makes it a task.
-     */
-    private suspend fun idOf(api: TasksApi, task: Task): String =
-        task.id ?: checkNotNull(api.planText(PlanTextRequest(task.text, today())).id)
-
-    /** Put [task] on the Daily plan of [date] as well. */
-    private suspend fun planOn(api: TasksApi, task: Task, date: String) {
-        val id = task.id
-        if (id == null) {
-            // A plain line (of the week's plan, say): the server finds it by
-            // its text and makes it a task on both plans.
-            api.planText(PlanTextRequest(task.text, date))
-        } else {
-            api.planTask(id, PlanRef(date))
-        }
-    }
-
-    private fun completeRequest(note: String, storyId: Long?) = TaskCompleteRequest(
-        day = today(),
-        at = nowIso(),
-        note = note,
-        storyId = storyId,
-        idempotencyKey = UUID.randomUUID().toString(),
-    )
 
     // The selected day in ISO 8601 (YYYY-MM-DD): the day every call here is
     // about.
     private fun today(): String = _selectedDate.value.toString()
 
     // Full wall-clock timestamp with the device's current offset, ISO
-    // 8601 (e.g. 2026-05-21T15:42:33.123+02:00): the published time of the
-    // journal entry a completion note makes. When browsing a different day,
+    // 8601 (e.g. 2026-05-21T15:42:33.123+02:00): the moment a task call was
+    // made, and the published time of the journal entry a completion note
+    // makes. When browsing a different day,
     // we keep the current time-of-day but swap the date to the selected one,
     // so the entry is filed under the day being viewed, like the completion
     // itself.

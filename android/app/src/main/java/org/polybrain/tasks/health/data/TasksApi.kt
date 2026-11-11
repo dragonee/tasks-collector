@@ -175,6 +175,15 @@ data class TaskCompleteRequest(
 )
 
 @Serializable
+data class TaskReopenRequest(
+    // How many steps the task had done when the user took one back. The
+    // server takes a step back only while it still has that many, so the
+    // request sent again takes back nothing more. null: the last step,
+    // whatever the count.
+    @SerialName("done_count") val doneCount: Int? = null,
+)
+
+@Serializable
 data class BoardItem(
     // The item's id and its board: what PlanItemRequest names it by.
     @SerialName("id") val id: String? = null,
@@ -438,7 +447,7 @@ interface TasksApi {
 
     // Take back the last step done.
     @POST("api/v1/tasks/{id}/reopen/")
-    suspend fun reopenTask(@Path("id") id: String): Task
+    suspend fun reopenTask(@Path("id") id: String, @Body body: TaskReopenRequest): Task
 
     @POST("api/v1/android/trip/start/")
     suspend fun startTrip(@Body body: TripStartRequest): TripResponse

@@ -87,6 +87,44 @@ class OutboxTest {
     }
 
     @Test
+    fun `task calls are kept in the order they were made`() {
+        // Queued within the same millisecond more often than not; a random
+        // id must not decide which comes first.
+        val texts = (1..20).map { "task $it" }
+        for (text in texts) {
+            outbox.enqueueTask(TaskOp(TaskOp.Type.PLAN, Task(text = text), "2026-11-11"), "t")
+        }
+
+        assertEquals(texts, outbox.tasks().map { it.task!!.task.text })
+        assertEquals(texts, outbox.all().map { it.task!!.task.text })
+    }
+
+    @Test
+    fun `a task call is its own kind of item`() {
+        outbox.enqueueNote(1L, "trip note", "t")
+        val solo = outbox.enqueuePhoto(null, "standalone", "t", "image/jpeg", byteArrayOf(2))!!
+        val call = outbox.enqueueTask(
+            TaskOp(
+                TaskOp.Type.COMPLETE,
+                Task(id = "t-1", text = "call bank"),
+                "2026-11-11",
+                note = "sorted",
+                storyId = 4L,
+            ),
+            "2026-11-11T10:00:00+01:00",
+        )
+
+        val read = outbox.tasks().single()
+        assertEquals(call, read)
+        assertEquals(OutboxItem.Kind.TASK, read.kind)
+        assertEquals("sorted", read.task!!.note)
+        // Saved to a trip or not, it is no trip write and no standalone photo.
+        assertNull(read.storyId)
+        assertTrue(outbox.forStory(4L).isEmpty())
+        assertEquals(listOf(solo.id), outbox.standalone().map { it.id })
+    }
+
+    @Test
     fun `update rewrites the same file in place`() {
         val item = outbox.enqueueNote(1L, "x", "t")
         outbox.update(item.copy(attempts = 3, lastError = "boom"))
