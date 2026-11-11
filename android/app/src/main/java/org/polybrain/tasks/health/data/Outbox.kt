@@ -9,7 +9,8 @@ import java.util.UUID
 import kotlinx.serialization.json.Json
 
 /**
- * Durable, file-backed queue of trip writes (see [OutboxItem]).
+ * Durable, file-backed queue of writes: trip notes and photos, and what is
+ * done to tasks (see [OutboxItem]).
  *
  * Each item is one JSON file in [dir]; a photo's bytes live in a sibling file.
  * Filenames are prefixed with a zero-padded `createdAt`, so a plain
@@ -84,6 +85,25 @@ class Outbox(private val dir: File) {
         return item
     }
 
+    /**
+     * Queue something done to a task. [published] is the moment of the tap.
+     * Task calls build on each other (tick, then untick), so each is filed
+     * after everything queued before it, even within the same millisecond.
+     */
+    fun enqueueTask(op: TaskOp, published: String): OutboxItem {
+        val item = OutboxItem(
+            id = UUID.randomUUID().toString(),
+            kind = OutboxItem.Kind.TASK,
+            storyId = null,
+            comment = "",
+            published = published,
+            createdAt = maxOf(System.currentTimeMillis(), lastCreatedAt() + 1),
+            task = op,
+        )
+        write(item)
+        return item
+    }
+
     /** All queued items, oldest first. */
     fun all(): List<OutboxItem> =
         (dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } ?: emptyArray())
@@ -92,8 +112,11 @@ class Outbox(private val dir: File) {
 
     fun forStory(storyId: Long): List<OutboxItem> = all().filter { it.storyId == storyId }
 
-    /** Standalone (storyless) items, oldest first. */
-    fun standalone(): List<OutboxItem> = all().filter { it.storyId == null }
+    /** Standalone (storyless) photos, oldest first. */
+    fun standalone(): List<OutboxItem> = all().filter { it.isPhoto && it.storyId == null }
+
+    /** Task calls, oldest first. */
+    fun tasks(): List<OutboxItem> = all().filter { it.isTask }
 
     /** Persist a mutated item back to its file (same name — id/createdAt are immutable). */
     fun update(item: OutboxItem) = write(item)
@@ -126,6 +149,10 @@ class Outbox(private val dir: File) {
     }.getOrNull()
 
     private fun jsonName(item: OutboxItem) = baseName(item.createdAt, item.id) + ".json"
+
+    /** The `createdAt` of the newest file in the queue (0 when it is empty). */
+    private fun lastCreatedAt(): Long =
+        dir.list().orEmpty().mapNotNull { it.take(16).toLongOrNull() }.maxOrNull() ?: 0L
 
     private companion object {
         fun sha256Hex(bytes: ByteArray): String =

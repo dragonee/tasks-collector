@@ -3,17 +3,23 @@ package org.polybrain.tasks.health.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.time.OffsetDateTime
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.polybrain.tasks.health.data.BoardItem
-import org.polybrain.tasks.health.data.PlanItemRequest
+import org.polybrain.tasks.health.data.Outbox
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
+import org.polybrain.tasks.health.data.Task
+import org.polybrain.tasks.health.data.TaskOp
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.UnscheduledTaskRequest
+import org.polybrain.tasks.health.sync.SyncScheduler
 
 /**
  * Backs the "add from board" picker: loads the flattened board, tracks the
@@ -25,6 +31,7 @@ import org.polybrain.tasks.health.data.UnscheduledTaskRequest
 class BoardPickerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = Settings(application)
+    private val outbox = Outbox(application)
 
     private val _items = MutableStateFlow<List<BoardItem>>(emptyList())
     val items: StateFlow<List<BoardItem>> = _items.asStateFlow()
@@ -94,15 +101,16 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
     /**
      * Plan every selected item for [date], then invoke [onDone].
      *
-     * Items are sent one after the other in board order, each named by its
-     * board and its id. Planning an item that is on the day already changes
-     * nothing, so a retry is harmless. On full success we call [onDone] so
-     * the caller can pop back to Today; on partial failure we surface an
-     * error and keep the failed items selected for retry.
+     * Like everything done to a task on the phone, the calls are queued in
+     * the outbox (in board order, each naming its item by board and id) and
+     * sent by its worker, so [onDone] can pop back to Today at once: Today
+     * lists what is queued for the day until the server has it, and shows a
+     * call the server refused.
      */
     fun addSelected(date: String, onDone: () -> Unit) {
         val ids = _selected.value
         if (ids.isEmpty()) return
+        val chosen = _items.value.filter { it.id != null && it.id in ids }
         viewModelScope.launch {
             val snapshot = settings.snapshot()
             _configured.value = snapshot.isConfigured
@@ -110,25 +118,24 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
                 _error.value = "Configure server URL and API token first."
                 return@launch
             }
-            val api = buildApi(snapshot)
-            val failures = mutableListOf<String>()
-            // Preserve board order so the lines land deterministically.
-            for (item in _items.value) {
-                val id = item.id ?: continue
-                if (id !in ids) continue
-                try {
-                    api.planItem(PlanItemRequest(item.boardId, id, date))
-                } catch (t: Throwable) {
-                    failures.add(id)
+            val published = OffsetDateTime.now().toString()
+            withContext(Dispatchers.IO) {
+                for (item in chosen) {
+                    outbox.enqueueTask(
+                        TaskOp(
+                            type = TaskOp.Type.PLAN_ITEM,
+                            task = Task(text = item.text),
+                            date = date,
+                            boardId = item.boardId,
+                            itemId = item.id,
+                        ),
+                        published,
+                    )
                 }
             }
-            if (failures.isEmpty()) {
-                _selected.value = emptySet()
-                onDone()
-            } else {
-                _error.value = "Failed to add ${failures.size} of ${ids.size} item(s)."
-                _selected.value = failures.toSet()
-            }
+            SyncScheduler.drainOutbox(getApplication())
+            _selected.value = emptySet()
+            onDone()
         }
     }
 

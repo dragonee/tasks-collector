@@ -82,6 +82,11 @@ class CompleteSerializer(serializers.Serializer):
     )
 
 
+class ReopenSerializer(serializers.Serializer):
+    # How many steps the caller saw done; see ``tasks.reopen``.
+    done_count = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+
+
 def _valid(serializer_class, data):
     serializer = serializer_class(data=data)
     serializer.is_valid(raise_exception=True)
@@ -259,11 +264,14 @@ def task_complete(request, task_id):
 @api_view(["POST"])
 @transaction.atomic
 def task_reopen(request, task_id):
-    """Take back the last step done on the task."""
+    """Take back the last step done on the task. With ``done_count`` (how
+    many steps the caller saw done) only while the task has that many: the
+    same request sent again takes nothing more back."""
     task = _task(request, task_id)
+    data = _valid(ReopenSerializer, request.data)
 
     today.lock_day(request.user)
-    tasks.reopen(task)
+    tasks.reopen(task, done_count=data.get("done_count"))
 
     task.refresh_from_db()
     return Response(_described(task, request.user))

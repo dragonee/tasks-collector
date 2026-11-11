@@ -161,8 +161,9 @@ then task, then plans and reflections.
   3. the board item ticked once the task is done;
   4. with a note or a trip, a `JournalAdded` (`- [x] text` and the note). It is not
      run through `process_journal_entry`, which would complete the task again.
-- `reopen(task)` takes back the last step: its event and reflection lines go, the
-  item is unticked. Removing a reflection line never reopens a task.
+- `reopen(task, done_count=)` takes back the last step: its event and reflection
+  lines go, the item is unticked. Given `done_count`, only while the task has
+  that many steps done. Removing a reflection line never reopens a task.
 
 `services/tasks/agenda.py` reads a plan as tasks to show (`plan_tasks`), used by
 `api/v1/plans/today/` and the Android list. A plain line is done the way it was
@@ -185,10 +186,18 @@ different one for part of every night.
 | `POST api/v1/tasks/<id>/unplan/` | `date`, `thread`? | takes it off a plan; 204 when the task is gone |
 | `POST api/v1/tasks/<id>/move/` | `from_date`, `to_date`, `thread`? | to tomorrow, to next week |
 | `POST api/v1/tasks/<id>/complete/` | `day`, `at`?, `mark`?, `note`?, `story_id`?, `idempotency_key`? | does a step |
-| `POST api/v1/tasks/<id>/reopen/` | | takes the last step back |
+| `POST api/v1/tasks/<id>/reopen/` | `done_count`? | takes the last step back |
 
 `thread` is `Daily` (the default), `Weekly` or `big-picture`, and a `date` names
-the plan of that thread it falls in. A task comes back as:
+the plan of that thread it falls in.
+
+A client that queues its calls may send one twice (the answer was lost). Each
+then leaves things as the first one did: planning a task that is on the plan
+changes nothing, `complete` does a step once per `idempotency_key`, and `reopen`
+with `done_count` (how many steps the caller saw done) takes a step back only
+while the task has that many.
+
+A task comes back as:
 
 ```json
 {"id": "…", "anchor": "91bd0a44", "text": "Do x (3)", "display": "Do x (2/3)",
@@ -200,7 +209,8 @@ the plan of that thread it falls in. A task comes back as:
 `plans` are the caller's own. In an agenda, a plain line has `id` null; posting
 its text to `api/v1/tasks/` with the same `date` and `thread` makes it a task.
 
-The Android app uses this API (`docs/design-tasks-on-android.md`).
+The Android app uses this API, through an outbox that also works offline
+(`docs/design-tasks-on-android.md`).
 
 Also by id: `plans/add-task/` takes `board_id` and `item_id` (its `text` is for
 clients that don't send them), and `api/v1/android/board/items/` gives each item's
@@ -289,4 +299,6 @@ them back, saying what the lines say.
 
 ## What is next
 
-1. Android: task calls made offline are lost; they could go through the outbox.
+Nothing is planned. One thing known to be missing: the phone keeps no copy of
+the plans, so opened without a connection its list is empty but for what is
+queued (`docs/design-tasks-on-android.md`, "Offline").

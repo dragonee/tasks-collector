@@ -87,6 +87,14 @@
     <string name="today_error_format">Error: %1$s</string>
     <string name="today_dismiss_error">Dismiss</string>
 
+    <plurals name="today_sync_waiting">
+        <item quantity="one">%d change waiting to sync</item>
+        <item quantity="other">%d changes waiting to sync</item>
+    </plurals>
+    <string name="today_sync_failed">Couldn\'t sync “%1$s”: %2$s</string>
+    <string name="today_sync_retry">Retry</string>
+    <string name="today_sync_discard">Discard</string>
+
     <string name="today_note_dialog_title">Add a note</string>
     <string name="today_note_hint">Optional</string>
     <string name="today_note_save">Save</string>

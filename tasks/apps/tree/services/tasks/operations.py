@@ -257,17 +257,23 @@ def complete(
 
 
 @transaction.atomic
-def reopen(task):
+def reopen(task, done_count=None):
     """Take back the last step done on ``task``: its event and the
     reflection lines written with it go, and its board item is unticked when
     the task is open again. Journal entries stay.
 
-    Returns False when no step was done.
+    ``done_count`` is how many steps the caller saw done: the step is taken
+    back only while the task has that many, so asking twice (a request sent
+    again because its answer was lost) takes back one.
+
+    Returns False when no step was taken back.
     """
     board = board_links.locked_board_of(task)
     task = Task.objects.select_for_update().get(pk=task.pk)
 
     if task.done_count == 0:
+        return False
+    if done_count is not None and task.done_count != done_count:
         return False
 
     completion = task.completions.order_by("-published", "-pk").first()
