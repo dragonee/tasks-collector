@@ -6,7 +6,7 @@
 
 {% block content %}
 
-<div class="split-layout content-rail no-rail">
+<div class="split-layout content-rail">
 
 <div class="topbar"><div class="upper-pane"><h1>Habits</h1></div></div>
 
@@ -27,6 +27,31 @@
             </dl>
         </main>
     </section>
+</div>
+
+<div class="split-right">
+    <aside class="habit-new">
+        <h2>New habit</h2>
+        <form method="post" action="{% url 'public-habit-list' %}">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            {{ form.name }}
+            {{ form.name.errors }}
+
+            <label for="{{ form.keywords.id_for_label }}">Hashtags</label>
+            {{ form.keywords }}
+            <p class="habit-new-help">What you write in the journal to track it. Left empty, it is the name.</p>
+            {{ form.keywords.errors }}
+
+            <label for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+            {{ form.description.errors }}
+
+            <button type="submit" class="submit">Add habit</button>
+        </form>
+    </aside>
 </div>
 
 </div>

@@ -155,6 +155,109 @@ class HabitEndpointsPerUserTestCase(APITestCase):
         self.assertFalse(HabitTracked.objects.exists())
 
 
+class HabitCreationTestCase(TestCase):
+    """The form on the habits page makes a habit of the user's."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.alice = User.objects.create_user(username="alice", password="x")
+        cls.bob = User.objects.create_user(username="bob", password="x")
+        cls.alices_food = make_habit(cls.alice, "Food", keywords=["food"])
+
+    def setUp(self):
+        self.client.force_login(self.bob)
+
+    def add(self, **data):
+        return self.client.post(reverse("public-habit-list"), data)
+
+    def rejected(self, response, field):
+        """The page came back with an error on ``field`` and no new habit."""
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(field, response.context["form"].errors)
+        self.assertEqual(
+            set(Habit.objects.filter(user=self.bob).values_list("slug", flat=True)),
+            {builtin.slug for builtin in BUILTIN_HABITS},
+        )
+
+    def test_page_shows_the_form(self):
+        response = self.client.get(reverse("public-habit-list"))
+
+        self.assertContains(response, "Add habit")
+
+    def test_habit_is_made_for_the_user_and_shown_in_the_list(self):
+        response = self.add(name="Morning Run", description="Before work.")
+
+        habit = Habit.objects.get(user=self.bob, slug="morning-run")
+        self.assertEqual(habit.name, "Morning Run")
+        self.assertEqual(habit.description, "Before work.")
+        self.assertRedirects(
+            response,
+            reverse("public-habit-list") + "#habit-morning-run",
+            fetch_redirect_response=False,
+        )
+
+    def test_hashtag_is_the_slug_when_none_is_given(self):
+        self.add(name="Morning Run")
+
+        habit = Habit.objects.get(user=self.bob, slug="morning-run")
+        self.assertEqual(habit.get_keywords(), {"morning-run"})
+
+    def test_hashtags_are_read_with_or_without_the_hash(self):
+        self.add(name="Morning Run", keywords="#run, jog  #Run")
+
+        habit = Habit.objects.get(user=self.bob, slug="morning-run")
+        self.assertEqual(habit.get_keywords(), {"run", "jog"})
+
+    def test_new_habit_is_tracked_from_the_journal(self):
+        self.add(name="Morning Run", keywords="#run")
+
+        journal = JournalAdded.objects.create(
+            thread=Thread.objects.daily(self.bob),
+            comment="#run 5k",
+            published=timezone.now(),
+        )
+        process_journal_entry(journal)
+
+        self.assertTrue(
+            HabitTracked.objects.filter(
+                habit__user=self.bob, habit__slug="morning-run"
+            ).exists()
+        )
+
+    def test_someone_elses_name_and_hashtag_can_be_used(self):
+        self.add(name="Food", keywords="#food")
+
+        habit = Habit.objects.get(user=self.bob, slug="food")
+        self.assertEqual(habit.get_keywords(), {"food"})
+        self.assertEqual(self.alices_food.get_keywords(), {"food"})
+
+    def test_own_name_can_not_be_used_twice(self):
+        self.rejected(self.add(name="weight", keywords="#scale"), "name")
+
+    def test_name_needs_a_letter_or_a_digit(self):
+        self.rejected(self.add(name="!!!"), "name")
+
+    def test_own_hashtag_can_not_be_given_to_another_habit(self):
+        response = self.add(name="Places", keywords="#places #poi")
+
+        self.rejected(response, "keywords")
+        self.assertContains(response, "#poi already tracks POI.")
+
+    def test_hashtag_shorter_than_the_journal_matches_is_rejected(self):
+        self.rejected(self.add(name="Go", keywords=""), "keywords")
+
+    def test_hashtag_with_other_characters_is_rejected(self):
+        self.rejected(self.add(name="Coffee", keywords="#flat.white"), "keywords")
+
+    def test_anonymous_post_makes_nothing(self):
+        self.client.logout()
+
+        response = self.add(name="Morning Run")
+
+        self.assertEqual(response.status_code, status.HTTP_302_FOUND)
+        self.assertFalse(Habit.objects.filter(slug="morning-run").exists())
+
+
 class LatestWeightPerUserTestCase(TestCase):
     def test_reads_only_the_users_own_weight(self):
         alice = User.objects.create_user(username="alice", password="x")

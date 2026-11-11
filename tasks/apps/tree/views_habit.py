@@ -6,7 +6,8 @@ from functools import cached_property
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
@@ -16,7 +17,7 @@ from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response as RestResponse
 
-from .forms import OnlyTextSingleHabitTrackedForm, SingleHabitTrackedForm
+from .forms import HabitForm, OnlyTextSingleHabitTrackedForm, SingleHabitTrackedForm
 from .models import Habit, HabitTracked, Profile, Thread
 from .serializers import HabitKeywordSerializer, HabitSerializer
 from .utils.datetime import DayCount, adjust_start_date_to_monday, date_range_generator
@@ -189,6 +190,20 @@ class HabitListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return Habit.objects.filter(user=self.request.user).prefetch_related("keywords")
+
+    def get_context_data(self, **kwargs):
+        kwargs.setdefault("form", HabitForm(user=self.request.user))
+        return super().get_context_data(**kwargs)
+
+    def post(self, request, *args, **kwargs):
+        """Make a habit of the user's, then show it in the list."""
+        form = HabitForm(request.POST, user=request.user)
+        if form.is_valid():
+            habit = form.save()
+            return redirect(f"{reverse('public-habit-list')}#habit-{habit.slug}")
+
+        self.object_list = self.get_queryset()
+        return self.render_to_response(self.get_context_data(form=form))
 
 
 def get_habit_keywords_for_user(user, all=False):

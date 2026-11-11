@@ -4,6 +4,58 @@
     height: 4em;
 }
 
+// Habits page: the form in the rail that makes a new habit.
+.habit-new {
+    label {
+        display: block;
+        margin: 0.9rem 0 0.3rem;
+
+        color: #343434;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    input[type="text"],
+    textarea {
+        width: 100%;
+        padding: 0.45rem 0.6rem;
+
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+        color: #343434;
+        font: inherit;
+
+        &:focus {
+            border-color: #205e7d;
+            outline: 2px solid rgba(32, 94, 125, 0.25);
+        }
+    }
+
+    textarea {
+        display: block;
+        resize: vertical;
+    }
+
+    .habit-new-help {
+        margin: 0.3rem 0 0;
+        color: #777;
+        font-size: 0.85rem;
+    }
+
+    .errorlist {
+        margin-top: 0.3rem;
+
+        color: #c92a2a;
+        font-size: 0.85rem;
+    }
+
+    button.submit {
+        margin-top: 1rem;
+        padding: 0.55em 1.4em;
+    }
+}
+
 // Single-habit page: occurrences grouped into month sections (the rail carries
 // the matching "Archive" of months + counts).
 .habit-month {
