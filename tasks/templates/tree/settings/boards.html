@@ -1,0 +1,25 @@
+{% extends "tree/settings/base.html" %}
+
+{% block settings %}
+<h2 class="settings-heading">Default board</h2>
+<form method="post" class="settings-card">
+    {% csrf_token %}
+    {% include "tree/settings/_field.html" with field=form.default_board_thread label="Board" help="The board the Tasks page opens on. A board shared with you can be it too." %}
+    <div class="settings-actions">
+        <button type="submit" class="submit">Save</button>
+    </div>
+</form>
+
+{% if board_sharing %}
+    <h2 class="settings-heading" id="shared-boards">Shared boards</h2>
+    <p class="settings-help">Share a board with someone to work on it together. Daily, Weekly and big-picture stay yours.</p>
+    <div class="settings-card settings-rows">
+        {% for panel in board_sharing %}
+            <div class="settings-shared-board" id="board-{{ panel.thread.pk }}">
+                <h3>{{ panel.thread.name }}</h3>
+                {% include "tree/_stream_sharing.html" with sharing=panel.sharing %}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}

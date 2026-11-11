@@ -27,7 +27,6 @@ from .services.tasks import agenda, documents
 from .services.today import plan_item, plan_text
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
-from .views_sharing import board_sharing_panels
 
 
 class PlanFilter(filters.FilterSet):
@@ -503,38 +502,6 @@ def daily_events(request):
             "plan": _as_text(PlanSerializer, plan, request, anchors),
             "reflection": _as_text(ReflectionSerializer, reflection, request, anchors),
         }
-    )
-
-
-@login_required
-def account_settings(request):
-    try:
-        profile = Profile.objects.get(user=request.user)
-    except Profile.DoesNotExist:
-        profile = Profile(user=request.user)
-
-    if request.method == "POST":
-        profile_form = ProfileForm(request.POST, instance=profile, user=request.user)
-        user_form = UserForm(request.POST, instance=request.user)
-        if profile_form.is_valid() and user_form.is_valid():
-            profile_form.save()
-            user_form.save()
-            messages.success(request, "Settings saved successfully!")
-            return redirect("account-settings")
-    else:
-        profile_form = ProfileForm(instance=profile, user=request.user)
-        user_form = UserForm(instance=request.user)
-
-    return render(
-        request,
-        "tree/account_settings.html",
-        {
-            "profile_form": profile_form,
-            "user_form": user_form,
-            "profile": profile,
-            "api_tokens": request.user.api_tokens.all(),
-            "board_sharing": board_sharing_panels(request),
-        },
     )
 
 

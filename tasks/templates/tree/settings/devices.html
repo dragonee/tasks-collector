@@ -1,0 +1,23 @@
+{% extends "tree/settings/base.html" %}
+
+{% block settings %}
+{% if api_tokens %}
+    <ul class="settings-card settings-rows">
+        {% for token in api_tokens %}
+            <li class="settings-row">
+                <div class="settings-row-text">
+                    <strong>{{ token.name }}</strong>
+                    <span class="meta">logged in {{ token.created|date:"j M Y" }}{% if token.last_used %}, last used {{ token.last_used|timesince }} ago{% else %}, not used yet{% endif %}</span>
+                </div>
+                <form method="post" action="{% url 'api-token-revoke' token.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-link">Log out</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p class="settings-card settings-empty">Nothing is logged in.</p>
+{% endif %}
+<p class="settings-help">The phone app logs in from its Settings screen.</p>
+{% endblock %}

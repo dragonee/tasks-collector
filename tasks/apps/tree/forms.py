@@ -223,14 +223,13 @@ class ProjectedOutcomeForm(forms.ModelForm):
         }
 
 
-class ProfileForm(UserThreadFormMixin, forms.ModelForm):
+class DefaultBoardForm(UserThreadFormMixin, forms.ModelForm):
+    """The board the user's board page opens on."""
+
     thread_field = "default_board_thread"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["habit_keywords"].queryset = HabitKeyword.objects.filter(
-            user=self.user
-        ).select_related("habit")
         # Any board the user may change can be their default: their own and
         # the boards shared with them.
         board_field = self.fields["default_board_thread"]
@@ -248,40 +247,35 @@ class ProfileForm(UserThreadFormMixin, forms.ModelForm):
 
     class Meta:
         model = Profile
-        fields = ["default_board_thread", "map_provider", "habit_keywords"]
-        widgets = {
-            "default_board_thread": forms.Select(
-                attrs={
-                    "class": "form-control",
-                }
-            ),
-            "map_provider": forms.Select(
-                attrs={
-                    "class": "form-control",
-                }
-            ),
-            "habit_keywords": forms.CheckboxSelectMultiple(),
-        }
+        fields = ["default_board_thread"]
+
+
+class HabitKeywordsForm(forms.ModelForm):
+    """The habit keywords the tracking pages of ``user`` (a required keyword
+    argument) are narrowed to."""
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["habit_keywords"].queryset = HabitKeyword.objects.filter(
+            user=user
+        ).select_related("habit")
+
+    class Meta:
+        model = Profile
+        fields = ["habit_keywords"]
+        widgets = {"habit_keywords": forms.CheckboxSelectMultiple()}
+
+
+class MapProviderForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ["map_provider"]
 
 
 class UserForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ["first_name", "last_name"]
-        widgets = {
-            "first_name": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "First name...",
-                }
-            ),
-            "last_name": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "Last name...",
-                }
-            ),
-        }
 
 
 class JournalTagNameForm(forms.Form):

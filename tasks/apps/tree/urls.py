@@ -12,6 +12,7 @@ from . import (
     views_habit,
     views_habit_api,
     views_observation,
+    views_settings,
     views_sharing,
     views_tasks,
     views_today,
@@ -361,7 +362,12 @@ urlpatterns = [
     path("stats/", views.stats, name="stats"),
     path("stats/json/", views.stats_json, name="stats-json"),
     # === User / Settings (views) ===
-    path("accounts/settings/", views.account_settings, name="account-settings"),
+    path("accounts/settings/", views_settings.index, name="account-settings"),
+    path("accounts/settings/profile/", views_settings.profile, name="settings-profile"),
+    path("accounts/settings/devices/", views_settings.devices, name="settings-devices"),
+    path("accounts/settings/boards/", views_settings.boards, name="settings-boards"),
+    path("accounts/settings/habits/", views_settings.habits, name="settings-habits"),
+    path("accounts/settings/maps/", views_settings.maps, name="settings-maps"),
     # API Router (REST Framework)
     path("", include(router.urls)),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),

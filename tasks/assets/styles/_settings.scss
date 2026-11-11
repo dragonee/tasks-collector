@@ -1,0 +1,354 @@
+// Settings: a second-level menu (titled groups of sections) beside the page of
+// the section chosen. Markup: tasks/templates/tree/settings/.
+
+body.page-settings {
+    background: #f9f9f9;
+}
+
+.settings-layout {
+    min-height: 100vh;
+
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+}
+
+// === The menu ===
+// Reads as a second column of the sidebar: same surface, same item states.
+.settings-menu {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+
+    padding: 0 0.5rem 1rem;
+
+    background: #fff;
+    border-right: 1px solid #e6e6e6;
+}
+
+.settings-menu-title {
+    height: var(--upper-pane);
+    margin: 0;
+    padding: 0 0.6rem;
+
+    display: flex;
+    align-items: center;
+
+    color: #343434;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.settings-menu-group {
+    margin-bottom: 1.25rem;
+
+    h2 {
+        margin: 0 0 0.25rem;
+        padding: 0 0.6rem;
+
+        color: #999;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+}
+
+.settings-menu-item {
+    display: block;
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+
+    color: #444;
+    text-decoration: none;
+
+    transition: background-color 0.12s ease, color 0.12s ease;
+
+    &:hover {
+        background: #f0f4f7;
+        color: #205e7d;
+    }
+
+    &.active {
+        background: #eaf1f6;
+        color: #205e7d;
+        font-weight: 600;
+    }
+}
+
+// === The page of a section ===
+.settings-page {
+    min-width: 0;
+}
+
+.settings-body {
+    max-width: 46rem;
+    padding: 0.5rem 20px 4rem;
+
+    input[type="text"],
+    select {
+        width: 100%;
+        max-width: 24rem;
+        padding: 0.5rem 0.65rem;
+
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+        color: #343434;
+        font: inherit;
+
+        &:focus {
+            border-color: #205e7d;
+            outline: 2px solid rgba(32, 94, 125, 0.25);
+        }
+    }
+
+    button.submit {
+        padding: 0.55em 1.4em;
+    }
+
+    .btn-link {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: #1971c2;
+        font: inherit;
+        cursor: pointer;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    .meta {
+        color: #999;
+        font-size: 0.9rem;
+    }
+
+    .alert {
+        margin-bottom: 1rem;
+        border-width: 1px;
+        border-style: solid;
+        border-radius: 6px;
+    }
+
+    .errorlist {
+        margin: 0.4rem 0 0;
+        padding: 0;
+        list-style: none;
+
+        color: #c92a2a;
+        font-size: 0.9rem;
+    }
+}
+
+.settings-intro {
+    margin: 0 0 1.25rem;
+    color: #666;
+    font-size: 1rem;
+}
+
+// Titles a block on a page that has more than one.
+.settings-heading {
+    margin: 1.75rem 0 0.6rem;
+
+    color: #343434;
+    font-size: 1.1rem;
+    font-weight: 600;
+
+    + .settings-help {
+        margin: 0 0 0.75rem;
+    }
+}
+
+.settings-help {
+    margin: 0.4rem 0 0;
+    color: #777;
+    font-size: 0.9rem;
+}
+
+.settings-card {
+    margin: 0 0 1rem;
+    padding: 1.25rem 1.5rem;
+
+    background: #fff;
+    border: 1px solid #e6e6e6;
+    border-radius: 8px;
+}
+
+.settings-empty {
+    color: #777;
+}
+
+.settings-field {
+    min-width: 0;
+    margin: 0 0 1.25rem;
+    padding: 0;
+    border: 0;
+
+    > label,
+    > legend {
+        display: block;
+        margin-bottom: 0.4rem;
+        padding: 0;
+
+        color: #343434;
+        font-weight: 600;
+    }
+}
+
+.settings-checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0.4rem 1rem;
+
+    p {
+        margin: 0;
+    }
+}
+
+.settings-check {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+// A card that is a list: one row for each device or board.
+.settings-rows {
+    padding: 0;
+    list-style: none;
+
+    > * {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #eee;
+
+        &:first-child {
+            border-top: 0;
+        }
+    }
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.settings-row-text {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+// A board and who it is shared with (tree/_stream_sharing.html).
+.settings-shared-board {
+    > h3 {
+        margin: 0 0 0.6rem;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .stream-sharing {
+        max-width: 24rem;
+
+        h3 {
+            margin: 0 0 0.3rem;
+
+            color: #999;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        p {
+            margin: 0.4rem 0 0;
+        }
+    }
+
+    .stream-sharing-viewers {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.2rem 0;
+        }
+    }
+
+    .stream-sharing-add {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.6rem;
+
+        input {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        button {
+            padding: 0.5rem 0.9rem;
+
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            color: #343434;
+            font: inherit;
+            cursor: pointer;
+
+            &:hover {
+                background: #f0f4f7;
+                color: #205e7d;
+            }
+        }
+    }
+
+    .stream-sharing-error {
+        color: #c92a2a;
+    }
+}
+
+// Small screens: the menu goes above the page, its sections side by side.
+@media screen and (max-width: 767px) {
+    .settings-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+    }
+
+    .settings-menu {
+        position: static;
+        height: auto;
+        padding-bottom: 0.25rem;
+
+        border-right: 0;
+        border-bottom: 1px solid #e6e6e6;
+    }
+
+    .settings-menu-group {
+        margin-bottom: 0.75rem;
+
+        ul {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+    }
+}

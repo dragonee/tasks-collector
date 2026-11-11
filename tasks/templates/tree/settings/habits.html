@@ -1,0 +1,22 @@
+{% extends "tree/settings/base.html" %}
+
+{% block settings %}
+<form method="post" class="settings-card">
+    {% csrf_token %}
+    <fieldset class="settings-field">
+        <legend>Keywords</legend>
+        <div class="settings-checks">
+            {% for checkbox in form.habit_keywords %}
+                <label class="settings-check">{{ checkbox.tag }} <span>{{ checkbox.choice_label }}</span></label>
+            {% empty %}
+                <p class="meta">You have no habits yet.</p>
+            {% endfor %}
+        </div>
+        <p class="settings-help">Tick the keywords to track. With none ticked, every habit shows.</p>
+        {{ form.habit_keywords.errors }}
+    </fieldset>
+    <div class="settings-actions">
+        <button type="submit" class="submit">Save</button>
+    </div>
+</form>
+{% endblock %}
