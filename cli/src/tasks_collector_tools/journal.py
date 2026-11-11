@@ -1,22 +1,4 @@
-"""Add journal entry.
-
-Usage:
-    journal [options]
-
-Options:
-    -d, --date DATE  Use this date for the journal entry.
-    -T TAGS, --tags TAGS  Add these tags to the journal entry.
-    -Y, --yesterday  Use yesterday's date for the journal entry.
-    -t THREAD, --thread THREAD  Use this thread [default: Daily]
-    -S ID, --story ID  Attach this journal entry to story ID.
-    --active-story   Attach to the currently active story (overridden by --story).
-    --current-trip   Attach to the saved current trip (see the `trip` command).
-    -f FILE, --file FILE  Use this file instead of the generated template.
-    -F, --force      Send even if content is unchanged from template.
-    -L, --today      List journals from today.
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
+"""Add journal entry."""
 
 TEMPLATE = """
 > Thread: {thread}
@@ -48,7 +30,6 @@ from pathlib import Path
 
 import requests
 from dateutil.parser import parse
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError
 
@@ -56,11 +37,13 @@ from .config.tasks import TasksConfigFile
 from .plans import get_plans_for_today_sync
 from .story import get_active_story, get_current_trip, get_story
 from .utils import (
+    command_parser,
     get_cursor_position,
     queue_failed_request,
     retry_failed_requests,
     sanitize_fields,
     sanitize_list_of_strings,
+    tc_command,
 )
 
 
@@ -71,9 +54,9 @@ def yesterdays_date():
 
 
 def get_date_from_arguments(arguments):
-    if arguments["--date"]:
-        return parse(arguments["--date"])
-    elif arguments["--yesterday"]:
+    if arguments.date:
+        return parse(arguments.date)
+    elif arguments.yesterday:
         return yesterdays_date()
 
     return datetime.now()
@@ -120,10 +103,10 @@ def template_from_arguments(arguments, plans, comment="", story=None):
     plans_text = "\n".join(plan_sections)
 
     return TEMPLATE.format(
-        tags=arguments["--tags"] or "",
+        tags=arguments.tags or "",
         comment=comment,
         published=get_date_from_arguments(arguments),
-        thread=arguments["--thread"],
+        thread=arguments.thread,
         plans=plans_text,
         story=story_meta_line(story),
     ).lstrip()
@@ -161,16 +144,16 @@ def add_stack_to_payload(payload, name, lines):
 
 
 def list_todays_journals(arguments):
-    """List journals from today using reflectiondump."""
-    cmd = ["reflectiondump", "-d", datetime.now().strftime("%Y-%m-%d")]
-    if arguments["--thread"]:
-        cmd.extend(["--thread", arguments["--thread"]])
+    """List journals from today using `tc reflect dump`."""
+    cmd = tc_command("reflect", "dump", "-d", datetime.now().strftime("%Y-%m-%d"))
+    if arguments.thread:
+        cmd.extend(["--thread", arguments.thread])
     try:
         output = subprocess.check_output(cmd).decode("utf-8").strip()
         print(output)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Error running reflectiondump: {e}")
+        print(f"Error running tc reflect dump: {e}")
         sys.exit(1)
 
 
@@ -182,22 +165,22 @@ def resolve_story_from_arguments(arguments, config):
     id is looked up so the meta line can show the title; if the lookup fails
     we fall back to an id-only dict so the link still works offline.
     """
-    if arguments["--story"]:
+    if arguments.story:
         try:
-            story_id = int(arguments["--story"])
+            story_id = int(arguments.story)
         except ValueError:
-            print(f"Ignoring invalid --story value: {arguments['--story']}")
+            print(f"Ignoring invalid --story value: {arguments.story}")
             return None
         return get_story(config, story_id) or {"id": story_id}
 
-    if arguments["--current-trip"]:
+    if arguments.current_trip:
         story_id = get_current_trip()
         if story_id is None:
             print("No current trip set. Use the `trip` command to choose one.")
             return None
         return get_story(config, story_id) or {"id": story_id}
 
-    if arguments["--active-story"]:
+    if arguments.active_story:
         story = get_active_story(config)
         if story is None:
             print("No active story found.")
@@ -206,12 +189,55 @@ def resolve_story_from_arguments(arguments, config):
     return None
 
 
-def main(argv=None):
-    arguments = docopt(__doc__, version="1.1", argv=argv)
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
+
+    parser.add_argument("-d", "--date", help="Use this date for the journal entry.")
+    parser.add_argument("-T", "--tags", help="Add these tags to the journal entry.")
+    parser.add_argument(
+        "-Y",
+        "--yesterday",
+        action="store_true",
+        help="Use yesterday's date for the journal entry.",
+    )
+    parser.add_argument(
+        "-t", "--thread", default="Daily", help="Use this thread [default: Daily]."
+    )
+    parser.add_argument(
+        "-S", "--story", metavar="ID", help="Attach this journal entry to story ID."
+    )
+    parser.add_argument(
+        "--active-story",
+        action="store_true",
+        help="Attach to the currently active story (overridden by --story).",
+    )
+    parser.add_argument(
+        "--current-trip",
+        action="store_true",
+        help="Attach to the saved current trip (see the `trip` command).",
+    )
+    parser.add_argument(
+        "-f", "--file", help="Use this file instead of the generated template."
+    )
+    parser.add_argument(
+        "-F",
+        "--force",
+        action="store_true",
+        help="Send even if content is unchanged from template.",
+    )
+    parser.add_argument(
+        "-L", "--today", action="store_true", help="List journals from today."
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
 
-    if arguments["--today"]:
+    if arguments.today:
         list_todays_journals(arguments)
         return
 
@@ -223,8 +249,8 @@ def main(argv=None):
 
     comment = ""
 
-    if arguments["--file"]:
-        with open(arguments["--file"], "r") as f:
+    if arguments.file:
+        with open(arguments.file, "r") as f:
             comment = f.read()
 
     template = template_from_arguments(arguments, plans, comment, story=story)
@@ -252,7 +278,7 @@ def main(argv=None):
         edited_content = f.read()
 
     if not edited_content.strip() or (
-        edited_content.strip() == template.strip() and not arguments["--force"]
+        edited_content.strip() == template.strip() and not arguments.force
     ):
         print("No changes were made.")
         os.unlink(tmpfile.name)
@@ -260,7 +286,7 @@ def main(argv=None):
 
     payload = {
         "comment": None,
-        "thread": arguments["--thread"],
+        "thread": arguments.thread,
         "published": datetime.now(),
     }
 
@@ -345,6 +371,6 @@ def main(argv=None):
         print("The temporary file was saved at {}".format(tmpfile.name))
 
 
-def trip_main():
-    """Entry point for `tjournal`/`tripjournal`: journal into the current trip."""
-    main(argv=["--current-trip"] + sys.argv[1:])
+def trip_main(argv, prog):
+    """Entry point for `tc trip journal`: journal into the current trip."""
+    main(["--current-trip", *argv], prog)

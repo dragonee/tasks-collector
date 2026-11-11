@@ -1,14 +1,4 @@
-"""Dump a board to markdown.
-
-Usage:
-    boardmd [options]
-
-Options:
-    --thread THREAD  Use specific thread [default: big-picture].
-    --enumerate      Add numberic enumeration to points (e.g. 1.2.4.)
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
+"""Dump a board to markdown."""
 
 GOTOURL = """
 See more:
@@ -26,10 +16,10 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 
 from .config.tasks import TasksConfigFile
+from .utils import command_parser
 
 pattern_s = re.compile(r"\s+")
 
@@ -97,8 +87,25 @@ def recur_print_md(tree, enumerator, path=tuple()):
         recur_print_md(item, enumerator, path + (i,))
 
 
-def main():
-    arguments = docopt(__doc__, version="1.0")
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
+
+    parser.add_argument(
+        "--thread",
+        default="big-picture",
+        help="Use specific thread [default: %(default)s].",
+    )
+    parser.add_argument(
+        "--enumerate",
+        action="store_true",
+        help="Add numeric enumeration to points (e.g. 1.2.4.)",
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
 
@@ -110,7 +117,7 @@ def main():
 
     thread_dict = threads_to_dict(r.json())
 
-    thread_id = thread_dict[arguments["--thread"]]
+    thread_id = thread_dict[arguments.thread]
 
     url2 = "{}/boards/?thread={}".format(config.url, thread_id)
 
@@ -123,7 +130,7 @@ def main():
 
     # pprint.pprint(state)
 
-    enumerator = dotted_enumerator if arguments["--enumerate"] else empty_enumerator
+    enumerator = dotted_enumerator if arguments.enumerate else empty_enumerator
 
     for i, item in enumerate(state, start=1):
         recur_print_md(item, enumerator, (i,))

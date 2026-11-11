@@ -1,17 +1,4 @@
-"""Reflect on a day, week or month.
-
-Usage:
-    reflect [options]
-
-Options:
-    -d, --date DATE  Use this date for reflection.
-    -w, --week       Use this week for reflection.
-    -m, --month      Use this month for reflection.
-    -y, --yesterday  Use yesterday for reflection.
-    -M, --missing    Fill in missing journal entries for the date range.
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
+"""Reflect on a day, week or month."""
 
 TEMPLATE = """
 > Thread: {thread}
@@ -39,10 +26,9 @@ import tempfile
 from datetime import date, datetime, timedelta, timezone
 
 from dateutil.parser import parse
-from docopt import docopt
 
 from .config.tasks import TasksConfigFile
-from .utils import get_cursor_position
+from .utils import command_parser, get_cursor_position, tc_command
 
 
 def get_start_and_end_of_week(date):
@@ -59,41 +45,41 @@ def get_start_and_end_of_month(date):
 
 
 def get_fetch_thread_from_arguments(arguments):
-    if arguments["--month"]:
+    if arguments.month:
         return "Weekly"
     else:
         return None
 
 
 def get_save_thread_from_arguments(arguments):
-    if arguments["--month"]:
+    if arguments.month:
         return "big-picture"
-    elif arguments["--week"]:
+    elif arguments.week:
         return "Weekly"
     else:
         return None
 
 
 def template_from_arguments(arguments):
-    cmd = ["reflectiondump"]
+    cmd = tc_command("reflect", "dump")
 
-    day = parse(arguments["--date"]) if arguments["--date"] else date.today()
+    day = parse(arguments.date) if arguments.date else date.today()
 
     thread = get_fetch_thread_from_arguments(arguments)
 
     if thread is not None:
         cmd += ["--thread", thread]
 
-    if arguments["--week"]:
+    if arguments.week:
         start, end = get_start_and_end_of_week(day)
 
-    elif arguments["--month"]:
+    elif arguments.month:
         start, end = get_start_and_end_of_month(day)
 
         cmd += [
             "--skip-journals",
         ]
-    elif arguments["--yesterday"]:
+    elif arguments.yesterday:
         start = end = day - timedelta(days=1)
     else:
         start = end = day
@@ -140,18 +126,18 @@ def journal_payload_from_reflection_payload(payload, published, thread):
 def published_from_arguments(arguments):
     dt = datetime.now()
 
-    if arguments["--date"]:
-        dt = parse(arguments["--date"])
+    if arguments.date:
+        dt = parse(arguments.date)
 
-    if arguments["--yesterday"]:
+    if arguments.yesterday:
         return datetime.now() - timedelta(days=1)
-    elif arguments["--week"]:
+    elif arguments.week:
         _, end = get_start_and_end_of_week(dt)
 
         return end.replace(
             hour=23, minute=59, second=59, microsecond=0, tzinfo=timezone.utc
         )
-    elif arguments["--month"]:
+    elif arguments.month:
         _, end = get_start_and_end_of_month(dt)
 
         return end.replace(
@@ -163,19 +149,19 @@ def published_from_arguments(arguments):
 
 def fill_missing_journal_entries(arguments):
     """Fill in missing journal entries for the specified date range."""
-    cmd = ["reflectiondump", "-M"]
+    cmd = tc_command("reflect", "dump", "-M")
 
-    day = parse(arguments["--date"]) if arguments["--date"] else date.today()
+    day = parse(arguments.date) if arguments.date else date.today()
 
     thread = get_fetch_thread_from_arguments(arguments)
     if thread is not None:
         cmd += ["--thread", thread]
 
-    if arguments["--week"]:
+    if arguments.week:
         start, end = get_start_and_end_of_week(day)
-    elif arguments["--month"]:
+    elif arguments.month:
         start, end = get_start_and_end_of_month(day)
-    elif arguments["--yesterday"]:
+    elif arguments.yesterday:
         start = end = day - timedelta(days=1)
     else:
         start = end = day
@@ -220,29 +206,30 @@ def fill_missing_journal_entries(arguments):
             )
             print(f"Creating journal entry for {date_str_formatted}...")
 
-            journal_cmd = ["journal", "--date", date_str]
+            journal_cmd = tc_command("journal", "--date", date_str)
 
             try:
                 subprocess.run(journal_cmd, check=True)
             except subprocess.CalledProcessError:
                 print(f"Error creating journal entry for {date_str}")
     except subprocess.CalledProcessError as e:
-        print(f"Error running reflectiondump: {e}")
+        print(f"Error running tc reflect dump: {e}")
 
 
 def is_daily_mode(arguments):
-    return not arguments["--week"] and not arguments["--month"]
+    return not arguments.week and not arguments.month
 
 
 def daily_reflection(arguments):
     """Dump quoted journal entries straight into `journal` — no editor opened here."""
-    day = parse(arguments["--date"]).date() if arguments["--date"] else date.today()
+    day = parse(arguments.date).date() if arguments.date else date.today()
 
-    if arguments["--yesterday"]:
+    if arguments.yesterday:
         day = day - timedelta(days=1)
 
-    cmd = [
-        "reflectiondump",
+    cmd = tc_command(
+        "reflect",
+        "dump",
         "--no-summary",
         "--no-titles",
         "--no-habits",
@@ -253,7 +240,7 @@ def daily_reflection(arguments):
         day.strftime("%Y-%m-%d"),
         "-D",
         day.strftime("%Y-%m-%d"),
-    ]
+    )
 
     output = subprocess.check_output(cmd).decode("utf-8").strip().replace("\r", "")
 
@@ -263,14 +250,16 @@ def daily_reflection(arguments):
         f.write(output)
         f.flush()
 
-        journal_cmd = ["journal", "--date", published.isoformat(), "--file", f.name]
+        journal_cmd = tc_command(
+            "journal", "--date", published.isoformat(), "--file", f.name
+        )
 
         subprocess.run(journal_cmd, check=True)
 
 
 def get_journal_command_arguments_from_payload(payload):
     """Convert a reflection payload into journal command arguments."""
-    cmd = ["journal"]
+    cmd = tc_command("journal")
 
     if "thread" in payload:
         cmd.extend(["--thread", payload["thread"]])
@@ -284,12 +273,35 @@ def get_journal_command_arguments_from_payload(payload):
     return cmd
 
 
-def main():
-    arguments = docopt(__doc__, version="1.1")
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
+
+    parser.add_argument("-d", "--date", help="Use this date for reflection.")
+    parser.add_argument(
+        "-w", "--week", action="store_true", help="Use this week for reflection."
+    )
+    parser.add_argument(
+        "-m", "--month", action="store_true", help="Use this month for reflection."
+    )
+    parser.add_argument(
+        "-y", "--yesterday", action="store_true", help="Use yesterday for reflection."
+    )
+    parser.add_argument(
+        "-M",
+        "--missing",
+        action="store_true",
+        help="Fill in missing journal entries for the date range.",
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
 
-    if arguments["--missing"]:
+    if arguments.missing:
         fill_missing_journal_entries(arguments)
 
     if is_daily_mode(arguments):

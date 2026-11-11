@@ -1,20 +1,4 @@
-"""Dump observations to markdown files.
-
-Usage:
-    eventdump [options] [PATH]
-
-Options:
-    -d DATE_FROM, --from FROM  Dump from specific date.
-    -D DATE_TO, --to DATE_TO   Dump to specific date.
-    --year YEAR      Dump specific year.
-    -T THREAD, --thread THREAD Dump specific thread.
-    --no-plans       Exclude plans from output.
-    --no-reflections  Exclude reflections from output.
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
-
-VERSION = "1.0"
+"""Dump daily events to markdown."""
 
 from collections import Counter
 from datetime import date, datetime, timedelta
@@ -24,7 +8,6 @@ from typing import List
 
 import requests
 from dateutil.parser import parse
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 
 from .config.tasks import TasksConfigFile
@@ -37,7 +20,7 @@ from .models import (
     Result,
 )
 from .presenters import get_plan_presenter, get_presenter, get_reflection_presenter
-from .utils import render_template
+from .utils import command_parser, render_template
 
 EVENT_TEMPLATE = """
 ### {{ resourcetype }}: {{ published }}
@@ -102,14 +85,14 @@ def parse_result(result_data: dict) -> Result:
     return Result.model_validate(result_data)
 
 
-def get_daily_events(config: TasksConfigFile, arguments: dict, dt: date = None):
+def get_daily_events(config: TasksConfigFile, arguments, dt: date = None):
     if dt is None:
         dt = datetime.now().date()
 
     dt_string = "?date={}".format(dt.strftime("%Y-%m-%d"))
 
-    if arguments.get("--thread"):
-        dt_string += "&thread={}".format(arguments["--thread"])
+    if arguments.thread:
+        dt_string += "&thread={}".format(arguments.thread)
 
     url = "{}/api/events/daily/{}".format(
         config.url,
@@ -265,28 +248,59 @@ def delete_file_if_needed(already_deleted: set, directory: Path, dt: date):
         already_deleted.add(file_path)
 
 
-def main():
-    arguments = docopt(__doc__, version=VERSION)
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
 
-    path = arguments["PATH"]
+    parser.add_argument(
+        "path",
+        metavar="PATH",
+        nargs="?",
+        help="Write one file per day to this directory instead of printing.",
+    )
+    parser.add_argument(
+        "-d",
+        "--from",
+        dest="date_from",
+        metavar="DATE_FROM",
+        help="Dump from specific date.",
+    )
+    parser.add_argument(
+        "-D", "--to", dest="date_to", metavar="DATE_TO", help="Dump to specific date."
+    )
+    parser.add_argument("--year", type=int, help="Dump specific year.")
+    parser.add_argument("-T", "--thread", help="Dump specific thread.")
+    parser.add_argument(
+        "--no-plans", action="store_true", help="Exclude plans from output."
+    )
+    parser.add_argument(
+        "--no-reflections", action="store_true", help="Exclude reflections from output."
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
+
+    path = arguments.path
 
     if path:
         directory = Path(path).resolve(strict=True)
 
     config = TasksConfigFile()
 
-    year = int(arguments["--year"]) if arguments["--year"] else None
+    year = arguments.year
 
     if year:
         start_date = date(year, 1, 1)
         end_date = date(year, 12, 31)
     else:
         start_date = (
-            parse(arguments["--from"]).date()
-            if arguments["--from"]
+            parse(arguments.date_from).date()
+            if arguments.date_from
             else datetime.now().date()
         )
-        end_date = parse(arguments["--to"]).date() if arguments["--to"] else start_date
+        end_date = parse(arguments.date_to).date() if arguments.date_to else start_date
 
     def date_range(start_date, end_date, delta):
         current_date = start_date
@@ -307,8 +321,8 @@ def main():
 
         rendered = render_daily_events(
             result,
-            print_plans=not arguments["--no-plans"],
-            print_reflections=not arguments["--no-reflections"],
+            print_plans=not arguments.no_plans,
+            print_reflections=not arguments.no_reflections,
         )
 
         if path:

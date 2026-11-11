@@ -1,12 +1,4 @@
-"""Add update to an observation.
-
-Usage:
-    update [options] [ID]
-
-Options:
-    -h, --help       Show this message.
-    --version        Show version information.
-"""
+"""Add update to an observation."""
 
 TEMPLATE = """
 # Comment ({published})
@@ -30,12 +22,11 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
-from docopt import docopt
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError
 
 from .config.tasks import TasksConfigFile
-from .utils import queue_failed_request, retry_failed_requests
+from .utils import command_parser, queue_failed_request, retry_failed_requests
 
 
 def template_from_arguments(arguments):
@@ -74,8 +65,21 @@ def get_saved_observation_id():
     return None
 
 
-def main():
-    arguments = docopt(__doc__, version="1.0.2")
+def parse_arguments(argv, prog):
+    parser = command_parser(prog, __doc__)
+
+    parser.add_argument(
+        "id",
+        metavar="ID",
+        nargs="?",
+        help="Observation to update [default: the one saved with `tc observation --save`].",
+    )
+
+    return parser.parse_args(argv)
+
+
+def main(argv, prog):
+    arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
 
@@ -83,7 +87,7 @@ def main():
 
     template = template_from_arguments(arguments)
 
-    observation_id = arguments["ID"] or get_saved_observation_id()
+    observation_id = arguments.id or get_saved_observation_id()
 
     if not observation_id:
         print("Error: No Observation ID was given.")
