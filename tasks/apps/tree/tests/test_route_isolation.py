@@ -318,6 +318,8 @@ class RouteIsolationTestCase(APITestCase):
             "projected-outcome-move": outcome,
             "projected-outcome-evolve": outcome,
             "public-diary-archive-month": private(year=day.year, month=day.month),
+            "journal-entry-tag": private(journal_id=self.journal.pk)
+            + both("journal_id", "trip_note"),
             "public-diary-archive-current-month-tag": private(slug=self.tag.slug),
             "public-diary-archive-month-tag": private(
                 slug=self.tag.slug, year=day.year, month=day.month

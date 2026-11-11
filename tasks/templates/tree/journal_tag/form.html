@@ -1,0 +1,5 @@
+<form method="post" action="{% url 'journal-entry-tag' journal_id %}" hx-post="{% url 'journal-entry-tag' journal_id %}" hx-swap="outerHTML" {% if hidden %}class="hidden"{% endif %}>
+    {% csrf_token %}
+    {{ form.as_div }}
+    <button type="submit">Save</button>
+</form>

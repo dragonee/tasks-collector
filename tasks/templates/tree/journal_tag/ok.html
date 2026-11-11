@@ -1,0 +1,7 @@
+<div class="result-ok">Tagged {{ tag.name }}</div>
+
+{% include "tree/journal_tag/form.html" with hidden=True %}
+
+<script type="text/javascript">
+    onJournalTagAdded(document.currentScript);
+</script>

@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.utils.text import slugify
 
 from .models import (
     Breakthrough,
@@ -295,6 +296,51 @@ class UserForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class JournalTagNameForm(forms.Form):
+    """One of ``user``'s journal tags, by name: the one so named (in any case)
+    or slugged, or else a new one. How a user makes their tags."""
+
+    # Slugs the diary's URLs already take: a tag page there is unreachable.
+    RESERVED_SLUGS = {"add"}
+
+    name = forms.CharField(
+        max_length=255,
+        label="Tag",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Tag name",
+                "list": "journal-tags",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        slug = slugify(name)
+        if not slug:
+            raise ValidationError("A tag name needs a letter or a digit.")
+        if slug in self.RESERVED_SLUGS:
+            raise ValidationError(f"“{name}” can't be a tag name.")
+        self.slug = slug
+        return name
+
+    def tag(self):
+        name = self.cleaned_data["name"]
+        tags = JournalTag.objects.filter(user=self.user)
+        existing = tags.filter(name__iexact=name).first()
+        if existing is not None:
+            return existing
+        tag, _ = JournalTag.objects.get_or_create(
+            user=self.user, slug=self.slug, defaults={"name": name}
+        )
+        return tag
 
 
 class JournalAddedForm(UserThreadFormMixin, forms.ModelForm):

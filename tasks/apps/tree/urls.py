@@ -291,6 +291,11 @@ urlpatterns = [
     # === Journal / Diary (views) ===
     path("diary/add/", views.journal_add, name="public-journal-add"),
     path(
+        "diary/entries/<int:journal_id>/tags/",
+        views.journal_entry_tag,
+        name="journal-entry-tag",
+    ),
+    path(
         "diary/",
         views.JournalCurrentMonthArchiveView.as_view(month_format="%m"),
         name="public-diary-archive-current-month",

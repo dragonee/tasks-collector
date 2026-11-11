@@ -3,11 +3,17 @@
 <div class="event-content journal-added" data-id="{{ event.id }}" data-time="{{ event.published|time:"H:i" }}">
     {% if not readonly %}
     <div class="add-breakthrough">
+        <button class="add-tag-button">+Tag</button>
         <button class="add-breakthrough-button">+Breakthrough</button>
     </div>
 
     <div class="habit-form hidden">
         {% include "tree/habit_tracked/form.html" with form=event|get_habit_form %}
+    </div>
+
+    <div class="tag-form hidden">
+        {% journal_tag_form as tag_form %}
+        {% include "tree/journal_tag/form.html" with form=tag_form journal_id=event.id %}
     </div>
     {% endif %}
 

@@ -5,7 +5,7 @@ from django.template.defaultfilters import date as date_filter
 from django.template.defaultfilters import linebreaks, stringfilter
 from django.utils.safestring import mark_safe
 
-from ..forms import OnlyTextSingleHabitTrackedForm
+from ..forms import JournalTagNameForm, OnlyTextSingleHabitTrackedForm
 from ..models import EventStream
 
 register = template.Library()
@@ -29,6 +29,12 @@ def first_line(text):
         return splitted[0].rstrip().rstrip(".…") + "…"
 
     return text
+
+
+@register.simple_tag
+def journal_tag_form():
+    # Unbound and the same for every entry: the entry is in the form's URL.
+    return JournalTagNameForm()
 
 
 @register.filter
