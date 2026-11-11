@@ -1,6 +1,6 @@
 """Add journal entry.
 
-Usage: 
+Usage:
     journal [options]
 
 Options:
