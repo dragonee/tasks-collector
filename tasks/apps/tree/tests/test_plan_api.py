@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..models import Plan, Reflection, Thread
-from .factories import make_thread
+from .factories import make_plan, make_thread
 
 # Sundays ending two consecutive weeks, and the Friday between them.
 LAST_WEEK_END = date_cls(2026, 10, 25)
@@ -38,9 +38,9 @@ class PlanAPIFilterTestCase(APITestCase):
         return [p["focus"] for p in resp.json()["results"]]
 
     def test_filters_by_thread_and_pub_date(self):
-        Plan.objects.create(pub_date=THIS_WEEK_END, thread=self.weekly, focus="week")
-        Plan.objects.create(pub_date=THIS_WEEK_END, thread=self.daily, focus="sunday")
-        Plan.objects.create(pub_date=LAST_WEEK_END, thread=self.weekly, focus="old")
+        make_plan(self.weekly, THIS_WEEK_END, "week")
+        make_plan(self.daily, THIS_WEEK_END, "sunday")
+        make_plan(self.weekly, LAST_WEEK_END, "old")
 
         self.assertEqual(
             self._focuses(thread="Weekly", pub_date=THIS_WEEK_END.isoformat()),
@@ -48,8 +48,8 @@ class PlanAPIFilterTestCase(APITestCase):
         )
 
     def test_missing_weekly_plan_returns_no_results(self):
-        Plan.objects.create(pub_date=LAST_WEEK_END, thread=self.weekly, focus="old")
-        Plan.objects.create(pub_date=FRIDAY, thread=self.daily, focus="friday")
+        make_plan(self.weekly, LAST_WEEK_END, "old")
+        make_plan(self.daily, FRIDAY, "friday")
 
         self.assertEqual(
             self._focuses(thread="Weekly", pub_date=THIS_WEEK_END.isoformat()),
@@ -83,17 +83,13 @@ class PlanAddTaskTestCase(APITestCase):
         self.assertEqual(self._add_today("water plants").focus, "water plants")
 
     def test_existing_line_in_crlf_plan_is_not_duplicated(self):
-        Plan.objects.create(
-            pub_date=date_cls.today(), thread=self.daily, focus="a\r\nb"
-        )
+        make_plan(self.daily, date_cls.today(), "a\r\nb")
 
         # Nothing to add: the plan is left as it was.
-        self.assertEqual(self._add_today("a").focus, "a\r\nb")
+        self.assertEqual(self._add_today("a").focus, "a\nb")
 
     def test_new_line_appended_to_crlf_plan(self):
-        Plan.objects.create(
-            pub_date=date_cls.today(), thread=self.daily, focus="a\r\nb"
-        )
+        make_plan(self.daily, date_cls.today(), "a\r\nb")
 
         self.assertEqual(self._add_today("c").focus, "a\nb\nc")
 
@@ -114,13 +110,10 @@ class PlanAddTaskTestCase(APITestCase):
 
                 self.assertEqual(resp.status_code, status.HTTP_200_OK)
                 self.assertEqual(resp.json()["plan_date"], pub_date)
-                self.assertTrue(
-                    Plan.objects.filter(
-                        pub_date=pub_date,
-                        thread=make_thread(self.user, thread),
-                        focus="x",
-                    ).exists()
+                plan = Plan.objects.get(
+                    pub_date=pub_date, thread=make_thread(self.user, thread)
                 )
+                self.assertEqual(plan.focus, "x")
 
     def test_a_malformed_date_is_refused(self):
         resp = self.client.post(

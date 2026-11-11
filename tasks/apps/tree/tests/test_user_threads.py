@@ -31,7 +31,7 @@ from ..models import (
 from ..services.breakthrough.operations import move_projected_outcome_to_next_year
 from ..services.provisioning import provision_user
 from ..services.trips import add_trip_note, start_trip
-from .factories import make_thread
+from .factories import make_plan, make_thread
 from .test_breakthrough_web import breakthrough_post_data
 
 User = get_user_model()
@@ -166,15 +166,11 @@ class ThreadNamesAreThePerUserTestCase(APITestCase):
 
     def test_plan_thread_filter_returns_only_the_callers_plans(self):
         day = datetime.date(2026, 11, 15)
-        mine = Plan.objects.create(
-            pub_date=day,
-            thread=Thread.objects.get(user=self.bob, name=Thread.WEEKLY),
-            focus="mine",
+        mine = make_plan(
+            Thread.objects.get(user=self.bob, name=Thread.WEEKLY), day, "mine"
         )
-        Plan.objects.create(
-            pub_date=day,
-            thread=Thread.objects.get(user=self.alice, name=Thread.WEEKLY),
-            focus="theirs",
+        make_plan(
+            Thread.objects.get(user=self.alice, name=Thread.WEEKLY), day, "theirs"
         )
 
         response = self.client.get("/plans/", {"thread": "Weekly"})

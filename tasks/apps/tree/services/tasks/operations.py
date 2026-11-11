@@ -135,11 +135,10 @@ def rename(task, text):
     board = board_links.locked_board_of(task)
     task = Task.objects.select_for_update().get(pk=task.pk)
 
-    plans = documents.plans_of(task)
     task.text = text
     task.save(update_fields=["text"])
-    for plan in plans:
-        documents.write_cache(plan)
+    for plan in documents.plans_of(task):
+        documents.write_copy(plan)
 
     if board is not None:
         board_links.set_text(board, task)
@@ -272,9 +271,6 @@ def reopen(task):
 
     if task.done_count == 0:
         return False
-
-    # Its lines may have been reworded as text since.
-    documents.reflections_of(task)
 
     completion = task.completions.order_by("-published", "-pk").first()
     if completion is not None:

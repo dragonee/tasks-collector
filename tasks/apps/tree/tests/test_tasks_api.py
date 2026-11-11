@@ -30,6 +30,7 @@ from ..services.today.operations import lock_day
 from ..services.trips import start_trip, stop_trip
 from .factories import (
     make_board,
+    make_plan,
     make_profile,
     make_thread,
     plan_task,
@@ -158,10 +159,10 @@ class CreateAndAgendaTestCase(TaskAPITestCase):
     def test_the_agenda_is_the_day_the_week_and_the_month(self):
         day_task = self._create(text="call bank")
         week_task = self._create(text="write report (2)", thread="Weekly")
-        Plan.objects.create(
-            thread=Thread.objects.get(user=self.user, name="big-picture"),
-            pub_date=MONTH_END,
-            focus="a theme, written long ago",
+        make_plan(
+            Thread.objects.get(user=self.user, name="big-picture"),
+            MONTH_END,
+            "a theme, written long ago",
         )
 
         agenda = self._agenda()
@@ -231,7 +232,7 @@ class ChangeTestCase(TaskAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["text"], "water the plants")
         self.assertEqual(
-            set(Plan.objects.values_list("focus", flat=True)), {"water the plants"}
+            [plan.focus for plan in Plan.objects.all()], ["water the plants"] * 2
         )
         self.assertEqual(self._item()["text"], "water the plants")
         self.assertEqual(self._item()["data"]["text"], "water the plants")
@@ -552,12 +553,11 @@ class AccessTestCase(TaskAPITestCase):
         self.assertEqual(TaskCompleted.objects.get().created_by, self.editor)
         # Both get it in their own reflection.
         self.assertEqual(
-            set(
-                Reflection.objects.filter(
-                    pub_date=DAY, good="water plants"
-                ).values_list("thread__user__username", flat=True)
-            ),
-            {"u", "editor"},
+            {
+                reflection.thread.user.username: reflection.good
+                for reflection in Reflection.objects.filter(pub_date=DAY)
+            },
+            {"u": "water plants", "editor": "water plants"},
         )
         self.client.force_authenticate(user=self.user)
         self.assertTrue(self._agenda()["daily"]["tasks"][0]["done"])

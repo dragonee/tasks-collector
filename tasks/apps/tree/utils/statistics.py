@@ -82,9 +82,8 @@ def calculate_total_word_count(user, year=None):
     if year:
         plans = plans.filter(pub_date__year=year)
 
-    for plan in plans:
-        if plan.focus:
-            total_words += count_words_in_text(plan.focus)
+    for plan in plans.prefetch_related("lines"):
+        total_words += count_words_in_text(plan.focus)
 
     return total_words
 

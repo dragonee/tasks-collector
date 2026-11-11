@@ -564,24 +564,23 @@ class Board(models.Model):
 
 
 class Reflection(models.Model):
+    """What went well in a period, what could go better, and what would be
+    best: three lists of lines (``ReflectionLine``)."""
+
     pub_date = models.DateField()
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    good = models.TextField(
-        help_text=_("What did you do well today?"), null=True, blank=True
+    # The lines as text, written along with them and read by nothing: what
+    # the release before lines read. See ``documents.write_copy``.
+    good_copy = models.TextField(
+        db_column="good", null=True, blank=True, editable=False
     )
-    better = models.TextField(
-        help_text=_("How could you improve? What could you do better?"),
-        null=True,
-        blank=True,
+    better_copy = models.TextField(
+        db_column="better", null=True, blank=True, editable=False
     )
-    best = models.TextField(
-        help_text=_(
-            "What do you need to do if you want to be the best version of yourself?"
-        ),
-        null=True,
-        blank=True,
+    best_copy = models.TextField(
+        db_column="best", null=True, blank=True, editable=False
     )
 
     class Meta:
@@ -595,14 +594,42 @@ class Reflection(models.Model):
     def __str__(self):
         return "{} ({})".format(self.pub_date, self.thread)
 
+    def text(self, field):
+        """The lines of ``field`` (good, better, best) as text, one to a
+        line."""
+        if self.pk is None:
+            return ""
+        return "\n".join(
+            line.content for line in self.lines.all() if line.field == field
+        )
+
+    @property
+    def good(self):
+        """What went well."""
+        return self.text("good")
+
+    @property
+    def better(self):
+        """What could be done better."""
+        return self.text("better")
+
+    @property
+    def best(self):
+        """What the best version of oneself would do."""
+        return self.text("best")
+
 
 class Plan(models.Model):
+    """What is to be done in a period: a list of lines (``PlanLine``), most
+    of them tasks."""
+
     pub_date = models.DateField()
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
-    focus = models.TextField(
-        help_text=_("What is your primary focus?"), null=True, blank=True
+    # As ``Reflection.good_copy``.
+    focus_copy = models.TextField(
+        db_column="focus", null=True, blank=True, editable=False
     )
 
     class Meta:
@@ -615,6 +642,13 @@ class Plan(models.Model):
 
     def __str__(self):
         return "{} ({})".format(self.pub_date, self.thread)
+
+    @property
+    def focus(self):
+        """The plan as text, one line to a line."""
+        if self.pk is None:
+            return ""
+        return "\n".join(line.content for line in self.lines.all())
 
 
 class ObservationType(models.Model):
@@ -1205,6 +1239,14 @@ class Task(models.Model):
         return self.done_count >= self.total
 
 
+class PlanLineManager(models.Manager):
+    """Plan lines come with their task: what a line says is its task's
+    text."""
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("task")
+
+
 class PlanLine(models.Model):
     """A line of a plan, in order.
 
@@ -1221,6 +1263,8 @@ class PlanLine(models.Model):
         Task, on_delete=models.CASCADE, null=True, blank=True, related_name="plan_lines"
     )
     text = models.TextField(blank=True, default="")
+
+    objects = PlanLineManager()
 
     class Meta:
         ordering = ("position", "pk")

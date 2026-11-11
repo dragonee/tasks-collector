@@ -11,10 +11,12 @@ from ..models import (
     EventStreamEntry,
     Habit,
     HabitKeyword,
+    Plan,
     Profile,
+    Reflection,
     Thread,
 )
-from ..services.tasks import agenda
+from ..services.tasks import agenda, documents
 from ..services.tasks import operations as tasks
 from ..services.today import plan_text
 
@@ -91,3 +93,22 @@ def complete(task, user, day, **how):
     tasks.complete(task, user, day=day, **how)
     task.refresh_from_db()
     return task
+
+
+def make_plan(thread, pub_date, focus="", create_tasks=False):
+    """The plan of ``thread`` for ``pub_date``, saying ``focus``. Its lines
+    are plain ones, as written before tasks had rows; with ``create_tasks``
+    they are tasks, as when someone writes a plan."""
+    plan, _created = Plan.objects.get_or_create(thread=thread, pub_date=pub_date)
+    documents.write(plan, {"focus": focus}, create_tasks=create_tasks)
+    return plan
+
+
+def make_reflection(thread, pub_date, **texts):
+    """The reflection of ``thread`` for ``pub_date``; ``texts`` are its
+    ``good``, ``better`` and ``best``."""
+    reflection, _created = Reflection.objects.get_or_create(
+        thread=thread, pub_date=pub_date
+    )
+    documents.write(reflection, texts)
+    return reflection
