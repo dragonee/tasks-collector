@@ -224,3 +224,8 @@
   - I was thinking of making this an usage of the AI Agent
   - But it might be just that I need to load habits, count minutes, calculate score and assign that against some goal or gamification mechanism
   - I don't have any gamification mechanisms yet, so there might be some capabilities lacking here
+
+- Authentication
+  - [x] A token-based authentication with revoke
+    - The phone logs in through the browser (OAuth code + PKCE) and gets a token of its own; tokens are listed and revoked under Devices in account settings
+  - [ ] Ideally, 2FA authentication

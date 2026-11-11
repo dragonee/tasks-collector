@@ -532,6 +532,7 @@ def account_settings(request):
             "profile_form": profile_form,
             "user_form": user_form,
             "profile": profile,
+            "api_tokens": request.user.api_tokens.all(),
             "board_sharing": board_sharing_panels(request),
         },
     )

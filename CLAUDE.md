@@ -43,6 +43,7 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 - Query with `owned_by(user)` for personal pages and writes, `visible_to(user)` for what can be read (own + shared). Trips, observations and projected outcomes can be shared view-only (a shared complex observation shares what's attached to it); a board (not Daily, Weekly or big-picture) can be shared to edit, and board code uses `Board.objects.editable_by(user)` / `Thread.objects.board_editable_by(user)` (`services/streams.py`).
 - `tests/test_route_isolation.py` walks every route as a second user, a stranger and a viewer of shared items; a new route with URL parameters fails it until `targets` names the objects to call it with.
 - Design, history and open items: `docs/design/multiuser-event-streams.md`.
+- API tokens are `common.ApiToken` rows, one per device or script, revoked from the account settings. The Android app gets its own by logging in through the browser (`oauth/authorize/`, `oauth/token/` in `apps/common/oauth.py`); `manage.py issue_mobile_token` issues one for a script. In tests use `factories.make_token(user)`.
 
 ### Key Architectural Patterns
 

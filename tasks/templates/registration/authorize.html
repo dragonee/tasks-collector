@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Log a device in | Tasks Collector{% endblock %}
+
+{% block body_class %}page-login{% endblock %}
+
+{% block content %}
+<section class="login">
+    <div class="cont">
+        {% if client %}
+            <h1>Log {{ token_name }} in?</h1>
+
+            <p>It will read and change everything in Tasks Collector as <strong>{{ user.username }}</strong>, until you log it out in your account settings.</p>
+
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" name="allow" value="1" class="btn btn-primary">Log in</button>
+                <button type="submit" name="deny" value="1" class="btn btn-link">Cancel</button>
+            </form>
+        {% else %}
+            <h1>This link doesn't work</h1>
+
+            <p>It doesn't come from an app that Tasks Collector knows. Nothing was logged in.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

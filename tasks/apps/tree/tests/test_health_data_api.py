@@ -5,12 +5,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..models import Habit, HabitTracked
 from ..services.health import parse_weight_kg
-from .factories import make_habit, make_thread
+from .factories import make_habit, make_thread, make_token
 
 
 class ParseWeightKgTestCase(APITestCase):
@@ -36,7 +35,7 @@ class AndroidHealthDataAPITestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
-        cls.token = Token.objects.create(user=cls.user)
+        cls.token = make_token(cls.user)
         cls.daily_thread = make_thread(cls.user, "Daily")
         # Provisioned with the user; fetching it also asserts that.
         cls.weight_habit = Habit.objects.get(user=cls.user, slug="weight")

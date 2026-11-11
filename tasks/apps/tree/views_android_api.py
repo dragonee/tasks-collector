@@ -2,10 +2,11 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import status
-from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from tasks.apps.common.authentication import TokenAuthentication
 
 from .services.health import latest_weight
 from .services.today import NoBoardError, list_board_items

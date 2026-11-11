@@ -44,6 +44,23 @@
             </intent-filter>
         </activity>
 
+        <!-- The end of a login: the server sends the browser to a URI whose
+             scheme is this app's package name (data/OAuthLogin.kt), and that
+             opens this activity, which passes the answer on to MainActivity.
+             A path in the filter would be ignored (there is no host), so any
+             URI of the scheme arrives here. -->
+        <activity
+            android:name=".OAuthCallbackActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${applicationId}" />
+            </intent-filter>
+        </activity>
+
         <!-- Health Connect privacy-policy entry point (Android 14+ in-app).
              The Health Connect UI opens this rationale Activity when the
              user taps "View privacy policy" next to the app's permissions. -->

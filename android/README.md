@@ -25,7 +25,7 @@ expose them; see the ADR).
 
 ## One-time backend setup
 
-1. Apply migrations to create the DRF authtoken table:
+1. Apply migrations:
 
    ```bash
    docker compose -f docker/development/docker-compose.yml \
@@ -38,14 +38,17 @@ expose them; see the ADR).
    - A `HabitKeyword` with `keyword = health-metrics` pointing at that habit.
      The API looks the habit up by keyword text, so the slug can be anything.
 
-3. Mint a token for the user the phone will authenticate as:
+The phone gets its token by logging in (see "On-device setup"). To have one
+without the phone, for a debug build or a script, mint it:
 
-   ```bash
-   docker compose -f docker/development/docker-compose.yml \
-     exec tasks-backend python manage.py issue_mobile_token <username>
-   ```
+```bash
+docker compose -f docker/development/docker-compose.yml \
+  exec tasks-backend python manage.py issue_mobile_token <username>
+```
 
-   This prints the token to stdout. Rotate at any time with `--rotate`.
+This prints a new token to stdout each time. It is listed in the user's account
+settings as `issue_mobile_token` (`--name` to call it something else), where it
+can be revoked; `--rotate` revokes the earlier ones of that name first.
 
 ## Building and installing the app
 
@@ -115,8 +118,13 @@ screen, the DataStore value takes precedence; clearing the DataStore
    from Play Store for Android 13 and earlier) and that another app is
    actually writing step / distance / exercise data to it.
 2. Launch **Tasks Health**.
-3. Enter the **Server URL** (e.g. `https://tasks.example.com`) and paste the
-   **API token** from the management command above. Tap **Save**.
+3. In **Settings**, enter the **Server URL** (e.g. `https://tasks.example.com`)
+   and tap **Log in**. The browser opens the server's login page; log in with
+   your username and password as on the web and confirm. The browser hands the
+   phone a token of its own (the phone never sees the password). It shows in
+   your account settings on the web under **Devices** as "Tasks Health on
+   <phone>", where **Log out** revokes it; **Log out** in the app does the same.
+   A token from the management command above can be pasted in instead.
 4. Tap **Grant Health Connect permissions** and allow read access for steps,
    distance, and exercise sessions. Health Connect will also ask separately for
    **"Access data while in the background"** — enable that too, otherwise the

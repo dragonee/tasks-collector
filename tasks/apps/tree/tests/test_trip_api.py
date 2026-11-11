@@ -7,11 +7,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..models import HabitTracked, JournalAdded, Story
-from .factories import make_profile, make_thread, trip_links
+from .factories import make_profile, make_thread, make_token, trip_links
 
 PUB_AT = datetime_cls(2026, 5, 25, 14, 30, tzinfo=dt_timezone.utc).isoformat()
 
@@ -22,8 +21,8 @@ class TripAPITestCase(APITestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
         cls.other = User.objects.create_user(username="other", password="x")
-        cls.token = Token.objects.create(user=cls.user)
-        cls.other_token = Token.objects.create(user=cls.other)
+        cls.token = make_token(cls.user)
+        cls.other_token = make_token(cls.other)
         cls.daily = make_thread(cls.user, "Daily")
         make_profile(user=cls.user, default_board_thread=cls.daily)
 

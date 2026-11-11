@@ -26,7 +26,7 @@ will add photos (separate doc).
 ## Endpoints
 
 All six live under `/api/v1/android/trip/...` and use the same auth as
-`/api/v1/habit/track/`: DRF `TokenAuthentication` + `IsAuthenticated`,
+`/api/v1/habit/track/`: `TokenAuthentication` (a device's token) + `IsAuthenticated`,
 `@csrf_exempt`, JSON request and response.
 
 | Method | URL                                       | Body / query                                          | Returns                                              |

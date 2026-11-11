@@ -15,7 +15,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..models import Habit, HabitKeyword, HabitTracked, JournalAdded, Profile, Thread
@@ -23,7 +22,7 @@ from ..services.health import latest_weight
 from ..services.journalling import process_journal_entry
 from ..services.provisioning import BUILTIN_HABITS
 from ..utils.statistics import get_aggregate_statistics, get_word_count_statistic
-from .factories import make_habit
+from .factories import make_habit, make_token
 
 User = get_user_model()
 
@@ -143,7 +142,7 @@ class HabitEndpointsPerUserTestCase(APITestCase):
         )
 
     def test_track_api_does_not_resolve_someone_elses_keyword(self):
-        token = Token.objects.create(user=self.bob)
+        token = make_token(self.bob)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 
         response = self.client.post(

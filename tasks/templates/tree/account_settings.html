@@ -64,6 +64,27 @@
         </form>
     </section>
 
+    <section class="journal" id="devices">
+        <h2>Devices</h2>
+        <p class="meta">The phones and scripts that are logged in as you. The phone app logs in from its Settings screen.</p>
+        {% if api_tokens %}
+            <ul class="api-tokens">
+                {% for token in api_tokens %}
+                    <li>
+                        <span class="api-token-name">{{ token.name }}</span>
+                        <span class="meta">logged in {{ token.created|date:"j M Y" }}{% if token.last_used %}, last used {{ token.last_used|timesince }} ago{% else %}, not used yet{% endif %}</span>
+                        <form method="post" action="{% url 'api-token-revoke' token.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-link">Log out</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="meta">Nothing is logged in.</p>
+        {% endif %}
+    </section>
+
     {% if board_sharing %}
     <section class="journal board-sharing" id="board-sharing">
         <h2>Shared boards</h2>
