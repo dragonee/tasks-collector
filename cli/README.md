@@ -2,6 +2,18 @@
 
 These tools add CLI support to the [Tasks Collector](https://github.com/dragonee/tasks-collector) application.
 
+## Installation
+
+The project is managed with [uv](https://docs.astral.sh/uv/). To put the commands on your `PATH`:
+
+```
+uv tool install ./cli
+```
+
+After pulling changes, run `uv tool install --reinstall ./cli` (or install with `--editable` to have the commands follow the working tree).
+
+To work on the tools, run `uv sync` in this directory and call a command with `uv run`, e.g. `uv run tasks`.
+
 ## All-in-one
 
 ### tasks (1.0.2)
