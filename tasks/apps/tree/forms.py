@@ -300,7 +300,7 @@ class UserForm(forms.ModelForm):
 class JournalAddedForm(UserThreadFormMixin, forms.ModelForm):
     # Handle tags manually - use single select for tags
     tag = forms.ModelChoiceField(
-        queryset=JournalTag.objects.all(),
+        queryset=JournalTag.objects.none(),
         required=False,
         empty_label="Select a tag (optional)",
         widget=forms.Select(
@@ -342,6 +342,13 @@ class JournalAddedForm(UserThreadFormMixin, forms.ModelForm):
             )
             if daily_thread is not None:
                 self.initial["thread"] = daily_thread.id
+
+        # Tags are per user: offer only the user's own.
+        self.fields["tag"].queryset = (
+            JournalTag.objects.filter(user=self.user)
+            if self.user is not None
+            else JournalTag.objects.none()
+        )
 
         # Load existing tag if editing (just the first one if multiple exist)
         if self.instance.pk:

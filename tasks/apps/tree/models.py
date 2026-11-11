@@ -1019,10 +1019,23 @@ class PhotoAdded(JournalAdded):
 
 
 class JournalTag(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="journal_tags"
+    )
+
     name = models.CharField(max_length=255)
-    slug = models.SlugField(max_length=255, unique=True)
+
+    # Unique per user
+    slug = models.SlugField(max_length=255)
 
     journals = models.ManyToManyField(JournalAdded, related_name="tags", blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "slug"], name="journaltag_user_slug_unique"
+            ),
+        ]
 
     def __str__(self):
         return self.name
