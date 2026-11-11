@@ -204,9 +204,12 @@ def show_stats(args, config):
                 f"  Closed:                          {stats.projected_outcome_closed_count:>6}"
             )
 
-            print(
-                f"\nWord Count:                        {stats.word_count:>6} (last updated: {stats.word_count_updated.strftime('%Y-%m-%d %H:%M:%S')})"
-            )
+            if stats.word_count is None:
+                print(f"\nWord Count:                        not calculated yet")
+            else:
+                print(
+                    f"\nWord Count:                        {stats.word_count:>6} (last updated: {stats.word_count_updated.strftime('%Y-%m-%d %H:%M:%S')})"
+                )
 
             if stats.years:
                 print(f"\nAvailable years: {', '.join(map(str, stats.years))}")
