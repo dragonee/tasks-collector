@@ -1,10 +1,15 @@
+import re
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_unicode_slug
+from django.db import transaction
 from django.utils.text import slugify
 
 from .models import (
     Breakthrough,
+    Habit,
     HabitKeyword,
     JournalAdded,
     JournalTag,
@@ -264,6 +269,83 @@ class HabitKeywordsForm(forms.ModelForm):
         model = Profile
         fields = ["habit_keywords"]
         widgets = {"habit_keywords": forms.CheckboxSelectMultiple()}
+
+
+class HabitForm(forms.ModelForm):
+    """A new habit of ``user`` (a required keyword argument). Its slug is the
+    name slugged; the hashtags that track it are ``keywords``, or the slug
+    when none are given."""
+
+    # A journal hashtag names a habit by a prefix of a keyword at least this
+    # long (habit_extraction.match_token_to_habit): a shorter keyword never
+    # matches.
+    MIN_KEYWORD_LENGTH = 3
+
+    keywords = forms.CharField(
+        required=False,
+        max_length=255,
+        label="Hashtags",
+        widget=forms.TextInput(attrs={"placeholder": "#run #jog"}),
+    )
+
+    class Meta:
+        model = Habit
+        fields = ["name", "description"]
+        widgets = {"description": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance.user = user
+
+    def clean_name(self):
+        name = self.cleaned_data["name"]
+        slug = slugify(name)
+        if not slug:
+            raise ValidationError("A habit name needs a letter or a digit.")
+        if Habit.objects.filter(user=self.instance.user, slug=slug).exists():
+            raise ValidationError("You already have a habit with this name.")
+        self.instance.slug = slug
+        return name
+
+    def clean_keywords(self):
+        """The hashtags as a list of keywords, in the order written."""
+        words = re.split(r"[\s,]+", self.cleaned_data["keywords"])
+        keywords = list(dict.fromkeys(w.lstrip("#!").lower() for w in words))
+        keywords = [keyword for keyword in keywords if keyword]
+        if not keywords and self.instance.slug:
+            keywords = [self.instance.slug]
+
+        errors = []
+        for keyword in keywords:
+            try:
+                validate_unicode_slug(keyword)
+            except ValidationError:
+                errors.append(
+                    f"#{keyword} can't be a hashtag: use letters, digits, - and _."
+                )
+                continue
+            if len(keyword) < self.MIN_KEYWORD_LENGTH:
+                errors.append(
+                    f"#{keyword} is too short: a hashtag needs at least "
+                    f"{self.MIN_KEYWORD_LENGTH} characters."
+                )
+        taken = HabitKeyword.objects.filter(
+            user=self.instance.user, keyword__in=keywords
+        ).select_related("habit")
+        errors.extend(
+            f"#{keyword.keyword} already tracks {keyword.habit.name}."
+            for keyword in taken
+        )
+        if errors:
+            raise ValidationError(errors)
+        return keywords
+
+    @transaction.atomic
+    def save(self):
+        habit = super().save()
+        for keyword in self.cleaned_data["keywords"]:
+            HabitKeyword.objects.create(habit=habit, keyword=keyword)
+        return habit
 
 
 class MapProviderForm(forms.ModelForm):
