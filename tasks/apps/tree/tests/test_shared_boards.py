@@ -137,16 +137,14 @@ class EditorTestCase(SharedBoardTestCase):
 
     def test_threads_list_the_shared_board_after_the_users_own(self):
         threads = self.client.get("/threads/").json()["results"]
+        listed = [(t["name"], t["shared_by"]) for t in threads]
 
-        self.assertEqual(
-            [(t["name"], t["shared_by"]) for t in threads],
-            [
-                ("Daily", None),
-                ("Weekly", None),
-                ("big-picture", None),
-                ("Together", "alice"),
-            ],
+        # Own threads by name, in the database's collation (it differs between
+        # dev and CI), then the shared board.
+        self.assertCountEqual(
+            listed[:3], [("Daily", None), ("Weekly", None), ("big-picture", None)]
         )
+        self.assertEqual(listed[3:], [("Together", "alice")])
 
     def test_the_editor_commits_and_marked_items_go_to_their_own_threads(self):
         make_board(
