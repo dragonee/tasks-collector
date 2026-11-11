@@ -7,7 +7,7 @@ and matching them to Habit instances.
 
 import re
 
-from ...models import Habit
+from ...models import HabitKeyword
 
 PATTERN = re.compile(r"(?<=\s)(?=[#!])", re.MULTILINE)
 
@@ -121,31 +121,29 @@ def match_tokens_to_habits(tokens, habits_from_keywords):
     ]
 
 
-def build_keyword_to_habit_map(habits):
+def build_keyword_to_habit_map(keywords):
     """
     Build a mapping from keywords to habits.
 
     Args:
-        habits: Iterable of Habit instances.
+        keywords: Iterable of HabitKeyword instances, with their habits.
 
     Returns:
         Dict mapping each keyword to its Habit.
     """
-    return {keyword: habit for habit in habits for keyword in habit.get_keywords()}
+    return {keyword.keyword: keyword.habit for keyword in keywords}
 
 
 # Orchestration function (with DB query)
 
 
-def habits_line_to_habits_tracked(line, user, habits=None):
+def habits_line_to_habits_tracked(line, user):
     """
     Parse a line and return matched habit tracking tuples.
 
     Args:
         line: Text line containing habit markers (# or !).
         user: Whose habits the markers name (a user or a user id).
-        habits: Optional iterable of Habit instances. If not provided,
-            fetches ``user``'s habits from the database.
 
     Returns:
         List of (occurred, habit, note) tuples for each matched habit.
@@ -155,9 +153,8 @@ def habits_line_to_habits_tracked(line, user, habits=None):
     if not tokens:
         return []
 
-    if habits is None:
-        habits = Habit.objects.filter(user=user)
-
-    habits_from_keywords = build_keyword_to_habit_map(habits)
+    habits_from_keywords = build_keyword_to_habit_map(
+        HabitKeyword.objects.filter(user=user).select_related("habit")
+    )
 
     return match_tokens_to_habits(tokens, habits_from_keywords)

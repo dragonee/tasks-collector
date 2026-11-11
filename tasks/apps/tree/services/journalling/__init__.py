@@ -14,7 +14,7 @@ Exported functions:
 
         Used by: JournalAddedViewSet, journal_add view
 
-    habits_line_to_habits_tracked(line, user, habits=None)
+    habits_line_to_habits_tracked(line, user)
         Parse a text line and return the user's matched habit tracking tuples.
         Use this for form validation when you need to parse habit markers
         without creating database entries.

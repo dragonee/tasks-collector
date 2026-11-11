@@ -209,7 +209,7 @@ In the dev containers. The local `.tasks-collector.ini` points at production, so
 don't use the CLI to verify.
 
 - `docker compose -f docker/development/docker-compose.yml exec tasks-backend python manage.py test`
-  (674 tests on 2026-11-11), and `makemigrations --check --dry-run` reports no changes.
+  (690 tests on 2026-11-11), and `makemigrations --check --dry-run` reports no changes.
 - `tests/test_route_isolation.py` calls every route of the app with every method as a
   second user, with JSON and form-encoded bodies and query strings that name the
   first user's objects. It does so as a stranger and as a viewer of a shared trip,
@@ -249,17 +249,13 @@ From this work:
   inserts, so two concurrent adds of one event to two trips can both pass.
 
 Older, found on the way:
-- **N+1 queries on habit routes.** As the owner of the production copy:
-  `/habits/<slug>/` runs one query per record (514 for a habit with 506),
-  `/habit/keywords/mine/?all=true` 70, `/events/` 63, `/profile/` 48, `/habits/` and
-  `/habit-api/` 32. Two sources. `Habit.get_keywords()` queries on every call, so a
-  prefetch can't help, and `build_keyword_to_habit_map` calls it per habit on every
-  journal entry, trip note and habit line; one query over the user's `HabitKeyword`
-  rows with their habits can build the map. And `HabitKeywordSerializer` nests the
-  habit, and the habit-event templates read `event.habit`, over querysets that don't
-  select it.
-- **N+1 on the thread** in `/journal/` (24 queries for 10 rows) and
-  `/observation-events/` (35): the viewsets don't select the thread.
+- **`test_route_isolation` never calls the router's detail routes with an id.**
+  `_routes` strips every `^`, which turns `(?P<pk>[^/.]+)` into `(?P<pk>[/.]+)`, so
+  `_url` doesn't substitute it and `/boards/(?P<pk>[/.]+)/` is requested literally.
+  `boards-detail`, `plan-detail`, `reflection-detail`, `journaladded-detail`,
+  `observation-detail`, `observationupdated-detail`, `event-detail`, `habit-detail`,
+  `thread-detail`, `profile-detail` and `stories-detail` are in `targets` but only
+  ever answer like an unknown URL.
 - **500 on a malformed date:** `/habit-api/?date=x` and `/api/events/daily/?date=x`.
 - **500 on `POST /updates/?observation_id=<own>`:** the query parameter picks a
   serializer that doesn't set the observation.

@@ -24,10 +24,19 @@ class HabitAdmin(admin.ModelAdmin):
     readonly_fields = ("event_stream_id",)
     inlines = [HabitKeywordInline]
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("keywords")
+
     def display_keywords(self, obj):
         return ", ".join(obj.get_keywords())
 
     display_keywords.short_description = "Keywords"
+
+
+class NamedAfterThreadAdmin(admin.ModelAdmin):
+    """Boards, plans and reflections, whose names show their thread."""
+
+    list_select_related = ("thread",)
 
 
 class ThreadAdmin(admin.ModelAdmin):
@@ -105,6 +114,7 @@ class EventAdmin(PolymorphicParentModelAdmin):
 
 class HabitTrackedAdmin(PolymorphicChildModelAdmin):
     base_model = HabitTracked
+    list_select_related = ("habit",)
 
 
 class ObservationUpdatedAdmin(PolymorphicChildModelAdmin):
@@ -123,6 +133,7 @@ class BoardCommittedAdmin(PolymorphicChildModelAdmin):
 
 class ObservationMadeAdmin(PolymorphicChildModelAdmin):
     base_model = ObservationMade
+    list_select_related = ("thread",)
 
 
 class ObservationRecontextualizedAdmin(PolymorphicChildModelAdmin):
@@ -143,6 +154,7 @@ class ObservationClosedAdmin(PolymorphicChildModelAdmin):
 
 class InsightRefinedAdmin(PolymorphicChildModelAdmin):
     base_model = InsightRefined
+    list_select_related = ("thread",)
 
 
 class JournalAddedAdmin(PolymorphicChildModelAdmin):
@@ -159,6 +171,7 @@ class PhotoAddedAdmin(PolymorphicChildModelAdmin):
 
 class ProjectedOutcomeMadeAdmin(PolymorphicChildModelAdmin):
     base_model = ProjectedOutcomeMade
+    list_select_related = ("projected_outcome",)
 
     list_display = ("__str__", "projected_outcome", "name", "resolved_by", "published")
     list_filter = ("resolved_by", "published")
@@ -168,6 +181,7 @@ class ProjectedOutcomeMadeAdmin(PolymorphicChildModelAdmin):
 
 class ProjectedOutcomeRedefinedAdmin(PolymorphicChildModelAdmin):
     base_model = ProjectedOutcomeRedefined
+    list_select_related = ("projected_outcome",)
 
     list_display = ("__str__", "projected_outcome", "published")
     list_filter = ("published",)
@@ -176,6 +190,7 @@ class ProjectedOutcomeRedefinedAdmin(PolymorphicChildModelAdmin):
 
 class ProjectedOutcomeRescheduledAdmin(PolymorphicChildModelAdmin):
     base_model = ProjectedOutcomeRescheduled
+    list_select_related = ("projected_outcome",)
 
     list_display = (
         "__str__",
@@ -190,6 +205,7 @@ class ProjectedOutcomeRescheduledAdmin(PolymorphicChildModelAdmin):
 
 class ProjectedOutcomeClosedAdmin(PolymorphicChildModelAdmin):
     base_model = ProjectedOutcomeClosed
+    list_select_related = ("projected_outcome",)
 
     list_display = ("__str__", "projected_outcome", "name", "resolved_by", "published")
     list_filter = ("resolved_by", "published")
@@ -238,10 +254,10 @@ class EventStreamAdmin(admin.ModelAdmin):
     inlines = [EventStreamAccessInline]
 
 
-admin.site.register(Board)
+admin.site.register(Board, NamedAfterThreadAdmin)
 admin.site.register(Thread, ThreadAdmin)
-admin.site.register(Plan)
-admin.site.register(Reflection)
+admin.site.register(Plan, NamedAfterThreadAdmin)
+admin.site.register(Reflection, NamedAfterThreadAdmin)
 admin.site.register(Observation, ObservationAdmin)
 admin.site.register(ObservationType, ObservationTypeAdmin)
 admin.site.register(ObservationMade, ObservationMadeAdmin)

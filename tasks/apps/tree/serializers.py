@@ -212,7 +212,9 @@ class OwnObservationField(serializers.PrimaryKeyRelatedField):
         request = self.context.get("request")
         if request is None or not request.user.is_authenticated:
             return Observation.objects.none()
-        return Observation.objects.owned_by(request.user)
+        # The thread is in each observation's name, which the browsable API
+        # lists as the field's choices.
+        return Observation.objects.owned_by(request.user).select_related("thread")
 
 
 class OwnStoryField(serializers.PrimaryKeyRelatedField):
