@@ -18,7 +18,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..board_operations import add_task_to_board
+from ..board_operations import add_unscheduled_task
 from ..models import (
     Board,
     Breakthrough,
@@ -182,7 +182,7 @@ class ThreadNamesAreThePerUserTestCase(APITestCase):
         self.assertEqual([p["id"] for p in response.json()["results"]], [mine.pk])
 
     def test_board_append_by_thread_name_uses_the_callers_board(self):
-        board = add_task_to_board(self.bob, "buy milk", Thread.WEEKLY)
+        board = add_unscheduled_task(self.bob, "buy milk", Thread.WEEKLY)
 
         self.assertEqual(board.thread, Thread.objects.get(user=self.bob, name="Weekly"))
         alices = Board.objects.get(thread__user=self.alice, thread__name="Weekly")

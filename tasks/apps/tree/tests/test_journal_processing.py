@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from ..board_operations import create_task_item
+from ..board_operations import create_unscheduled_task
 from ..models import (
     Habit,
     HabitKeyword,
@@ -214,7 +214,7 @@ class JournalBoardCheckTestCase(TestCase):
         self.board = make_board(thread=self.daily, state=[])
 
     def _add_board_task(self, text):
-        self.board.state.append(create_task_item(text))
+        self.board.state.append(create_unscheduled_task(text))
         self.board.save()
 
     def _journal(self, comment):

@@ -2,10 +2,10 @@
 
 Each node is a dict with keys ``id``, ``children`` (list of nodes), ``text``,
 and ``data`` (which holds a ``state`` string and ``meaningfulMarkers``). See
-``tasks.apps.tree.board_operations.create_task_item`` for the canonical shape.
+``tasks.apps.tree.board_operations.create_unscheduled_task`` for the canonical shape.
 """
 
-from ...board_operations import create_task_item
+from ...board_operations import create_unscheduled_task
 from .progress import base_of
 
 
@@ -19,7 +19,7 @@ def _node_text(node):
     return text
 
 
-def find_task_by_text(state, text):
+def find_unscheduled_task_by_text(state, text):
     """Depth-first search for a node whose text matches exactly.
 
     Returns ``(parent_list, index, node)`` on a hit, ``None`` otherwise.
@@ -39,7 +39,7 @@ def find_task_by_text(state, text):
     return None
 
 
-def find_task_by_base(state, base):
+def find_unscheduled_task_by_base(state, base):
     """Depth-first search for a node whose marker-stripped text (``base_of``)
     equals ``base`` — so `New task (3)` on the board is found by the base
     `New task` regardless of the marker form journaled/ticked. First match wins.
@@ -81,8 +81,8 @@ def get_state(node):
     return (node.get("data") or {}).get("state")
 
 
-def append_task_at_root(state, text):
-    node = create_task_item(text)
+def append_unscheduled_task_at_root(state, text):
+    node = create_unscheduled_task(text)
     state.append(node)
     return node
 

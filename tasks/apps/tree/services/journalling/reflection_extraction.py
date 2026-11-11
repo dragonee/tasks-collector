@@ -103,12 +103,9 @@ def add_reflection_items(journal_added, comment=None):
     if not reflection_lines:
         return
 
-    try:
-        reflection = Reflection.objects.get(
-            pub_date=pub_date, thread=journal_added.thread
-        )
-    except Reflection.DoesNotExist:
-        reflection = Reflection(pub_date=pub_date, thread=journal_added.thread)
+    reflection, _created = Reflection.objects.get_or_create(
+        pub_date=pub_date, thread=journal_added.thread
+    )
 
     for field_name in ("good", "better", "best"):
         items = [line for field, line in reflection_lines if field == field_name]

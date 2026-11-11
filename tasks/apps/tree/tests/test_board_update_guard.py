@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..board_operations import create_task_item
+from ..board_operations import create_unscheduled_task
 from ..models import Board
 from .factories import make_board, make_thread
 
@@ -27,7 +27,9 @@ class BoardUpdateEmptyStateGuardTestCase(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
 
     def _make_board(self, texts):
-        return make_board(thread=self.daily, state=[create_task_item(t) for t in texts])
+        return make_board(
+            thread=self.daily, state=[create_unscheduled_task(t) for t in texts]
+        )
 
     def _put_state(self, board, state):
         return self.client.put(f"/boards/{board.id}/", {"state": state}, format="json")
@@ -52,7 +54,7 @@ class BoardUpdateEmptyStateGuardTestCase(APITestCase):
 
     def test_non_empty_update_passes_through(self):
         board = self._make_board(["water plants", "call bank"])
-        new_state = [create_task_item("only task left")]
+        new_state = [create_unscheduled_task("only task left")]
 
         response = self._put_state(board, new_state)
 
@@ -84,7 +86,9 @@ class BoardCreateDeleteNotAllowedTestCase(APITestCase):
         self.assertEqual(Board.objects.count(), boards_before)
 
     def test_delete_is_not_allowed(self):
-        board = make_board(thread=self.daily, state=[create_task_item("water plants")])
+        board = make_board(
+            thread=self.daily, state=[create_unscheduled_task("water plants")]
+        )
 
         response = self.client.delete(f"/boards/{board.id}/")
 

@@ -1,3 +1,5 @@
+from datetime import date as date_cls
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -133,13 +135,15 @@ class StoryViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
-def _add_task_to_plan(user, text, timeframe):
+def _add_task_to_plan(user, text, timeframe, today=None):
     """Helper function to add a task to one of ``user``'s plans
 
     Args:
         user: The owner of the plan's thread
         text: The task text to add
         timeframe: One of 'today', 'tomorrow', 'this_week'
+        today: The day it is for the user. Defaults to the server's, which
+            is a different day for part of every night.
 
     Returns:
         The Plan object that was created or updated
@@ -148,14 +152,17 @@ def _add_task_to_plan(user, text, timeframe):
 
     from .services.today import text_lines
 
+    if today is None:
+        today = date.today()
+
     if timeframe == "today":
-        focus_date = date.today()
+        focus_date = today
         thread_name = Thread.DAILY
     elif timeframe == "tomorrow":
-        focus_date = date.today() + timedelta(days=1)
+        focus_date = today + timedelta(days=1)
         thread_name = Thread.DAILY
     elif timeframe == "this_week":
-        focus_date = make_last_day_of_the_week(date.today())
+        focus_date = make_last_day_of_the_week(today)
         thread_name = Thread.WEEKLY
     else:
         raise ValueError(f"Invalid timeframe: {timeframe}")
@@ -188,8 +195,19 @@ def add_task_to_plan(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # The caller's own day (YYYY-MM-DD); optional for clients that predate it.
+    today = None
+    if request.data.get("date"):
+        try:
+            today = date_cls.fromisoformat(str(request.data["date"]))
+        except ValueError:
+            return RestResponse(
+                {"error": "date must be YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     try:
-        plan = _add_task_to_plan(request.user, task_text, timeframe)
+        plan = _add_task_to_plan(request.user, task_text, timeframe, today=today)
         return RestResponse(
             {
                 "success": True,
@@ -230,8 +248,6 @@ def today_plans(request):
     local day; defaults to the server's today), the Weekly plan for the end of
     that week, and the Big-picture plan for the end of that month.
     """
-    from datetime import date as date_cls
-
     raw_date = request.query_params.get("date")
     if raw_date:
         try:

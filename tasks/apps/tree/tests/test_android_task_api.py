@@ -10,7 +10,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..board_operations import create_task_item
+from ..board_operations import create_unscheduled_task
 from ..models import (
     Board,
     JournalAdded,
@@ -18,6 +18,7 @@ from ..models import (
     Reflection,
     Story,
 )
+from ..services.today import board_tree
 from .factories import make_board, make_profile, make_thread, trip_links
 
 TODAY = date_cls(2026, 5, 21)
@@ -84,11 +85,11 @@ class AndroidTaskAPITestCase(APITestCase):
 
     @staticmethod
     def _node(text, moscow=None, state="open", children=None):
-        """Build a Board.state node mirroring create_task_item's shape, with
+        """Build a Board.state node mirroring create_unscheduled_task's shape, with
         an optional MoSCoW marker, work state, and children.
         """
-        node = create_task_item(text)
-        node["data"]["state"] = state
+        node = create_unscheduled_task(text)
+        board_tree.set_state(node, state)
         node["data"]["meaningfulMarkers"]["moscow"] = moscow
         node["children"] = children or []
         return node

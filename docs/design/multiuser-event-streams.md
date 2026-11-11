@@ -262,9 +262,6 @@ Older, found on the way:
 - **500 on photo upload confirm when the bucket can't be reached**
   (`/api/v1/android/photo/`, `/api/v1/android/trip/photo/`): `object_exists` only
   catches `ClientError`. It should answer 503.
-- **`boardmd` fails with `KeyError: 'state'`** on a board holding a task added
-  through `/boards/append/` or the Android app: `create_task_item` writes the state
-  under `data` only.
 - **The CLI `journal` saves entries an hour off in CET:** it sends a naive local
   time, which the server reads as UTC.
 - **Tracking a keyword the user doesn't have** (`/habit/track/`, a CLI habit line)

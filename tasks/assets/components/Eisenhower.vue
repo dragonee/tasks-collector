@@ -3,12 +3,12 @@
         <BoardTopbar />
 
         <div class="eisenhower-layout">
-            <div class="task-tree-pane">
-                <ul class="task-tree">
+            <div class="unscheduled-tasks-pane">
+                <ul class="unscheduled-tasks">
                     <li
                         v-for="item in flatItems"
                         :key="item.pathKey"
-                        class="task-item"
+                        class="unscheduled-task"
                         :class="{
                             classified: item.eisenhower,
                             checked: item.checked
@@ -22,7 +22,7 @@
                             :class="item.eisenhower ? `badge-${item.eisenhower}` : 'badge-empty'"
                             :title="item.eisenhower ? quadrantTitleById[item.eisenhower] : ''"
                         ></span>
-                        <span class="task-text">{{ item.text }}</span>
+                        <span class="unscheduled-task-text">{{ item.text }}</span>
                     </li>
                 </ul>
             </div>
@@ -221,7 +221,7 @@ function removeStatus() {
     height: calc(100vh - 8rem);
 }
 
-.task-tree-pane {
+.unscheduled-tasks-pane {
     width: 20%;
     min-width: 200px;
     overflow-y: auto;
@@ -229,13 +229,13 @@ function removeStatus() {
     padding: 0.5rem 0;
 }
 
-.task-tree {
+.unscheduled-tasks {
     list-style: none;
     padding: 0;
     margin: 0;
 }
 
-.task-item {
+.unscheduled-task {
     padding: 0.3rem 0.5rem;
     cursor: grab;
     user-select: none;
@@ -245,25 +245,25 @@ function removeStatus() {
     border-radius: 3px;
 }
 
-.task-item:active {
+.unscheduled-task:active {
     cursor: grabbing;
 }
 
-.task-item:hover {
+.unscheduled-task:hover {
     background: #f0f0f0;
 }
 
-.task-item.classified {
+.unscheduled-task.classified {
     font-weight: 500;
     background: #f7f7fc;
 }
 
-.task-item.checked .task-text {
+.unscheduled-task.checked .unscheduled-task-text {
     text-decoration: line-through;
     color: #888;
 }
 
-.task-text {
+.unscheduled-task-text {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;

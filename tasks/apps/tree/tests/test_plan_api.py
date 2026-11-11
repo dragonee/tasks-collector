@@ -96,6 +96,41 @@ class PlanAddTaskTestCase(APITestCase):
 
         self.assertEqual(self._add_today("c").focus, "a\nb\nc")
 
+    def test_the_callers_date_decides_which_day_is_today(self):
+        # Late evening for the caller, already tomorrow on the server (UTC),
+        # or the other way round: the plan is the one for their day.
+        for timeframe, thread, pub_date in (
+            ("today", "Daily", "2026-03-04"),
+            ("tomorrow", "Daily", "2026-03-05"),
+            ("this_week", "Weekly", "2026-03-08"),
+        ):
+            with self.subTest(timeframe=timeframe):
+                resp = self.client.post(
+                    self.url,
+                    {"text": "x", "timeframe": timeframe, "date": "2026-03-04"},
+                    format="json",
+                )
+
+                self.assertEqual(resp.status_code, status.HTTP_200_OK)
+                self.assertEqual(resp.json()["plan_date"], pub_date)
+                self.assertTrue(
+                    Plan.objects.filter(
+                        pub_date=pub_date,
+                        thread=make_thread(self.user, thread),
+                        focus="x",
+                    ).exists()
+                )
+
+    def test_a_malformed_date_is_refused(self):
+        resp = self.client.post(
+            self.url,
+            {"text": "x", "timeframe": "today", "date": "4 March"},
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Plan.objects.exists())
+
 
 class PlanAndReflectionCreateTestCase(APITestCase):
     """plans/ and reflections/ create on one of the caller's threads, named
@@ -141,3 +176,17 @@ class PlanAndReflectionCreateTestCase(APITestCase):
                     self.assertIn("thread", resp.json())
         self.assertFalse(Plan.objects.exists())
         self.assertFalse(Reflection.objects.exists())
+
+    def test_a_second_one_for_the_same_thread_and_date_is_refused(self):
+        for url, model, field in (
+            ("/plans/", Plan, "focus"),
+            ("/reflections/", Reflection, "good"),
+        ):
+            with self.subTest(url=url):
+                payload = {"pub_date": "2026-11-11", field: "x", "thread": "Daily"}
+                self.client.post(url, payload, format="json")
+
+                resp = self.client.post(url, payload, format="json")
+
+                self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(model.objects.count(), 1)

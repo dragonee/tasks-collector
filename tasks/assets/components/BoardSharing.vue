@@ -26,7 +26,7 @@
                 <button type="submit">Share</button>
             </form>
 
-            <p class="meta">They can see and change this board, tick its tasks and commit it.</p>
+            <p class="meta">They can see and change this board, tick its unscheduled tasks and commit it.</p>
             <p v-if="error" class="board-sharing-error">{{ error }}</p>
         </div>
     </div>

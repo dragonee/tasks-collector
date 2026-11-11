@@ -101,10 +101,10 @@ fun BoardPickerScreen(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // Append a new task straight onto this board's backlog — for capturing
-        // something to do later, distinct from the checkbox selection below
+        // Append a new unscheduled task straight onto this board — for
+        // capturing something to do later, distinct from the checkbox selection below
         // (which schedules existing board items onto the chosen day).
-        AddTaskRow(onAdd = vm::addTask, enabled = configured)
+        AddUnscheduledTaskRow(onAdd = vm::addUnscheduledTask, enabled = configured)
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
@@ -157,7 +157,7 @@ fun BoardPickerScreen(
 // button. The draft is cleared as soon as Add is tapped (the ViewModel reloads
 // the board on success, or surfaces an error banner on failure).
 @Composable
-private fun AddTaskRow(onAdd: (String) -> Unit, enabled: Boolean) {
+private fun AddUnscheduledTaskRow(onAdd: (String) -> Unit, enabled: Boolean) {
     var draft by remember { mutableStateOf("") }
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),

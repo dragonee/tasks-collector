@@ -108,7 +108,7 @@ def _check_matching_board_tasks(user, comment, published):
     changed = False
     for _field, line in extract_reflection_lines(comment):
         base = base_of(line)
-        hit = board_tree.find_task_by_base(board.state, base)
+        hit = board_tree.find_unscheduled_task_by_base(board.state, base)
         if hit is None:
             continue
         _, _, node = hit

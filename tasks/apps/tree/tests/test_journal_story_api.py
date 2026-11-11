@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..board_operations import create_task_item
+from ..board_operations import create_unscheduled_task
 from ..models import (
     HabitTracked,
     JournalAdded,
@@ -103,7 +103,7 @@ class JournalBoardCheckEndpointTestCase(APITestCase):
     def setUp(self):
         self.client.force_authenticate(user=self.user)
         self.board = make_board(
-            thread=self.daily, state=[create_task_item("Do tasks (3)")]
+            thread=self.daily, state=[create_unscheduled_task("Do tasks (3)")]
         )
 
     def test_journal_post_crosses_matching_progress_task_at_total(self):
