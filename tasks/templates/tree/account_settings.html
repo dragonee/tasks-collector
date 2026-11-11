@@ -63,5 +63,18 @@
             <button type="submit" class="btn btn-primary submit">Save Settings</button>
         </form>
     </section>
+
+    {% if board_sharing %}
+    <section class="journal board-sharing" id="board-sharing">
+        <h2>Shared boards</h2>
+        <p class="meta">Share a board with someone to work on it together. Daily, Weekly and big-picture stay yours.</p>
+        {% for panel in board_sharing %}
+            <div class="board-sharing-thread" id="board-{{ panel.thread.pk }}">
+                <h3>{{ panel.thread.name }}</h3>
+                {% include "tree/_stream_sharing.html" with sharing=panel.sharing %}
+            </div>
+        {% endfor %}
+    </section>
+    {% endif %}
 </div>
 {% endblock %}

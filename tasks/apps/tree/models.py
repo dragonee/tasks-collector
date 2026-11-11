@@ -80,11 +80,15 @@ class EventStream(models.Model):
 
 class EventStreamAccess(models.Model):
     """A user's access to a whole stream. Every stream has exactly one
-    owner; sharing adds viewers."""
+    owner; sharing adds viewers (read only) or, for boards, editors (read and
+    change)."""
 
     class Role(models.TextChoices):
         OWNER = "owner", _("Owner")
+        EDITOR = "editor", _("Editor")
         VIEWER = "viewer", _("Viewer")
+
+    WRITE_ROLES = (Role.OWNER, Role.EDITOR)
 
     stream = models.ForeignKey(
         EventStream, on_delete=models.CASCADE, related_name="access"
@@ -120,6 +124,18 @@ class ThreadQuerySet(models.QuerySet):
     def daily(self, user):
         """``user``'s Daily thread, where diary-style entries land."""
         return self.get(user=user, name=Thread.DAILY)
+
+    def board_editable_by(self, user):
+        """Threads whose board ``user`` may change: their own, and the boards
+        shared with them as editor. Their own come first, so a name they share
+        with a shared board finds their own."""
+        return self.filter(
+            board_stream__access__user=user,
+            board_stream__access__role__in=EventStreamAccess.WRITE_ROLES,
+        ).order_by(
+            models.Case(models.When(user=user, then=0), default=1),
+            "name",
+        )
 
 
 class Thread(models.Model):
@@ -232,9 +248,12 @@ class Event(PolymorphicModel):
     # Who wrote the event. Provenance only: what someone may see or change is
     # decided by stream access, never by this. Defaults to whoever started the
     # event's stream (see save); writes on behalf of a user pass it explicitly.
+    # Null once the writer is deleted: an editor's commits stay on the board
+    # they shared, which isn't theirs to take with them.
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.RESTRICT,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name="created_events",
         editable=False,
     )
@@ -292,8 +311,9 @@ class Event(PolymorphicModel):
                 "about determines its stream."
             )
 
-        if self.created_by_id is None:
+        if self._state.adding and self.created_by_id is None:
             # Nobody acting on another's behalf: the stream's own user wrote it.
+            # Only on insert: a writer who was deleted stays unknown.
             self.created_by_id = (
                 EventStream.objects.filter(pk=self.event_stream_id)
                 .values_list("created_by", flat=True)
@@ -489,6 +509,16 @@ class HabitTracked(Event):
         return "{} {}".format(self.habit, self.published)
 
 
+class BoardQuerySet(models.QuerySet):
+    def editable_by(self, user):
+        """Boards ``user`` may read and change: the boards of their own threads
+        and the boards shared with them (see ``Thread.board_editable_by``)."""
+        return self.filter(
+            thread__board_stream__access__user=user,
+            thread__board_stream__access__role__in=EventStreamAccess.WRITE_ROLES,
+        )
+
+
 class Board(models.Model):
     date_started = models.DateTimeField(default=timezone.now)
 
@@ -497,6 +527,8 @@ class Board(models.Model):
     focus = models.CharField(max_length=255, null=True, blank=True)
 
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE, null=True)
+
+    objects = BoardQuerySet.as_manager()
 
     class Meta:
         ordering = ("-date_started",)

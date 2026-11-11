@@ -38,9 +38,30 @@ class UserThreadField(serializers.SlugRelatedField):
 
 
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
+    # The owner's username when this is someone else's board shared with the
+    # requesting user; null for their own threads.
+    shared_by = serializers.SerializerMethodField()
+    # The board's stream, whose sharing ``api/streams/<id>/sharing/`` reads
+    # and changes when ``shareable``: the requesting user's own board, other
+    # than the built-in ones (see ``services.streams``).
+    board_stream = serializers.UUIDField(source="board_stream_id", read_only=True)
+    shareable = serializers.SerializerMethodField()
+
+    def _is_own(self, thread):
+        request = self.context.get("request")
+        return request is not None and thread.user_id == request.user.pk
+
+    def get_shared_by(self, thread):
+        if self.context.get("request") is None or self._is_own(thread):
+            return None
+        return thread.user.username
+
+    def get_shareable(self, thread):
+        return self._is_own(thread) and not thread.is_builtin
+
     class Meta:
         model = Thread
-        fields = ["id", "name"]
+        fields = ["id", "name", "shared_by", "board_stream", "shareable"]
 
 
 class HabitSerializer(serializers.HyperlinkedModelSerializer):

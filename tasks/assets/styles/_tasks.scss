@@ -407,6 +407,78 @@
     }
 }
 
+// Sharing the board shown (BoardSharing.vue): a button in the controls row
+// that opens a small panel below it.
+.board-sharing {
+    position: relative;
+
+    .board-sharing-toggle {
+        background: transparent;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        color: #343434;
+        cursor: pointer;
+    }
+
+    .board-sharing-panel {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 20;
+        width: 18rem;
+        padding: 0.75rem;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        cursor: default;
+
+        p {
+            margin: 0.5rem 0 0;
+        }
+
+        .meta {
+            color: #999;
+        }
+    }
+
+    .board-sharing-users {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button {
+            padding: 0;
+            border: 0;
+            background: none;
+            color: #1971c2;
+            cursor: pointer;
+        }
+    }
+
+    .board-sharing-add {
+        display: flex;
+        gap: 0.35rem;
+        margin-top: 0.5rem;
+
+        input {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+    }
+
+    .board-sharing-error {
+        color: #c92a2a;
+    }
+}
+
 .tree > .tree-root {
     margin: 0;
 }

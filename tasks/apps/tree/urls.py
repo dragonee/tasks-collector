@@ -310,11 +310,16 @@ urlpatterns = [
         views.JournalTagArchiveMonthView.as_view(month_format="%m"),
         name="public-diary-archive-month-tag",
     ),
-    # === Sharing a trip, observation or projected outcome (views_sharing) ===
+    # === Sharing a trip, observation, projected outcome or board (views_sharing) ===
     path(
         "streams/<uuid:stream_id>/sharing/",
         views_sharing.stream_sharing,
         name="stream-sharing",
+    ),
+    path(
+        "api/streams/<uuid:stream_id>/sharing/",
+        views_sharing.stream_sharing_api,
+        name="stream-sharing-api",
     ),
     # === Trips (views_trip) — web mirror of the Android trips ===
     path("trips/", views_trip.trip_list, name="trip-list"),

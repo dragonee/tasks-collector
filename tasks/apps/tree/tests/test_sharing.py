@@ -11,6 +11,7 @@ from django.utils import timezone
 from ..models import (
     Breakthrough,
     EventStreamAccess,
+    Habit,
     JournalAdded,
     Observation,
     ObservationType,
@@ -19,7 +20,7 @@ from ..models import (
     Thread,
 )
 from ..services.observations.closing import close_observation
-from ..services.streams import SharingError, revoke, share, viewers
+from ..services.streams import SharingError, revoke, share, shared_with
 from ..services.trips import add_trip_note, start_trip
 
 User = get_user_model()
@@ -74,7 +75,7 @@ class ShareServiceTestCase(SharingTestCase):
         share(self.alice, self.trip.event_stream, "bob")
         share(self.alice, self.trip.event_stream, "bob")
 
-        self.assertEqual(list(viewers(self.trip.event_stream)), [self.bob])
+        self.assertEqual(list(shared_with(self.trip.event_stream)), [self.bob])
         self.assertEqual(
             EventStreamAccess.objects.get(
                 stream=self.trip.event_stream, user=self.bob
@@ -84,7 +85,7 @@ class ShareServiceTestCase(SharingTestCase):
 
         revoke(self.alice, self.trip.event_stream, "bob")
 
-        self.assertEqual(list(viewers(self.trip.event_stream)), [])
+        self.assertEqual(list(shared_with(self.trip.event_stream)), [])
 
     def test_only_the_owner_can_share(self):
         with self.assertRaises(SharingError):
@@ -96,9 +97,27 @@ class ShareServiceTestCase(SharingTestCase):
         with self.assertRaises(SharingError):
             share(self.bob, self.trip.event_stream, "carol")
 
-    def test_diaries_boards_and_habits_are_not_shareable(self):
-        with self.assertRaises(SharingError):
-            share(self.alice, Thread.objects.daily(self.alice).journal_stream, "bob")
+    def test_diaries_habits_and_builtin_boards_are_not_shareable(self):
+        daily = Thread.objects.daily(self.alice)
+        habit = Habit.objects.filter(user=self.alice).first()
+
+        for stream in (daily.journal_stream, daily.board_stream, habit.event_stream):
+            with self.subTest(stream.type), self.assertRaises(SharingError):
+                share(self.alice, stream, "bob")
+
+    def test_the_owners_shares_dont_change_on_revoking_the_owner(self):
+        share(self.alice, self.trip.event_stream, "bob")
+
+        revoke(self.alice, self.trip.event_stream, "alice")
+
+        self.assertEqual(list(shared_with(self.trip.event_stream)), [self.bob])
+        self.assertTrue(
+            EventStreamAccess.objects.filter(
+                stream=self.trip.event_stream,
+                user=self.alice,
+                role=EventStreamAccess.Role.OWNER,
+            ).exists()
+        )
 
     def test_unknown_user_and_self_are_refused(self):
         with self.assertRaisesMessage(SharingError, "no user called"):
@@ -121,7 +140,7 @@ class SharingEndpointTestCase(SharingTestCase):
         )
 
         self.assertContains(response, "bob")
-        self.assertEqual(list(viewers(self.trip.event_stream)), [self.bob])
+        self.assertEqual(list(shared_with(self.trip.event_stream)), [self.bob])
 
     def test_errors_show_in_the_panel(self):
         self.client.force_login(self.alice)
@@ -152,7 +171,7 @@ class SharingEndpointTestCase(SharingTestCase):
         response = self.client.post(self.url(), {"action": "share", "username": "bob"})
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(list(viewers(self.trip.event_stream)), [])
+        self.assertEqual(list(shared_with(self.trip.event_stream)), [])
 
 
 @PRESIGN

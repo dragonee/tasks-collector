@@ -54,17 +54,8 @@
                 <a>Move to</a>
 
                 <ul class="v-context">
-                    <li>
-                        <a href="#" v-if="currentThread.name != 'Sidetrack'" @click.prevent="onClick('transition', {... child.data, value: 'Sidetrack' })">Sidetrack</a>
-                    </li>
-                    <li>
-                        <a href="#" v-if="currentThread.name != 'Daily'" @click.prevent="onClick('transition', {... child.data, value: 'Daily' })">Daily</a>
-                    </li>
-                    <li>
-                        <a href="#" v-if="currentThread.name == 'Books'" @click.prevent="onClick('transition', {... child.data, value: 'Read' })">Read (backlog)</a>
-                    </li>
-                    <li>
-                        <a href="#" v-if="currentThread.name != 'Trash'" @click.prevent="onClick('transition', {... child.data, value: 'Trash' })">🗑 Trash</a>
+                    <li v-for="thread in moveTargets" :key="thread.id">
+                        <a href="#" @click.prevent="onClick('transition', {... child.data, value: thread.name })">{{ moveTargetLabel(thread) }}</a>
                     </li>
                     <li>
                         <a href="#" @click.prevent="onClick('transition', {... child.data, value: UNSET })">Clear</a>
@@ -189,6 +180,25 @@
   provide('menu', () => menu.value)
 
   const currentThread = computed(() => opts.store?.store?.currentThread ?? null)
+
+  // Where an item can be marked to move on commit: every board the user may
+  // change (their own threads, then the boards shared with them) but the one
+  // shown. A shared board named like one of their own is left out: the commit
+  // would pick their own.
+  const moveTargets = computed(() => {
+      const threads = opts.store?.store?.threads ?? []
+      const own = new Set(threads.filter(t => !t.shared_by).map(t => t.name))
+      return threads.filter(t =>
+          t.id !== currentThread.value?.id && !(t.shared_by && own.has(t.name))
+      )
+  })
+
+  function moveTargetLabel(thread) {
+      if (thread.shared_by) {
+          return `${thread.name} (${thread.shared_by})`
+      }
+      return thread.name === 'Trash' ? '🗑 Trash' : thread.name
+  }
 
   const visibleNodes = computed(() => (model.value || []).filter(node => node && node.visible()))
 

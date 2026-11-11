@@ -39,10 +39,10 @@
             <h2>
                 {% if not single_view %}
                 <a href="{% url 'board-summary' summary.board.id %}">
-                    {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
+                    {{ summary.board.date_closed|date }} ({{ summary.board.thread }}{% if summary.board.thread.user_id != request.user.id %}, shared by {{ summary.board.thread.user.username }}{% endif %}):
                 </a>
                 {% else %}
-                {{ summary.board.date_closed|date }} ({{ summary.board.thread }}):
+                {{ summary.board.date_closed|date }} ({{ summary.board.thread }}{% if summary.board.thread.user_id != request.user.id %}, shared by {{ summary.board.thread.user.username }}{% endif %}):
                 {% endif %}
                 <span class="focus">
                     {{ summary.board.focus }}
@@ -51,7 +51,7 @@
                     <small>
                         [{{ summary.board.date_started|date:"Y-m-d" }} –
                         {{ summary.board.date_closed|date:"Y-m-d" }},
-                        {{ summary.days }} days]
+                        {{ summary.days }} days{% if summary.board.created_by_id != request.user.id %}, committed by {{ summary.board.created_by.username|default:"a deleted user" }}{% endif %}]
                     </small>
                 </span>
             </h2>

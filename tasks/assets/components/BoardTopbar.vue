@@ -10,10 +10,16 @@
                 <span class="control-label">Thread</span>
                 <select :value="currentThreadId" @change="onThreadChange($event)">
                     <option v-for="thread in threads" :key="thread.id" :value="thread.id">
-                        {{ thread.name }}
+                        {{ thread.shared_by ? `${thread.name} (${thread.shared_by})` : thread.name }}
                     </option>
                 </select>
             </label>
+
+            <BoardSharing
+                v-if="currentThread?.shareable"
+                :stream-id="currentThread.board_stream"
+                class="control"
+            />
 
             <label class="control">
                 <span class="control-label">Mode</span>
@@ -77,6 +83,8 @@ import { useBoardStore } from '../store'
 import moment from 'moment'
 
 import CommitConfirmationModal from './CommitConfirmationModal.vue'
+
+import BoardSharing from './BoardSharing.vue'
 
 const boardStore = useBoardStore()
 
