@@ -130,6 +130,16 @@ class LogInTestCase(OAuthTestCase):
         self.assertEqual(self._trade(code, redirect_uri=debug).status_code, 200)
         self.assertEqual(ApiToken.objects.get().name, "Tasks Health")
 
+    def test_the_iphone_logs_in_as_a_client_of_its_own(self):
+        code = self._code(client_id="tasks-ios", device_name="iPhone")
+
+        # The code is the client's that asked for it.
+        self.assertEqual(self._trade(code).status_code, 400)
+
+        code = self._code(client_id="tasks-ios", device_name="iPhone")
+        self.assertEqual(self._trade(code, client_id="tasks-ios").status_code, 200)
+        self.assertEqual(ApiToken.objects.get().name, "Tasks Health on iPhone")
+
     def test_saying_no_gives_no_code(self):
         response = self.client.post(authorize_url(), {"deny": "1"})
 
