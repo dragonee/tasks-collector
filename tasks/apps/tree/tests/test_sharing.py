@@ -14,6 +14,8 @@ from ..models import (
     Habit,
     JournalAdded,
     Observation,
+    ObservationAttached,
+    ObservationDetached,
     ObservationType,
     ObservationUpdated,
     ProjectedOutcome,
@@ -247,6 +249,89 @@ class SharedObservationTestCase(SharingTestCase):
         self.assertContains(page, "Shared with you by alice")
         self.assertNotContains(page, "Extract insight")
         self.assertEqual(self.client.post(f"{url}extract-insight/").status_code, 404)
+
+    def attach_private_observation(self):
+        """Alice attaches an observation she doesn't share herself to the
+        shared one."""
+        attached = Observation.objects.create(
+            user=self.alice,
+            thread=Thread.objects.daily(self.alice),
+            type=self.obs_type,
+            pub_date=self.now.date(),
+            situation="the cause behind it",
+        )
+        ObservationUpdated.objects.create(
+            observation=attached, comment="found the cause", published=self.now
+        )
+        ObservationAttached.objects.create(
+            thread=self.observation.thread,
+            event_stream_id=self.observation.event_stream_id,
+            other_event_stream_id=attached.event_stream_id,
+            observation=attached,
+            published=self.now + datetime.timedelta(hours=1),
+        )
+        return attached
+
+    def test_a_shared_complex_observation_shows_what_is_attached(self):
+        attached = self.attach_private_observation()
+        share(self.alice, self.observation.event_stream, "bob")
+
+        page = self.client.get(f"/observations/{self.observation.pk}/")
+        attachments = self.client.get(
+            f"/observations/{self.observation.pk}/attachments/"
+        )
+
+        self.assertContains(page, "Attached (1)")
+        self.assertContains(page, "the cause behind it")
+        self.assertContains(page, "found the cause")
+        self.assertNotContains(page, f'href="{attached.get_absolute_url()}"')
+        self.assertNotContains(page, str(attached.event_stream_id))
+        self.assertEqual(
+            attachments.json()["attached_observation_stream_ids"],
+            [str(attached.event_stream_id)],
+        )
+        self.assertEqual(self.client.get(attached.get_absolute_url()).status_code, 404)
+
+    def test_a_shared_closed_complex_observation_shows_what_is_attached(self):
+        attached = self.attach_private_observation()
+        share(self.alice, self.observation.event_stream, "bob")
+        close_observation(attached.pk)
+        close_observation(self.observation.pk)
+
+        page = self.client.get(
+            f"/observations/closed/{self.observation.event_stream_id}/"
+        )
+
+        self.assertContains(page, "[closed] the cause behind it")
+        self.assertContains(page, "found the cause")
+        self.assertNotContains(page, str(attached.event_stream_id))
+
+    def test_a_detached_observation_is_named_and_no_longer_shown(self):
+        attached = self.attach_private_observation()
+        ObservationDetached.objects.create(
+            thread=self.observation.thread,
+            event_stream_id=self.observation.event_stream_id,
+            other_event_stream_id=attached.event_stream_id,
+            published=self.now + datetime.timedelta(hours=2),
+        )
+        share(self.alice, self.observation.event_stream, "bob")
+
+        page = self.client.get(f"/observations/{self.observation.pk}/")
+
+        self.assertContains(page, "Detached observation:")
+        self.assertContains(page, "the cause behind it")
+        self.assertNotContains(page, "Attached (")
+        self.assertNotContains(page, "found the cause")
+        self.assertNotContains(page, str(attached.event_stream_id))
+
+    def test_the_owner_keeps_the_links_to_what_is_attached(self):
+        attached = self.attach_private_observation()
+        self.client.force_login(self.alice)
+
+        page = self.client.get(f"/observations/{self.observation.pk}/")
+
+        self.assertContains(page, f'href="{attached.get_absolute_url()}"')
+        self.assertContains(page, "Attached (1)")
 
     def test_a_shared_observation_cannot_be_attached_to_ones_own(self):
         share(self.alice, self.observation.event_stream, "bob")

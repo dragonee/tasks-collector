@@ -80,7 +80,19 @@ no way to express that — boards are not shareable (`SHAREABLE_TYPES` in
 
 ### 2. A shared complex observation shows the unshared observations attached to it
 
-- [ ] Fix — reproduced
+- [x] Decided: intended — reproduced
+
+Decided: sharing a complex observation shares everything attached to it. Attaching
+needs ownership, so this only ever shares the sharer's own observations. The viewer
+reads them on the complex observation's page: the read-only shared page and the
+closed observation page now carry the Attached list and "Events from attached", and
+`ComplexPresenter` no longer filters by user. The attached observation's own page
+stays closed to the viewer, so the attach and detach events name it and link to it
+only for someone who can open it (`stream_visible_to`). The detach event shows the
+title instead of the stream id. Design point 7 in `multiuser-event-streams.md` says
+so now.
+
+What follows is the problem as found.
 
 `tasks/templates/tree/events/observation_attached.html` prints
 `event.observation.situation_truncated` (the first six words of the *attached*

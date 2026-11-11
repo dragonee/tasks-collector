@@ -54,6 +54,9 @@ Decisions already taken:
    `owned_by(user)`; object access and "shared with me" use `visible_to(user)`.
 7. **Sharing a stream shares its member events, nothing else** — a shared trip exposes
    its notes, photos and linked POI `HabitTracked` rows, not the owner's Daily journal.
+   One addition: sharing a complex observation shares the observations attached to
+   it. The viewer reads them on the complex observation's page, not on their own.
+   Only your own observations can be attached, so nothing of a third user's is shared.
 
 ## Target model
 
@@ -266,7 +269,8 @@ As built:
 - `ComplexPresenter(stream, user)` shows only attached observations the user can
   access; `is_attached` still answers from the full replay, so an owner can always
   detach. The attach target and `other_event_stream_id` are checked against access
-  (no more probing other users' stream ids).
+  (no more probing other users' stream ids). Later reversed: `ComplexPresenter`
+  takes no user and shows everything attached (design point 7).
 - `test_route_isolation.py` walks every route of the app with every method as a
   second user pointed at the first user's objects: no response may contain the
   first user's data, none may be a server error, and the first user's data must be
@@ -297,6 +301,9 @@ As built:
   the timeline instead of the editor), breakthrough page.
 - Attaching is limited to your own observations: a shared observation can't be
   attached, so a viewer's complex observation never depends on someone else's.
+- A viewer of a complex observation reads everything attached to it: the shared and
+  closed pages show the Attached list and "Events from attached". The attach and
+  detach events link to the attached observation only for someone who can open it.
 - Personal pages stay personal: shared trip notes don't appear in the viewer's
   diary, event archive, today page or daily events.
 
