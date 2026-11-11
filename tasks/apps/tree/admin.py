@@ -218,7 +218,8 @@ class BreakthroughAdmin(admin.ModelAdmin):
 
 
 class JournalTagAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug")
+    list_display = ("name", "slug", "user")
+    list_filter = ("user",)
 
     prepopulated_fields = {"slug": ("name",)}
 

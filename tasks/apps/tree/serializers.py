@@ -37,6 +37,21 @@ class UserThreadField(serializers.SlugRelatedField):
         return Thread.objects.for_user(request.user)
 
 
+class UserJournalTagField(serializers.SlugRelatedField):
+    """A journal tag given by slug. Tags are per user, so a slug is looked up
+    among the requesting user's tags."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("slug_field", "slug")
+        super().__init__(**kwargs)
+
+    def get_queryset(self):
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return JournalTag.objects.none()
+        return JournalTag.objects.filter(user=request.user)
+
+
 class ThreadSerializer(serializers.HyperlinkedModelSerializer):
     # The owner's username when this is someone else's board shared with the
     # requesting user; null for their own threads.
@@ -235,11 +250,7 @@ class ObservationWithUpdatesSerializer(ObservationSerializer):
 class JournalAddedSerializer(serializers.ModelSerializer):
     thread = UserThreadField()
 
-    tags = serializers.SlugRelatedField(
-        many=True,
-        queryset=JournalTag.objects.all(),
-        slug_field="slug",
-    )
+    tags = UserJournalTagField(many=True)
 
     # JournalAdded has no `story` attribute; the viewset adds the entry to the
     # trip's stream. Write-only so output never tries to read

@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import prefetch_related_objects
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.generic.dates import MonthArchiveView
 
@@ -266,7 +266,7 @@ class JournalArchiveContextMixin:
         context = super().get_context_data(**kwargs)
         context["order"] = self.get_order()
         context["dates"] = self.get_queryset().dates("published", "month", order="DESC")
-        context["tags"] = JournalTag.objects.all()
+        context["tags"] = JournalTag.objects.filter(user=self.request.user)
 
         # Render trip photos and badges the same way today.html does: presign
         # thumbnails and prefetch the trip each entry is part of (one query for
@@ -334,10 +334,22 @@ class JournalArchiveMonthView(
 
 
 class JournalTagArchiveContextMixin(JournalArchiveContextMixin):
+    """The diary filtered to one of the user's tags; any other slug is 404."""
+
+    def get_tag(self):
+        if not hasattr(self, "_tag"):
+            self._tag = get_object_or_404(
+                JournalTag, user=self.request.user, slug=self.kwargs["slug"]
+            )
+        return self._tag
+
+    def get_queryset(self):
+        return super().get_queryset().filter(tags=self.get_tag())
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        context["tag"] = JournalTag.objects.get(slug=self.kwargs["slug"])
+        context["tag"] = self.get_tag()
 
         return context
 
@@ -349,9 +361,6 @@ class JournalTagArchiveMonthView(
     date_field = "published"
     allow_future = True
 
-    def get_queryset(self):
-        return super().get_queryset().filter(tags__slug=self.kwargs["slug"])
-
     template_name = "tree/journaladded_archive_month.html"
 
 
@@ -361,9 +370,6 @@ class JournalTagCurrentMonthArchiveView(
     model = JournalAdded
     date_field = "published"
     allow_future = True
-
-    def get_queryset(self):
-        return super().get_queryset().filter(tags__slug=self.kwargs["slug"])
 
     template_name = "tree/journaladded_archive_month.html"
 

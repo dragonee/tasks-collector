@@ -349,11 +349,21 @@ without a row.
 - [ ] **One trip per event is no longer enforced by the database.** `Story.add`
   (`models.py`) checks, then inserts; two concurrent adds of one event to two trips
   can both pass. `StoryEvent`'s one-to-one used to refuse the second.
-- [ ] **`JournalTag` is global**: every user sees and can use all tag names
+- [x] **`JournalTag` is global**: every user sees and can use all tag names
   (`views.py`, `forms.py`, `serializers.py`). A user created in the admin sees every
   tag name of the production copy in the tag list on `/diary/add/` (clients). The
   CLI's `-T <tag>` fails unless the tag already exists. Not in the plan; decide
   whether tags are per user.
+
+  Decided and done: tags are per user. `JournalTag.user`, with slugs unique per
+  user (0095–0097). The migration gives each tag to the owner if they used it (or
+  nobody did), otherwise to the first user who did, and copies it for every other
+  user who tagged an entry with it, moving their entries to the copy. On a copy of
+  the dev database: dragonee keeps the five tags with all their entries, and tester
+  gets a "thoughts" of their own for their one entry. The diary's tag list and tag
+  pages, the add form and the journal API's `tags` read the user's own tags only;
+  someone else's slug answers like an unknown one. Tags are still created only in
+  the admin, so a new user has none until one is made for them there.
 - [ ] **Sharing by username tells whether a username exists** ("There is no user
   called …"). Inherent to the design; acceptable among known users.
 
@@ -400,8 +410,9 @@ entries runs 9 queries, and an observation with 51 updates 14.
 ## Older bugs met on the way (not from this work)
 
 500s:
-- [ ] `/diary/<unknown-slug>/` — `JournalTag.DoesNotExist` instead of 404
-  (reproduced, clients). `/diary/2026/` lands on the same route.
+- [x] `/diary/<unknown-slug>/` — `JournalTag.DoesNotExist` instead of 404
+  (reproduced, clients). `/diary/2026/` lands on the same route. Fixed with per-user
+  tags: the tag pages answer 404 for a slug that isn't one of the user's tags.
 - [ ] Photo upload confirm (`POST /api/v1/android/photo/`,
   `/api/v1/android/trip/photo/`) when the bucket can't be reached —
   `object_exists` (`services/photos/storage.py:115`) lets botocore's

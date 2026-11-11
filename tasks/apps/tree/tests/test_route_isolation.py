@@ -88,7 +88,9 @@ class RouteIsolationTestCase(APITestCase):
         Plan.objects.create(pub_date=cls.day, thread=daily, focus=SECRET)
         Reflection.objects.create(pub_date=cls.day, thread=daily, good=SECRET)
 
-        cls.tag = JournalTag.objects.create(name="Tag", slug="secret-habit")
+        cls.tag = JournalTag.objects.create(
+            user=alice, name=f"{SECRET}-tag", slug="secret-habit"
+        )
         cls.journal = JournalAdded.objects.create(
             thread=daily, comment=SECRET, published=now
         )
