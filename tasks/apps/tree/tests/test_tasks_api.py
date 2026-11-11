@@ -368,6 +368,53 @@ class ChangeTestCase(TaskAPITestCase):
             trip_links(story=trip, event=JournalAdded.objects.get()).exists()
         )
 
+    def test_the_bodies_the_android_app_sends(self):
+        # Its JSON encoder writes defaults, nulls included, and a call
+        # without a body is sent with none at all.
+        task = self._create(text="call bank", thread="Daily")
+
+        done = self.client.post(
+            reverse("task-complete", kwargs={"task_id": task["id"]}),
+            {
+                "day": DAY.isoformat(),
+                "at": "2026-06-25T21:30:00.123+02:00",
+                "note": None,
+                "story_id": None,
+                "idempotency_key": "0b5c1d0e-7a53-4d0b-9d53-2f6d3c1f5a11",
+            },
+            format="json",
+        )
+        self.assertEqual(done.status_code, status.HTTP_200_OK, done.content)
+        self.assertTrue(done.json()["done"])
+        self.assertFalse(JournalAdded.objects.exists())
+
+        reopened = self.client.post(
+            reverse("task-reopen", kwargs={"task_id": task["id"]}),
+            data=None,
+            content_type="application/json",
+        )
+        self.assertEqual(reopened.status_code, status.HTTP_200_OK, reopened.content)
+        self.assertFalse(reopened.json()["done"])
+
+        moved = self._post(
+            "task-move",
+            {
+                "from_date": DAY.isoformat(),
+                "to_date": SUNDAY.isoformat(),
+                "thread": "Daily",
+            },
+            task_id=task["id"],
+        )
+        self.assertEqual(moved.status_code, status.HTTP_200_OK)
+
+        gone = self._post(
+            "task-unplan",
+            {"date": SUNDAY.isoformat(), "thread": "Daily"},
+            task_id=task["id"],
+        )
+        self.assertEqual(gone.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(gone.content, b"")
+
     def test_the_day_is_required(self):
         task = self._create(text="call bank")
 
