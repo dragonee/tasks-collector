@@ -17,7 +17,6 @@ from django.db import transaction
 
 from ...board_operations import board_thread_for
 from ...models import Board, PlanLine, Story, Thread
-from ...utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from ..boards import items
 from ..progress import base_of, parse_progress, render_count
 from ..tasks import agenda, documents
@@ -42,6 +41,10 @@ class BoardItem:
     moscow: Optional[str]
     depth: int
     done: bool
+    id: str
+    board_id: int
+    # Whether the item has a task; otherwise it is an unscheduled task.
+    planned: bool
 
 
 def _today(today, published=None):
@@ -52,7 +55,7 @@ def _today(today, published=None):
     return date_cls.today()
 
 
-def _owned_active_story(user, story_id):
+def owned_active_story(user, story_id):
     """Resolve the trip a completion note should be linked to.
 
     Raises the trips-domain errors so the view layer maps them the same
@@ -69,7 +72,7 @@ def _owned_active_story(user, story_id):
     return story
 
 
-def _lock_day(user):
+def lock_day(user):
     """Row-lock ``user``'s Daily thread until the transaction ends, and
     return it: the lock every write to their Today list takes first."""
     return Thread.objects.select_for_update().get(user=user, name=Thread.DAILY)
@@ -106,21 +109,25 @@ def list_today_tasks(user, today=None):
     return tasks_of_the_day
 
 
-def _flatten_board(nodes, depth, out):
+def _flatten_board(board, nodes, depth, out):
     """Pre-order DFS over the Board.state tree, appending one BoardItem per
     node so parents precede their children and ``depth`` reflects nesting.
     """
     for node in nodes or []:
-        markers = (node.get("data") or {}).get("meaningfulMarkers") or {}
+        data = node.get("data") or {}
+        markers = data.get("meaningfulMarkers") or {}
         out.append(
             BoardItem(
                 text=items.text_of(node),
                 moscow=markers.get("moscow"),
                 depth=depth,
                 done=items.is_checked(node),
+                id=node.get("id"),
+                board_id=board.pk,
+                planned=bool(data.get("taskId")),
             )
         )
-        _flatten_board(node.get("children") or [], depth + 1, out)
+        _flatten_board(board, node.get("children") or [], depth + 1, out)
     return out
 
 
@@ -129,7 +136,7 @@ def list_board_items(user):
     Android 'add from board' picker. Read-only — no transaction needed.
     """
     board = _current_board(user)
-    return _flatten_board(board.state, 0, [])
+    return _flatten_board(board, board.state, 0, [])
 
 
 def _find_line(plan, text):
@@ -199,16 +206,12 @@ def planned_task(user, text, day, threads=Thread.BUILTIN_NAMES):
     """The task ``text`` names on the plans ``user`` has for ``day``: the
     day's, the week's, the month's (those of ``threads``). None when no plan
     has such a line. Call it inside a transaction."""
-    periods = {
-        Thread.DAILY: day,
-        Thread.WEEKLY: make_last_day_of_the_week(day),
-        Thread.BIG_PICTURE: make_last_day_of_the_month(day),
-    }
     for thread_name in threads:
         thread = Thread.objects.filter(user=user, name=thread_name).first()
         if thread is None:
             continue
-        line = _find_line(documents.plan_for(thread, periods[thread_name]), text)
+        pub_date = agenda.period_end(thread_name, day)
+        line = _find_line(documents.plan_for(thread, pub_date), text)
         if line is not None:
             return _task_of(user, line)
     return None
@@ -262,23 +265,52 @@ def _task_for_text(user, text, day, any_board=False):
 @transaction.atomic
 def plan_text(user, text, thread_name, pub_date, day, any_board=False):
     """Put the task ``text`` names on ``user``'s plan of the thread called
-    ``thread_name`` for ``pub_date``, and return the plan.
+    ``thread_name`` for ``pub_date``, and return the task.
 
-    That is, in this order: nothing when the plan has it; the task of that
-    text already planned for the week or the month of ``day``, or for a
-    recent day; the task of the board item of that text (the item becomes
-    planned); a new task. A task typed in here is not written to the board.
+    That is, in this order: the task of the line the plan has of that text;
+    the task of that text already planned for the week or the month of
+    ``day``, or for a recent day; the task of the board item of that text (the
+    item becomes planned); a new task. A task typed in here is not written
+    to the board.
 
     Raises ``Thread.DoesNotExist`` when the user has no such thread.
     """
-    _lock_day(user)
+    lock_day(user)
     thread = Thread.objects.get(user=user, name=thread_name)
     plan = documents.plan_for(thread, pub_date, create=True)
 
-    if _find_line(plan, text) is None:
-        tasks.plan(_task_for_text(user, text, day, any_board=any_board), plan)
+    line = _find_line(plan, text)
+    if line is not None:
+        return _task_of(user, line)
 
-    return plan
+    task = _task_for_text(user, text, day, any_board=any_board)
+    tasks.plan(task, plan)
+    return task
+
+
+@transaction.atomic
+def plan_item(user, board_id, item_id, thread_name, pub_date):
+    """Put the task of a board item on ``user``'s plan of the thread called
+    ``thread_name`` for ``pub_date``, and return the task. The item becomes
+    planned if it was an unscheduled task.
+
+    Raises ``Board.DoesNotExist`` for a board the user may not change,
+    ``LookupError`` when it has no such item, and ``Thread.DoesNotExist``.
+    """
+    lock_day(user)
+    board = Board.objects.editable_by(user).select_for_update().get(pk=board_id)
+    item = next(
+        (item for item in items.walk(board.state) if item.get("id") == item_id),
+        None,
+    )
+    if item is None:
+        raise LookupError(f"board {board_id} has no item {item_id!r}")
+
+    thread = Thread.objects.get(user=user, name=thread_name)
+    plan = documents.plan_for(thread, pub_date, create=True)
+    task = tasks.task_for_item(user, board, item)
+    tasks.plan(task, plan)
+    return task
 
 
 def add_task(user, text, today=None):
@@ -289,7 +321,7 @@ def add_task(user, text, today=None):
 
 def _set_done(user, text, done, today, published, note=None, story_id=None):
     day = _today(today, published)
-    daily = _lock_day(user)
+    daily = lock_day(user)
     plan = documents.plan_for(daily, day, create=True)
 
     line = _find_line(plan, text)
@@ -309,7 +341,7 @@ def _set_done(user, text, done, today, published, note=None, story_id=None):
     if task.done and parse_progress(task.text) is None:
         return tasks.display_text(task)
 
-    story = _owned_active_story(user, story_id) if story_id is not None else None
+    story = owned_active_story(user, story_id) if story_id is not None else None
     tasks.complete(task, user, day=day, at=published, note=note, story=story)
     task.refresh_from_db()
     return tasks.display_text(task)
@@ -352,7 +384,7 @@ def delete_task(user, text, today=None):
     """Take the task ``text`` names off the day's plan. The board is left
     alone, and so is what the reflection says."""
     day = _today(today)
-    daily = _lock_day(user)
+    daily = lock_day(user)
     plan = documents.plan_for(daily, day)
 
     line = _find_line(plan, text)
@@ -369,7 +401,7 @@ def delete_task(user, text, today=None):
 def move_task(user, text, from_date, to_date):
     """Move the task ``text`` names from one day's plan to another's. It is
     the same task on the new day, with the steps done so far."""
-    daily = _lock_day(user)
+    daily = lock_day(user)
     from_plan = documents.plan_for(daily, from_date)
 
     line = _find_line(from_plan, text)

@@ -24,7 +24,7 @@ from .serializers import *
 from .services.journalling import process_journal_entry
 from .services.photos import attach_photo_urls
 from .services.tasks import documents
-from .services.today import plan_tasks, plan_text
+from .services.today import plan_item, plan_tasks, plan_text
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
 from .views_sharing import board_sharing_panels
@@ -152,54 +152,40 @@ class StoryViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
-def _add_task_to_plan(user, text, timeframe, today=None):
-    """Helper function to add a task to one of ``user``'s plans
-
-    Args:
-        user: The owner of the plan's thread
-        text: The task text to add
-        timeframe: One of 'today', 'tomorrow', 'this_week'
-        today: The day it is for the user. Defaults to the server's, which
-            is a different day for part of every night.
-
-    Returns:
-        The Plan object that was created or updated
-    """
-    from datetime import date, timedelta
-
-    if today is None:
-        today = date.today()
+def _timeframe_plan(timeframe, today):
+    """(thread name, plan date) of 'today', 'tomorrow' or 'this_week', seen
+    from the day ``today``."""
+    from datetime import timedelta
 
     if timeframe == "today":
-        focus_date = today
-        thread_name = Thread.DAILY
-    elif timeframe == "tomorrow":
-        focus_date = today + timedelta(days=1)
-        thread_name = Thread.DAILY
-    elif timeframe == "this_week":
-        focus_date = make_last_day_of_the_week(today)
-        thread_name = Thread.WEEKLY
-    else:
-        raise ValueError(f"Invalid timeframe: {timeframe}")
-
-    # The text is that of a board item, of whichever board the user had open.
-    return plan_text(user, text, thread_name, focus_date, today, any_board=True)
+        return Thread.DAILY, today
+    if timeframe == "tomorrow":
+        return Thread.DAILY, today + timedelta(days=1)
+    if timeframe == "this_week":
+        return Thread.WEEKLY, make_last_day_of_the_week(today)
+    raise ValueError(f"Invalid timeframe: {timeframe}")
 
 
 @api_view(["POST"])
 def add_task_to_plan(request):
-    """Add a task to a plan (today, tomorrow, or this week)"""
+    """Plan a board item for today, tomorrow or this week.
+
+    The item is named by ``board_id`` and ``item_id``; a client that doesn't
+    send them names it by its ``text``, on whichever board has it. ``date``
+    is the caller's own day (YYYY-MM-DD), the server's when it is left out.
+    """
     task_text = request.data.get("text")
+    item_id = request.data.get("item_id")
+    board_id = request.data.get("board_id")
     timeframe = request.data.get("timeframe")  # 'today', 'tomorrow', 'this_week'
 
-    if not task_text or not timeframe:
+    if not timeframe or not (task_text or (item_id and board_id)):
         return RestResponse(
-            {"error": "text and timeframe are required"},
+            {"error": "timeframe and an item (or its text) are required"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # The caller's own day (YYYY-MM-DD); optional for clients that predate it.
-    today = None
+    today = date_cls.today()
     if request.data.get("date"):
         try:
             today = date_cls.fromisoformat(str(request.data["date"]))
@@ -210,21 +196,41 @@ def add_task_to_plan(request):
             )
 
     try:
-        plan = _add_task_to_plan(request.user, task_text, timeframe, today=today)
-        return RestResponse(
-            {
-                "success": True,
-                "plan_id": plan.id,
-                "plan_date": plan.pub_date,
-            },
-            status=status.HTTP_200_OK,
-        )
+        thread_name, pub_date = _timeframe_plan(timeframe, today)
+        if item_id and board_id:
+            task = plan_item(
+                request.user, board_id, str(item_id), thread_name, pub_date
+            )
+        else:
+            task = plan_text(
+                request.user, task_text, thread_name, pub_date, today, any_board=True
+            )
     except Thread.DoesNotExist:
         return RestResponse(
             {"error": "Required thread not found"}, status=status.HTTP_404_NOT_FOUND
         )
+    except Board.DoesNotExist, LookupError:
+        return RestResponse(
+            {"error": "No such board item"}, status=status.HTTP_404_NOT_FOUND
+        )
     except ValueError as e:
         return RestResponse({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    plan = Plan.objects.get(
+        thread__user=request.user,
+        lines__task=task,
+        pub_date=pub_date,
+        thread__name=thread_name,
+    )
+    return RestResponse(
+        {
+            "success": True,
+            "plan_id": plan.id,
+            "plan_date": plan.pub_date,
+            "task_id": task.pk,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 def _serialize_plan(user, pub_date, thread_name):

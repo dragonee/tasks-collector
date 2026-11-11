@@ -100,9 +100,10 @@ class AndroidTaskListView(APIView):
 @method_decorator(csrf_exempt, name="dispatch")
 class AndroidBoardListView(APIView):
     """Return the user's current board flattened to a depth-annotated list:
-    every node in pre-order, with its MoSCoW marker and done flag. Source for
-    the Android 'add from board' picker. The board is date-independent, so no
-    ``date`` parameter is required.
+    every item in pre-order, with its MoSCoW marker, done flag, id and board,
+    and whether it is planned (has a task). Source for the Android 'add from
+    board' picker. The board is date-independent, so no ``date`` parameter is
+    required.
     """
 
     authentication_classes = [TokenAuthentication]
@@ -121,6 +122,9 @@ class AndroidBoardListView(APIView):
                         "moscow": it.moscow,
                         "depth": it.depth,
                         "done": it.done,
+                        "id": it.id,
+                        "board_id": it.board_id,
+                        "planned": it.planned,
                     }
                     for it in items
                 ]

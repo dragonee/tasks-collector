@@ -17,9 +17,10 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from ...models import PhotoAdded
+from ..idempotency import existing_event
 from ..journalling import process_journal_entry
 from . import storage as photo_storage
-from .events import PhotoObjectMissingError, daily_thread, existing_event
+from .events import PhotoObjectMissingError, daily_thread
 from .keys import content_type_matches_key, photo_key, photo_key_belongs_to
 
 

@@ -12,6 +12,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from ...models import JournalAdded, PhotoAdded, SharedStory, Story
+from ..idempotency import existing_event
 from ..journalling import process_journal_entry
 from ..photos import key_belongs_to, original_key
 from ..photos import storage as photo_storage
@@ -19,7 +20,6 @@ from ..photos.events import (
     PhotoObjectMissingError,
     capture_datetime_from_storage,
     daily_thread,
-    existing_event,
 )
 from ..photos.keys import content_type_matches_key
 from .titles import default_title

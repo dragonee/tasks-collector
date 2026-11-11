@@ -57,6 +57,12 @@ def set_checked(item, checked):
     item.setdefault("state", {})["checked"] = checked
 
 
+def set_text(item, text):
+    """Reword the item, in both places its text is kept."""
+    item["text"] = text
+    item.setdefault("data", {})["text"] = text
+
+
 def text_of(item):
     """The item's text: ``data.text``, or the top-level copy the web board
     edits when there is none."""

@@ -38,6 +38,15 @@ def process_journal_entry(journal_added, skip_habits=False, story=None, user=Non
 
     add_reflection_items(journal_added, comment=comment, user=user)
 
+    # An anchor says which task a line is about; once that is recorded it is
+    # noise in an entry people read (the diary, a trip, a shared page).
+    from ..tasks.documents import strip_anchors
+
+    without_anchors = strip_anchors(journal_added.comment)
+    if without_anchors != journal_added.comment:
+        journal_added.comment = without_anchors
+        journal_added.save(update_fields=["comment"])
+
     if story is not None:
         story.add(journal_added)
 

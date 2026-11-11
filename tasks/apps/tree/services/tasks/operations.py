@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from ...models import JournalAdded, ReflectionLine, Task, TaskCompleted, Thread
 from ..boards import items
-from ..photos.events import existing_event
+from ..idempotency import existing_event
 from ..progress import base_of, marker_value, parse_progress, render_count
 from ..progress import render_progress as _render_progress
 from . import board_links, documents
@@ -130,11 +130,21 @@ def move(task, from_plan, to_plan):
 
 @transaction.atomic
 def rename(task, text):
+    """Give ``task`` another text. It reads so on every plan it is on, and
+    so does its board item."""
+    board = board_links.locked_board_of(task)
+    task = Task.objects.select_for_update().get(pk=task.pk)
+
     plans = documents.plans_of(task)
     task.text = text
     task.save(update_fields=["text"])
     for plan in plans:
         documents.write_cache(plan)
+
+    if board is not None:
+        board_links.set_text(board, task)
+
+    return task
 
 
 def _planners(task):
@@ -174,6 +184,7 @@ def complete(
     story=None,
     idempotency_key=None,
     reflection=None,
+    wording=None,
 ):
     """Record that ``actor`` did a step of ``task`` on ``day``: the whole
     task, or the next of its counted steps.
@@ -181,8 +192,9 @@ def complete(
     - A ``TaskCompleted`` event, once per ``idempotency_key``.
     - A reflection line for the actor and for everyone else who has the task
       on a plan: in their Daily reflection of ``day`` (the actor's goes into
-      ``reflection`` when one is given), under good, or better / best for
-      the mark ``~`` / ``^``.
+      ``reflection`` when one is given, worded as ``wording`` if they put
+      it their own way), under good, or better / best for the mark ``~`` /
+      ``^``.
     - The task's board item is ticked once the task is done.
     - ``note`` or ``story`` (a trip) make a journal entry of the actor's.
 
@@ -230,7 +242,11 @@ def complete(
                 Thread.objects.daily(user), day, create=True
             )
         documents.append_reflection_line(
-            target, field, text, task=task, completion=completion
+            target,
+            field,
+            wording if user == actor and wording else text,
+            task=task,
+            completion=completion,
         )
 
     if task.done and board is not None:

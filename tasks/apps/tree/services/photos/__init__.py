@@ -4,7 +4,6 @@ from .events import (
     PhotoObjectMissingError,
     capture_datetime_from_storage,
     daily_thread,
-    existing_event,
 )
 from .keys import (
     CONTENT_TYPE_EXT,
@@ -25,7 +24,6 @@ __all__ = [
     "PhotoObjectMissingError",
     "capture_datetime_from_storage",
     "daily_thread",
-    "existing_event",
     "CONTENT_TYPE_EXT",
     "ext_for_content_type",
     "key_belongs_to",

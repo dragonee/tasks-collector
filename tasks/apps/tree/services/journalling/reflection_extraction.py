@@ -91,11 +91,12 @@ def _add_once(reflection, field, text, task=None):
     documents.append_reflection_line(reflection, field, text, task=task)
 
 
-def _record_on_task(task, author, field, text, day, at, reflection):
+def _record_on_task(task, author, field, text, day, at, reflection, wording=None):
     """A reflection line that names a task: do the steps of the task the line
     says are done. A line about a task already that far along (a week's
     reflection repeating a day's) is added as a line of the task, and nothing
-    is done twice."""
+    is done twice. ``wording`` is the line as its author put it, when it
+    named the task by its anchor and not by its text."""
     from ..progress import marker_value, parse_progress
     from ..tasks import operations as tasks
 
@@ -118,6 +119,7 @@ def _record_on_task(task, author, field, text, day, at, reflection):
             at=at,
             mark=tasks.MARK_BY_FIELD[field],
             reflection=reflection,
+            wording=wording if steps == 1 else None,
         )
         task.refresh_from_db()
 
@@ -160,9 +162,10 @@ def add_reflection_items(journal_added, comment=None, user=None):
     best of the reflection of the journal's thread (see ``reflection_date``).
     What the line's text names decides what else happens:
 
-    - a task its author has planned for that day, week or month: the task is
-      completed (a counted one by as many steps as the line says), and the
-      line is the task's;
+    - a task, by the anchor the line ends with ("[x] Called them ^t91bd0a44"),
+      or by its text when its author has it planned for that day, week or
+      month: the task is completed (a counted one by as many steps as the
+      line says), and the line is the task's;
     - otherwise, when ``user`` is given, an item of their current board: the
       item's task is completed if it has one, else the unscheduled task is
       ticked;
@@ -196,7 +199,7 @@ def add_reflection_items(journal_added, comment=None, user=None):
     author = journal_added.thread.user
     day = journal_added.published.date()
 
-    today._lock_day(author)
+    today.lock_day(author)
     reflection = documents.reflection_for(
         journal_added.thread, reflection_date(journal_added), create=True
     )
@@ -204,7 +207,14 @@ def add_reflection_items(journal_added, comment=None, user=None):
     for field, text in reflection_lines:
         field = ReflectionLine.Field(field)
 
-        task = today.planned_task(author, text, day)
+        text, anchor = documents.split_anchor(text)
+        task = wording = None
+        if anchor is not None:
+            task = Task.objects.editable_by(author).filter(anchor=anchor).first()
+            wording = text
+        if task is None:
+            task = today.planned_task(author, text, day)
+            wording = None
         board = item = None
         if task is None and user is not None:
             # Read anew for each line: completing a task saves its board.
@@ -223,7 +233,14 @@ def add_reflection_items(journal_added, comment=None, user=None):
 
         if task is not None:
             _record_on_task(
-                task, author, field, text, day, journal_added.published, reflection
+                task,
+                author,
+                field,
+                text,
+                day,
+                journal_added.published,
+                reflection,
+                wording=wording,
             )
             continue
 

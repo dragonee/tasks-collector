@@ -138,6 +138,55 @@ then task, then plans and reflections.
 `api/v1/plans/today/` and the Android list. A plain line is done the way it was
 before tasks had rows: when its text is in the same period's reflection.
 
+## API by task id
+
+`views_tasks.py`, for clients that know which task they mean. A token, basic auth
+or the session, as everywhere. A task the caller can't change answers 404, like
+one that doesn't exist. Every date comes from the client: the server's day is a
+different one for part of every night.
+
+| Method and path | Body | Does |
+|---|---|---|
+| `GET api/v1/tasks/agenda/?date=` | | the plans of that day, its week and its month |
+| `POST api/v1/tasks/` | `date`, `thread`?, and `text` or `board_id` + `item_id` | plans what was typed, or a board item; returns the task |
+| `GET api/v1/tasks/<id>/` | | the task |
+| `PATCH api/v1/tasks/<id>/` | `text` | renames it, on every plan and on its board item |
+| `POST api/v1/tasks/<id>/plan/` | `date`, `thread`? | puts it on another plan too |
+| `POST api/v1/tasks/<id>/unplan/` | `date`, `thread`? | takes it off a plan; 204 when the task is gone |
+| `POST api/v1/tasks/<id>/move/` | `from_date`, `to_date`, `thread`? | to tomorrow, to next week |
+| `POST api/v1/tasks/<id>/complete/` | `day`, `at`?, `mark`?, `note`?, `story_id`?, `idempotency_key`? | does a step |
+| `POST api/v1/tasks/<id>/reopen/` | | takes the last step back |
+
+`thread` is `Daily` (the default), `Weekly` or `big-picture`, and a `date` names
+the plan of that thread it falls in. A task comes back as:
+
+```json
+{"id": "…", "anchor": "91bd0a44", "text": "Do x (3)", "display": "Do x (2/3)",
+ "done": false, "mark": null, "total": 3, "done_count": 1, "completed_at": null,
+ "board": {"id": 12, "item_id": "…", "thread": "Inbox"},
+ "plans": [{"thread": "Daily", "pub_date": "2026-11-11"}]}
+```
+
+`plans` are the caller's own. In an agenda, a plain line has `id` null; posting
+its text to `api/v1/tasks/` with the same `date` and `thread` makes it a task.
+
+Also by id: `plans/add-task/` takes `board_id` and `item_id` (its `text` is for
+clients that don't send them), and `api/v1/android/board/items/` gives each item's
+`id`, `board_id` and whether it is `planned`.
+
+## Anchors
+
+A task's `anchor` names it inside text: a line that ends with ` ^t91bd0a44` is
+that task's line, whatever its wording (`documents.split_anchor`, `anchored`).
+
+A journal line `- [x] Called them, at last ^t91bd0a44` completes that task and
+puts the line, as worded, into the reflection as the task's. The anchor works for
+any task its author can change, planned for that day or not. If the task is
+already that far along (a week's reflection repeating a day's), the line is added
+as the task's and nothing is done twice. Anchors are taken out of the entry's
+stored text. An anchor that names no task of the author's is dropped and the line
+is read by its text.
+
 ## Boards
 
 - `Board.save` keeps items in one shape (`services/boards/items.py`).
@@ -173,10 +222,9 @@ the current Weekly and big-picture). Older lines are plain lines, word for word.
 
 ## What is next
 
-1. An API by task id, and anchors in journal text (`- [x] text ^t91bd0a44`).
-2. Web board: plan by item id, a planned badge, ticking and renaming a linked item
+1. Web board: plan by item id, a planned badge, ticking and renaming a linked item
    completes and renames its task.
-3. Day page: one editor over text with anchors drawn as chips; saves applied as a
+2. Day page: one editor over text with anchors drawn as chips; saves applied as a
    diff against what the page loaded.
-4. Android and CLI by task id.
-5. The text endpoints and the text columns go.
+3. Android and CLI by task id.
+4. The text endpoints and the text columns go.
