@@ -77,9 +77,11 @@ def set_text(board, task):
 
 
 def reapply(board):
-    """Put the links the tasks know of back onto a tree that came from
-    outside, in place. An item names a task only when that task names the
-    item; a task whose item is gone is no longer linked.
+    """Put what the tasks know back onto a tree that came from outside, in
+    place. An item names a task only when that task names the item, and such
+    an item is ticked when its task is done and reads as its task does:
+    changing either is done to the task (see ``board_edits``), not by sending
+    a tree. A task whose item is gone is no longer linked.
 
     Returns whether the tree changed (the caller saves the board).
     """
@@ -98,6 +100,12 @@ def reapply(board):
             changed = True
         if task is not None:
             seen.add(task.pk)
+            if items.is_checked(item) != task.done:
+                items.set_checked(item, task.done)
+                changed = True
+            if items.text_of(item) != task.text or item.get("text") != task.text:
+                items.set_text(item, task.text)
+                changed = True
 
     for task in by_item.values():
         if task.pk not in seen:

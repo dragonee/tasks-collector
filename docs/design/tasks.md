@@ -190,14 +190,25 @@ is read by its text.
 ## Boards
 
 - `Board.save` keeps items in one shape (`services/boards/items.py`).
-- The web board saves the whole tree and may hold one from before an item was
-  planned. `BoardViewSet.perform_update` calls `board_links.reapply`: which task an
-  item has is the task's to say, not the tree's.
+- An item with a task is ticked when its task is done and reads as its task does.
+  Ticking, unticking or rewording it on the web board is done to the task.
+- The web board saves the whole tree on almost any click, and may hold one from
+  before the phone did something. So a tree alone changes no task. The browser
+  works out what was done to planned items against the board it loaded
+  (`taskOps` in `assets/utils.js`) and sends it with the tree as `task_ops`:
+  `{"op": "complete", "item_id", "day", "at", "key"}`, `{"op": "reopen", "item_id"}`,
+  `{"op": "rename", "item_id", "text"}`. `BoardViewSet.update` carries them out
+  (`services/tasks/board_edits.py`), saves the tree, and then
+  `board_links.reapply` makes every planned item agree with its task: its
+  `taskId`, its tick, its text.
+- Ticking a planned item with a step counter does one step; the item is ticked
+  once the task is done.
+- "Add to Plan" on the board sends the board and the item's id, and the item
+  shows a ◷ once it is planned.
 - A commit carries `taskId` with items that stay or move. `board_links.follow`
   then updates the tasks: one whose item moved follows it (and its stream), one
   whose item left the boards is unlinked, and a done task's item that stays (a
   repeating item) is unscheduled again.
-- Ticking a linked item on the web board does not complete its task yet.
 
 ## Text from clients that don't know ids
 
@@ -222,9 +233,7 @@ the current Weekly and big-picture). Older lines are plain lines, word for word.
 
 ## What is next
 
-1. Web board: plan by item id, a planned badge, ticking and renaming a linked item
-   completes and renames its task.
-2. Day page: one editor over text with anchors drawn as chips; saves applied as a
+1. Day page: one editor over text with anchors drawn as chips; saves applied as a
    diff against what the page loaded.
-3. Android and CLI by task id.
-4. The text endpoints and the text columns go.
+2. Android and CLI by task id.
+3. The text endpoints and the text columns go.

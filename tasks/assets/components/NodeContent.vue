@@ -67,6 +67,12 @@
             ⟳
         </span>
 
+        <span
+            v-if="node.data.taskId"
+            class="transition planned"
+            title="Planned: ticking or rewording it does so to its task"
+        >◷</span>
+
         <span v-if="markers.transition" class="transition">
             ⇒ {{ markers.transition }}
         </span>
