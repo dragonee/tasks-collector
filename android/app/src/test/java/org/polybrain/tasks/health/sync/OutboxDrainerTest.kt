@@ -11,8 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.polybrain.tasks.health.data.UnscheduledTaskRequest
-import org.polybrain.tasks.health.data.UnscheduledTaskResponse
+import org.polybrain.tasks.health.data.AgendaResponse
 import org.polybrain.tasks.health.data.BoardItemsResponse
 import org.polybrain.tasks.health.data.HabitKeyword
 import org.polybrain.tasks.health.data.HealthDataResponse
@@ -23,14 +22,15 @@ import org.polybrain.tasks.health.data.PhotoConfirmResponse
 import org.polybrain.tasks.health.data.PhotoOriginalResponse
 import org.polybrain.tasks.health.data.PhotoPresignRequest
 import org.polybrain.tasks.health.data.PhotoPresignResponse
-import org.polybrain.tasks.health.data.PlanListResponse
+import org.polybrain.tasks.health.data.PlanItemRequest
+import org.polybrain.tasks.health.data.PlanRef
+import org.polybrain.tasks.health.data.PlanTextRequest
 import org.polybrain.tasks.health.data.StandalonePhotoConfirmRequest
 import org.polybrain.tasks.health.data.StandalonePhotoPresignRequest
+import org.polybrain.tasks.health.data.Task
 import org.polybrain.tasks.health.data.TaskCompleteRequest
 import org.polybrain.tasks.health.data.TaskMoveRequest
-import org.polybrain.tasks.health.data.TaskTextRequest
 import org.polybrain.tasks.health.data.TasksApi
-import org.polybrain.tasks.health.data.TodayTasksResponse
 import org.polybrain.tasks.health.data.TrackHabitRequest
 import org.polybrain.tasks.health.data.TrackHabitResponse
 import org.polybrain.tasks.health.data.TrackHabitTextRequest
@@ -44,6 +44,8 @@ import org.polybrain.tasks.health.data.TripStartRequest
 import org.polybrain.tasks.health.data.TripStopRequest
 import org.polybrain.tasks.health.data.TripStoryIdRequest
 import org.polybrain.tasks.health.data.TripUpdateRequest
+import org.polybrain.tasks.health.data.UnscheduledTaskRequest
+import org.polybrain.tasks.health.data.UnscheduledTaskResponse
 import retrofit2.HttpException
 import retrofit2.Response
 
@@ -225,16 +227,19 @@ class OutboxDrainerTest {
         override suspend fun trackHabitText(body: TrackHabitTextRequest): OkResponse = nope()
         override suspend fun listHabitKeywords(date: String): List<HabitKeyword> = nope()
         override suspend fun healthData(): HealthDataResponse = nope()
-        override suspend fun listTodayTasks(date: String): TodayTasksResponse = nope()
+        override suspend fun agenda(date: String): AgendaResponse = nope()
         override suspend fun listBoardItems(): BoardItemsResponse = nope()
         override suspend fun appendUnscheduledTask(
             body: UnscheduledTaskRequest,
         ): UnscheduledTaskResponse = nope()
-        override suspend fun addTodayTask(body: TaskTextRequest): OkResponse = nope()
-        override suspend fun completeTodayTask(body: TaskCompleteRequest): OkResponse = nope()
-        override suspend fun deleteTodayTask(body: TaskTextRequest): OkResponse = nope()
-        override suspend fun moveTodayTask(body: TaskMoveRequest): OkResponse = nope()
-        override suspend fun listPlans(thread: String, pubDate: String): PlanListResponse = nope()
+        override suspend fun planText(body: PlanTextRequest): Task = nope()
+        override suspend fun planItem(body: PlanItemRequest): Task = nope()
+        override suspend fun planTask(id: String, body: PlanRef): Task = nope()
+        override suspend fun unplanTask(id: String, body: PlanRef): Response<Unit> = nope()
+        override suspend fun moveTask(id: String, body: TaskMoveRequest): Task = nope()
+        override suspend fun completeTask(id: String, body: TaskCompleteRequest): Task =
+            nope()
+        override suspend fun reopenTask(id: String): Task = nope()
         override suspend fun startTrip(body: TripStartRequest): TripResponse = nope()
         override suspend fun stopTrip(body: TripStopRequest): TripResponse = nope()
         override suspend fun updateTrip(body: TripUpdateRequest): TripResponse = nope()

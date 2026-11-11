@@ -2,6 +2,7 @@ package org.polybrain.tasks.health.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -63,50 +64,123 @@ data class HealthDataResponse(
     @SerialName("recorded_at") val recordedAt: String? = null,
 )
 
+// A task as the server describes it (api/v1/tasks/). One of today's lines, or
+// of the week's plan.
 @Serializable
-data class TaskTextRequest(
+data class Task(
+    // Null for a plain line of a plan: one nothing was done with as a task
+    // yet. Planning its text (planText) makes it a task and gives it an id.
+    @SerialName("id") val id: String? = null,
+    // As written, e.g. "Do x (3)", and as lists show it: a counted task with
+    // the step it is on, "Do x (2/3)".
+    @SerialName("text") val text: String,
+    @SerialName("display") val display: String = "",
+    @SerialName("done") val done: Boolean = false,
+    // "~" (better) / "^" (best) for a task done with that mark.
+    @SerialName("mark") val mark: String? = null,
+    // Steps: one for a plain task; a counted one is done at doneCount >= total
+    // and may go past it ("add another").
+    @SerialName("total") val total: Int = 1,
+    @SerialName("done_count") val doneCount: Int = 0,
+) {
+    /** What a row shows. */
+    val shown: String get() = display.ifEmpty { text }
+
+    /** What tells this row from the others: its task, or its text while it
+     * is a plain line. */
+    val key: String get() = id ?: "text:$text"
+
+    /** A counted task that is done: tapping it offers another step or taking
+     * the last one back, instead of unticking straight away. */
+    val isCountedAndDone: Boolean get() = total > 1 && doneCount >= total
+}
+
+/**
+ * What is left of the week's plan to offer on a day: the tasks that are not
+ * done (wherever they were ticked) and not on that day's list already.
+ */
+fun weekPlanLeft(weekPlan: List<Task>, today: List<Task>): List<Task> {
+    val onTheDay = today.map { it.key }.toSet()
+    return weekPlan.filterNot { it.done || it.key in onTheDay }
+}
+
+@Serializable
+data class AgendaPlan(
+    @SerialName("thread") val thread: String = "",
+    @SerialName("pub_date") val pubDate: String = "",
+    @SerialName("tasks") val tasks: List<Task> = emptyList(),
+)
+
+// GET api/v1/tasks/agenda/?date= — the plan of that day, of its week and of
+// its month. Done is the task's: a task of the week ticked on another day
+// comes back done here.
+@Serializable
+data class AgendaResponse(
+    @SerialName("daily") val daily: AgendaPlan = AgendaPlan(),
+    @SerialName("weekly") val weekly: AgendaPlan = AgendaPlan(),
+    @SerialName("monthly") val monthly: AgendaPlan = AgendaPlan(),
+)
+
+// POST api/v1/tasks/ — plan something typed on the plan of [thread] that the
+// day [date] falls in. The server answers with the task of that text if the
+// user has one planned already (a line of the week pulled into a day), else a
+// new one. Two request types rather than one with nulls: the client encodes
+// defaults, and the server wants either text or an item, not both.
+@Serializable
+data class PlanTextRequest(
     @SerialName("text") val text: String,
     @SerialName("date") val date: String,
+    @SerialName("thread") val thread: String = "Daily",
+)
+
+// POST api/v1/tasks/ — plan a board item (an unscheduled task becomes a task).
+@Serializable
+data class PlanItemRequest(
+    @SerialName("board_id") val boardId: Long,
+    @SerialName("item_id") val itemId: String,
+    @SerialName("date") val date: String,
+    @SerialName("thread") val thread: String = "Daily",
+)
+
+// One of the user's plans: the one of [thread] that the day [date] falls in.
+@Serializable
+data class PlanRef(
+    @SerialName("date") val date: String,
+    @SerialName("thread") val thread: String = "Daily",
 )
 
 @Serializable
 data class TaskMoveRequest(
-    @SerialName("text") val text: String,
     @SerialName("from_date") val fromDate: String,
     @SerialName("to_date") val toDate: String,
+    @SerialName("thread") val thread: String = "Daily",
 )
 
 @Serializable
 data class TaskCompleteRequest(
-    @SerialName("text") val text: String,
-    @SerialName("done") val done: Boolean,
-    // Full ISO 8601 timestamp (OffsetDateTime.now().toString()) — the
-    // device's wall-clock moment of the tap. The server uses it both to
-    // derive the day for Plan/Reflection writes and as the published
-    // time of any JournalAdded recorded for this completion.
-    @SerialName("date") val date: String,
-    // Free-form journal note typed in the modal. null = no journal entry
-    // (uncheck path or pre-modal builds); empty string = create entry
-    // with just the [x] marker line.
+    // The day it was done on for the user (YYYY-MM-DD): the reflection it
+    // lands in.
+    @SerialName("day") val day: String,
+    // Full ISO 8601 timestamp — the moment of the tap, which is also the
+    // published time of the journal entry a note makes.
+    @SerialName("at") val at: String,
+    // Free-form journal note typed in the modal. null or empty = no journal
+    // entry, unless it is saved to a trip.
     @SerialName("note") val note: String? = null,
     // "Save to trip": link the completion journal entry to this active
     // trip (Story). null = plain save, no trip link.
     @SerialName("story_id") val storyId: Long? = null,
-)
-
-@Serializable
-data class TodayTask(
-    @SerialName("text") val text: String,
-    @SerialName("done") val done: Boolean,
-)
-
-@Serializable
-data class TodayTasksResponse(
-    @SerialName("items") val items: List<TodayTask> = emptyList(),
+    // Sent again unchanged on a retry: the server completes once per key.
+    @SerialName("idempotency_key") val idempotencyKey: String,
 )
 
 @Serializable
 data class BoardItem(
+    // The item's id and its board: what PlanItemRequest names it by.
+    @SerialName("id") val id: String? = null,
+    @SerialName("board_id") val boardId: Long = 0,
+    // Whether it has a task already; otherwise it is an unscheduled task.
+    @SerialName("planned") val planned: Boolean = false,
     @SerialName("text") val text: String,
     // MoSCoW bucket id: "must" | "should" | "could" | "wont", or null when
     // the item is unclassified.
@@ -135,23 +209,6 @@ data class UnscheduledTaskRequest(
 // body (the lenient Json drops all unknown keys).
 @Serializable
 class UnscheduledTaskResponse
-
-@Serializable
-data class PlanItem(
-    @SerialName("id") val id: Long,
-    @SerialName("pub_date") val pubDate: String,
-    // Newline-joined task lines. May be null/blank when the plan exists
-    // but has no focus set yet.
-    @SerialName("focus") val focus: String? = null,
-)
-
-// DRF PageNumberPagination envelope for GET /plans/. We only ever read
-// the first page for a single (thread, pub_date) pair, so `results` holds
-// at most one plan, but the envelope shape is fixed by the framework.
-@Serializable
-data class PlanListResponse(
-    @SerialName("results") val results: List<PlanItem> = emptyList(),
-)
 
 @Serializable
 data class TripSummary(
@@ -337,8 +394,8 @@ interface TasksApi {
     @GET("api/v1/android/health/data/")
     suspend fun healthData(): HealthDataResponse
 
-    @GET("api/v1/android/task/today/")
-    suspend fun listTodayTasks(@Query("date") date: String): TodayTasksResponse
+    @GET("api/v1/tasks/agenda/")
+    suspend fun agenda(@Query("date") date: String): AgendaResponse
 
     // Flattened current board (pre-order, depth-annotated) for the
     // "add from board" picker. Date-independent.
@@ -355,27 +412,33 @@ interface TasksApi {
         @Body body: UnscheduledTaskRequest,
     ): UnscheduledTaskResponse
 
-    @POST("api/v1/android/task/add/")
-    suspend fun addTodayTask(@Body body: TaskTextRequest): OkResponse
+    @POST("api/v1/tasks/")
+    suspend fun planText(@Body body: PlanTextRequest): Task
 
-    @POST("api/v1/android/task/complete/")
-    suspend fun completeTodayTask(@Body body: TaskCompleteRequest): OkResponse
+    @POST("api/v1/tasks/")
+    suspend fun planItem(@Body body: PlanItemRequest): Task
 
-    @POST("api/v1/android/task/delete/")
-    suspend fun deleteTodayTask(@Body body: TaskTextRequest): OkResponse
+    // Put a task on another of the user's plans as well.
+    @POST("api/v1/tasks/{id}/plan/")
+    suspend fun planTask(@Path("id") id: String, @Body body: PlanRef): Task
 
-    @POST("api/v1/android/task/move/")
-    suspend fun moveTodayTask(@Body body: TaskMoveRequest): OkResponse
+    // Take a task off a plan. 204 when nothing remembers it and it is gone,
+    // else the task; either way there is nothing to read.
+    @POST("api/v1/tasks/{id}/unplan/")
+    suspend fun unplanTask(@Path("id") id: String, @Body body: PlanRef): Response<Unit>
 
-    // Generic DRF Plan endpoint shared with the web frontend. Filtered by
-    // thread name (e.g. "Weekly") and the plan's canonical pub_date (for
-    // Weekly that's the Sunday ending the week). Token-authenticated like
-    // the rest of the client.
-    @GET("plans/")
-    suspend fun listPlans(
-        @Query("thread") thread: String,
-        @Query("pub_date") pubDate: String,
-    ): PlanListResponse
+    @POST("api/v1/tasks/{id}/move/")
+    suspend fun moveTask(@Path("id") id: String, @Body body: TaskMoveRequest): Task
+
+    @POST("api/v1/tasks/{id}/complete/")
+    suspend fun completeTask(
+        @Path("id") id: String,
+        @Body body: TaskCompleteRequest,
+    ): Task
+
+    // Take back the last step done.
+    @POST("api/v1/tasks/{id}/reopen/")
+    suspend fun reopenTask(@Path("id") id: String): Task
 
     @POST("api/v1/android/trip/start/")
     suspend fun startTrip(@Body body: TripStartRequest): TripResponse

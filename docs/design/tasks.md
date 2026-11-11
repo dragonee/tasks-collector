@@ -203,6 +203,8 @@ the plan of that thread it falls in. A task comes back as:
 `plans` are the caller's own. In an agenda, a plain line has `id` null; posting
 its text to `api/v1/tasks/` with the same `date` and `thread` makes it a task.
 
+The Android app uses this API (`docs/design-tasks-on-android.md`).
+
 Also by id: `plans/add-task/` takes `board_id` and `item_id` (its `text` is for
 clients that don't send them), and `api/v1/android/board/items/` gives each item's
 `id`, `board_id` and whether it is `planned`.
@@ -266,5 +268,7 @@ the current Weekly and big-picture). Older lines are plain lines, word for word.
 
 ## What is next
 
-1. Android and CLI by task id.
-2. The text endpoints and the text columns go.
+1. The CLI by task id.
+2. The text endpoints (`api/v1/android/task/*`, once no installed build uses
+   them) and the text columns go.
+3. Android: task calls made offline are lost; they could go through the outbox.

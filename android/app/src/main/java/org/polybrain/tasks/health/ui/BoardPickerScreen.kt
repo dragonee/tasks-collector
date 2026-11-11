@@ -112,15 +112,14 @@ fun BoardPickerScreen(
                 loading && items.isEmpty() ->
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 items.isEmpty() -> CenteredMessage(stringResource(R.string.board_picker_empty))
-                // No item key: a board can hold duplicate texts across nodes,
-                // which would collide as LazyColumn keys. Positional keys are
-                // fine — rows are stateless (checked state lives in the VM).
+                // No item key: positional keys are fine — rows are stateless
+                // (checked state lives in the VM, by item id).
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(items = visibleItems) { item ->
                         BoardItemRow(
                             item = item,
-                            checked = item.text in selected,
-                            onToggle = { vm.toggleSelection(item.text) },
+                            checked = item.id != null && item.id in selected,
+                            onToggle = { item.id?.let(vm::toggleSelection) },
                         )
                     }
                 }

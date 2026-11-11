@@ -66,7 +66,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import org.polybrain.tasks.health.R
 import org.polybrain.tasks.health.data.HabitKeyword
-import org.polybrain.tasks.health.data.TodayTask
+import org.polybrain.tasks.health.data.Task
+import org.polybrain.tasks.health.data.weekPlanLeft
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,13 +115,13 @@ fun TodayScreen(
                 // alone (with the done list kept for motivation). The weekly
                 // plan section is hidden too — it's "other tasks".
                 val focusMode = focusedTask != null
-                // This week's plan items that aren't already on today's list.
-                // Adding one copies it onto today, after which it drops out here.
-                val todayTexts = tasks.map { it.text }.toSet()
+                // What is left of this week's plan: not done yet, wherever
+                // that would have been ticked, and not on this day's list
+                // already. Pulling one into the day drops it out here.
                 val pendingWeekPlan =
-                    if (focusMode) emptyList() else weekPlan.filterNot { it in todayTexts }
+                    if (focusMode) emptyList() else weekPlanLeft(weekPlan, tasks)
                 val displayedTasks =
-                    if (focusMode) tasks.filter { it.text == focusedTask || it.done } else tasks
+                    if (focusMode) tasks.filter { it.key == focusedTask || it.done } else tasks
                 when {
                     !configured -> EmptyState(stringResource(R.string.today_not_configured))
                     tasks.isEmpty() && pendingWeekPlan.isEmpty() ->
@@ -139,10 +140,13 @@ fun TodayScreen(
                                     modifier = Modifier.padding(bottom = 4.dp),
                                 )
                             }
-                            items(items = pendingWeekPlan, key = { "week:$it" }) { line ->
+                            items(
+                                items = pendingWeekPlan,
+                                key = { "week:${it.key}" },
+                            ) { task ->
                                 WeekPlanRow(
-                                    text = line,
-                                    onAddToToday = { vm.addPlanItemToToday(line) },
+                                    text = task.shown,
+                                    onAddToToday = { vm.addPlanItemToToday(task) },
                                 )
                             }
                         }
@@ -157,17 +161,17 @@ fun TodayScreen(
                         // other day; "Move to tomorrow" only on today — the two
                         // are mutually exclusive on the same row.
                         val onAnotherDay = selectedDate != LocalDate.now()
-                        items(items = displayedTasks, key = TodayTask::text) { task ->
+                        items(items = displayedTasks, key = Task::key) { task ->
                             TaskRow(
                                 task = task,
-                                onToggle = { done -> vm.requestSetDone(task.text, done) },
-                                onDelete = { vm.delete(task.text) },
+                                onToggle = { done -> vm.requestSetDone(task, done) },
+                                onDelete = { vm.delete(task) },
                                 onCopyToToday =
-                                    if (onAnotherDay) ({ vm.copyToToday(task.text) }) else null,
+                                    if (onAnotherDay) ({ vm.copyToToday(task) }) else null,
                                 onMoveToTomorrow =
-                                    if (!onAnotherDay) ({ vm.moveToTomorrow(task.text) }) else null,
-                                focused = task.text == focusedTask,
-                                onToggleFocus = { vm.toggleFocus(task.text) },
+                                    if (!onAnotherDay) ({ vm.moveToTomorrow(task) }) else null,
+                                focused = task.key == focusedTask,
+                                onToggleFocus = { vm.toggleFocus(task) },
                             )
                         }
                     }
@@ -216,15 +220,15 @@ fun TodayScreen(
                     onConfirmToTrip = vm::confirmCompletionToTrip,
                     onCancel = vm::cancelCompletion,
                     // Reset the draft each time a new pending request arrives.
-                    resetKey = pending.text,
+                    resetKey = pending.task.key,
                 )
             }
             is TodayViewModel.PendingComplete.CompletedAction -> CompletedTaskDialog(
-                taskText = pending.text,
+                taskText = pending.task.shown,
                 onAddAnother = vm::confirmAddAnother,
                 onReset = vm::confirmReset,
                 onCancel = vm::cancelCompletion,
-                resetKey = pending.text,
+                resetKey = pending.task.key,
             )
         }
     }
@@ -539,7 +543,7 @@ private fun AddTaskRow(onAdd: (String) -> Unit, enabled: Boolean) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TaskRow(
-    task: TodayTask,
+    task: Task,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
     // Non-null only when the row belongs to a day other than today; drives the
@@ -576,7 +580,7 @@ private fun TaskRow(
         // doesn't compete with the Checkbox.
         Box(modifier = Modifier.weight(1f)) {
             Text(
-                text = task.text,
+                text = task.shown,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 36.dp)
