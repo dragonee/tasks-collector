@@ -83,7 +83,8 @@ was typed into a plan. Whoever has access to the board has access to the task:
 
 The rows are all there is. `plan.focus` and `reflection.good|better|best` are
 properties: the lines joined with newlines. That is what the text readers get:
-`plans/`, `reflections/`, `api/events/daily/`, the CLI.
+`plans/`, `reflections/`, `api/events/daily/`, the CLI. (`api/events/daily/`
+gives the lines with their anchors when asked with `anchors=1`.)
 
 Text is written into a document in two ways (`services/tasks/documents.py`):
 
@@ -227,8 +228,13 @@ there in the editor (`[x]`, or `[~]` / `[^]`) is sent as part of the comment
 done already are not sent again. `tc focus` on a task picked from the plan seeds
 its journal with the task's anchored line.
 
-`tc reflect` works from dumps of plans and reflections as text, without anchors:
-a line ticked there finds its task by its text, as a typed one does.
+`tc reflect` for a week or a month lists the reflections and plans of its days
+(of its weeks) for the editor, each task's line ending with its anchor
+(`tc reflect dump --anchors`, which reads `api/events/daily/?anchors=1`). A line
+ticked there goes on to the journal of the week (of the month) with its anchor:
+reworded or not it is that task's line in that reflection, and a task that is
+done already is not done again. A line without an anchor finds its task by its
+text, as a typed one does.
 
 ## Boards
 
@@ -284,5 +290,3 @@ them back, saying what the lines say.
 ## What is next
 
 1. Android: task calls made offline are lost; they could go through the outbox.
-2. `tc reflect` could carry anchors, so a reworded line stays its task's in the
-   week's and the month's reflection.

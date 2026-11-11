@@ -107,6 +107,9 @@ def get_daily_events(config: TasksConfigFile, arguments, dt: date = None):
         "thread": arguments.thread if arguments.thread else "Daily",
     }
 
+    if arguments.anchors:
+        params["anchors"] = "1"
+
     dt_string = urlencode(params)
 
     url = "{}/api/events/daily/?{}".format(
@@ -414,6 +417,11 @@ def parse_arguments(argv, prog):
     )
     parser.add_argument(
         "--prefix", help="Prefix each line of journal entries with PREFIX."
+    )
+    parser.add_argument(
+        "--anchors",
+        action="store_true",
+        help="End each task's line with its anchor (^t...), for text that is sent back.",
     )
     parser.add_argument(
         "-d",

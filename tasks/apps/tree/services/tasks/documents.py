@@ -77,8 +77,11 @@ def rows(doc, field=None):
     if doc.pk is None:
         return []
     lines = doc.lines.all()
-    if isinstance(doc, Reflection) and field is not None:
-        lines = lines.filter(field=field)
+    if isinstance(doc, Reflection):
+        # With their tasks, as plan lines come (``PlanLineManager``).
+        lines = lines.select_related("task")
+        if field is not None:
+            lines = lines.filter(field=field)
     return list(lines)
 
 

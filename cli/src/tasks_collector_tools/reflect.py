@@ -1,4 +1,10 @@
-"""Reflect on a day, week or month."""
+"""Reflect on a day, week or month.
+
+For a week or a month the editor lists the reflections and plans of its days
+(or weeks). Tick a line to take it into the reflection: [x], or [~] / [^] for
+better / best. The ^t... that ends a task's line says which task it is, so
+the line can be reworded; keep the ^t...
+"""
 
 TEMPLATE = """
 > Thread: {thread}
@@ -61,7 +67,9 @@ def get_save_thread_from_arguments(arguments):
 
 
 def template_from_arguments(arguments):
-    cmd = tc_command("reflect", "dump")
+    # With anchors: a line ticked in the editor is sent on to the journal, and
+    # its anchor keeps it its task's line however it is reworded.
+    cmd = tc_command("reflect", "dump", "--anchors")
 
     day = parse(arguments.date) if arguments.date else date.today()
 
@@ -108,6 +116,25 @@ multi_line_re = re.compile(r"\n(\s*\n)+")
 JOURNAL_TEMPLATE = """
 {payload}
 """
+
+
+def ticked_lines(lines):
+    """The lines ticked in the edited dump, above its journals: what goes on
+    to the journal, one to a line. A line is sent as it is worded now, with
+    the anchor it ends with (the server reads which task it is from that)."""
+    payload = ""
+
+    for line in lines:
+        if line.strip() == "# Journals":
+            break
+
+        if not point_re.match(line.strip()):
+            continue
+
+        # Remove # or ! from the beginning of the text after the checkbox
+        payload += re.sub(r"(\[[x\^\~]\]\s*)([#!])", r"\1", line.strip()) + "\n"
+
+    return payload
 
 
 def journal_payload_from_reflection_payload(payload, published, thread):
@@ -330,20 +357,8 @@ def main(argv, prog):
     if result.returncode != 0:
         sys.exit(1)
 
-    payload = ""
-
     with open(tmpfile.name) as f:
-        for line in f:
-            if line.strip() == "# Journals":
-                break
-
-            m = point_re.match(line.strip())
-            if not m:
-                continue
-
-            # Remove # or ! from the beginning of the text after the checkbox
-            cleaned_line = re.sub(r"(\[[x\^\~]\]\s*)([#!])", r"\1", line.strip())
-            payload += cleaned_line + "\n"
+        payload = ticked_lines(f)
 
     os.unlink(tmpfile.name)
 

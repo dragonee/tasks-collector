@@ -743,6 +743,60 @@ class JournalAnchorTestCase(TaskAPITestCase):
         self.assertEqual(weekly.good, "call bank")
         self.assertEqual(weekly.lines.get().task, task)
 
+    def _dump(self, thread="Daily", day=DAY, **params):
+        response = self.client.get(
+            "/api/events/daily/",
+            {"date": day.isoformat(), "thread": thread, **params},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response.json()
+
+    def test_daily_events_give_the_anchors_when_asked(self):
+        task = plan_text(self.user, "call bank", "Daily", DAY, DAY)
+        self._journal(f"- [x] Called them ^t{task.anchor}\r\n- [x] slept well")
+
+        plain = self._dump()
+        self.assertEqual(plain["plan"]["focus"], "call bank")
+        self.assertEqual(plain["reflection"]["good"], "Called them\nslept well")
+
+        anchored = self._dump(anchors="1")
+        self.assertEqual(anchored["plan"]["focus"], f"call bank ^t{task.anchor}")
+        self.assertEqual(
+            anchored["reflection"]["good"], f"Called them ^t{task.anchor}\nslept well"
+        )
+        self.assertEqual(anchored["reflection"]["better"], "")
+
+    def test_a_line_reworded_in_tc_reflect_stays_the_tasks(self):
+        # As `tc reflect` sends them: the lines of the days' reflections
+        # ticked in the editor, anchors and all, to the week's journal; and
+        # those of the weeks' to the month's.
+        make_thread(self.user, "big-picture")
+        task = plan_text(self.user, "call bank", "Daily", DAY, DAY)
+        self._journal(f"- [x] call bank ^t{task.anchor}")
+        day_line = self._dump(anchors="1")["reflection"]["good"]
+
+        self._journal(
+            f"- [^] {day_line.replace('call bank', 'Sorted the loan at last')}",
+            thread="Weekly",
+            published="2026-06-28T23:59:59Z",
+        )
+
+        week_line = self._dump("Weekly", SUNDAY, anchors="1")["reflection"]["best"]
+        self.assertEqual(week_line, f"Sorted the loan at last ^t{task.anchor}")
+
+        self._journal(
+            f"- [x] {week_line.replace('at last', 'in June')}",
+            thread="big-picture",
+            published="2026-06-30T23:59:59Z",
+        )
+
+        monthly = Reflection.objects.get(
+            pub_date=MONTH_END, thread__name="big-picture", thread__user=self.user
+        )
+        self.assertEqual(monthly.good, "Sorted the loan in June")
+        self.assertEqual(monthly.lines.get().task, task)
+        self.assertEqual(TaskCompleted.objects.count(), 1)
+
     def test_an_anchor_of_nobodys_task_is_just_text(self):
         other = get_user_model().objects.create_user(username="other", password="x")
         theirs = plan_text(other, "their task", "Daily", DAY, DAY)
