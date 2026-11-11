@@ -226,7 +226,10 @@ missing. Only that one deploy needed it; later releases keep entries through
 
 ### 7. Stage 5 — admin writes are not always credited to the stream's owner
 
-- [ ] Correct the note or the code — read
+- [x] Code corrected — read
+
+Fixed: the action no longer passes `created_by`, so the close is credited to the
+observation's owner, as the note says.
 
 The note says anything outside request paths, "the admin" included, defaults to
 whoever started the stream. The "Close selected observations" action passes

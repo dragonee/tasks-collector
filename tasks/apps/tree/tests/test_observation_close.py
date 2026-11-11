@@ -80,11 +80,12 @@ class ObservationCloseAPITestCase(APITestCase):
         self.assertEqual(ObservationClosed.objects.count(), 1)
         self.assertEqual(InsightRefined.objects.count(), 1)
 
-    def test_admin_action_closes_each_observation(self):
+    def test_admin_action_closes_each_observation_as_its_owner(self):
         other = _observation(self.user, self.thread, self.type)
+        admin = get_user_model().objects.create_superuser(username="admin")
 
         request = RequestFactory().post("/")
-        request.user = self.user
+        request.user = admin
 
         close_observations(None, request, Observation.objects.all())
 
