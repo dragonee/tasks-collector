@@ -162,9 +162,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 # The apps that may ask a user for a token of their own, and where the answer
 # may be sent (OAuth 2.0 authorization code with PKCE, apps/common/oauth.py).
 # They are public clients: no secrets here. The Android app is sent back to
-# its own URI scheme, which is its package name (".debug" for a debug build).
+# its own URI scheme, which is its package name (".debug" for a debug build);
+# the iOS app to its bundle identifier, which is spelled the same.
 OAUTH_CLIENTS = {
     "tasks-android": {
+        "name": "Tasks Health",
+        "redirect_uris": [
+            "org.polybrain.tasks.health:/oauth",
+            "org.polybrain.tasks.health.debug:/oauth",
+        ],
+    },
+    "tasks-ios": {
         "name": "Tasks Health",
         "redirect_uris": [
             "org.polybrain.tasks.health:/oauth",
