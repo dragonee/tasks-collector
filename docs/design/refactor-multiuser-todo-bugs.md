@@ -208,7 +208,9 @@ To do:
 
 ### 6. Stage 4 — `ensure_stream_entries` is not run by the deploy
 
-- [ ] Run once on production — read
+- [x] Run once on production — read
+
+Done: `ensure_stream_entries` was run on production by hand.
 
 The plan says the idempotent SQL runs after deploy. `.github/workflows/deploy.yml`
 runs `migrate` and swaps the containers; nothing runs
@@ -234,7 +236,9 @@ should agree.
 
 ### 8. Stage 5 — "production has one such observation"
 
-- [ ] Check and correct the note — data
+- [x] Checked — data
+
+Closed without change: nothing to fix in the data or the code.
 
 The note says production has an observation filed under another user's thread, which
 makes deleting that user fail. The dev copy has none: every observation's user is
