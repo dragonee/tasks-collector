@@ -403,8 +403,11 @@
 // === Single observation editor (three columns + collapsible drawer) ===
 // Form column (situation / interpretation / approach) | editable updates |
 // a History / Complex drawer that expands as a third column on demand. The
-// <form> itself is the grid container so the topbar Save buttons submit it and
-// the htmx Close buttons carry the CSRF token. Mirrors the Daily form style.
+// topbar, the form column and the updates sit in the <form>, so the Save
+// buttons submit it and the htmx Close buttons carry the CSRF token. The drawer
+// is outside it: its sharing panel holds forms of their own, and a form inside
+// a form is dropped by the parser. The <form> takes no box of its own, so its
+// children are laid out on the editor's grid. Mirrors the Daily form style.
 
 body.page-observation-edit {
     background: #f9f9f9;
@@ -546,7 +549,12 @@ body.page-observation-edit {
         }
     }
 
-    > .topbar {
+    > .observation-editor-form {
+        display: contents;
+    }
+
+    > .topbar,
+    > .observation-editor-form > .topbar {
         grid-area: header;
         margin-bottom: 0;
     }
