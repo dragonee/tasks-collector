@@ -123,15 +123,20 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class PlanSerializer(serializers.HyperlinkedModelSerializer):
+    # Write-only: what clients read stays as it was.
+    thread = UserThreadField(write_only=True)
+
     class Meta:
         model = Plan
-        fields = ["id", "pub_date", "focus"]
+        fields = ["id", "pub_date", "focus", "thread"]
 
 
 class ReflectionSerializer(serializers.HyperlinkedModelSerializer):
+    thread = UserThreadField(write_only=True)
+
     class Meta:
         model = Reflection
-        fields = ["id", "pub_date", "good", "better", "best"]
+        fields = ["id", "pub_date", "good", "better", "best", "thread"]
 
 
 class BoardSerializer(serializers.HyperlinkedModelSerializer):

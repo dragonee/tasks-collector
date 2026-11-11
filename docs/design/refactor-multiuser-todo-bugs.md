@@ -418,9 +418,11 @@ entries runs 9 queries, and an observation with 51 updates 14.
   `object_exists` (`services/photos/storage.py:115`) lets botocore's
   `EndpointConnectionError` through. A storage outage should answer 503 (clients,
   on dev with MinIO unreachable).
-- [ ] `POST /plans/` and `POST /reflections/` with a valid body — the serializers
+- [x] `POST /plans/` and `POST /reflections/` with a valid body — the serializers
   have no `thread`, so the insert fails (reported by the audit; the serializers were
-  not changed by this work).
+  not changed by this work). Fixed when the strengthened route test (item 5) hit it:
+  both take a write-only `thread`, by name among the caller's threads, as the
+  journal API does. What they answer is unchanged.
 - [ ] `/habit-api/?date=x` and `/api/events/daily/?date=x` with a malformed date
   (reported by the audit, not rerun).
 - [ ] `POST /updates/?observation_id=<own>` — picks a serializer without the

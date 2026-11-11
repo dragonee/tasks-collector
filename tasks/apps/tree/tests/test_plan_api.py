@@ -6,7 +6,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Plan
+from ..models import Plan, Reflection, Thread
 from .factories import make_thread
 
 # Sundays ending two consecutive weeks, and the Friday between them.
@@ -95,3 +95,49 @@ class PlanAddTaskTestCase(APITestCase):
         )
 
         self.assertEqual(self._add_today("c").focus, "a\nb\nc")
+
+
+class PlanAndReflectionCreateTestCase(APITestCase):
+    """plans/ and reflections/ create on one of the caller's threads, named
+    as the journal API names it; they used to fail with a server error, the
+    serializers having no thread."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="u", password="x")
+        cls.other = User.objects.create_user(username="o", password="x")
+        make_thread(cls.other, "Theirs")
+
+    def setUp(self):
+        self.client.force_authenticate(user=self.user)
+
+    def test_creates_on_the_named_thread_of_the_caller(self):
+        for url, model, field in (
+            ("/plans/", Plan, "focus"),
+            ("/reflections/", Reflection, "good"),
+        ):
+            with self.subTest(url=url):
+                resp = self.client.post(
+                    url,
+                    {"pub_date": "2026-11-11", field: "x", "thread": "Daily"},
+                    format="json",
+                )
+
+                self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+                self.assertNotIn("thread", resp.json())
+                created = model.objects.get(pk=resp.json()["id"])
+                self.assertEqual(created.thread, Thread.objects.daily(self.user))
+
+    def test_without_a_thread_of_the_caller_it_is_refused(self):
+        for url, model in (("/plans/", Plan), ("/reflections/", Reflection)):
+            for thread in ({}, {"thread": "Theirs"}):
+                with self.subTest(url=url, thread=thread):
+                    resp = self.client.post(
+                        url, {"pub_date": "2026-11-11", **thread}, format="json"
+                    )
+
+                    self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertIn("thread", resp.json())
+        self.assertFalse(Plan.objects.exists())
+        self.assertFalse(Reflection.objects.exists())
