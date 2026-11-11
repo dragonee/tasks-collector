@@ -98,7 +98,7 @@
   import useDnd from '../composables/useDnd'
 
   import { Notifier } from '../../notifier';
-  import { MEANINGFUL_MARKER_KEYS } from '../../utils.js';
+  import { MEANINGFUL_MARKER_KEYS, localDate } from '../../utils.js';
 
   const UNSET = '__UNSET';
 
@@ -224,7 +224,7 @@
 
           tree.value.syncStore()
       } else if (method === 'addToPlan') {
-          const taskText = node.data.text
+          const store = opts.store?.store
           const timeframe = value  // 'today', 'tomorrow', 'this_week'
           const notifier = Notifier({ time: 3000 })
 
@@ -236,7 +236,9 @@
                       'X-CSRFToken': getCsrfToken(),
                   },
                   body: JSON.stringify({
-                      text: taskText,
+                      board_id: store?.currentBoard?.id,
+                      item_id: node.id,
+                      text: node.text,
                       timeframe: timeframe,
                       date: localDate()
                   })
@@ -250,20 +252,15 @@
 
               const timeframeLabel = timeframe === 'this_week' ? 'this week' : timeframe
               notifier.success(`Task added to ${timeframeLabel}'s plan`)
+
+              // The item is planned now: the board says so.
+              store?.reloadBoards()
           } catch (error) {
               notifier.error(`Error: ${error.message}`)
           }
       } else if (method === 'remove') {
           node.remove()
       }
-  }
-
-  // The day it is here, as YYYY-MM-DD. The server's day (UTC) differs from
-  // it for part of every night.
-  function localDate() {
-      const now = new Date()
-      const pad = (n) => String(n).padStart(2, '0')
-      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
   }
 
   function getCsrfToken() {

@@ -12,9 +12,10 @@ from ..board_operations import (
     create_unscheduled_task,
 )
 from ..commit import merge
-from ..models import Board
+from ..models import Board, Reflection, Task
 from ..services.boards import items
-from ..services.tasks.operations import complete, task_for_item
+from ..services.streams import share
+from ..services.tasks.operations import complete, rename, task_for_item
 from .factories import make_board, make_thread
 
 
@@ -303,6 +304,185 @@ class WebSaveKeepsTaskLinksTestCase(APITestCase):
         self.task.refresh_from_db()
         self.assertIsNone(self.task.board)
         self.assertIsNone(self.task.board_item_id)
+
+
+class BoardEditsTestCase(APITestCase):
+    """Ticking, unticking or rewording a planned item on the web board is
+    done to its task. The browser says what was done, with the tree."""
+
+    DAY = "2026-06-25"
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="u", password="x")
+        cls.editor = User.objects.create_user(username="editor", password="x")
+        cls.inbox = make_thread(cls.user, "Inbox")
+        share(cls.user, cls.inbox.board_stream, "editor")
+
+    def setUp(self):
+        self.client.force_authenticate(user=self.user)
+        self.board = make_board(
+            thread=self.inbox,
+            state=[
+                create_unscheduled_task("call bank"),
+                create_unscheduled_task("Do x (2)"),
+                create_unscheduled_task("not planned"),
+            ],
+        )
+        self.task = task_for_item(self.user, self.board, self.board.state[0])
+        self.counted = task_for_item(self.user, self.board, self.board.state[1])
+
+    def _tree(self):
+        return Board.objects.get(pk=self.board.pk).state
+
+    def _put(self, state, ops=None, expect=status.HTTP_200_OK):
+        body = {"state": state}
+        if ops is not None:
+            body["task_ops"] = ops
+        response = self.client.put(f"/boards/{self.board.pk}/", body, format="json")
+        self.assertEqual(response.status_code, expect, response.content)
+        return response.json()
+
+    def _op(self, op, index=0, **fields):
+        return {"op": op, "item_id": self._tree()[index]["id"], **fields}
+
+    def _ticked(self, index=0, checked=True):
+        tree = self._tree()
+        tree[index]["state"]["checked"] = checked
+        return tree
+
+    def test_ticking_completes_the_task(self):
+        saved = self._put(
+            self._ticked(), [self._op("complete", day=self.DAY, key="tick-1")]
+        )
+
+        self.task.refresh_from_db()
+        self.assertTrue(self.task.done)
+        completion = self.task.completions.get()
+        self.assertEqual(str(completion.day), self.DAY)
+        self.assertEqual(completion.created_by, self.user)
+        self.assertEqual(Reflection.objects.get(pub_date=self.DAY).good, "call bank")
+        self.assertTrue(saved["state"][0]["state"]["checked"])
+        self.assertEqual(saved["state"][0]["data"]["state"], "done")
+
+    def test_the_same_save_sent_again_completes_once(self):
+        ops = [self._op("complete", index=1, day=self.DAY, key="tick-1")]
+
+        self._put(self._ticked(1), ops)
+        self._put(self._ticked(1), ops)
+
+        self.counted.refresh_from_db()
+        self.assertEqual(self.counted.done_count, 1)
+
+    def test_ticking_a_counted_item_does_one_step(self):
+        saved = self._put(
+            self._ticked(1), [self._op("complete", index=1, day=self.DAY)]
+        )
+
+        self.counted.refresh_from_db()
+        self.assertEqual((self.counted.done_count, self.counted.done), (1, False))
+        # Not done yet: the item is ticked when its task is.
+        self.assertFalse(saved["state"][1]["state"]["checked"])
+
+    def test_unticking_reopens_the_task(self):
+        complete(self.task, self.user, day=datetime.date(2026, 6, 25))
+
+        saved = self._put(self._ticked(checked=False), [self._op("reopen")])
+
+        self.task.refresh_from_db()
+        self.assertFalse(self.task.done)
+        self.assertFalse(self.task.completions.exists())
+        self.assertFalse(saved["state"][0]["state"]["checked"])
+
+    def test_rewording_renames_the_task(self):
+        tree = self._tree()
+        tree[0]["text"] = tree[0]["data"]["text"] = "call the bank"
+
+        saved = self._put(tree, [self._op("rename", text="call the bank")])
+
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.text, "call the bank")
+        self.assertEqual(saved["state"][0]["text"], "call the bank")
+
+    def test_a_stale_tree_does_not_undo_what_was_done_elsewhere(self):
+        # Loaded before the phone completed and renamed the task; saved after
+        # (the browser saves on any click).
+        stale = self._tree()
+        complete(self.task, self.user, day=datetime.date(2026, 6, 25))
+        rename(self.task, "call the bank")
+
+        saved = self._put(stale)
+
+        self.task.refresh_from_db()
+        self.assertTrue(self.task.done)
+        self.assertEqual(self.task.text, "call the bank")
+        item = saved["state"][0]
+        self.assertTrue(item["state"]["checked"])
+        self.assertEqual((item["text"], item["data"]["text"]), ("call the bank",) * 2)
+        self.assertEqual(self._tree(), saved["state"])
+
+    def test_a_tree_alone_does_nothing_to_a_task(self):
+        # A browser that doesn't say what was done: nothing was.
+        tree = self._ticked()
+        tree[0]["text"] = tree[0]["data"]["text"] = "something else"
+
+        saved = self._put(tree)
+
+        self.task.refresh_from_db()
+        self.assertFalse(self.task.done)
+        self.assertEqual(self.task.text, "call bank")
+        self.assertFalse(saved["state"][0]["state"]["checked"])
+        self.assertEqual(saved["state"][0]["text"], "call bank")
+
+    def test_an_unscheduled_task_is_ticked_and_reworded_as_ever(self):
+        tree = self._ticked(2)
+        tree[2]["text"] = tree[2]["data"]["text"] = "still not planned"
+
+        saved = self._put(tree, [self._op("complete", index=2, day=self.DAY)])
+
+        item = saved["state"][2]
+        self.assertTrue(item["state"]["checked"])
+        self.assertEqual(item["text"], "still not planned")
+        self.assertEqual(Task.objects.count(), 2)
+
+    def test_who_shares_the_board_completes_its_tasks(self):
+        self.client.force_authenticate(user=self.editor)
+
+        self._put(self._ticked(), [self._op("complete", day=self.DAY)])
+
+        self.task.refresh_from_db()
+        self.assertTrue(self.task.done)
+        self.assertEqual(self.task.completions.get().created_by, self.editor)
+
+    def test_an_op_names_an_item_of_this_board(self):
+        other = make_board(
+            thread=make_thread(self.user, "Other"),
+            state=[create_unscheduled_task("elsewhere")],
+        )
+        elsewhere = task_for_item(self.user, other, other.state[0])
+
+        self._put(
+            self._tree(),
+            [{"op": "complete", "item_id": other.state[0]["id"], "day": self.DAY}],
+        )
+
+        elsewhere.refresh_from_db()
+        self.assertFalse(elsewhere.done)
+
+    def test_a_malformed_op_refuses_the_save(self):
+        tree = self._tree() + [create_unscheduled_task("new")]
+
+        for ops in (
+            [self._op("complete")],
+            [self._op("rename", text="two\nlines")],
+            [self._op("delete")],
+            [{"op": "reopen"}],
+            "complete",
+        ):
+            with self.subTest(ops=ops):
+                self._put(tree, ops, expect=status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(len(self._tree()), 3)
 
 
 class MergeKeepsTaskLinksTestCase(SimpleTestCase):

@@ -21,7 +21,7 @@ const apiRequest = async (url, options = {}) => {
     return response.json();
 };
 
-import { createTreeItem, createBoard, FILTER_MODES, nodeMatchesMode, ensureItemIds } from './utils'
+import { createTreeItem, createBoard, FILTER_MODES, nodeMatchesMode, ensureItemIds, taskOps } from './utils'
 
 import equal from 'deep-equal'
 
@@ -202,6 +202,10 @@ export const useBoardStore = defineStore('board', {
                 return;
             }
 
+            // Worked out against the board as the server last gave it, before
+            // the new tree replaces it below.
+            const task_ops = taskOps(this.currentBoard.state, payload.state)
+
             this.updateBoardInListResponse(newBoard)
 
             let board
@@ -209,7 +213,7 @@ export const useBoardStore = defineStore('board', {
             try {
                 board = await apiRequest(`/boards/${newBoard.id}/`, {
                     method: 'PUT',
-                    body: JSON.stringify(newBoard)
+                    body: JSON.stringify({ ...newBoard, task_ops })
                 })
             } catch (error) {
                 // The optimistic update above is now a lie (e.g. the server

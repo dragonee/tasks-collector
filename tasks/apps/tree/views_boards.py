@@ -5,7 +5,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, render
 
 from django_filters import rest_framework as filters
-from rest_framework import status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response as RestResponse
 
@@ -17,7 +17,7 @@ from .board_operations import (
 )
 from .models import Board, BoardCommitted
 from .serializers import BoardSerializer, BoardSummary
-from .services.tasks import board_links
+from .services.tasks import board_edits, board_links
 
 
 class BoardFilter(filters.FilterSet):
@@ -26,6 +26,29 @@ class BoardFilter(filters.FilterSet):
     class Meta:
         model = Board
         fields = ["thread"]
+
+
+class TaskOpSerializer(serializers.Serializer):
+    """Something done on the board to an item that has a task."""
+
+    op = serializers.ChoiceField(choices=("complete", "reopen", "rename"))
+    item_id = serializers.CharField()
+    # complete: the day it was done on for who did it, the moment, and a key
+    # that makes a retried save complete once.
+    day = serializers.DateField(required=False)
+    at = serializers.DateTimeField(required=False)
+    key = serializers.CharField(required=False, max_length=64)
+    # rename
+    text = serializers.CharField(required=False, trim_whitespace=True)
+
+    def validate(self, data):
+        if data["op"] == "complete" and "day" not in data:
+            raise serializers.ValidationError({"day": "Required to complete."})
+        if data["op"] == "rename":
+            text = data.get("text", "")
+            if not text or "\n" in text or "\r" in text:
+                raise serializers.ValidationError({"text": "One line of text."})
+        return data
 
 
 class BoardViewSet(viewsets.ModelViewSet):
@@ -57,6 +80,9 @@ class BoardViewSet(viewsets.ModelViewSet):
         # item of it.
         list(Board.objects.select_for_update().filter(pk=kwargs.get("pk")))
 
+        ops = TaskOpSerializer(data=request.data.get("task_ops") or [], many=True)
+        ops.is_valid(raise_exception=True)
+
         # A stale or broken client (e.g. a tree view that serialized an empty
         # model) can PUT `state: []` and silently erase the whole board. An
         # empty state is only plausible when the board is already down to its
@@ -74,11 +100,16 @@ class BoardViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_409_CONFLICT,
             )
 
+        # What was done to the items that have tasks comes first; the tree
+        # is then made to agree with the tasks (see perform_update).
+        board_edits.apply(self.get_object(), request.user, ops.validated_data)
+
         return super().update(request, *args, **kwargs)
 
     def perform_update(self, serializer):
         # The tree comes from a browser that may have loaded it before an
-        # item was planned: which task an item has is the server's to say.
+        # item was planned or its task done: which task an item has, whether
+        # that item is ticked and how it reads are the task's to say.
         board = serializer.save()
         if board_links.reapply(board):
             board.save()

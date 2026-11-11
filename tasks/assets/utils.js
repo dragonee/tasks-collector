@@ -24,6 +24,60 @@ export function ensureItemIds(items) {
     }
 }
 
+// The day it is here, as YYYY-MM-DD. The server's day (UTC) differs from it
+// for part of every night.
+export function localDate() {
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+function eachItem(items, visit) {
+    for (const item of items || []) {
+        visit(item)
+        eachItem(item.children, visit)
+    }
+}
+
+// What was done to the items that have tasks, between the board as the server
+// last gave it (`before`) and the tree about to be saved (`after`).
+//
+// A planned item is ticked when its task is done and reads as its task does,
+// so ticking, unticking or rewording it is something done to the task. The
+// server is told so in as many words: a tree alone doesn't say whether it is
+// newer than what was done on the phone meanwhile.
+export function taskOps(before, after) {
+    const planned = new Map()
+    eachItem(before, (item) => {
+        if (item.data?.taskId) planned.set(item.id, item)
+    })
+
+    const ops = []
+    eachItem(after, (item) => {
+        const was = planned.get(item.id)
+        if (!was) return
+
+        const wasChecked = Boolean(was.state?.checked)
+        const isChecked = Boolean(item.state?.checked)
+        if (isChecked && !wasChecked) {
+            ops.push({
+                op: 'complete',
+                item_id: item.id,
+                day: localDate(),
+                at: new Date().toISOString(),
+                key: makeId(),
+            })
+        } else if (!isChecked && wasChecked) {
+            ops.push({ op: 'reopen', item_id: item.id })
+        }
+
+        if (item.text && item.text !== was.text) {
+            ops.push({ op: 'rename', item_id: item.id, text: item.text })
+        }
+    })
+    return ops
+}
+
 export function createTreeItem(text="") {
     return {
         id: makeId(),
