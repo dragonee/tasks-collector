@@ -237,7 +237,8 @@
                   },
                   body: JSON.stringify({
                       text: taskText,
-                      timeframe: timeframe
+                      timeframe: timeframe,
+                      date: localDate()
                   })
               })
 
@@ -255,6 +256,14 @@
       } else if (method === 'remove') {
           node.remove()
       }
+  }
+
+  // The day it is here, as YYYY-MM-DD. The server's day (UTC) differs from
+  // it for part of every night.
+  function localDate() {
+      const now = new Date()
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
   }
 
   function getCsrfToken() {

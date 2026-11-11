@@ -43,6 +43,9 @@ export function createTreeItem(text="") {
             },
 
             state: "open",
+
+            // The task made for this item once it is planned; none yet.
+            taskId: null,
         },
 
         text: text,

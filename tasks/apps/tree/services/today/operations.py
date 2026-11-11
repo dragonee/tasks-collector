@@ -254,8 +254,8 @@ def add_task(user, text, today=None):
 
     board = _current_board(user, for_update=True)
 
-    if board_tree.find_task_by_text(board.state, text) is None:
-        board_tree.append_task_at_root(board.state, text)
+    if board_tree.find_unscheduled_task_by_text(board.state, text) is None:
+        board_tree.append_unscheduled_task_at_root(board.state, text)
         board.save()
 
     daily = _daily_thread(user)
@@ -284,9 +284,9 @@ def _add_carried_progress_task(user, text, remaining, pub_date):
     canonical = render_carried(text, remaining)
     base = base_of(text)
 
-    hit = board_tree.find_task_by_base(board.state, base)
+    hit = board_tree.find_unscheduled_task_by_base(board.state, base)
     if hit is None:
-        board_tree.append_task_at_root(board.state, canonical)
+        board_tree.append_unscheduled_task_at_root(board.state, canonical)
         board.save()
     else:
         _, _, node = hit
@@ -354,9 +354,9 @@ def _set_task_done_boolean(user, text, done, today, published):
     board = _current_board(user, for_update=True)
 
     new_node_state = "done" if done else "open"
-    hit = board_tree.find_task_by_text(board.state, text)
+    hit = board_tree.find_unscheduled_task_by_text(board.state, text)
     if hit is None:
-        node = board_tree.append_task_at_root(board.state, text)
+        node = board_tree.append_unscheduled_task_at_root(board.state, text)
         board_tree.set_state(node, new_node_state)
         board.save()
     else:
@@ -384,7 +384,7 @@ def _cross_if_complete(board, base, n):
     """Cross / un-cross the board node matching ``base`` based on whether its
     completed count ``n`` reached the node's own total. No text edits. Returns
     True if the node state changed (caller saves the board)."""
-    hit = board_tree.find_task_by_base(board.state, base)
+    hit = board_tree.find_unscheduled_task_by_base(board.state, base)
     if hit is None:
         return False
     _, _, node = hit
@@ -450,7 +450,7 @@ def delete_task(user, text, today=None):
     pub_date = _today(today)
     board = _current_board(user, for_update=True)
 
-    hit = board_tree.find_task_by_text(board.state, text)
+    hit = board_tree.find_unscheduled_task_by_text(board.state, text)
     if hit is not None:
         parent_list, idx, node = hit
         if not board_tree.has_children(node):

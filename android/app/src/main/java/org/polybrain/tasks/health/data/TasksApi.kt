@@ -121,11 +121,12 @@ data class BoardItemsResponse(
     @SerialName("items") val items: List<BoardItem> = emptyList(),
 )
 
-// Append a free-typed task to the caller's current board. `thread-name` is
-// intentionally omitted: the server defaults it to the user's board thread
-// (the same board /board/items/ returns), so the client never names the board.
+// Append a free-typed unscheduled task to the caller's current board.
+// `thread-name` is intentionally omitted: the server defaults it to the user's
+// board thread (the same board /board/items/ returns), so the client never
+// names the board.
 @Serializable
-data class BoardAppendRequest(
+data class UnscheduledTaskRequest(
     @SerialName("text") val text: String,
 )
 
@@ -133,7 +134,7 @@ data class BoardAppendRequest(
 // only needs to know the call succeeded, so this field-less type discards the
 // body (the lenient Json drops all unknown keys).
 @Serializable
-class BoardAppendResponse
+class UnscheduledTaskResponse
 
 @Serializable
 data class PlanItem(
@@ -345,11 +346,14 @@ interface TasksApi {
     suspend fun listBoardItems(): BoardItemsResponse
 
     // Non-API web endpoint (no /api/v1/ prefix; token auth via DRF defaults,
-    // like plans/ and habit/track/). Appends a task to the caller's current
-    // board's backlog — for capturing something to do later, not scheduling it
-    // on a day. The server resolves which board from the profile default.
+    // like plans/ and habit/track/). Appends an unscheduled task to the
+    // caller's current board — for capturing something to do later, not
+    // scheduling it on a day. The server resolves which board from the profile
+    // default.
     @POST("boards/append/")
-    suspend fun appendBoardTask(@Body body: BoardAppendRequest): BoardAppendResponse
+    suspend fun appendUnscheduledTask(
+        @Body body: UnscheduledTaskRequest,
+    ): UnscheduledTaskResponse
 
     @POST("api/v1/android/task/add/")
     suspend fun addTodayTask(@Body body: TaskTextRequest): OkResponse

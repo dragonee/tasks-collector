@@ -49,7 +49,8 @@ usage: tc tasks [-h] [--version] [--thread THREAD]
 
 Connect to the Tasks Collector.
 
-By default, tasks are added to the thread from your profile.
+By default, a line is added as an unscheduled task to the board of the thread
+from your profile.
 By prefixing a line with `!` or `#`, it will be added to the Habit Tracker instead.
 
 options:

@@ -172,7 +172,7 @@ class ProgressLifecycleTestCase(TestCase):
         """Put the total-form task into Plan and on the board at root level.
         Under the reflection-count model this text is never rewritten."""
         Plan.objects.create(pub_date=TODAY, thread=self.daily, focus=text)
-        self.board.state = [board_tree.append_task_at_root([], text)]
+        self.board.state = [board_tree.append_unscheduled_task_at_root([], text)]
         self.board.save()
 
     def _reload(self):
@@ -322,7 +322,9 @@ class ProgressLifecycleTestCase(TestCase):
         Plan.objects.create(
             pub_date=TODAY, thread=self.daily, focus="Do tasks (3)\nother task"
         )
-        self.board.state = [board_tree.append_task_at_root([], "Do tasks (3)")]
+        self.board.state = [
+            board_tree.append_unscheduled_task_at_root([], "Do tasks (3)")
+        ]
         self.board.save()
 
         set_task_done(self.user, "Do tasks (3)", True, today=TODAY)

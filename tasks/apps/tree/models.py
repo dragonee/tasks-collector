@@ -14,6 +14,7 @@ from polymorphic.managers import PolymorphicManager
 from polymorphic.models import PolymorphicModel
 from polymorphic.query import PolymorphicQuerySet
 
+from .services.boards import items as board_items
 from .utils.datetime import aware_from_date
 from .utils.strings import coalesce
 
@@ -547,6 +548,12 @@ class Board(models.Model):
     class Meta:
         ordering = ("-date_started",)
 
+    def save(self, *args, **kwargs):
+        # Whoever wrote the tree (the web board, the Android app, a commit),
+        # its items are stored in one shape.
+        board_items.normalise(self.state)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         if not self.focus:
             return str(self.thread)
@@ -577,6 +584,11 @@ class Reflection(models.Model):
 
     class Meta:
         ordering = ("-pub_date",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["thread", "pub_date"], name="reflection_thread_pub_date_unique"
+            ),
+        ]
 
     def __str__(self):
         return "{} ({})".format(self.pub_date, self.thread)
@@ -593,6 +605,11 @@ class Plan(models.Model):
 
     class Meta:
         ordering = ("-pub_date",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["thread", "pub_date"], name="plan_thread_pub_date_unique"
+            ),
+        ]
 
     def __str__(self):
         return "{} ({})".format(self.pub_date, self.thread)

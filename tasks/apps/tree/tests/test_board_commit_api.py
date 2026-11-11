@@ -6,13 +6,17 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..board_operations import add_task_to_board, close_board, create_task_item
+from ..board_operations import (
+    add_unscheduled_task,
+    close_board,
+    create_unscheduled_task,
+)
 from ..models import Board, BoardCommitted
 from .factories import make_board, make_thread
 
 
 def _item(text, transition=None):
-    item = create_task_item(text)
+    item = create_unscheduled_task(text)
     if transition:
         item["data"]["meaningfulMarkers"]["transition"] = transition
     return item
@@ -87,7 +91,7 @@ class CloseBoardLockTestCase(TestCase):
     def test_commits_a_task_saved_after_the_board_was_loaded(self):
         board = make_board(thread=self.daily, state=[_item("first")])
         stale = Board.objects.get(pk=board.pk)
-        add_task_to_board(self.user, "appended meanwhile", "Daily")
+        add_unscheduled_task(self.user, "appended meanwhile", "Daily")
 
         close_board(stale)
 

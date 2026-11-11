@@ -10,7 +10,7 @@ from rest_framework.response import Response as RestResponse
 
 from .board_operations import (
     UnknownThreadError,
-    add_task_to_board,
+    add_unscheduled_task,
     close_board,
     current_board_thread_name,
 )
@@ -82,7 +82,7 @@ def commit_board(request, id=None):
 
 
 @api_view(["POST"])
-def add_task(request):
+def append_unscheduled_task(request):
     item = request.data
 
     text = item.get("text")
@@ -96,7 +96,7 @@ def add_task(request):
     # with the caller can be named too.
     thread_name = item.get("thread-name") or None
 
-    board = add_task_to_board(request.user, text, thread_name)
+    board = add_unscheduled_task(request.user, text, thread_name)
     if board is None:
         name = thread_name or current_board_thread_name(request.user)
         return RestResponse(

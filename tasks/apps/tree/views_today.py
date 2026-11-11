@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -201,9 +202,30 @@ def save_or_remove_object_if_empty(object, fields):
     is_empty = not any(getattr(object, field) for field in fields)
 
     if not is_empty:
-        object.save()
+        _save_the_one_for_its_day(object)
     elif object.pk:
         object.delete()
+
+
+def _save_the_one_for_its_day(object):
+    """Save a plan or reflection. A thread has one per date: when another
+    request made it since this one was loaded (a double submit, a tick on the
+    phone), this text goes into that row."""
+    if object.pk is not None:
+        object.save()
+        return
+
+    try:
+        with transaction.atomic():
+            object.save()
+    except IntegrityError:
+        object.pk = (
+            type(object)
+            .objects.values_list("pk", flat=True)
+            .get(thread=object.thread, pub_date=object.pub_date)
+        )
+        object._state.adding = False
+        object.save()
 
 
 def validate_form_and_perform_save_or_delete(form, fields):

@@ -8,14 +8,16 @@ from .commit import calculate_changes_per_board, merge
 from .models import Board, BoardCommitted, Profile, Thread, default_state
 
 
-def create_task_item(text):
-    """Creates the data structure for a new task."""
+def create_unscheduled_task(text):
+    """The board item of a new unscheduled task: something to do that is not
+    planned yet."""
     return {
         "id": str(uuid.uuid4()),
         "children": [],
         "data": {
             "state": "open",
             "text": text,
+            "taskId": None,
             "meaningfulMarkers": {
                 "weeksInList": 0,
                 "important": False,
@@ -28,14 +30,16 @@ def create_task_item(text):
                 "madeProgress": False,
             },
         },
+        "state": {"checked": False},
         "text": text,
     }
 
 
 @transaction.atomic
-def add_task_to_board(user, text, thread_name=None):
-    """Add a task to the board called ``thread_name`` among the boards ``user``
-    may change (see :func:`board_thread_named`), or to their current board
+def add_unscheduled_task(user, text, thread_name=None):
+    """Add an unscheduled task to the board called ``thread_name`` among the
+    boards ``user`` may change (see :func:`board_thread_named`), or to their
+    current board
     (see :func:`board_thread_for`) when no name is given. Returns the board,
     or None when the thread has no board yet; raises ``Http404`` for a name
     the user has no board called.
@@ -56,7 +60,7 @@ def add_task_to_board(user, text, thread_name=None):
         .first()
     )
     if board:
-        board.state.append(create_task_item(text))
+        board.state.append(create_unscheduled_task(text))
         board.save()
         return board
     return None
@@ -91,8 +95,9 @@ def close_board(board, created_by=None):
     All or nothing: raises ``UnknownThreadError`` before writing anything
     when an item is marked for a thread that doesn't exist.
 
-    The board and the target boards are row-locked and re-read, so a task
-    appended or ticked since the caller loaded ``board`` is committed with
+    The board and the target boards are row-locked and re-read, so an
+    unscheduled task appended or ticked since the caller loaded ``board`` is
+    committed with
     the rest instead of being overwritten.
 
     Returns the restarted board.
@@ -164,7 +169,7 @@ def board_thread_named(user, name):
 
 def current_board_thread_name(user):
     """Name of the user's current board thread (see :func:`board_thread_for`).
-    Lets callers name that board when appending a task to it via
+    Lets callers name that board when appending an unscheduled task to it via
     ``boards/append/``, which is keyed by thread name.
     """
     return board_thread_for(user).name

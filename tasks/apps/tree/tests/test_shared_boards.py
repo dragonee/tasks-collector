@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from ..board_operations import board_thread_for, create_task_item
+from ..board_operations import board_thread_for, create_unscheduled_task
 from ..forms import ProfileForm
 from ..models import Board, BoardCommitted, EventStreamAccess, Plan, Profile, Thread
 from ..services.streams import SharingError, revoke, share, shared_with
@@ -23,7 +23,7 @@ TODAY = datetime.date(2026, 11, 11)
 
 
 def _item(text, transition=None):
-    item = create_task_item(text)
+    item = create_unscheduled_task(text)
     if transition:
         item["data"]["meaningfulMarkers"]["transition"] = transition
     return item

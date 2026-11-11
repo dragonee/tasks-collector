@@ -7,7 +7,7 @@ from . import (
     views_android_api,
     views_android_photo,
     views_android_trip,
-    views_board_tasks,
+    views_boards,
     views_breakthrough,
     views_habit,
     views_habit_api,
@@ -20,8 +20,8 @@ from . import (
 # API Router - REST Framework ViewSets
 router = routers.DefaultRouter()
 
-# Board & Task Management
-router.register(r"boards", views_board_tasks.BoardViewSet, basename="boards")
+# Boards and unscheduled tasks
+router.register(r"boards", views_boards.BoardViewSet, basename="boards")
 
 # Plans & Reflections
 router.register(r"plans", views.PlanViewSet)
@@ -47,16 +47,16 @@ router.register(r"stories", views.StoryViewSet, basename="stories")
 urlpatterns = [
     # Home / Today view
     path("", views_today.today, name="public-today"),
-    # === Board & Task Management (views_board_tasks) ===
+    # === Boards and unscheduled tasks (views_boards) ===
     path("todo/", views.todo, name="todo"),
     path(
         "boards/<int:id>/summary/",
-        views_board_tasks.board_summary,
+        views_boards.board_summary,
         name="board-summary",
     ),
-    path("boards/<int:id>/commit/", views_board_tasks.commit_board),
-    path("boards/append/", views_board_tasks.add_task),
-    path("summaries/", views_board_tasks.summaries, name="summaries"),
+    path("boards/<int:id>/commit/", views_boards.commit_board),
+    path("boards/append/", views_boards.append_unscheduled_task),
+    path("summaries/", views_boards.summaries, name="summaries"),
     # === Plans (views) ===
     path("plans/add-task/", views.add_task_to_plan, name="plan-add-task"),
     path("api/v1/plans/today/", views.today_plans, name="today-plans"),

@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.polybrain.tasks.health.data.BoardAppendRequest
+import org.polybrain.tasks.health.data.UnscheduledTaskRequest
 import org.polybrain.tasks.health.data.BoardItem
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
@@ -132,7 +132,7 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     /**
-     * Append a free-typed task to the board the picker is showing, via the
+     * Append a free-typed unscheduled task to the board the picker is showing, via the
      * shared /boards/append/ endpoint. Unlike [addSelected] (which schedules
      * existing board items onto a given day's Plan), this only adds the line to
      * the board's backlog — for capturing something to tackle later rather than
@@ -140,7 +140,7 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
      * profile, so no thread or date is sent. On success the board list is
      * reloaded so the new line appears; failures surface via [error].
      */
-    fun addTask(text: String) {
+    fun addUnscheduledTask(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
@@ -151,7 +151,7 @@ class BoardPickerViewModel(application: Application) : AndroidViewModel(applicat
                 return@launch
             }
             try {
-                buildApi(snapshot).appendBoardTask(BoardAppendRequest(trimmed))
+                buildApi(snapshot).appendUnscheduledTask(UnscheduledTaskRequest(trimmed))
                 _error.value = null
                 reload()
             } catch (t: Throwable) {

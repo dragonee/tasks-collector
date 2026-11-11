@@ -1,6 +1,7 @@
 """Connect to the Tasks Collector.
 
-By default, tasks are added to the thread from your profile.
+By default, a line is added as an unscheduled task to the board of the thread
+from your profile.
 By prefixing a line with `!` or `#`, it will be added to the Habit Tracker instead.
 """
 
@@ -277,7 +278,7 @@ def run_focus_clock(task_text, config):
     (j/c, close and journal), ``"record"`` (r, track the habit and stop),
     ``"record_journal"`` (R, seed a journal with just the ``#focus`` line) or
     ``"exit"`` (x/Esc), along with the elapsed seconds. Pressing t drops out
-    to capture a task for later and then resumes the same session.
+    to capture an unscheduled task for later and then resumes the same session.
     """
     grey = fg("dark_gray")
     bold = attr("bold")
@@ -288,7 +289,7 @@ def run_focus_clock(task_text, config):
     print(f"\nFocus mode: {task_text}")
     print(
         f"{grey}j/c) close and journal, r) record habit, R) record and journal, "
-        f"t) task for later, x/esc) exit{reset}"
+        f"t) unscheduled task, x/esc) exit{reset}"
     )
 
     fd = sys.stdin.fileno()
@@ -318,7 +319,7 @@ def run_focus_clock(task_text, config):
                 result = "record_journal"
                 break
             if key in ("t", "T"):
-                add_focus_task(config, fd, old_settings)
+                add_focus_unscheduled_task(config, fd, old_settings)
                 print(f"{grey}Resuming focus: {task_text}{reset}")
                 continue
             if key in ("x", "X", "\x1b"):
@@ -366,18 +367,18 @@ def record_focus_habit(task_text, elapsed, config):
     add_habit(config, f"#focus time={timer} {task_text}")
 
 
-def add_focus_task(config, fd, old_settings):
-    """Temporarily leave the focus screen to capture a task for later, then
-    return so the timer can keep running. Empty input cancels."""
+def add_focus_unscheduled_task(config, fd, old_settings):
+    """Temporarily leave the focus screen to capture an unscheduled task for
+    later, then return so the timer can keep running. Empty input cancels."""
     termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     print()
     try:
-        text = input("Task for later (empty to cancel): ").strip()
+        text = input("Unscheduled task for later (empty to cancel): ").strip()
     except EOFError, KeyboardInterrupt:
         text = ""
 
     if text:
-        add_task(config, config.current_thread, text)
+        add_unscheduled_task(config, config.current_thread, text)
 
     tty.setcbreak(fd)
 
@@ -389,9 +390,9 @@ def focus_mode(args, config):
     Passing text directly (``focus Some task``) skips the picker and focuses on
     that text instead. Press j/c to close the session and open a pre-filled
     journal entry, r to just track the ``#focus`` habit (task stays open), R to
-    seed a journal with only the ``#focus`` line, t to capture a task for later
-    and keep focusing, or x/Esc to exit back to the normal prompt without
-    recording anything.
+    seed a journal with only the ``#focus`` line, t to capture an unscheduled
+    task for later and keep focusing, or x/Esc to exit back to the normal
+    prompt without recording anything.
     """
     if not sys.stdin.isatty():
         print("Focus mode requires an interactive terminal.")
@@ -485,7 +486,7 @@ def is_habit_command(text):
     return text.startswith("!") or text.startswith("#")
 
 
-def run_single_task(config):
+def run_single_line(config):
     if config.current_thread != DEFAULT_THREAD:
         original_text = get_input_until(bool, prompt=f"({config.current_thread}) > ")
     else:
@@ -504,13 +505,13 @@ def run_single_task(config):
 
         return
 
-    add_task(config, config.current_thread, original_text)
+    add_unscheduled_task(config, config.current_thread, original_text)
 
 
 RE_THREAD = re.compile(r"^(.*?)\s*>\s*([A-Za-z0-9_-]+)\s*$")
 
 
-def add_task(config, default_thread, text):
+def add_unscheduled_task(config, default_thread, text):
     match = RE_THREAD.match(text)
 
     if match:
@@ -571,7 +572,7 @@ def main(argv, prog):
     try:
         consume(
             repeatfunc(
-                run_single_task,
+                run_single_line,
                 None,
                 config,
             )

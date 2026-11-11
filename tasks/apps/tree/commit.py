@@ -6,17 +6,17 @@ from functools import reduce
 
 def weeks_in_list(markers, children=None):
     """
-    Calculate the number of weeks a task has been in the list.
+    Calculate the number of weeks an unscheduled task has been in the list.
 
     Args:
-        markers (dict): Task meaningful markers containing progress and timing info
+        markers (dict): The item's meaningful markers (progress and timing)
         children (list, optional): List of child items (if present, indicates this is a category)
 
     Returns:
         int: Number of weeks in list, with special handling:
              - 0 if has children (categories don't progress weeksInList)
              - 0 if madeProgress is True (progress resets counter)
-             - Current value if postponedFor > 0 (postponed tasks don't increment)
+             - Current value if postponedFor > 0 (postponed items don't increment)
              - Current value + 1 otherwise (normal weekly increment)
     """
     if children:
@@ -33,10 +33,10 @@ def weeks_in_list(markers, children=None):
 
 def transition_markers_in_tree_item(markers, children=None):
     """
-    Update meaningful markers for a task during board transition/commit.
+    Update meaningful markers for an unscheduled task during board transition/commit.
 
     Args:
-        markers (dict): Current meaningful markers for the task
+        markers (dict): Current meaningful markers for the item
         children (list, optional): List of child items to check if this is a category
 
     Returns:
@@ -94,12 +94,15 @@ def transition_data_in_tree_item(item):
         "children": transition_data_between_boards(item["children"]),
         "data": {
             "text": item["data"]["text"],
-            "state": item["data"]["state"],
+            # An item that stays on the board starts the next period unticked.
+            "state": "open",
+            "taskId": item["data"].get("taskId"),
             "meaningfulMarkers": transition_markers_in_tree_item(
                 item["data"]["meaningfulMarkers"], item["children"]
             ),
         },
         "state": {
+            "checked": False,
             "visible": (
                 True
                 if item["data"]["meaningfulMarkers"]["postponedFor"] == 1
@@ -112,32 +115,32 @@ def transition_data_in_tree_item(item):
 
 def filter_out_checked_items(x):
     """
-    Determine if a task should be filtered out during board transition.
+    Determine if an unscheduled task should be filtered out during board transition.
 
     Args:
-        x (dict): Task item with data, state, and meaningful markers
+        x (dict): Board item with data, state, and meaningful markers
 
     Returns:
         bool: True if item should be removed, False to keep it
 
     Filtering rules:
-        - Keep all canBePostponed tasks (special handling)
-        - Keep all currently postponed tasks (postponedFor > 0)
-        - Remove tasks with weeksInList >= 5 (force removal after 6 weeks)
-        - Remove checked/completed tasks
+        - Keep all canBePostponed items (special handling)
+        - Keep all currently postponed items (postponedFor > 0)
+        - Remove items with weeksInList >= 5 (force removal after 6 weeks)
+        - Remove ticked items
     """
 
     if x.get("data", {}).get("meaningfulMarkers", {}).get("canBePostponed", False):
         return False
 
-    # Don't remove postponed tasks
+    # Don't remove postponed items
     if x.get("data", {}).get("meaningfulMarkers", {}).get("postponedFor", 0) > 0:
         return False
 
     if x.get("data", {}).get("meaningfulMarkers", {}).get("madeProgress", False):
         return False
 
-    # Filter out tasks that have been in the list for 6 weeks or more (force removal)
+    # Filter out items that have been in the list for 6 weeks or more (force removal)
     weeks_in_list = x.get("data", {}).get("meaningfulMarkers", {}).get("weeksInList", 0)
     if weeks_in_list >= 5:
         return True
@@ -155,7 +158,7 @@ def transition_data_between_boards(state):
     Returns:
         list: Filtered and transformed items with:
               - Checked/completed items removed
-              - Long-running tasks (6+ weeks, zero-indexed) removed
+              - Long-running items (6+ weeks, zero-indexed) removed
               - Remaining items processed via transition_data_in_tree_item()
     """
     items = filter(lambda x: not filter_out_checked_items(x), state)
@@ -264,6 +267,10 @@ def merge(a, b):
         item_b = b[names_b[key]]
 
         item_a["children"] = merge(item_a["children"], item_b["children"])
+
+        # The two items become one; it stays planned if either of them was.
+        if not item_a["data"].get("taskId"):
+            item_a["data"]["taskId"] = item_b["data"].get("taskId")
 
     return a + [b[names_b[key]] for key in in_b]
 

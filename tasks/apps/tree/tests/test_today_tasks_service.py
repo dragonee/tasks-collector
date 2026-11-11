@@ -9,7 +9,7 @@ from django.db import DatabaseError, connection, transaction
 from django.test import TestCase, TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 
-from ..board_operations import create_task_item
+from ..board_operations import create_unscheduled_task
 from ..models import Board, JournalAdded, Plan, Reflection
 from ..services.today import (
     NoBoardError,
@@ -73,13 +73,13 @@ class TodayServiceTestCase(TestCase):
 
     # --- board_tree DFS -----------------------------------------------------
 
-    def test_find_task_by_text_walks_children(self):
-        deep = create_task_item("deep")
-        parent = create_task_item("parent")
+    def test_find_unscheduled_task_by_text_walks_children(self):
+        deep = create_unscheduled_task("deep")
+        parent = create_unscheduled_task("parent")
         parent["children"] = [deep]
-        self.board.state = [create_task_item("top"), parent]
+        self.board.state = [create_unscheduled_task("top"), parent]
         self.board.save()
-        hit = board_tree.find_task_by_text(self.board.state, "deep")
+        hit = board_tree.find_unscheduled_task_by_text(self.board.state, "deep")
         self.assertIsNotNone(hit)
         _, idx, node = hit
         self.assertEqual(idx, 0)
@@ -108,8 +108,8 @@ class TodayServiceTestCase(TestCase):
         self.assertEqual(plan.focus, "buy bread")
 
     def test_add_task_skips_board_append_when_task_lives_under_children(self):
-        parent = create_task_item("parent")
-        parent["children"] = [create_task_item("nested")]
+        parent = create_unscheduled_task("parent")
+        parent["children"] = [create_unscheduled_task("nested")]
         self.board.state = [parent]
         self.board.save()
 
@@ -147,8 +147,8 @@ class TodayServiceTestCase(TestCase):
         # A board node already carries the original total; carrying (2/3)
         # forward rewrites that node's marker to the remaining count, keeping
         # its identity/children rather than appending a duplicate.
-        node = create_task_item("New task (3)")
-        node["children"] = [create_task_item("subtask")]
+        node = create_unscheduled_task("New task (3)")
+        node["children"] = [create_unscheduled_task("subtask")]
         self.board.state = [node]
         self.board.save()
 
@@ -162,7 +162,7 @@ class TodayServiceTestCase(TestCase):
         self.assertEqual(self.board.state[0]["children"][0]["text"], "subtask")
 
     def test_add_progress_preserves_mid_text_marker_on_board(self):
-        self.board.state = [create_task_item("Buy (5) apples")]
+        self.board.state = [create_unscheduled_task("Buy (5) apples")]
         self.board.save()
 
         add_task(self.user, "Buy (2/5) apples", today=TODAY)
@@ -184,7 +184,7 @@ class TodayServiceTestCase(TestCase):
     def test_add_last_step_carries_as_plain_task(self):
         # (3/3) means two of three done -> one remains; the last item drops the
         # counter and carries forward as a plain task.
-        self.board.state = [create_task_item("New task (3)")]
+        self.board.state = [create_unscheduled_task("New task (3)")]
         self.board.save()
 
         add_task(self.user, "New task (3/3)", today=TODAY)
@@ -317,8 +317,8 @@ class TodayServiceTestCase(TestCase):
         self.assertEqual(plan.focus, "")
 
     def test_delete_task_keeps_node_with_children_on_board(self):
-        parent = create_task_item("parent")
-        parent["children"] = [create_task_item("kid")]
+        parent = create_unscheduled_task("parent")
+        parent["children"] = [create_unscheduled_task("kid")]
         self.board.state = [parent]
         self.board.save()
         Plan.objects.create(pub_date=TODAY, thread=self.daily, focus="parent")
@@ -345,8 +345,8 @@ class TodayServiceTestCase(TestCase):
 
     def test_move_plain_task_keeps_board_node(self):
         TOMORROW = date_cls(2026, 5, 22)
-        parent = create_task_item("Shopping")
-        kid = create_task_item("buy bread")
+        parent = create_unscheduled_task("Shopping")
+        kid = create_unscheduled_task("buy bread")
         kid["data"]["meaningfulMarkers"]["moscow"] = "must"
         parent["children"] = [kid]
         self.board.state = [parent]

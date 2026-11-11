@@ -51,8 +51,13 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 - **Thread-Based Organization**: Activities organized into Daily/Weekly/Monthly threads
 - **API-First Design**: Full REST API coverage alongside traditional Django views
 
+### Language: unscheduled tasks and tasks
+- A board is a tree of items. A board item is an **unscheduled task**: something to do that isn't planned yet. Code that creates, finds or appends board items says `unscheduled_task` (`board_operations.create_unscheduled_task`, `add_unscheduled_task`, `services/today/board_tree.py`).
+- **Task** is kept for what is planned (for a day, a week, a month). Don't call a board item a task.
+- `Board.save` stores every item in one shape (`services/boards/items.py`): an id of its own, `data.taskId` (None while unscheduled) and `data.state` following `state.checked`.
+
 ### Frontend Architecture
-- **Vue.js 2.x** with Vuex for state management
+- **Vue 3** with Pinia for state management (the board page; the other pages are server-rendered)
 - **Rsbuild** for asset bundling (faster Rspack-based alternative to Webpack)
 - **Bootstrap 4** for UI components
 

@@ -85,8 +85,8 @@ silently no-ops. The most recent `Board` on the chosen thread is used.
 ### Operation semantics
 
 - **Add (`add_task`)**: if the task text isn't already anywhere in the
-  Board tree (DFS over `board_tree.find_task_by_text`), append a fresh
-  node at root level (`board_operations.create_task_item`). Then ensure
+  Board tree (DFS over `board_tree.find_unscheduled_task_by_text`), append a fresh
+  node at root level (`board_operations.create_unscheduled_task`). Then ensure
   the line exists in today's `Plan.focus` via `add_unique_line`.
 - **List (`list_today_tasks`)**: read today's `Plan.focus` lines; flag
   each as `done=True` iff it also appears in `Reflection.good`; sort
