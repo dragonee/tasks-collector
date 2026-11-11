@@ -1,5 +1,6 @@
 package org.polybrain.tasks.health
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -7,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -62,8 +64,14 @@ private enum class Destination(val titleRes: Int) {
 
 class MainActivity : ComponentActivity() {
 
+    // The one MainScaffold gets from viewModel(): both ask this activity.
+    private val vm: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Not again when the activity is rebuilt (a rotation) with the
+        // intent it was started with.
+        if (savedInstanceState == null) finishLoginFrom(intent)
         setContent {
             MaterialTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
@@ -71,6 +79,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        finishLoginFrom(intent)
+    }
+
+    /**
+     * The browser coming back from the login page ([OAuthCallbackActivity]
+     * passes its redirect on): the URI carries the server's answer.
+     */
+    private fun finishLoginFrom(intent: Intent?) {
+        val answer = intent?.data ?: return
+        if (answer.scheme != packageName) return
+        vm.finishLogin(
+            code = answer.getQueryParameter("code"),
+            state = answer.getQueryParameter("state"),
+            error = answer.getQueryParameter("error"),
+        )
     }
 }
 

@@ -59,6 +59,36 @@ class Settings(private val context: Context) {
         }
     }
 
+    /**
+     * The login the browser is open for (see [OAuthLogin]). Kept here rather
+     * than in memory: Android may well kill the app while the user is in the
+     * browser typing their password.
+     */
+    suspend fun savePendingLogin(pending: OAuthLogin.Pending) {
+        context.dataStore.edit { prefs ->
+            prefs[LOGIN_SERVER_URL] = pending.serverUrl
+            prefs[LOGIN_VERIFIER] = pending.verifier
+            prefs[LOGIN_STATE] = pending.state
+        }
+    }
+
+    suspend fun pendingLogin(): OAuthLogin.Pending? {
+        val prefs = context.dataStore.data.first()
+        return OAuthLogin.Pending(
+            serverUrl = prefs[LOGIN_SERVER_URL] ?: return null,
+            verifier = prefs[LOGIN_VERIFIER] ?: return null,
+            state = prefs[LOGIN_STATE] ?: return null,
+        )
+    }
+
+    suspend fun clearPendingLogin() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(LOGIN_SERVER_URL)
+            prefs.remove(LOGIN_VERIFIER)
+            prefs.remove(LOGIN_STATE)
+        }
+    }
+
     suspend fun recordSyncSuccess(epochMs: Long) {
         context.dataStore.edit { prefs ->
             prefs[LAST_SYNC_MS] = epochMs
@@ -134,6 +164,9 @@ class Settings(private val context: Context) {
     private companion object {
         val SERVER_URL = stringPreferencesKey("server_url")
         val API_TOKEN = stringPreferencesKey("api_token")
+        val LOGIN_SERVER_URL = stringPreferencesKey("login_server_url")
+        val LOGIN_VERIFIER = stringPreferencesKey("login_verifier")
+        val LOGIN_STATE = stringPreferencesKey("login_state")
         val LAST_SYNC_MS = longPreferencesKey("last_sync_ms")
         val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
         val SYNCED_BIKE_SESSION_IDS = stringSetPreferencesKey("synced_bike_session_ids")

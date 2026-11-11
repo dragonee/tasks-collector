@@ -5,6 +5,8 @@ the model managers, so that the move to per-user threads (provisioned for
 every new user) changes only the bodies below, not every test module.
 """
 
+from tasks.apps.common.models import ApiToken
+
 from ..models import (
     Board,
     EventStream,
@@ -19,6 +21,14 @@ from ..models import (
 from ..services.tasks import agenda, documents
 from ..services.tasks import operations as tasks
 from ..services.today import plan_text
+
+
+def make_token(user, name="a phone"):
+    """An API token of ``user``'s, with the ``key`` to send as
+    ``Authorization: Token <key>`` (the row itself keeps only its digest)."""
+    token, key = ApiToken.objects.issue(user, name)
+    token.key = key
+    return token
 
 
 def make_thread(user, name="Daily"):

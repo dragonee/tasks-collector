@@ -2,11 +2,10 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..models import Habit, HabitKeyword, HabitTracked
-from .factories import make_habit, make_thread
+from .factories import make_habit, make_thread, make_token
 
 
 class TrackHabitAPITestCase(APITestCase):
@@ -14,7 +13,7 @@ class TrackHabitAPITestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="phone", password="x")
-        cls.token = Token.objects.create(user=cls.user)
+        cls.token = make_token(cls.user)
         cls.daily_thread = make_thread(cls.user, "Daily")
         cls.habit = make_habit(
             cls.user, "Health metrics", "health-metrics", keywords=["health-metrics"]

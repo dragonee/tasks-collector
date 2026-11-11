@@ -1,12 +1,11 @@
 from django.contrib.auth import get_user_model
 
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..board_operations import create_unscheduled_task
 from ..models import Board
-from .factories import make_board, make_thread
+from .factories import make_board, make_thread, make_token
 
 
 class BoardUpdateEmptyStateGuardTestCase(APITestCase):
@@ -20,7 +19,7 @@ class BoardUpdateEmptyStateGuardTestCase(APITestCase):
     def setUpTestData(cls):
         User = get_user_model()
         cls.user = User.objects.create_user(username="web", password="x")
-        cls.token = Token.objects.create(user=cls.user)
+        cls.token = make_token(cls.user)
         cls.daily = make_thread(cls.user, "Daily")
 
     def setUp(self):

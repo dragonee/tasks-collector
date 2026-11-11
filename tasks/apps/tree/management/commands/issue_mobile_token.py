@@ -1,21 +1,27 @@
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
-from rest_framework.authtoken.models import Token
+from tasks.apps.common.models import ApiToken
 
 
 class Command(BaseCommand):
     help = (
-        "Create or rotate a DRF auth token for a user. Prints the token value."
-        " Intended for provisioning mobile clients."
+        "Issue an API token for a user and print it. For a script or a debug"
+        " build of the phone app; a phone logs in by itself (Settings, Log in)."
+        " The token is listed in the user's account settings under its name."
     )
 
     def add_arguments(self, parser):
         parser.add_argument("username", type=str, help="Username to issue a token for")
         parser.add_argument(
+            "--name",
+            default="issue_mobile_token",
+            help="What the token is listed as [default: issue_mobile_token]",
+        )
+        parser.add_argument(
             "--rotate",
             action="store_true",
-            help="Delete any existing token and create a fresh one",
+            help="Revoke the user's tokens of that name first",
         )
 
     def handle(self, *args, **options):
@@ -28,7 +34,7 @@ class Command(BaseCommand):
             ) from exc
 
         if options["rotate"]:
-            Token.objects.filter(user=user).delete()
+            ApiToken.objects.filter(user=user, name=options["name"]).delete()
 
-        token, _created = Token.objects.get_or_create(user=user)
-        self.stdout.write(token.key)
+        _token, key = ApiToken.objects.issue(user, options["name"])
+        self.stdout.write(key)

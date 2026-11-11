@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Issue a DRF auth token via the issue_mobile_token Django command and
+# Issue an API token via the issue_mobile_token Django command and
 # write it (along with a dev server URL) into android/local.properties
 # so the Android debug build picks both up at build time via
 # BuildConfig.DEV_API_TOKEN / BuildConfig.DEV_SERVER_URL.
@@ -21,7 +21,7 @@ usage() {
 Usage: $(basename "$0") <username> [--server URL] [--rotate] [-f|--force]
 
   --server URL    URL written to tasks.devServerUrl (default: $DEFAULT_SERVER_URL)
-  --rotate        Pass --rotate to issue_mobile_token (deletes and recreates)
+  --rotate        Pass --rotate to issue_mobile_token (revokes the ones it issued before)
   -f, --force     Overwrite tasks.devApiToken if already set in local.properties
 EOF
   exit 2

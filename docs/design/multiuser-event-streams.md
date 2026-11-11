@@ -10,8 +10,15 @@ stages; "Open items" lists what is left.
   only the login pages, `/health/` and a public trip link answer.
 - The API needs an authenticated user on every route and accepts a token, basic auth
   or the session. The web frontend uses the session, the CLI basic auth, and the
-  Android app a token (`manage.py issue_mobile_token`,
-  `android/scripts/get-android-token`).
+  Android app a token.
+- A token is a `common.ApiToken`: one per device or script, kept as a digest of its
+  key, sent as `Authorization: Token <key>`, listed under "Devices" in the account
+  settings and revoked there. The phone gets its own by logging in: it opens
+  `oauth/authorize/` in the browser, the user logs in as on the web and says yes,
+  and the phone trades the code it is sent back with for a token at `oauth/token/`
+  (OAuth 2.0 authorization code with PKCE, `apps/common/oauth.py`; the apps that
+  may ask are `settings.OAUTH_CLIENTS`). A script gets one from
+  `manage.py issue_mobile_token` (`android/scripts/get-android-token`).
 
 ## Model
 

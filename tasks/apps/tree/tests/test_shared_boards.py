@@ -8,7 +8,6 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from ..board_operations import board_thread_for, create_unscheduled_task
@@ -26,7 +25,14 @@ from ..models import (
 )
 from ..services.streams import SharingError, revoke, share, shared_with
 from ..services.tasks import agenda
-from .factories import complete, make_board, make_profile, make_thread, plan_task
+from .factories import (
+    complete,
+    make_board,
+    make_profile,
+    make_thread,
+    make_token,
+    plan_task,
+)
 
 User = get_user_model()
 
@@ -196,7 +202,7 @@ class EditorTestCase(SharedBoardTestCase):
 
     def test_android_works_on_the_shared_default_board(self):
         make_profile(self.bob, default_board_thread=self.together)
-        token = Token.objects.create(user=self.bob)
+        token = make_token(self.bob)
         self.client.force_authenticate(user=None)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 
