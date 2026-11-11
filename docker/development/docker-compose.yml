@@ -71,7 +71,10 @@ services:
             AWS_SECRET_ACCESS_KEY: minioadmin
             AWS_S3_BUCKET: trip-photos
             AWS_S3_ENDPOINT_URL: "http://tasks-minio:9000"
-            AWS_S3_PUBLIC_ENDPOINT_URL: "http://10.0.2.2:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
+            # Where the phone finds this machine: 10.0.2.2 from the Android
+            # emulator. TASKS_DEVICE_HOST=localhost in .env for the iOS
+            # simulator, the machine's LAN address for a real phone.
+            AWS_S3_PUBLIC_ENDPOINT_URL: "http://${TASKS_DEVICE_HOST:-10.0.2.2}:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
             AWS_S3_WEB_ENDPOINT_URL: "http://localhost:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
         command: "/app/docker/development/scripts/run-celery.sh"
         working_dir: /app
@@ -93,7 +96,7 @@ services:
             AWS_SECRET_ACCESS_KEY: minioadmin
             AWS_S3_BUCKET: trip-photos
             AWS_S3_ENDPOINT_URL: "http://tasks-minio:9000"
-            AWS_S3_PUBLIC_ENDPOINT_URL: "http://10.0.2.2:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
+            AWS_S3_PUBLIC_ENDPOINT_URL: "http://${TASKS_DEVICE_HOST:-10.0.2.2}:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
             AWS_S3_WEB_ENDPOINT_URL: "http://localhost:${TASKS_PORT_PREFIX:-9000}${TASKS_PORT_PREFIX:+900}"
             # Stacks on one host share localhost's cookies whatever the port.
             SESSION_COOKIE_NAME: "sessionid${TASKS_PORT_PREFIX:-}"
