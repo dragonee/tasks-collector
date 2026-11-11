@@ -78,7 +78,7 @@ class RequestWriterTestCase(APITestCase):
         )
         self.assertEqual(made.created_by, self.alice)
 
-    def test_the_writer_is_not_the_owner_when_someone_else_writes(self):
+    def test_another_user_cannot_write_into_someone_elses_observation(self):
         alices = _observation(self.alice)
         self.client.force_authenticate(user=self.bob)
 
@@ -92,7 +92,18 @@ class RequestWriterTestCase(APITestCase):
             format="json",
         )
 
-        update = ObservationUpdated.objects.get(pk=response.json()["id"])
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(ObservationUpdated.objects.exists())
+
+    def test_the_writer_is_kept_apart_from_the_owner(self):
+        # Only owners write for now; an editor writing into someone else's
+        # stream (a later role) keeps their own name on the event.
+        alices = _observation(self.alice)
+
+        update = ObservationUpdated.objects.create(
+            observation=alices, comment="seen it too", created_by=self.bob
+        )
+
         self.assertEqual(update.created_by, self.bob)
         self.assertEqual(update.event_stream.created_by, self.alice)
 

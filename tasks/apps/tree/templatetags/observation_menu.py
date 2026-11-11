@@ -19,12 +19,16 @@ def observation_menu(context, attach_mode=False):
     if current_sort not in SORT_CHOICES:
         current_sort = DEFAULT_SORT
 
+    user = request.user
     return {
-        "mine_count": Observation.objects.filter(user=request.user).count(),
-        "open_count": Observation.objects.count(),
-        "closed_count": ObservationClosed.objects.count(),
+        "mine_count": Observation.objects.owned_by(user).count(),
+        "open_count": Observation.objects.visible_to(user).count(),
+        "closed_count": ObservationClosed.objects.visible_to(user).count(),
         "insights_count": (
-            InsightRefined.objects.values("event_stream_id").distinct().count()
+            InsightRefined.objects.visible_to(user)
+            .values("event_stream_id")
+            .distinct()
+            .count()
         ),
         "observation_types": ObservationType.objects.order_by("name"),
         "current_type": request.GET.get("type") or "",

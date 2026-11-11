@@ -31,8 +31,6 @@ class BoardViewSet(viewsets.ModelViewSet):
     API endpoint that allows boards to be viewed or edited.
     """
 
-    queryset = Board.objects.all()
-
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = BoardFilter
 
@@ -43,6 +41,9 @@ class BoardViewSet(viewsets.ModelViewSet):
     # DELETE would erase a board without the guard below. Boards come from
     # the admin or from a commit moving items to a thread with no board.
     http_method_names = ["get", "put", "patch", "head", "options"]
+
+    def get_queryset(self):
+        return Board.objects.filter(thread__user=self.request.user)
 
     def update(self, request, *args, **kwargs):
         # A stale or broken client (e.g. a tree view that serialized an empty
@@ -67,7 +68,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
 @api_view(["POST"])
 def commit_board(request, id=None):
-    board = get_object_or_404(Board, pk=id)
+    board = get_object_or_404(Board, pk=id, thread__user=request.user)
 
     try:
         board = close_board(board, created_by=request.user)
@@ -102,7 +103,7 @@ def add_task(request):
 
 @login_required
 def board_summary(request, id):
-    board = get_object_or_404(BoardCommitted, pk=id)
+    board = get_object_or_404(BoardCommitted.objects.owned_by(request.user), pk=id)
 
     summary = BoardSummary(board)
 
@@ -142,7 +143,8 @@ def summaries(request):
     period = period_from_request(request, days=30)
 
     boards = (
-        BoardCommitted.objects.filter(published__date__range=period)
+        BoardCommitted.objects.owned_by(request.user)
+        .filter(published__date__range=period)
         .select_related("thread")
         .order_by("-published")
     )

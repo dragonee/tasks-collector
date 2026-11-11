@@ -34,6 +34,13 @@ class UserThreadFormMixin:
         self.fields[self.thread_field].queryset = (
             Thread.objects.for_user(user) if user is not None else Thread.objects.none()
         )
+        # Forms that point at a journal entry may only point at the user's.
+        if "journal" in self.fields:
+            self.fields["journal"].queryset = (
+                JournalAdded.objects.owned_by(user)
+                if user is not None
+                else JournalAdded.objects.none()
+            )
 
 
 class PlanForm(forms.ModelForm):

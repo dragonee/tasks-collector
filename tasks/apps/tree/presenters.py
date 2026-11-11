@@ -1,6 +1,12 @@
 from django.db.models import Q
 
-from .models import Event, Observation, ObservationAttached, ObservationDetached
+from .models import (
+    Event,
+    EventStream,
+    Observation,
+    ObservationAttached,
+    ObservationDetached,
+)
 
 
 class ObservationEventPresenter:
@@ -15,16 +21,36 @@ class ObservationEventPresenter:
 
 
 class ComplexPresenter:
-    """Presenter class that can replay Attached/Detached events and provide complex observation information"""
+    """Presenter class that can replay Attached/Detached events and provide complex observation information
 
-    def __init__(self, observation_event_stream_id):
+    Given a ``user``, it shows only the attached observations that user can
+    access; ``is_attached`` always answers from the full replay.
+    """
+
+    def __init__(self, observation_event_stream_id, user=None):
         self.observation_event_stream_id = observation_event_stream_id
+        self.user = user
+        self._replayed_stream_ids = None
         self._attached_stream_ids = None
 
     def _get_attached_stream_ids(self):
+        """Currently attached observation stream IDs, limited to what the user
+        can access when there is one."""
+        if self._attached_stream_ids is None:
+            attached = self._replay_attached_stream_ids()
+            if self.user is not None and attached:
+                attached = set(
+                    EventStream.objects.visible_to(self.user)
+                    .filter(pk__in=attached)
+                    .values_list("pk", flat=True)
+                )
+            self._attached_stream_ids = attached
+        return self._attached_stream_ids
+
+    def _replay_attached_stream_ids(self):
         """Replay attach/detach events to get currently attached observation stream IDs"""
-        if self._attached_stream_ids is not None:
-            return self._attached_stream_ids
+        if self._replayed_stream_ids is not None:
+            return self._replayed_stream_ids
 
         # Get all attach/detach events for this observation in chronological order
         attach_detach_events = (
@@ -42,8 +68,8 @@ class ComplexPresenter:
             elif isinstance(event, ObservationDetached):
                 attached_ids.discard(event.other_event_stream_id)
 
-        self._attached_stream_ids = attached_ids
-        return self._attached_stream_ids
+        self._replayed_stream_ids = attached_ids
+        return self._replayed_stream_ids
 
     def open_observations_count(self):
         """Number of open Observations currently attached"""
@@ -65,8 +91,7 @@ class ComplexPresenter:
 
     def is_attached(self, event_stream_id):
         """Check if an observation with the given event_stream_id is currently attached"""
-        attached_stream_ids = self._get_attached_stream_ids()
-        return event_stream_id in attached_stream_ids
+        return event_stream_id in self._replay_attached_stream_ids()
 
     def open_observations_list(self):
         """List of open Observations currently attached"""
@@ -143,8 +168,8 @@ class ComplexPresenter:
         return list(map(self._get_observation_info, self._get_attached_stream_ids()))
 
 
-def get_complex_presenter(observation):
+def get_complex_presenter(observation, user=None):
     if not observation.event_stream_id:
         return None
 
-    return ComplexPresenter(observation.event_stream_id)
+    return ComplexPresenter(observation.event_stream_id, user)

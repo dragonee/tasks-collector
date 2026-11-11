@@ -61,8 +61,9 @@ class ObservationAPIFilterTestCase(APITestCase):
     def test_ownership_mine_returns_only_own_observations(self):
         self.assertEqual(self._situations(ownership="mine"), ["mine", "old"])
 
-    def test_ownership_all_returns_everyones_observations(self):
-        self.assertEqual(self._situations(ownership="all"), ["theirs", "mine", "old"])
+    def test_ownership_all_returns_every_observation_the_user_can_see(self):
+        # Another user's observation is not visible unless they share it.
+        self.assertEqual(self._situations(ownership="all"), ["mine", "old"])
 
     def test_filters_by_pub_date_range(self):
         self.assertEqual(

@@ -25,6 +25,7 @@ from rest_framework.response import Response as RestResponse
 from .forms import InsightForm, ObservationForm
 from .models import (
     Event,
+    EventStream,
     InsightRefined,
     Observation,
     ObservationAttached,
@@ -51,6 +52,10 @@ from .serializers import (
 from .services.observations.closing import close_observation
 from .services.observations.event_creation import create_observation_change_events
 from .services.observations.insights import extract_insight
+
+# Viewset actions that only read. Everything else changes data, which only
+# the owner may do.
+READ_ACTIONS = ("list", "retrieve")
 
 
 class ObservationPagination(PageNumberPagination):
@@ -128,7 +133,12 @@ class ObservationViewSet(viewsets.ModelViewSet):
         return bool(features and "updates" in features)
 
     def get_queryset(self):
+        # Read what you can see; change only what you own.
         queryset = super().get_queryset()
+        if self.action in READ_ACTIONS:
+            queryset = queryset.visible_to(self.request.user)
+        else:
+            queryset = queryset.owned_by(self.request.user)
 
         if self.wants_updates():
             queryset = queryset.prefetch_related("observationupdated_set")
@@ -150,6 +160,11 @@ class ObservationUpdatedViewSet(viewsets.ModelViewSet):
 
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["observation_id"]
+
+    def get_queryset(self):
+        if self.action in READ_ACTIONS:
+            return super().get_queryset().visible_to(self.request.user)
+        return super().get_queryset().owned_by(self.request.user)
 
     def get_serializer_class(self):
         if self.request.query_params.get("observation_id"):
@@ -173,7 +188,9 @@ class ObservationEventViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = EventFilter
 
     def get_queryset(self):
-        return Event.objects.instance_of(*observation_event_types)
+        return Event.objects.visible_to(self.request.user).instance_of(
+            *observation_event_types
+        )
 
 
 # Keep in sync with SORT_CHOICES in templatetags/observation_menu.py.
@@ -232,7 +249,8 @@ class ObservationListView(ObservationListFilterMixin, LoginRequiredMixin, ListVi
 
     def get_queryset(self):
         queryset = (
-            Observation.objects.with_attached_count()
+            Observation.objects.visible_to(self.request.user)
+            .with_attached_count()
             .select_related("thread", "type")
             .prefetch_related("observationupdated_set")
         )
@@ -254,7 +272,9 @@ class ObservationClosedListView(
     paginate_by = 100
 
     def get_queryset(self):
-        queryset = ObservationClosed.objects.select_related("thread", "type")
+        queryset = ObservationClosed.objects.visible_to(
+            self.request.user
+        ).select_related("thread", "type")
         return self.apply_observation_filters(queryset)
 
 
@@ -298,16 +318,19 @@ class InsightsListView(ObservationListFilterMixin, LoginRequiredMixin, ListView)
             .order_by("-published")
             .values("pk")[:1]
         )
-        queryset = InsightRefined.objects.filter(
-            pk__in=Subquery(latest_ids)
-        ).select_related("thread", "type")
+        queryset = (
+            InsightRefined.objects.visible_to(self.request.user)
+            .filter(pk__in=Subquery(latest_ids))
+            .select_related("thread", "type")
+        )
         return self.apply_observation_filters(queryset)
 
 
 @login_required
 def observation_closed_detail(request, event_stream_id):
     observation_closed = get_object_or_404(
-        ObservationClosed, event_stream_id=event_stream_id
+        ObservationClosed.objects.visible_to(request.user),
+        event_stream_id=event_stream_id,
     )
 
     events = list(
@@ -357,7 +380,9 @@ def _get_initial_dict_for_observation(user, observation):
 @login_required
 def observation_edit(request, observation_id=None):
     if observation_id is not None:
-        observation = get_object_or_404(Observation, id=observation_id)
+        observation = get_object_or_404(
+            Observation.objects.owned_by(request.user), id=observation_id
+        )
     else:
         observation = Observation()
 
@@ -424,13 +449,14 @@ def observation_edit(request, observation_id=None):
             "formset": formset,
             "instance": observation,
             "thread_as_link": True,
-            "complex_presenter": get_complex_presenter(observation),
+            "complex_presenter": get_complex_presenter(observation, request.user),
         },
     )
 
 
 @api_view(["POST"])
 def observation_close(request, observation_id):
+    _require_own_observation(request.user, observation_id)
     try:
         close_observation(observation_id, created_by=request.user)
     except Observation.DoesNotExist:
@@ -444,6 +470,7 @@ def observation_close(request, observation_id):
 
 @api_view(["POST"])
 def observation_close_and_extract(request, observation_id):
+    _require_own_observation(request.user, observation_id)
     with transaction.atomic():
         try:
             observation_closed = close_observation(
@@ -468,7 +495,8 @@ def observation_close_and_extract(request, observation_id):
 @login_required
 def observation_extract_insight(request, event_stream_id):
     observation_closed = get_object_or_404(
-        ObservationClosed, event_stream_id=event_stream_id
+        ObservationClosed.objects.owned_by(request.user),
+        event_stream_id=event_stream_id,
     )
 
     existing = InsightRefined.objects.filter(event_stream_id=event_stream_id).exists()
@@ -489,7 +517,8 @@ def observation_extract_insight(request, event_stream_id):
 @login_required
 def insight_edit(request, event_stream_id):
     observation_closed = get_object_or_404(
-        ObservationClosed, event_stream_id=event_stream_id
+        ObservationClosed.objects.owned_by(request.user),
+        event_stream_id=event_stream_id,
     )
 
     latest_insight = (
@@ -544,7 +573,9 @@ def insight_edit(request, event_stream_id):
 
 @api_view(["POST"])
 def migrate_observation_updates_to_journal(request, observation_id):
-    observation = get_object_or_404(Observation, pk=observation_id)
+    observation = get_object_or_404(
+        Observation.objects.owned_by(request.user), pk=observation_id
+    )
     # The updates become journal entries in the observation owner's diary.
     thread = Thread.objects.daily(observation.user_id)
 
@@ -561,31 +592,46 @@ def migrate_observation_updates_to_journal(request, observation_id):
     return redirect(reverse("public-observation-list"))
 
 
-def _event_stream_id_from_observation_id(observation_id):
+def _require_own_observation(user, observation_id):
+    if not Observation.objects.owned_by(user).filter(pk=observation_id).exists():
+        raise Http404
+
+
+def _event_stream_id_from_observation_id(user, observation_id):
     try:
-        return Observation.objects.get(pk=observation_id).event_stream_id
+        return (
+            Observation.objects.visible_to(user).get(pk=observation_id).event_stream_id
+        )
     except TypeError, ValueError:
         raise ValidationError({"error": "other_observation_id must be an integer"})
     except Observation.DoesNotExist:
         raise NotFound({"error": "Observation does not exist"})
 
 
-def _validate_event_stream_id(value):
-    """Return a client-supplied event stream id as a UUID, if its observation
-    exists, open or closed.
+def _parse_event_stream_id(value):
+    """A client-supplied event stream id as a UUID (400 otherwise).
 
     ComplexPresenter keys attachments by UUID, so a raw string would never
     match an attached stream.
     """
     try:
-        event_stream_id = uuid.UUID(str(value))
+        return uuid.UUID(str(value))
     except ValueError:
         raise ValidationError({"error": "other_event_stream_id must be a UUID"})
 
-    if Observation.objects.filter(event_stream_id=event_stream_id).exists():
-        return event_stream_id
 
-    if ObservationClosed.objects.filter(event_stream_id=event_stream_id).exists():
+def _validate_event_stream_id(user, value):
+    """Return a client-supplied event stream id as a UUID, if it is the stream
+    of an observation (open or closed) ``user`` can access. Others answer as
+    if they didn't exist.
+    """
+    event_stream_id = _parse_event_stream_id(value)
+
+    if (
+        EventStream.objects.visible_to(user)
+        .filter(pk=event_stream_id, type=EventStream.Type.OBSERVATION)
+        .exists()
+    ):
         return event_stream_id
 
     raise NotFound({"error": "Observation does not exist"})
@@ -594,7 +640,9 @@ def _validate_event_stream_id(value):
 @api_view(["POST"])
 def observation_attach(request, observation_id):
     """Attach another observation to this observation (making it a complex observation)"""
-    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    complex_observation = get_object_or_404(
+        Observation.objects.owned_by(request.user), pk=observation_id
+    )
 
     # Get the observation to attach - can be either observation_id or event_stream_id
     other_observation_id = request.data.get("other_observation_id")
@@ -610,10 +658,12 @@ def observation_attach(request, observation_id):
 
     if other_observation_id:
         other_event_stream_id = _event_stream_id_from_observation_id(
-            other_observation_id
+            request.user, other_observation_id
         )
 
-    other_event_stream_id = _validate_event_stream_id(other_event_stream_id)
+    other_event_stream_id = _validate_event_stream_id(
+        request.user, other_event_stream_id
+    )
 
     if other_event_stream_id == complex_observation.event_stream_id:
         return RestResponse(
@@ -624,7 +674,9 @@ def observation_attach(request, observation_id):
     # Check if the observation is already attached by replaying events
     from .presenters import ComplexPresenter
 
-    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    complex_presenter = ComplexPresenter(
+        complex_observation.event_stream_id, request.user
+    )
 
     if complex_presenter.is_attached(other_event_stream_id):
         # Already attached, find the most recent attach event and return it
@@ -664,7 +716,9 @@ def observation_attach(request, observation_id):
 @api_view(["POST"])
 def observation_detach(request, observation_id):
     """Detach an observation from this complex observation"""
-    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    complex_observation = get_object_or_404(
+        Observation.objects.owned_by(request.user), pk=observation_id
+    )
 
     # Get the event_stream_id to detach
     other_event_stream_id = request.data.get("other_event_stream_id")
@@ -674,12 +728,16 @@ def observation_detach(request, observation_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    other_event_stream_id = _validate_event_stream_id(other_event_stream_id)
+    # Only parsed: whatever is attached can be detached, even an observation
+    # its owner no longer shares with this user.
+    other_event_stream_id = _parse_event_stream_id(other_event_stream_id)
 
     # Check if the observation is currently attached by replaying events
     from .presenters import ComplexPresenter
 
-    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    complex_presenter = ComplexPresenter(
+        complex_observation.event_stream_id, request.user
+    )
 
     if not complex_presenter.is_attached(other_event_stream_id):
         # Not attached, find the most recent detach event and return it
@@ -718,7 +776,7 @@ def observation_detach(request, observation_id):
     return RestResponse(serializer.data, status=status.HTTP_201_CREATED)
 
 
-def filter_out_attached_observations(observations, observation_id):
+def filter_out_attached_observations(user, observations, observation_id):
     """
     Filter out observations that are already attached to the given observation,
     including the base observation itself.
@@ -727,10 +785,10 @@ def filter_out_attached_observations(observations, observation_id):
         return observations
 
     try:
-        base_observation = Observation.objects.get(pk=observation_id)
+        base_observation = Observation.objects.visible_to(user).get(pk=observation_id)
         from .presenters import ComplexPresenter
 
-        complex_presenter = ComplexPresenter(base_observation.event_stream_id)
+        complex_presenter = ComplexPresenter(base_observation.event_stream_id, user)
         attached_stream_ids = complex_presenter.get_attached_stream_ids()
 
         # Exclude the base observation itself and any attached observations
@@ -766,13 +824,16 @@ def observation_search(request):
         # Search by primary key pattern - find PKs that start with the number
         observations = (
             serializable_observations()
+            .visible_to(request.user)
             .annotate(id_text=Cast("id", CharField()))
             .filter(id_text__startswith=pk_query)
             .order_by("id")
         )
 
         # Filter out attached observations if observation_id is provided
-        observations = filter_out_attached_observations(observations, observation_id)
+        observations = filter_out_attached_observations(
+            request.user, observations, observation_id
+        )
 
         # Apply pagination
         paginator = ObservationPagination()
@@ -810,13 +871,16 @@ def observation_search(request):
     # Search observations and rank by relevance
     observations = (
         serializable_observations()
+        .visible_to(request.user)
         .annotate(search=search_vector, rank=SearchRank(search_vector, search_query))
         .filter(search=search_query)
         .order_by("-rank", "-pub_date")
     )
 
     # Filter out attached observations if observation_id is provided
-    observations = filter_out_attached_observations(observations, observation_id)
+    observations = filter_out_attached_observations(
+        request.user, observations, observation_id
+    )
 
     # Apply pagination
     paginator = ObservationPagination()
@@ -837,11 +901,15 @@ def observation_search(request):
 @api_view(["GET"])
 def observation_attachments(request, observation_id):
     """Get all currently attached observations for a given observation"""
-    complex_observation = get_object_or_404(Observation, pk=observation_id)
+    complex_observation = get_object_or_404(
+        Observation.objects.visible_to(request.user), pk=observation_id
+    )
 
     from .presenters import ComplexPresenter
 
-    complex_presenter = ComplexPresenter(complex_observation.event_stream_id)
+    complex_presenter = ComplexPresenter(
+        complex_observation.event_stream_id, request.user
+    )
 
     # Get all currently attached stream IDs
     attached_stream_ids = complex_presenter.get_attached_stream_ids()
