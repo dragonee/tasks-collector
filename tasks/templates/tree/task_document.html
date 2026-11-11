@@ -1,0 +1,5 @@
+<p>
+    <textarea name="{{ editor.name }}" id="id_{{ editor.name }}" cols="40" rows="10" placeholder="{{ editor.prompt }}" data-task-document="{{ editor.kind }}">
+{{ editor.text }}</textarea>
+    <input type="hidden" name="{{ editor.name }}-base" value="{{ editor.text }}">
+</p>

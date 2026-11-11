@@ -47,18 +47,21 @@
 </div>
 
 <div class="split-left">
-    <form id="daily-form" action="" method="POST">
+    <form id="daily-form" action="" method="POST"{% if completion_day %} data-completion-day="{{ completion_day|date:"Y-m-d" }}"{% endif %}>
         {% csrf_token %}
         <input type="hidden" name="thread" value="{{ thread.name }}">
+        {{ chips|json_script:"task-document-chips" }}
 
         <div class="navigation">
             {% for plan in larger_plans %}
                 <div class="larger-plan small-plan">
                     <h3>{{ plan.thread.name }} plan</h3>
-                    {% if plan.focus %}
-                        <div class="focus">
-                            {{ plan.focus|linebreaks }}
-                        </div>
+                    {% if plan.tasks %}
+                        <ul class="focus plan-tasks">
+                            {% for task in plan.tasks %}
+                                <li{% if task.done %} class="done"{% endif %}>{{ task.text }}</li>
+                            {% endfor %}
+                        </ul>
                     {% endif %}
                 </div>
             {% endfor %}
@@ -67,18 +70,20 @@
         <div class="plans-row">
             <div class="plan">
                 <h3>Today's plan</h3>
-                {{ today_plan_form.as_p }}
+                {% include "tree/task_document.html" with editor=editors.today_plan_focus %}
             </div>
 
             <div class="tomorrow">
                 <h3>Tomorrow's plan</h3>
-                {{ tomorrow_plan_form.as_p }}
+                {% include "tree/task_document.html" with editor=editors.tomorrow_plan_focus %}
             </div>
         </div>
 
         <div class="reflection">
             <h3>Today's reflection</h3>
-            {{ reflection_form.as_p }}
+            {% include "tree/task_document.html" with editor=editors.reflection_good %}
+            {% include "tree/task_document.html" with editor=editors.reflection_better %}
+            {% include "tree/task_document.html" with editor=editors.reflection_best %}
         </div>
     </form>
 </div>

@@ -111,11 +111,44 @@ How rewritten text maps onto rows:
 with a letter or a digit in it. Elsewhere a typed line is a plain line; it becomes
 a task when something is done with it (ticked, moved, pulled into a day).
 
-"Reworded" is a guess from how alike two lines are (`REWORDED_RATIO`). It goes
-away for the web once the editor knows which line is which (see "What is next").
+"Reworded" is a guess from how alike two lines are (`REWORDED_RATIO`). That is
+for plain text only: the day page knows which line is which (next section).
 
 A task taken off its last plan is deleted unless something remembers it: it was
 done at least once, or it is linked to a board item.
+
+## The day page
+
+The Daily / Weekly / big-picture page (`views_today.py`, `today.html`) edits two
+plans and a reflection as text with anchors: a task's line ends with ` ^t<anchor>`.
+
+- Each editor is a `<textarea data-task-document>` holding that text, plus a
+  hidden `<name>-base` with the text the page was loaded with. Without JavaScript
+  that is the whole editor, anchors visible.
+- `assets/task_document_editor.js` (a chunk of its own, CodeMirror 6, loaded only
+  on this page) puts an editor over each textarea and copies its text back on
+  every change. An anchor is drawn as a chip and is one unit: the cursor steps
+  over it, Backspace takes it out, cutting a line carries it. Typing after a
+  chip, Enter inside a task's line and joining lines keep the anchor at the end
+  of the task's line, which is the only place it counts.
+- In a plan, clicking a chip does a step of the task or takes the last one back,
+  through `api/v1/tasks/<id>/complete|reopen/`. With nothing unsaved the page
+  reloads to show the reflection's new line; otherwise it shows after the save.
+- Saving applies **what differs between the base and the text**
+  (`DocumentEdit.apply`), so what happened elsewhere while the page sat open
+  stays: a line added from the phone is not removed, one moved away is not put
+  back.
+
+| Done on the page | Plan | Reflection |
+|---|---|---|
+| a line with its anchor, reworded | renames the task | the line's new wording; the task's text stays |
+| the anchor taken off a line | that task is off the plan; the line is a new task | a line of its own; the task stays done |
+| a line with its anchor moved to another editor | the same task, on that plan | the same line, under that field |
+| a line typed in | a new task | a line of its own |
+| a line taken out | off the plan | gone; the task stays done |
+
+An anchor of a task its owner can't change is dropped. The week's and the month's
+plan above the day's are listed with what is done struck through.
 
 ## Operations
 
@@ -233,7 +266,5 @@ the current Weekly and big-picture). Older lines are plain lines, word for word.
 
 ## What is next
 
-1. Day page: one editor over text with anchors drawn as chips; saves applied as a
-   diff against what the page loaded.
-2. Android and CLI by task id.
-3. The text endpoints and the text columns go.
+1. Android and CLI by task id.
+2. The text endpoints and the text columns go.
