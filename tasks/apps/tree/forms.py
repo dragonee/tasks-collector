@@ -244,6 +244,20 @@ class ProfileForm(UserThreadFormMixin, forms.ModelForm):
         self.fields["habit_keywords"].queryset = HabitKeyword.objects.filter(
             user=self.user
         ).select_related("habit")
+        # Any board the user may change can be their default: their own and
+        # the boards shared with them.
+        board_field = self.fields["default_board_thread"]
+        board_field.queryset = (
+            Thread.objects.board_editable_by(self.user).select_related("user")
+            if self.user is not None
+            else Thread.objects.none()
+        )
+        board_field.label_from_instance = self._board_label
+
+    def _board_label(self, thread):
+        if thread.user_id == self.user.pk:
+            return thread.name
+        return f"{thread.name} (shared by {thread.user.username})"
 
     class Meta:
         model = Profile

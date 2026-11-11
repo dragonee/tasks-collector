@@ -43,7 +43,10 @@ class BoardViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "put", "patch", "head", "options"]
 
     def get_queryset(self):
-        return Board.objects.filter(thread__user=self.request.user)
+        # The user's boards and the boards shared with them to edit.
+        return Board.objects.editable_by(self.request.user).select_related(
+            "thread__user"
+        )
 
     def update(self, request, *args, **kwargs):
         # A stale or broken client (e.g. a tree view that serialized an empty
@@ -68,14 +71,14 @@ class BoardViewSet(viewsets.ModelViewSet):
 
 @api_view(["POST"])
 def commit_board(request, id=None):
-    board = get_object_or_404(Board, pk=id, thread__user=request.user)
+    board = get_object_or_404(Board.objects.editable_by(request.user), pk=id)
 
     try:
         board = close_board(board, created_by=request.user)
     except UnknownThreadError as e:
         return RestResponse({"errors": str(e)}, status=status.HTTP_409_CONFLICT)
 
-    return RestResponse(BoardSerializer(board).data)
+    return RestResponse(BoardSerializer(board, context={"request": request}).data)
 
 
 @api_view(["POST"])
@@ -89,21 +92,28 @@ def add_task(request):
     # thread-name is optional: when omitted, append to the caller's current
     # board — Profile.default_board_thread, or Daily as a fallback — which is
     # the same board the Android picker shows. Explicit callers (e.g. the CLI's
-    # "text > Thread" syntax) keep naming the thread directly.
-    thread_name = item.get("thread-name") or current_board_thread_name(request.user)
+    # "text > Thread" syntax) keep naming the thread directly; a board shared
+    # with the caller can be named too.
+    thread_name = item.get("thread-name") or None
 
     board = add_task_to_board(request.user, text, thread_name)
     if board is None:
+        name = thread_name or current_board_thread_name(request.user)
         return RestResponse(
-            {"errors": f"no board for thread {thread_name!r}"},
+            {"errors": f"no board for thread {name!r}"},
             status=status.HTTP_409_CONFLICT,
         )
-    return RestResponse(BoardSerializer(board).data)
+    return RestResponse(BoardSerializer(board, context={"request": request}).data)
 
 
 @login_required
 def board_summary(request, id):
-    board = get_object_or_404(BoardCommitted.objects.owned_by(request.user), pk=id)
+    board = get_object_or_404(
+        BoardCommitted.objects.visible_to(request.user).select_related(
+            "thread__user", "created_by"
+        ),
+        pk=id,
+    )
 
     summary = BoardSummary(board)
 
@@ -142,10 +152,12 @@ def period_from_request(request, days=7):
 def summaries(request):
     period = period_from_request(request, days=30)
 
+    # Commits on the user's boards and on the boards shared with them, by
+    # whoever committed them.
     boards = (
-        BoardCommitted.objects.owned_by(request.user)
+        BoardCommitted.objects.visible_to(request.user)
         .filter(published__date__range=period)
-        .select_related("thread")
+        .select_related("thread__user", "created_by")
         .order_by("-published")
     )
 

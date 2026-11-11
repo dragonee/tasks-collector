@@ -26,7 +26,11 @@
         <input type="text" name="username" placeholder="Username" required autocomplete="off">
         <button type="submit">Share</button>
     </form>
-    <p class="meta">They can see everything in it, now and later, and change nothing.</p>
+    {% if sharing.role == "editor" %}
+        <p class="meta">They can see and change this board, tick its tasks and commit it.</p>
+    {% else %}
+        <p class="meta">They can see everything in it, now and later, and change nothing.</p>
+    {% endif %}
     {% if sharing.error %}
         <p class="stream-sharing-error">{{ sharing.error }}</p>
     {% endif %}

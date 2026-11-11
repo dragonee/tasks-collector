@@ -22,6 +22,7 @@ from .services.photos import attach_photo_urls
 from .services.today import plan_tasks
 from .utils.datetime import make_last_day_of_the_month, make_last_day_of_the_week
 from .utils.statistics import get_aggregate_statistics
+from .views_sharing import board_sharing_panels
 
 
 class PlanFilter(filters.FilterSet):
@@ -96,7 +97,11 @@ class ThreadViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = ThreadPagination
 
     def get_queryset(self):
-        return Thread.objects.for_user(self.request.user)
+        # The user's threads, then the boards shared with them to edit, so the
+        # board page can open those too (``shared_by`` names their owner).
+        return Thread.objects.board_editable_by(self.request.user).select_related(
+            "user"
+        )
 
 
 class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
@@ -460,6 +465,7 @@ def account_settings(request):
             "profile_form": profile_form,
             "user_form": user_form,
             "profile": profile,
+            "board_sharing": board_sharing_panels(request),
         },
     )
 

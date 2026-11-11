@@ -1,7 +1,7 @@
 import uuid
 
 from django.db import transaction
-from django.shortcuts import get_object_or_404
+from django.http import Http404
 from django.utils import timezone
 
 from .commit import calculate_changes_per_board, merge
@@ -33,13 +33,22 @@ def create_task_item(text):
 
 
 @transaction.atomic
-def add_task_to_board(user, text, thread_name):
-    """Helper function to add a task to the board of ``user``'s thread.
+def add_task_to_board(user, text, thread_name=None):
+    """Add a task to the board called ``thread_name`` among the boards ``user``
+    may change (see :func:`board_thread_named`), or to their current board
+    (see :func:`board_thread_for`) when no name is given. Returns the board,
+    or None when the thread has no board yet; raises ``Http404`` for a name
+    the user has no board called.
 
     The board row is locked from read to save, so a concurrent write to it
     (another append, an Android tick, a commit) can't be overwritten.
     """
-    thread = get_object_or_404(Thread, user=user, name=thread_name)
+    if thread_name is None:
+        thread = board_thread_for(user)
+    else:
+        thread = board_thread_named(user, thread_name)
+    if thread is None:
+        raise Http404(f"No board called {thread_name!r}.")
     board = (
         Board.objects.filter(thread=thread)
         .order_by("-date_started")
@@ -58,14 +67,12 @@ class UnknownThreadError(Exception):
 
 
 def _latest_board(user, thread_name):
-    """The latest board of ``user``'s thread, row-locked until the surrounding
-    transaction ends, or a new unsaved one when it has none."""
-    try:
-        thread = Thread.objects.get(user=user, name=thread_name)
-    except Thread.DoesNotExist as e:
-        raise UnknownThreadError(
-            f"no thread named {thread_name!r} to move items to"
-        ) from e
+    """The latest board called ``thread_name`` among the boards ``user`` may
+    change (see :func:`board_thread_named`), row-locked until the surrounding
+    transaction ends, or a new unsaved one when its thread has none."""
+    thread = board_thread_named(user, thread_name)
+    if thread is None:
+        raise UnknownThreadError(f"no thread named {thread_name!r} to move items to")
 
     try:
         return Board.objects.filter(thread=thread).select_for_update()[0]
@@ -77,8 +84,9 @@ def _latest_board(user, thread_name):
 def close_board(board, created_by=None):
     """Commit ``board``: record a ``BoardCommitted`` event (written by
     ``created_by``, the board's owner when not given), move the items
-    marked with a ``transition`` onto the latest board of that thread, and
-    restart ``board`` with the items that stay.
+    marked with a ``transition`` onto the latest board of that name among the
+    boards the committing user may change, and restart ``board`` with the
+    items that stay.
 
     All or nothing: raises ``UnknownThreadError`` before writing anything
     when an item is marked for a thread that doesn't exist.
@@ -99,10 +107,11 @@ def close_board(board, created_by=None):
     else:
         new_state = default_state()
 
-    # Items move between the board owner's own threads.
-    other_boards = [
-        _latest_board(board.thread.user_id, thread_name) for thread_name in changeset
-    ]
+    # Items move to the boards the committing user may change: their own
+    # threads first, then the boards shared with them. An editor of a shared
+    # board takes items to their boards, never into the owner's other boards.
+    mover = created_by if created_by is not None else board.thread.user
+    other_boards = [_latest_board(mover, thread_name) for thread_name in changeset]
 
     now = timezone.now()
 
@@ -130,16 +139,27 @@ def close_board(board, created_by=None):
 
 def board_thread_for(user):
     """The thread whose latest board acts as the user's 'current board':
-    ``Profile.default_board_thread`` when set, otherwise the Daily thread as a
+    ``Profile.default_board_thread`` when set and the user may change its
+    board (their own, or shared with them), otherwise the Daily thread as a
     fallback so callers never silently no-op on users without a configured
     default.
     """
-    profile = (
-        Profile.objects.select_related("default_board_thread").filter(user=user).first()
+    default_id = (
+        Profile.objects.filter(user=user)
+        .values_list("default_board_thread", flat=True)
+        .first()
     )
-    if profile and profile.default_board_thread is not None:
-        return profile.default_board_thread
+    if default_id is not None:
+        thread = Thread.objects.board_editable_by(user).filter(pk=default_id).first()
+        if thread is not None:
+            return thread
     return Thread.objects.daily(user)
+
+
+def board_thread_named(user, name):
+    """The thread called ``name`` whose board ``user`` may change, or None.
+    Their own thread wins over a shared board of the same name."""
+    return Thread.objects.board_editable_by(user).filter(name=name).first()
 
 
 def current_board_thread_name(user):

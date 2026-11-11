@@ -222,6 +222,21 @@ export const useBoardStore = defineStore('board', {
             this.updateBoardInListResponse(board)
         },
 
+        // Who the board's stream is shared with ({shared_with, role, error});
+        // only for a board the user owns and can share (thread.shareable).
+        async loadSharing(streamId) {
+            return apiRequest(`/api/streams/${streamId}/sharing/`)
+        },
+
+        // action: 'share' or 'revoke'. A share that can't be done still
+        // resolves, with its reason in `error`.
+        async changeSharing(streamId, action, username) {
+            return apiRequest(`/api/streams/${streamId}/sharing/`, {
+                method: 'POST',
+                body: JSON.stringify({ action, username }),
+            })
+        },
+
         async close() {
             const oldBoard = this.currentBoard
 

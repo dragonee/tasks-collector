@@ -16,7 +16,8 @@ behaviour unchanged until Stage 6.
 
 Decisions already taken:
 - Event keeps **one home stream FK** plus a **membership table** (home included).
-- Access rows carry a **role** (`owner` / `viewer`); sharing is **view-only** first.
+- Access rows carry a **role** (`owner` / `viewer`); sharing is **view-only** first
+  (boards later got `editor`, Stage 8).
 - **Threads are per-user**; `Daily`, `Weekly`, `big-picture` are provisioned for every
   user and cannot be removed.
 - Out of scope: `enfp`, `quests`, `rewards` (being removed).
@@ -66,7 +67,7 @@ class EventStream(models.Model):
 class EventStreamAccess(models.Model):      # the access list; authority for permissions
     stream = FK(EventStream, related_name="access")
     user = FK(User, related_name="stream_access")
-    role = CharField(choices=Role)  # owner, viewer  (editor later, no schema change)
+    role = CharField(choices=Role)  # owner, viewer; editor for boards (Stage 8)
     # unique (stream, user); partial unique: one owner per stream
 
 class EventStreamEntry(models.Model):       # replaces StoryEvent
@@ -235,7 +236,8 @@ As built (0090–0092):
 - `Event.event_stream` and `Event.created_by` are `RESTRICT`: deleting a user works
   when their events are filed under their own threads, and is refused when they are
   filed under someone else's (production has one such observation, from before
-  threads had owners).
+  threads had owners). Stage 8 (0094) made `created_by` nullable and `SET_NULL`, so
+  that deleting an editor keeps their commits on the board they were shared.
 - The release window: `created_by` becomes required while the previous release still
   serves, so for those seconds that release can't save events.
 
@@ -297,6 +299,58 @@ As built:
   attached, so a viewer's complex observation never depends on someone else's.
 - Personal pages stay personal: shared trip notes don't appear in the viewer's
   diary, event archive, today page or daily events.
+
+### Stage 8 — Shared boards (edit)
+
+Some boards are joint: on production one user's default board was another user's
+"Razem" thread, kept from before threads had owners. Stage 6 left that pointer
+unchecked (`board_thread_for`), so the Android app and journal ticks still wrote to
+the other user's board while the web board hid it. Joint boards are wanted, so a
+board can be shared with **edit** access.
+
+As built (0093, 0094):
+- Role `editor` on `EventStreamAccess`; sharing a board stream gives it, sharing
+  anything else still gives `viewer` (`SHARE_ROLES` in `services/streams.py`).
+  Built-in boards (Daily, Weekly, big-picture) can't be shared: every user has one
+  of each, and their names would collide on the board page.
+- `Thread.objects.board_editable_by(user)` and `Board.objects.editable_by(user)`
+  (owner or editor of the board stream, the user's own first). The board API
+  (`/boards/`, PUT, commit), `/threads/`, `boards/append/` by name, the default
+  board (`board_thread_for`, so the Android endpoints and journal ticks) and the
+  profile's default-board choice use them. A default board the user can no longer
+  change is ignored (Daily instead); revoking clears it.
+- An editor can commit. Items marked to move go to the boards the **committing**
+  user may change, found by name (their own thread first, then a board shared with
+  them), never into the owner's other boards. So items can be moved *into* a shared
+  board from your own. The board page's "Move to" menu is built from `/threads/`:
+  every board you may change but the one shown (a shared one as "name (owner)",
+  left out when one of yours has its name), no longer a fixed Sidetrack / Daily /
+  Read / Trash list that offered threads a user may not have. The
+  `BoardCommitted` is in the board's stream (the owner's) with the committer as
+  `created_by`.
+- `/summaries/` and `board-summary` list commits on your boards and on the boards
+  shared with you (`BoardCommitted.objects.visible_to`), with the owner of a shared
+  board and who committed it when that wasn't you. The diary and the event archive
+  stay personal.
+- Deleting a user (0094): `Event.created_by` is `SET_NULL`, nullable. An editor's
+  commits stay on the owner's board as "committed by a deleted user", and
+  `Event.save` defaults the writer only on insert, so it stays unknown. Deleting the
+  owner takes the board, its commits (the editor's too) and the editor's access, and
+  clears the editor's default board.
+- `/threads/` and the nested thread in board and profile responses carry
+  `shared_by` (the owner's username, null for your own); the board page shows
+  "Razem (owner)" in the thread switcher.
+- The owner shares from the board page ("Share" / "Shared with N" in the controls
+  row, `BoardSharing.vue`) or from Account Settings ("Shared boards": one panel per
+  own non-built-in board). The board page uses `api/streams/<id>/sharing/` (GET who
+  it is shared with; POST `{"action": "share" | "revoke", "username"}`; a share
+  that can't be done answers 200 with `error`), offered where the thread's
+  `shareable` is true; `board_stream` gives the id. No sharing UI in the CLI or the
+  Android app; both work on a shared board by name or as the default board without
+  changes.
+- 0093 turns each profile pointing at another user's custom thread into an editor
+  share of that board, and clears a profile pointing at another user's built-in
+  board.
 
 ## Critical files
 `tasks/apps/tree/models.py`, `signals.py`, `uuid_generators.py`, `serializers.py`,
