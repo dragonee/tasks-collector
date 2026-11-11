@@ -18,20 +18,25 @@ import re
 import subprocess
 import sys
 import tempfile
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 import requests
-from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError
 
 from .config.tasks import TasksConfigFile
-from .utils import command_parser, queue_failed_request, retry_failed_requests
+from .utils import (
+    command_parser,
+    queue_failed_request,
+    retry_failed_requests,
+    smart_open,
+)
 
 
-def template_from_arguments(arguments):
+def template_from_arguments(arguments, comment=""):
     return TEMPLATE.format(
-        comment="",
+        comment=comment,
         published=datetime.now(),
     ).lstrip()
 
@@ -74,18 +79,29 @@ def parse_arguments(argv, prog):
         nargs="?",
         help="Observation to update [default: the one saved with `tc observation --save`].",
     )
+    parser.add_argument(
+        "-f",
+        "--file",
+        help="Start the comment with this file (- for standard input).",
+    )
+    parser.add_argument(
+        "--no-edit",
+        action="store_true",
+        help="Don't open the editor: send the comment from -f as it is.",
+    )
 
-    return parser.parse_args(argv)
+    arguments = parser.parse_args(argv)
+
+    if arguments.no_edit and not arguments.file:
+        parser.error("--no-edit needs -f FILE (or -f - for standard input)")
+
+    return arguments
 
 
 def main(argv, prog):
     arguments = parse_arguments(argv, prog)
 
     config = TasksConfigFile()
-
-    tmpfile = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".md")
-
-    template = template_from_arguments(arguments)
 
     observation_id = arguments.id or get_saved_observation_id()
 
@@ -94,48 +110,70 @@ def main(argv, prog):
 
         sys.exit(1)
 
-    with tmpfile:
-        tmpfile.write(template)
+    comment = ""
 
-    editor = os.environ.get("EDITOR", "vim")
+    if arguments.file:
+        with smart_open(arguments.file) as f:
+            comment = f.read()
 
-    result = subprocess.run([editor, "+3", tmpfile.name])
+    template = template_from_arguments(arguments, comment)
 
-    if result.returncode != 0:
-        sys.exit(1)
+    # The file the editor saved; with --no-edit there is none.
+    tmpname = None
+
+    if arguments.no_edit:
+        content = template
+    else:
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".md"
+        ) as tmpfile:
+            tmpfile.write(template)
+        tmpname = tmpfile.name
+
+        editor = os.environ.get("EDITOR", "vim")
+
+        result = subprocess.run([editor, "+3", tmpname])
+
+        if result.returncode != 0:
+            sys.exit(1)
+
+        with open(tmpname) as f:
+            content = f.read()
 
     payload = {"comment": None, "observation": observation_id}
 
-    with open(tmpfile.name) as f:
-        current_name = None
-        current_stack = []
+    current_name = None
+    current_stack = []
 
-        for line in f:
-            if m := meta_re.match(line):
-                add_meta_to_payload(payload, m.group(1).strip(), m.group(2).strip())
-            elif m := title_re.match(line):
-                if current_name is not None:
-                    add_stack_to_payload(payload, current_name, current_stack)
+    for line in content.splitlines(keepends=True):
+        if m := meta_re.match(line):
+            add_meta_to_payload(payload, m.group(1).strip(), m.group(2).strip())
+        elif m := title_re.match(line):
+            if current_name is not None:
+                add_stack_to_payload(payload, current_name, current_stack)
 
-                current_name = m.group(1).strip()
-                current_stack = []
-            else:
-                current_stack.append(line)
+            current_name = m.group(1).strip()
+            current_stack = []
+        else:
+            current_stack.append(line)
 
-        if current_name is not None:
-            add_stack_to_payload(payload, current_name, current_stack)
+    if current_name is not None:
+        add_stack_to_payload(payload, current_name, current_stack)
 
-    if payload["comment"] == "":
+    if not payload["comment"]:
         print("No changes were made to the Comment field.")
 
-        os.unlink(tmpfile.name)
+        if tmpname:
+            os.unlink(tmpname)
 
-        sys.exit(0)
+        sys.exit(1 if arguments.no_edit else 0)
+
+    # Sent again when the update is queued and retried, so the server adds
+    # it once.
+    payload["idempotency_key"] = uuid.uuid4().hex
 
     try:
-        retry_failed_requests(
-            metadata={"auth": HTTPBasicAuth(config.user, config.password)}
-        )
+        retry_failed_requests(metadata={"auth": config.auth})
     except Exception as e:
         print(e)
         print("Error: Failed to send queue")
@@ -143,9 +181,7 @@ def main(argv, prog):
     url = "{}/updates/".format(config.url)
 
     try:
-        r = requests.post(
-            url, json=payload, auth=HTTPBasicAuth(config.user, config.password)
-        )
+        r = requests.post(url, json=payload, auth=config.auth)
     except ConnectionError:
         name = queue_failed_request(
             payload,
@@ -168,7 +204,8 @@ def main(argv, prog):
 
         print(GOTOURL.format(url=config.url, id=new_payload["observation"]).strip())
 
-        os.unlink(tmpfile.name)
+        if tmpname:
+            os.unlink(tmpname)
 
         with open(OBSERVATION_FILE_PATH, "w") as f:
             f.write(str(new_payload["observation"]) + "\n")
@@ -178,4 +215,7 @@ def main(argv, prog):
         except json.decoder.JSONDecodeError:
             print("HTTP {}\n{}".format(r.status_code, r.text))
 
-        print("The temporary file was saved at {}".format(tmpfile.name))
+        if tmpname:
+            print("The temporary file was saved at {}".format(tmpname))
+        else:
+            sys.exit(1)

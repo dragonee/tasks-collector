@@ -358,6 +358,12 @@ urlpatterns = [
         name="public-event-archive-month",
     ),
     path("api/events/daily/", views.daily_events, name="daily-events"),
+    path("api/events/", views.events_between, name="events-between"),
+    path(
+        "api/v1/journal/preview/",
+        views.JournalPreview.as_view(),
+        name="journal-preview",
+    ),
     # === Statistics (views) ===
     path("stats/", views.stats, name="stats"),
     path("stats/json/", views.stats_json, name="stats-json"),

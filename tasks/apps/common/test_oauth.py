@@ -351,7 +351,6 @@ class CarryOverTestCase(TransactionTestCase):
     """0003: the tokens ``rest_framework.authtoken`` issued keep working."""
 
     BEFORE = [("common", "0002_alter_user_first_name")]
-    AFTER = [("common", "0003_api_tokens")]
 
     def setUp(self):
         executor = MigrationExecutor(connection)
@@ -364,9 +363,13 @@ class CarryOverTestCase(TransactionTestCase):
         executor.migrate(executor.loader.graph.leaf_nodes())
 
     def _migrate(self):
+        # Past 0003 to the app's last migration: the tokens are read back
+        # with the model as it is now.
         executor = MigrationExecutor(connection)
         executor.loader.build_graph()
-        executor.migrate(self.AFTER)
+        executor.migrate(
+            [node for node in executor.loader.graph.leaf_nodes() if node[0] == "common"]
+        )
 
     def test_a_token_from_before_still_logs_its_user_in(self):
         user = self.old_apps.get_model("common", "User").objects.create(username="u")

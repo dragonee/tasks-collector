@@ -54,6 +54,7 @@ from .serializers import (
 from .services.observations.closing import close_observation
 from .services.observations.event_creation import create_observation_change_events
 from .services.observations.insights import extract_insight
+from .views_idempotency import IdempotentCreateMixin
 from .views_sharing import sharing_context
 
 # Viewset actions that only read. Everything else changes data, which only
@@ -122,8 +123,10 @@ def serializable_observations():
     )
 
 
-class ObservationViewSet(viewsets.ModelViewSet):
+class ObservationViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
     queryset = serializable_observations()
+    # A new observation's key is on its ObservationMade.
+    idempotent_model = ObservationMade
 
     filter_backends = [DjangoFilterBackend]
     filterset_class = ObservationFilter
@@ -154,6 +157,16 @@ class ObservationViewSet(viewsets.ModelViewSet):
 
         return ObservationSerializer
 
+    def made_with(self, key):
+        made = super().made_with(key)
+        if made is None:
+            return None
+        return (
+            serializable_observations()
+            .filter(event_stream_id=made.event_stream_id)
+            .first()
+        )
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -179,8 +192,9 @@ class ObservationUpdatedFilter(filters.FilterSet):
         fields = []
 
 
-class ObservationUpdatedViewSet(viewsets.ModelViewSet):
+class ObservationUpdatedViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
     queryset = ObservationUpdated.objects.order_by("published")
+    idempotent_model = ObservationUpdated
 
     filter_backends = [DjangoFilterBackend]
     filterset_class = ObservationUpdatedFilter

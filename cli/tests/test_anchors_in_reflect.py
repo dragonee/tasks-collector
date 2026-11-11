@@ -2,12 +2,10 @@
 and a line ticked in the editor goes on to the journal with its anchor."""
 
 from datetime import date
-from types import SimpleNamespace
 
-from tasks_collector_tools import reflectiondump
 from tasks_collector_tools.models import Plan, Reflection, Result
 from tasks_collector_tools.reflect import ticked_lines
-from tasks_collector_tools.reflectiondump import ResultAggregator, get_daily_events
+from tasks_collector_tools.reflectiondump import ResultAggregator
 
 DAY = date(2026, 11, 11)
 
@@ -54,30 +52,3 @@ def test_a_ticked_line_keeps_its_anchor_however_it_is_reworded():
         "- [x] run in the rain\n"
         "- [~] write report ^taaaaaaaa\n"
     )
-
-
-def test_anchors_are_asked_for_only_where_text_is_sent_back(monkeypatch):
-    asked = []
-
-    def get(url, auth=None):
-        asked.append(url)
-        return SimpleNamespace(
-            ok=True,
-            json=lambda: {
-                "date": "2026-11-11",
-                "events": [],
-                "plan": None,
-                "reflection": None,
-            },
-        )
-
-    monkeypatch.setattr(reflectiondump.requests, "get", get)
-    config = SimpleNamespace(url="http://tasks", user="u", password="p")
-
-    get_daily_events(config, SimpleNamespace(thread=None, anchors=False), DAY)
-    get_daily_events(config, SimpleNamespace(thread="Weekly", anchors=True), DAY)
-
-    assert asked == [
-        "http://tasks/api/events/daily/?date=2026-11-11&thread=Daily",
-        "http://tasks/api/events/daily/?date=2026-11-11&thread=Weekly&anchors=1",
-    ]

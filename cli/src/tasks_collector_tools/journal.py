@@ -3,6 +3,11 @@
 The template lists today's plans above the comment. Tick a task there to
 complete it: [x], or [~] / [^] for better / best. The ^t... that ends its
 line says which task it is, so the line can be reworded; keep the ^t...
+
+Without an editor (a script, an assistant): --no-edit -f FILE sends FILE as
+the comment, and --dry-run shows what the server would make of it first.
+An entry is sent with a key of its own, so one queued and sent again after
+a failed connection is added once.
 """
 
 TEMPLATE = """
@@ -30,12 +35,12 @@ import re
 import subprocess
 import sys
 import tempfile
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
 from dateutil.parser import parse
-from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError
 
 from .config.tasks import TasksConfigFile
@@ -48,6 +53,7 @@ from .utils import (
     retry_failed_requests,
     sanitize_fields,
     sanitize_list_of_strings,
+    smart_open,
     tc_command,
 )
 
@@ -253,7 +259,9 @@ def parse_arguments(argv, prog):
         help="Attach to the saved current trip (see the `trip` command).",
     )
     parser.add_argument(
-        "-f", "--file", help="Use this file instead of the generated template."
+        "-f",
+        "--file",
+        help="Start the comment with this file (- for standard input).",
     )
     parser.add_argument(
         "-F",
@@ -262,10 +270,128 @@ def parse_arguments(argv, prog):
         help="Send even if content is unchanged from template.",
     )
     parser.add_argument(
+        "--no-edit",
+        action="store_true",
+        help="Don't open the editor: send the comment from -f as it is.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what sending would do (reflection lines, habits, tasks"
+        " completed), and send nothing.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="With --dry-run, print the server's answer as JSON.",
+    )
+    parser.add_argument(
         "-L", "--today", action="store_true", help="List journals from today."
     )
 
-    return parser.parse_args(argv)
+    arguments = parser.parse_args(argv)
+
+    if arguments.no_edit and not arguments.file:
+        parser.error("--no-edit needs -f FILE (or -f - for standard input)")
+
+    return arguments
+
+
+def describe_preview(preview):
+    """What ``--dry-run`` prints: what the entry would do, as the server says."""
+
+    def line(item):
+        anchor = f" ^t{item['anchor']}" if item.get("anchor") else ""
+        return f"    - {item['text']}{anchor}"
+
+    reflection = preview["reflection"]
+    out = [f"{preview['thread']}, published {preview['published']}", ""]
+
+    fields = [field for field in ("good", "better", "best") if reflection[field]]
+    if fields:
+        out.append(f"Reflection of {reflection['date']}:")
+        for field in fields:
+            out.append(f"  {field}:")
+            out.extend(line(item) for item in reflection[field])
+    else:
+        out.append("No reflection lines.")
+
+    if preview["habits"]:
+        out.append("Habits:")
+        for habit in preview["habits"]:
+            done = "" if habit["occured"] else "not "
+            note = f": {habit['note']}" if habit["note"] else ""
+            out.append(f"  - {done}{habit['habit']}{note}")
+
+    if preview["tasks_completed"]:
+        out.append("Tasks completed:")
+        out.extend(line(item) for item in preview["tasks_completed"])
+
+    if preview["unscheduled_tasks_ticked"]:
+        out.append("Ticked on the board:")
+        out.extend(f"    - {text}" for text in preview["unscheduled_tasks_ticked"])
+
+    out.extend(["", "Nothing was sent."])
+    return "\n".join(out)
+
+
+def print_error(r):
+    try:
+        print(json.dumps(r.json(), indent=4, sort_keys=True), file=sys.stderr)
+    except json.decoder.JSONDecodeError:
+        print("HTTP {}\n{}".format(r.status_code, r.text), file=sys.stderr)
+
+
+def preview_entry(config, payload, as_json=False):
+    """Ask the server what sending ``payload`` would do, and print it."""
+    url = f"{config.url}/api/v1/journal/preview/"
+    payload = {k: v for k, v in payload.items() if k != "idempotency_key"}
+
+    try:
+        r = requests.post(url, json=payload, auth=config.auth)
+    except ConnectionError:
+        print("Error: Connection failed.", file=sys.stderr)
+        sys.exit(2)
+
+    if r.status_code == 404:
+        print("Error: the server can't preview entries: it is older than this tc.")
+        sys.exit(2)
+
+    if not r.ok:
+        print_error(r)
+        sys.exit(1)
+
+    if as_json:
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+    else:
+        print(describe_preview(r.json()))
+
+
+def parse_template(content, payload):
+    """Fill ``payload`` from the template as it was saved; returns the lines
+    above "# Comment" (the plan sections)."""
+    above_comment = []
+    current_name = None
+    current_stack = []
+
+    for line in content.splitlines(keepends=True):
+        if m := meta_re.match(line):
+            add_meta_to_payload(payload, m.group(1).strip(), m.group(2).strip())
+        elif m := title_re.match(line):
+            if current_name is not None:
+                add_stack_to_payload(payload, current_name, current_stack)
+            else:
+                above_comment = current_stack
+
+            current_name = m.group(1).strip()
+            current_stack = []
+        else:
+            current_stack.append(line)
+
+    if current_name is not None:
+        add_stack_to_payload(payload, current_name, current_stack)
+
+    return above_comment
 
 
 def main(argv, prog):
@@ -281,44 +407,47 @@ def main(argv, prog):
 
     story = resolve_story_from_arguments(arguments, config)
 
-    tmpfile = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".md")
-
     comment = ""
 
     if arguments.file:
-        with open(arguments.file, "r") as f:
+        with smart_open(arguments.file) as f:
             comment = f.read()
 
     template = template_from_arguments(arguments, plans, comment, story=story)
 
-    cursor_position = get_cursor_position(template, "# Comment")
+    # The file the editor saved; with --no-edit there is none, and the
+    # template is sent as it was made.
+    tmpname = None
 
-    with tmpfile:
-        tmpfile.write(template)
+    if arguments.no_edit:
+        edited_content = template
+    else:
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".md"
+        ) as tmpfile:
+            tmpfile.write(template)
+        tmpname = tmpfile.name
 
-    editor = os.environ.get("EDITOR", "vim")
+        editor = os.environ.get("EDITOR", "vim")
 
-    result = subprocess.run(
-        [
-            editor,
-            f"+{cursor_position}",
-            tmpfile.name,
-        ]
-    )
+        cursor_position = get_cursor_position(template, "# Comment")
+        result = subprocess.run([editor, f"+{cursor_position}", tmpname])
 
-    if result.returncode != 0:
-        sys.exit(1)
+        if result.returncode != 0:
+            sys.exit(1)
 
-    # Check if content is empty or unchanged from template
-    with open(tmpfile.name) as f:
-        edited_content = f.read()
+        # Check if content is empty or unchanged from template
+        with open(tmpname) as f:
+            edited_content = f.read()
 
-    if not edited_content.strip() or (
-        edited_content.strip() == template.strip() and not arguments.force
-    ):
-        print("No changes were made.")
-        os.unlink(tmpfile.name)
-        sys.exit(0)
+        if not edited_content.strip() or (
+            edited_content.strip() == template.strip()
+            and not arguments.force
+            and not arguments.dry_run
+        ):
+            print("No changes were made.")
+            os.unlink(tmpname)
+            sys.exit(0)
 
     payload = {
         "comment": None,
@@ -326,29 +455,7 @@ def main(argv, prog):
         "published": datetime.now(),
     }
 
-    # What the file has above "# Comment": the plan sections.
-    above_comment = []
-
-    with open(tmpfile.name) as f:
-        current_name = None
-        current_stack = []
-
-        for line in f:
-            if m := meta_re.match(line):
-                add_meta_to_payload(payload, m.group(1).strip(), m.group(2).strip())
-            elif m := title_re.match(line):
-                if current_name is not None:
-                    add_stack_to_payload(payload, current_name, current_stack)
-                else:
-                    above_comment = current_stack
-
-                current_name = m.group(1).strip()
-                current_stack = []
-            else:
-                current_stack.append(line)
-
-        if current_name is not None:
-            add_stack_to_payload(payload, current_name, current_stack)
+    above_comment = parse_template(edited_content, payload)
 
     payload["comment"] = with_ticked_lines(
         payload["comment"] or "", ticked_in_plans(above_comment, plans)
@@ -365,14 +472,23 @@ def main(argv, prog):
     if not payload["comment"]:
         print("No changes were made to the Comment field.")
 
-        os.unlink(tmpfile.name)
+        if tmpname:
+            os.unlink(tmpname)
 
-        sys.exit(0)
+        sys.exit(1 if arguments.no_edit else 0)
+
+    if arguments.dry_run:
+        preview_entry(config, payload, as_json=arguments.json)
+        if tmpname:
+            print(f"The entry is in {tmpname}.")
+        return
+
+    # Sent again with the entry when it is queued and retried, so the server
+    # adds it once.
+    payload["idempotency_key"] = uuid.uuid4().hex
 
     try:
-        retry_failed_requests(
-            metadata={"auth": HTTPBasicAuth(config.user, config.password)}
-        )
+        retry_failed_requests(metadata={"auth": config.auth})
     except Exception as e:
         print(e)
         print("Error: Failed to send queue")
@@ -380,9 +496,7 @@ def main(argv, prog):
     url = "{}/journal/".format(config.url)
 
     try:
-        r = requests.post(
-            url, json=payload, auth=HTTPBasicAuth(config.user, config.password)
-        )
+        r = requests.post(url, json=payload, auth=config.auth)
 
     except ConnectionError:
         name = queue_failed_request(
@@ -406,14 +520,17 @@ def main(argv, prog):
 
         print(GOTOURL.format(url=config.url).strip())
 
-        os.unlink(tmpfile.name)
+        if tmpname:
+            os.unlink(tmpname)
     else:
-        try:
-            print(json.dumps(r.json(), indent=4, sort_keys=True))
-        except json.decoder.JSONDecodeError:
-            print("HTTP {}\n{}".format(r.status_code, r.text))
+        print_error(r)
 
-        print("The temporary file was saved at {}".format(tmpfile.name))
+        if tmpname:
+            print("The temporary file was saved at {}".format(tmpname))
+        else:
+            # A script needs to know; `tc reflect`, which runs the editor,
+            # goes on either way.
+            sys.exit(1)
 
 
 def trip_main(argv, prog):

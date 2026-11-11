@@ -88,7 +88,7 @@ def get_plans_for_today_sync(config):
 
         response = requests.get(
             url,
-            auth=(config.user, config.password),
+            auth=config.auth,
             timeout=SHORT_TIMEOUT,
         )
         response.raise_for_status()

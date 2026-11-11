@@ -68,7 +68,7 @@ class ObservationUpdated(ObservationEvent):
     url: str
     resourcetype: Literal["ObservationUpdated"]
     observation_id: Optional[int]
-    situation_at_creation: str
+    situation_at_creation: Optional[str]
     comment: str
 
 
@@ -84,7 +84,7 @@ class ObservationReinterpreted(ObservationEvent):
     resourcetype: Literal["ObservationReinterpreted"]
     interpretation: Optional[str]
     old_interpretation: Optional[str]
-    situation_at_creation: str
+    situation_at_creation: Optional[str]
 
 
 class ObservationReflectedUpon(ObservationEvent):
@@ -92,7 +92,7 @@ class ObservationReflectedUpon(ObservationEvent):
     resourcetype: Literal["ObservationReflectedUpon"]
     approach: Optional[str]
     old_approach: Optional[str]
-    situation_at_creation: str
+    situation_at_creation: Optional[str]
 
 
 class ObservationClosed(ObservationEvent):

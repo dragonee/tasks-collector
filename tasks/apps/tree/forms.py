@@ -360,6 +360,13 @@ class UserForm(forms.ModelForm):
         fields = ["first_name", "last_name"]
 
 
+class ApiTokenForm(forms.Form):
+    """A token for a script, issued from the devices page."""
+
+    name = forms.CharField(max_length=150, label="Name")
+    read_only = forms.BooleanField(required=False, label="Can only read")
+
+
 class JournalTagNameForm(forms.Form):
     """One of ``user``'s journal tags, by name: the one so named (in any case)
     or slugged, or else a new one. How a user makes their tags."""

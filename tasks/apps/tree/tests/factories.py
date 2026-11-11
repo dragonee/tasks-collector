@@ -23,10 +23,10 @@ from ..services.tasks import operations as tasks
 from ..services.today import plan_text
 
 
-def make_token(user, name="a phone"):
+def make_token(user, name="a phone", read_only=False):
     """An API token of ``user``'s, with the ``key`` to send as
     ``Authorization: Token <key>`` (the row itself keeps only its digest)."""
-    token, key = ApiToken.objects.issue(user, name)
+    token, key = ApiToken.objects.issue(user, name, read_only=read_only)
     token.key = key
     return token
 

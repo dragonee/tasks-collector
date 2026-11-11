@@ -7,10 +7,11 @@ from django.urls import path, re_path, reverse_lazy
 from django.views.generic import RedirectView
 
 from tasks.apps.common import oauth
-from tasks.apps.common.views import health_check
+from tasks.apps.common.views import health_check, me
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),
+    path("api/v1/me/", me, name="api-me"),
     re_path(r"^admin/", admin.site.urls),
     # Authentication URLs
     path(

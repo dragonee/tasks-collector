@@ -1,7 +1,6 @@
 import os
 
 import requests
-from requests.auth import HTTPBasicAuth
 from requests.exceptions import ConnectionError, ReadTimeout
 
 from .utils import SHORT_TIMEOUT, ensure_directory_exists
@@ -18,9 +17,7 @@ def get_active_stories(config):
     try:
         url = "{}/stories/?active=true".format(config.url)
 
-        r = requests.get(
-            url, auth=HTTPBasicAuth(config.user, config.password), timeout=SHORT_TIMEOUT
-        )
+        r = requests.get(url, auth=config.auth, timeout=SHORT_TIMEOUT)
 
         if not r.ok:
             return []
@@ -43,9 +40,7 @@ def get_story(config, story_id):
     try:
         url = "{}/stories/{}/".format(config.url, story_id)
 
-        r = requests.get(
-            url, auth=HTTPBasicAuth(config.user, config.password), timeout=SHORT_TIMEOUT
-        )
+        r = requests.get(url, auth=config.auth, timeout=SHORT_TIMEOUT)
 
         if not r.ok:
             return None

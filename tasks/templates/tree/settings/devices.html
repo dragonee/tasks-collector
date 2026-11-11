@@ -1,13 +1,20 @@
 {% extends "tree/settings/base.html" %}
 
 {% block settings %}
+{% if issued %}
+    <div class="settings-card">
+        <p><strong>{{ issued.token.name }}</strong> is logged in{% if issued.token.read_only %} and can only read{% endif %}. Its token is shown this once:</p>
+        <pre class="settings-token">{{ issued.key }}</pre>
+        <p class="settings-help">For tc, put it in tasks-collector.ini under [Tasks]: <code>token = …</code></p>
+    </div>
+{% endif %}
 {% if api_tokens %}
     <ul class="settings-card settings-rows">
         {% for token in api_tokens %}
             <li class="settings-row">
                 <div class="settings-row-text">
                     <strong>{{ token.name }}</strong>
-                    <span class="meta">logged in {{ token.created|date:"j M Y" }}{% if token.last_used %}, last used {{ token.last_used|timesince }} ago{% else %}, not used yet{% endif %}</span>
+                    <span class="meta">logged in {{ token.created|date:"j M Y" }}{% if token.read_only %}, can only read{% endif %}{% if token.last_used %}, last used {{ token.last_used|timesince }} ago{% else %}, not used yet{% endif %}</span>
                 </div>
                 <form method="post" action="{% url 'api-token-revoke' token.pk %}">
                     {% csrf_token %}
@@ -20,4 +27,17 @@
     <p class="settings-card settings-empty">Nothing is logged in.</p>
 {% endif %}
 <p class="settings-help">The phone app logs in from its Settings screen.</p>
+
+<h2 class="settings-heading">Token for a script</h2>
+<p class="settings-help">For tc or another script. One that can only read changes nothing.</p>
+<form method="post" class="settings-card">
+    {% csrf_token %}
+    {% include "tree/settings/_field.html" with field=form.name %}
+    <div class="settings-field">
+        <label class="settings-check">{{ form.read_only }} <span>{{ form.read_only.label }}</span></label>
+    </div>
+    <div class="settings-actions">
+        <button type="submit" class="submit">Issue</button>
+    </div>
+</form>
 {% endblock %}

@@ -1,13 +1,15 @@
 """Command line for the Tasks Collector."""
 
+import os
 import sys
 from dataclasses import dataclass
 from importlib import import_module
 
+from .config.tasks import CONFIG_ENV
 from .utils import package_version
 
 USAGE = """
-usage: tc [COMMAND] [ARGS ...]
+usage: tc [--config FILE] [COMMAND] [ARGS ...]
 
 {description}
 
@@ -16,6 +18,11 @@ commands:
 
 Without a command, tc runs `tasks`.
 Run `tc COMMAND --help` for the options of a command.
+
+tc reads /etc/tasks-collector.ini, ~/.tasks-collector.ini and
+./tasks-collector.ini, a later one overriding what the ones before it say.
+--config FILE (or TC_CONFIG=FILE) reads that file alone. `tc whoami` says
+which were read, and who the server takes tc for.
 """
 
 
@@ -82,7 +89,14 @@ ROUTES = [
         "reflectiondump:main",
         "Dump reflections and journals to markdown.",
     ),
+    # `reflect dump` of one day: today, unless -d says another.
+    Route(
+        "today",
+        "reflectiondump:main",
+        "Print today's reflection, plan, habits, observations and journals.",
+    ),
     Route("board dump", "boardmd:main", "Dump a board to markdown."),
+    Route("whoami", "whoami:main", "Say which server tc talks to, and as whom."),
 ]
 
 
@@ -106,8 +120,22 @@ def resolve(argv):
     )
 
 
+def take_config(argv):
+    """argv without a leading ``--config FILE`` (or ``--config=FILE``), which
+    is put into $TC_CONFIG: the commands, and those they run, read it."""
+    if argv[:1] == ["--config"] and len(argv) > 1:
+        os.environ[CONFIG_ENV] = argv[1]
+        return argv[2:]
+
+    if argv and argv[0].startswith("--config="):
+        os.environ[CONFIG_ENV] = argv[0].removeprefix("--config=")
+        return argv[1:]
+
+    return argv
+
+
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
+    argv = take_config(sys.argv[1:] if argv is None else argv)
 
     route = resolve(argv)
 
