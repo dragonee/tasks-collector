@@ -1,383 +1,280 @@
-# Multi-user with stream sharing — staged refactor
+# Multi-user and stream sharing
 
-## Context
+How Tasks Collector keeps each user's data private and lets them share parts of it.
+Current as of 2026-11-11 (migrations through 0097). "How it was built" lists the
+stages; "Open items" lists what is left.
 
-Tasks Collector is single-user in everything but login. Only `Observation`, `Profile`
-and `Story` point at a user; `Event`, `Thread`, `Board`, `Plan`, `Reflection`, `Habit`
-and `Breakthrough` have no owner, and almost every queryset is global. Stream identity
-is ad hoc: a uuid4 column on `Observation` / `ProjectedOutcome` / `Habit`, a
-`uuid5(thread name)` for board and journal streams assigned by `pre_save` signals, and
-trips sit outside the scheme in a `StoryEvent` join table.
+## Login and API access
 
-Goal: every stream is a typed `EventStream` row with an access list; an event has one
-home stream and may appear in more; sharing grants access to a whole stream (trips,
-observations, projected outcomes). Each stage ships on its own and leaves single-user
-behaviour unchanged until Stage 6.
+- Every page needs a login (`/accounts/login/`, `/accounts/logout/`). Without one,
+  only the login pages, `/health/` and a public trip link answer.
+- The API needs an authenticated user on every route and accepts a token, basic auth
+  or the session. The web frontend uses the session, the CLI basic auth, and the
+  Android app a token (`manage.py issue_mobile_token`,
+  `android/scripts/get-android-token`).
 
-Decisions already taken:
-- Event keeps **one home stream FK** plus a **membership table** (home included).
-- Access rows carry a **role** (`owner` / `viewer`); sharing is **view-only** first
-  (boards later got `editor`, Stage 8).
-- **Threads are per-user**; `Daily`, `Weekly`, `big-picture` are provisioned for every
-  user and cannot be removed.
-- Out of scope: `enfp`, `quests`, `rewards` (being removed).
-
-## Design rationale
-
-1. **Typed EventStream objects — simpler than the earlier draft.**
-   The earlier draft (`eventstream-created-by.md`, replaced by this document)
-   re-keyed the uuid5 ids to include the user. Not needed: once the owning object holds an FK to its stream there is no generator
-   at all. Existing UUIDs become `EventStream` primary keys unchanged, so URLs and CLI
-   `--stream` values keep working.
-2. **Event in one-or-more streams — this already exists**, as `StoryEvent`: a trip note
-   is a `JournalAdded` in the Daily journal stream *and* in a trip. The membership
-   table generalises it; the home FK keeps "one `event_stream_id` per event" for the
-   serializers and CLI dumps.
-3. **`created_by` as provenance only — agreed.** The awkward sites are the
-   `ProjectedOutcome*` events created inside model signals with no request in reach;
-   those move into the breakthrough service.
-4. **Sharing on streams fits the three targets**, partly because `Observation` and
-   `ProjectedOutcome` rows are *deleted* on close — the stream is the only thing that
-   survives to carry an access list.
-5. **The order has to flip: owners first, streams second.** Three reasons, all in the
-   code today:
-   - A stream needs an owner at birth, but new `ProjectedOutcome`s (formset save) and
-     `Habit`s (admin, seed migrations 0068/0074) are created with no user in reach.
-     On an empty database (tests, CI) there is no "the one user" to backfill with.
-   - `uuid5(slugify(thread.name))` gives every user's `Daily` the *same* board and
-     journal stream, so per-user threads and thread-held streams cannot be far apart.
-   - Board, journal and habit streams are write-only today; `Plan`, `Reflection`,
-     `Board`, `Breakthrough` have no stream at all. Their privacy can only come from
-     an owner column. Streams alone do not make the app multi-user.
-6. **Two scopes, not one.** "Everything I can access" is wrong for personal surfaces:
-   after sharing, it would put a friend's trip notes in my diary. Personal pages use
-   `owned_by(user)`; object access and "shared with me" use `visible_to(user)`.
-7. **Sharing a stream shares its member events, nothing else** — a shared trip exposes
-   its notes, photos and linked POI `HabitTracked` rows, not the owner's Daily journal.
-   One addition: sharing a complex observation shares the observations attached to
-   it. The viewer reads them on the complex observation's page, not on their own.
-   Only your own observations can be attached, so nothing of a third user's is shared.
-
-## Target model
+## Model
 
 ```python
 class EventStream(models.Model):
-    id = UUIDField(primary_key=True, default=uuid4, editable=False)
+    id = UUIDField(primary_key=True, default=uuid4)
     type = CharField(choices=Type)  # board, journal, habit, observation, projected_outcome, trip
-    created_by = FK(User, CASCADE)   # provenance; see Stage 2 notes
+    created_by = FK(User, CASCADE)  # who started it; provenance
     created = DateTimeField(default=now)
 
-class EventStreamAccess(models.Model):      # the access list; authority for permissions
+class EventStreamAccess(models.Model):  # the access list; decides permissions
     stream = FK(EventStream, related_name="access")
     user = FK(User, related_name="stream_access")
-    role = CharField(choices=Role)  # owner, viewer; editor for boards (Stage 8)
-    # unique (stream, user); partial unique: one owner per stream
+    role = CharField(choices=Role)  # owner, viewer, editor (boards only)
+    # unique (stream, user); one owner per stream
 
-class EventStreamEntry(models.Model):       # replaces StoryEvent
+class EventStreamEntry(models.Model):  # which events are in which streams
     stream = FK(EventStream, related_name="entries")
-    event = FK(Event, related_name="entries")
+    event = FK(Event, related_name="stream_entries")
     # unique (stream, event)
 
 class Event(PolymorphicModel):
-    event_stream = FK(EventStream, PROTECT, db_column="event_stream_id")  # home
-    created_by = FK(User, PROTECT)
+    event_stream = FK(EventStream, RESTRICT, db_column="event_stream_id")  # home
+    created_by = FK(User, SET_NULL, null=True)  # who wrote it; provenance
 ```
 
-Streams are reached from their owner, never computed: `Thread.board_stream`,
-`Thread.journal_stream`, `Habit.event_stream`, `Observation.event_stream`,
-`ProjectedOutcome.event_stream`, `Story.event_stream`. Each `Event` subclass declares
-where its home stream comes from (`home_stream()`), resolved in `Event.save()`.
+- A stream is a row, reached from the object it belongs to and never computed:
+  `Thread.board_stream`, `Thread.journal_stream`, `Habit.event_stream`,
+  `Observation.event_stream`, `ProjectedOutcome.event_stream`, `Story.event_stream`.
+  Each of them creates its stream, with the owner's access row, when it is first
+  saved.
+- An event has one home stream and may be a member of others. A trip note is a
+  `JournalAdded` whose home is the Daily journal stream and which is also an entry of
+  the trip's stream.
+- `Event.save()` sets the home stream from what the event is about
+  (`derived_event_stream_id()`: the thread's journal or board stream, the habit's,
+  the observation's, the outcome's) and writes the home entry with it. A journal
+  entry or board commit moved to another thread moves to that thread's stream, and
+  its home entry follows. Its trip membership stays.
+- Stream ids from before this work are kept, so old URLs and CLI `--stream` values
+  still work.
 
-## Stages
+## Rules
 
-Every "nullable → backfill → NOT NULL" is three migration files (schema, `RunPython`,
-constraint); backfills use SQL / historical models, never `.save()`.
+1. **Everything has an owner.** A user owns their threads, and through them their
+   boards, plans and reflections; their habits, habit keywords, statistics,
+   breakthroughs, journal tags and profile. Names and slugs are unique per user.
+2. **Every user gets the built-ins.** `provision_user` gives a new user the Daily,
+   Weekly and big-picture threads with a board each, a profile, and the `poi` and
+   `weight` habits. It runs when a user is created and from
+   `manage.py provision_users`. The three threads can't be deleted, except with their
+   user.
+3. **Access is decided by the access list**, never by `created_by`.
+   `EventStream.created_by` and `Event.created_by` only record who started a stream
+   and who wrote an event. Request paths pass the acting user. Anything else (model
+   signals, the admin, Celery) defaults to whoever started the event's stream.
+4. **Two scopes.** `owned_by(user)` is for personal pages and for writes;
+   `visible_to(user)` is for what can be read, which is the user's own and what was
+   shared with them. `Event`, `Observation`, `ProjectedOutcome`, `Story` and
+   `EventStream` have both. With one scope, a friend's trip notes would show up in my
+   diary once the trip was shared.
+   - Personal, so `owned_by`: today, diary, event archive, daily events, statistics.
+   - `visible_to`: trip, observation and outcome pages, the observation lists,
+     insights, and the `/observation-events/` API.
+   - `Plan`, `Reflection`, `Habit` and `Breakthrough` have no such method. Their views
+     filter on `thread__user` or `user`.
+5. **Sharing a stream shares its member events, nothing else.** A shared trip shows
+   its notes, photos and linked POI habit records, not the owner's Daily journal.
+   One addition: a shared complex observation also shares the observations attached
+   to it. The viewer reads them on the complex observation's page and can't open
+   them on their own. Only your own observations can be attached, so nothing of a
+   third user's is shared this way.
+6. **Trips, observations and projected outcomes are shared view-only.** A viewer's
+   writes are all refused, and a viewer can't share further. Sharing sits on the
+   stream because `Observation` and `ProjectedOutcome` rows are deleted on close, and
+   the stream is what survives to carry the access list.
+7. **Boards are shared to edit.** Some boards are joint. Daily, Weekly and
+   big-picture can't be shared: every user has one of each, and the names would
+   collide on the board page. Board code asks
+   `Board.objects.editable_by(user)` and `Thread.objects.board_editable_by(user)`
+   (owner or editor, the user's own first).
+8. **An id from the request is looked up among what the caller may use.** Fields and
+   filters that take an id read the request (`UserThreadField`,
+   `OwnObservationField`, `OwnStoryField`, `ObservationUpdatedFilter`). The browsable
+   API then lists nothing else in its forms, and someone else's id answers like an
+   unknown one.
 
-### Stage 0 — Prefactor (no behaviour change)
-- `tasks/apps/tree/tests/factories.py`: plain helpers `make_thread(user, name)`,
-  `make_board(thread, state)`, `make_profile(user, **fields)` wrapping today's
-  managers. All `Thread`, `Board` and `Profile` creations in tests go through them,
-  so Stage 1 only changes helper bodies.
-- `views_observation.py` filtersets: declare `event_stream_id` as an explicit
-  `UUIDFilter` (otherwise it silently becomes a `ModelChoiceFilter` in Stage 3).
-- Delete dead `on_habit_name_change_update_event_stream_id` (`signals.py:49-61`), the
-  only `queryset.update(event_stream_id=…)`.
-- `docker/development/scripts/run-development.sh`: `createsuperuser` before `loaddata`.
-- This document replaces `docs/design/eventstream-created-by.md`.
+## Sharing
 
-### Stage 1 — Owners
-**1a. Threads and breakthroughs.**
-- `Thread.user` (NOT NULL after backfill to the existing user), `unique(user, name)`.
-  Built-ins are the names in a code constant; a `pre_delete` receiver refuses to
-  delete them unless the cascade origin is the `User`. `Board.thread` → NOT NULL.
-- `Breakthrough.user`, `unique(user, slug)` replaces global `slug` uniqueness.
-- `provision_user(user)` (idempotent; called from `post_save(User)` with a `raw`
-  guard, from the data migration, and from a management command): the three threads,
-  a board each, a `Profile`.
-- Every thread lookup is user-scoped via `Thread.objects.for_user(user)`. ~45 sites;
-  the user comes from the request (views, forms, `services/today`, `services/photos`,
-  `services/trips._journal_thread_for`, `board_operations`) or from `thread.user`
-  (`journal_processing.py`, `views_today.py:250`, board transitions).
-  `_get_thread_from_breakthrough` (`models.py:680`) uses `breakthrough.user`.
-- Scope the list/join sites too, not only `.get(name=…)`: `ThreadViewSet`,
-  `/plans/?thread=`, `/boards/?thread=`, `daily_events` (`views.py:362`), the ten
-  `SlugRelatedField(queryset=Thread.objects.all())` in `serializers.py` (one field
-  subclass reading the request), thread selects in `forms.py`, and
-  `ProfileForm.default_board_thread`.
-- Dev fixture keeps only `ObservationType`; `Sidetrack` moves to a `seed_dev` command.
+`services/streams.py` has `share(owner, stream, username)`, `revoke(...)` and
+`shared_with(stream)`. Only the owner can share, and never with themselves.
+`SHARE_ROLES` says which stream types can be shared and with which role.
 
-**1b. Habits and statistics.**
-- `Habit.user`, slug unique per user; `HabitKeyword` unique per user (denormalised
-  `user`); drop the "push every keyword into every profile" signals
-  (`signals.py:163-177`); `poi` / `weight` habits provisioned per user (migration
-  removes ownerless seeds when no user exists).
-- `Statistics` keyed per user; `update_word_count` loops over users.
-- Scope the global readers: `habit_extraction.py:158`, `views_habit*.py`,
-  `services/health`, `views_breakthrough.py:42,79`,
-  `services/breakthrough/operations.py:50`, `utils/statistics.py`.
+- `POST streams/<id>/sharing/` answers HTMX with the re-rendered panel
+  (`tree/_stream_sharing.html`). `api/streams/<id>/sharing/` is the JSON version the
+  board page uses: GET lists who the stream is shared with, POST takes
+  `{"action": "share" | "revoke", "username"}`, and a share that can't be done answers
+  200 with `error`.
+- Sharing with a username nobody has says so, which tells whether a username exists.
+  Accepted among users who know each other.
+- The CLI and the Android app have no sharing UI. Both work on a shared board by name
+  or as the default board.
 
-Exit: the existing two-user tests pass with no `MultipleObjectsReturned`; a user
-created via admin gets threads, boards and a profile.
-
-### Stage 2 — Streams exist and are born at their owner
-- Add `EventStream`, `EventStreamAccess` (admin-registered, `raw_id_fields`).
-- Stream FKs on `Thread` (`board_stream`, `journal_stream`), `Observation`, `Habit`,
-  `ProjectedOutcome`; each creates its stream (plus the owner access row) on insert.
-- Backfill: one `EventStream` per distinct id in `Event`, the three owner models and
-  `other_event_stream_id`; type inferred from the event classes (abort listing any id
-  with mixed types); owner from the owning row. Existing ids are kept. Threads sharing
-  a slug: the first keeps the legacy uuid5, the rest get a new id and their events are
-  re-pointed by `thread_id`.
-- `Event.save()` calls `home_stream()` when the stream is unset — journal/photo →
-  `thread.journal_stream`, `BoardCommitted` → `thread.board_stream`, `HabitTracked` →
-  `habit.event_stream`, observation / projected-outcome events → their FK. Also takes
-  over the `thread_id` defaulting. Serializers, formsets and admin stay untouched.
-- Delete the stream-id `pre_save` signals and `uuid_generators.py`; the helpers that
-  migrations 0028/0037 import move to a migrations-only module.
-
-`Event.event_stream_id` is still a plain UUID column here — nothing can violate a
-constraint yet. Exit: no code computes a stream id.
-
-As built (0083–0085):
-- Owner links (`Thread.board_stream`/`journal_stream`, `Observation`/`Habit`/
-  `ProjectedOutcome.event_stream`) are one-to-one with `RESTRICT`: a stream can't be
-  deleted while its subject exists, but both go in one cascade when a user is deleted.
-  `EventStream.created_by` is `CASCADE` for the same reason. Revisit both with the
-  editor role, when streams can hold other users' events.
-- `Event.derived_event_stream_id()` is recomputed on every save, as the signals did:
-  a journal entry or board commit moved to another thread moves to that thread's
-  stream. Stage 4's "refuse a later change of home stream" has to decide this.
-- The backfill also moves board commits and journal entries carrying another thread's
-  stream id to their own thread's stream (two 2021/2024 board commits in the real
-  data), and refuses events of unknown kinds (the dev database has two `discovery`
-  events from a removed feature).
-
-### Stage 3 — The constraint
-- Assert zero orphan ids, then convert without touching the column: `AlterField` to
-  `ForeignKey(EventStream, PROTECT, db_column="event_stream_id", db_index=False,
-  editable=False)` followed by `RenameField` to `event_stream`. Hand-written;
-  `makemigrations --check` afterwards. Keep the composite index declared on the
-  attname so the autodetector sees no diff.
-- Same for `ObservationAttached/Detached.other_event_stream`, with `CASCADE`.
-- Journalize (`observation_operations.py`) deletes the events, the observation and
-  the stream; the cascade removes attach/detach events that pointed at it, which
-  until now kept pointing at an observation that no longer existed.
-
-As built (0086): one migration checks that every id has a stream row (it stops
-otherwise), then converts the three columns in place: only foreign key constraints
-and an index on each `other_event_stream_id` are added. Checked on a pre-stage-0
-production dump migrated through 0077–0086.
-
-### Stage 4 — Memberships and trips
-- `EventStreamEntry`; `Event.save()` writes the home entry atomically with the insert
-  and refuses a later change of home stream. Backfill home entries for every event.
-- `Story.event_stream` (type `trip`); `StoryEvent` rows become entries; drop
-  `StoryEvent`. One trip per event stays enforced in `services/trips`.
-- Convert the `story_entry` readers: `services/trips/operations.py`,
-  `services/today/operations.py:88`, `journal_processing.py:46,62`,
-  `views_trip.py:52`, `views_today.py:353`, `views.py:246`,
-  `templates/tree/events/journal_added.html`.
-- `services/photos/originals.py` decides ownership by stream owner instead of
-  `StoryEvent` / S3 key prefix. Upload keys keep `trips/{user_id}/{story_id}/…`.
-- `SharedStory` public page unchanged: capability-based, queried by stream.
-- Idempotent `ensure_home_entries` SQL run after deploy; invariant test "no event
-  without its home entry".
-
-As built (0087–0089):
-- The home entry follows the home stream instead of refusing a change: a journal
-  entry moved to another thread leaves the old journal and joins the new one; its
-  trip membership stays. `Event.save` tracks the stored home stream via `from_db`.
-- `Story.add(event)` enforces one trip per event (the database used to, through
-  `StoryEvent`'s one-to-one). `Event.trip` and `Event.prefetch_trip()` replace
-  `story_entry.story` for the trip badge.
-- Photo originals are owned by whoever owns the photo's home stream (the uploader's
-  Daily journal), for trip and standalone photos alike; the S3 key prefix is only
-  checked on upload now.
-- `manage.py ensure_stream_entries` adds home entries for events the previous release
-  saved during the deploy (migrations run while it is still serving). Idempotent.
-- Checked on the pre-stage-0 production dump: 9,541 home entries, 493 trip entries
-  (= the 493 StoryEvent rows), all 16 trips with a stream owned by the traveller.
-
-### Stage 5 — `Event.created_by`
-- Nullable → backfill from the home stream's owner → NOT NULL.
-- Set at every creation site. `ProjectedOutcome` Made/Redefined/Rescheduled leave the
-  model signals for `services/breakthrough` (formset `save(commit=False)`, and the
-  admin routed through the service). Services gain a user: `close_observation`,
-  `close_board`, `extract_insight`, `migrate_observation_updates_to_journal`.
-- `HabitTracked.created_by` derives from the journal entry — do **not** reuse
-  `process_journal_entry(user=)`, which means "also tick board tasks".
-- Idempotency constraint becomes `(created_by, idempotency_key)`;
-  `existing_event()` (`services/photos/events.py`) scopes its lookup to match.
-
-As built (0090–0092):
-- Request paths pass the acting user; anything else (projected-outcome events
-  created by the `ProjectedOutcome` signals, the admin, Celery) defaults to whoever
-  started the event's stream, which is the writer as long as only owners write. The
-  signals stay: on the breakthrough page the outcome's owner is the request user, so
-  moving them into the service would not change what is recorded. Once editors exist,
-  writes on someone else's stream must pass `created_by`.
-- `Event.event_stream` and `Event.created_by` are `RESTRICT`: deleting a user works
-  when their events are filed under their own threads, and is refused when they are
-  filed under someone else's (production has one such observation, from before
-  threads had owners). Stage 8 (0094) made `created_by` nullable and `SET_NULL`, so
-  that deleting an editor keeps their commits on the board they were shared.
-- The release window: `created_by` becomes required while the previous release still
-  serves, so for those seconds that release can't save events.
-
-### Stage 6 — Enforcement
-- Queryset methods: `owned_by(user)` and `visible_to(user)` on `Event` (via entries →
-  access), `Observation` / `ProjectedOutcome` / `Story` (via their stream), and owner
-  filters for `Plan`, `Reflection`, `Board`, `Habit`, `Breakthrough`.
-- Scope every view, viewset and service in the tree app (inventory: the endpoint
-  table from the exploration — boards, plans, reflections, journal, observations and
-  their events, habits, breakthrough, diary, events, stats, today).
-- Close the non-obvious leaks: `ComplexPresenter` (`presenters.py`),
-  `_validate_event_stream_id`, related-field querysets on write
-  (`ObservationUpdatedSerializer.observation`, `forms.py:63`), sidebar counts
-  (`templatetags/observation_menu.py`), photo presigning on the today and diary pages.
-- Test: one inventory test walks the URL resolver; every route is either in a
-  `PUBLIC` allowlist or returns empty/404 for a second user. Unclassified routes fail.
-
-Exit: a second user logs into an empty app. Only now is it safe to create one.
-
-As built:
-- `owned_by(user)` / `visible_to(user)` on `Event` (home stream owner / any stream
-  membership the user has access to), `Observation`, `ProjectedOutcome`, `Story`
-  and `EventStream`. Personal pages (diary, event archive, summaries, daily events)
-  and every write use `owned_by`; object pages and observation lists use
-  `visible_to`, so sharing needs no further changes to them.
-- `ComplexPresenter(stream, user)` shows only attached observations the user can
-  access; `is_attached` still answers from the full replay, so an owner can always
-  detach. The attach target and `other_event_stream_id` are checked against access
-  (no more probing other users' stream ids). Later reversed: `ComplexPresenter`
-  takes no user and shows everything attached (design point 7).
-- `test_route_isolation.py` walks every route of the app with every method as a
-  second user pointed at the first user's objects: no response may contain the
-  first user's data, none may be a server error, and the first user's data must be
-  unchanged afterwards. A route with an unknown URL parameter fails the test.
-- Checked on the production dump: the owner sees every one of their observations,
-  insights, diary entries, plans, reflections, outcomes and trips; the only things
-  no longer visible are the other account's observation and its two events.
-
-### Stage 7 — Sharing (view-only)
-- `services/streams`: `share(stream, owner, user)`, `revoke(...)`; owner-only.
-- UI + API on trip, observation and projected-outcome pages; "shared with me" on the
-  trips list, observation lists and the breakthrough year page; shared items render
-  read-only and every write path rejects non-owners.
-- Not in this stage: editor role, attaching someone else's shared observation to your
-  own, Android/CLI surfaces for sharing, user-deletion teardown.
-
-As built:
-- `services/streams.py`: `share(owner, stream, username)` / `revoke(...)` /
-  `viewers(stream)`; only the owner, only trip, observation and projected-outcome
-  streams, never to themselves. `POST streams/<id>/sharing/` (`views_sharing.py`)
-  answers HTMX with the re-rendered panel (`tree/_stream_sharing.html`), otherwise
-  redirects back to a local `next`.
-- Owners see the panel on the trip page, the observation edit page, the closed
-  observation page and the projected-outcome history. Viewers get the trip page
-  without its controls, a read-only observation page (`observation_shared.html`),
+Trips, observations, outcomes:
+- The owner shares from the trip page, the observation editor, the closed observation
+  page and the projected outcome's history.
+- A viewer gets the trip page without its controls, a read-only observation page,
   the closed observation without "Extract insight", and the outcome history.
-- "Shared with you": trips list, observation lists ("shared by"), insights (link to
-  the timeline instead of the editor), breakthrough page.
-- Attaching is limited to your own observations: a shared observation can't be
-  attached, so a viewer's complex observation never depends on someone else's.
-- A viewer of a complex observation reads everything attached to it: the shared and
-  closed pages show the Attached list and "Events from attached". The attach and
-  detach events link to the attached observation only for someone who can open it.
-- Personal pages stay personal: shared trip notes don't appear in the viewer's
-  diary, event archive, today page or daily events.
+- Shared items are listed under "Shared with you" on the trips list, the observation
+  lists ("shared by"), insights and the breakthrough page.
+- On a shared complex observation the viewer sees the Attached list and "Events from
+  attached". The attach and detach events link to the attached observation only for
+  someone who can open it.
+- Attach mode and its search offer only your own observations.
+- A trip's public link (`SharedStory`) is separate: whoever has the link can read,
+  and it doesn't touch the access list.
 
-### Stage 8 — Shared boards (edit)
+Boards:
+- The owner shares from the board page ("Share" / "Shared with N") or from Account
+  Settings ("Shared boards").
+- The board API, `/threads/`, `boards/append/` by name, the default board (so the
+  Android endpoints and journal ticks) and the profile's default-board choice all
+  work on boards the user may edit. `/threads/` and the nested thread in board and
+  profile responses carry `shared_by`, `board_stream` and `shareable`; the board page
+  shows a shared board as "name (owner)".
+- A default board the user can no longer edit is ignored (Daily instead), and
+  revoking clears it.
+- An editor can commit. Items marked to move go to boards the committing user may
+  edit, found by name (their own thread first, then a shared board), never into the
+  owner's other boards. The board's "Move to" menu lists those boards.
+- The `BoardCommitted` is in the board's stream with the committer as `created_by`.
+  `/summaries/` and `board-summary` list commits on your boards and on boards shared
+  with you, naming the owner and the committer when they aren't you.
 
-Some boards are joint: on production one user's default board was another user's
-"Razem" thread, kept from before threads had owners. Stage 6 left that pointer
-unchecked (`board_thread_for`), so the Android app and journal ticks still wrote to
-the other user's board while the web board hid it. Joint boards are wanted, so a
-board can be shared with **edit** access.
+## Deleting a user
 
-As built (0093, 0094):
-- Role `editor` on `EventStreamAccess`; sharing a board stream gives it, sharing
-  anything else still gives `viewer` (`SHARE_ROLES` in `services/streams.py`).
-  Built-in boards (Daily, Weekly, big-picture) can't be shared: every user has one
-  of each, and their names would collide on the board page.
-- `Thread.objects.board_editable_by(user)` and `Board.objects.editable_by(user)`
-  (owner or editor of the board stream, the user's own first). The board API
-  (`/boards/`, PUT, commit), `/threads/`, `boards/append/` by name, the default
-  board (`board_thread_for`, so the Android endpoints and journal ticks) and the
-  profile's default-board choice use them. A default board the user can no longer
-  change is ignored (Daily instead); revoking clears it.
-- An editor can commit. Items marked to move go to the boards the **committing**
-  user may change, found by name (their own thread first, then a board shared with
-  them), never into the owner's other boards. So items can be moved *into* a shared
-  board from your own. The board page's "Move to" menu is built from `/threads/`:
-  every board you may change but the one shown (a shared one as "name (owner)",
-  left out when one of yours has its name), no longer a fixed Sidetrack / Daily /
-  Read / Trash list that offered threads a user may not have. The
-  `BoardCommitted` is in the board's stream (the owner's) with the committer as
-  `created_by`.
-- `/summaries/` and `board-summary` list commits on your boards and on the boards
-  shared with you (`BoardCommitted.objects.visible_to`), with the owner of a shared
-  board and who committed it when that wasn't you. The diary and the event archive
-  stay personal.
-- Deleting a user (0094): `Event.created_by` is `SET_NULL`, nullable. An editor's
-  commits stay on the owner's board as "committed by a deleted user", and
-  `Event.save` defaults the writer only on insert, so it stays unknown. Deleting the
-  owner takes the board, its commits (the editor's too) and the editor's access, and
-  clears the editor's default board.
-- `/threads/` and the nested thread in board and profile responses carry
-  `shared_by` (the owner's username, null for your own); the board page shows
-  "Razem (owner)" in the thread switcher.
-- The owner shares from the board page ("Share" / "Shared with N" in the controls
-  row, `BoardSharing.vue`) or from Account Settings ("Shared boards": one panel per
-  own non-built-in board). The board page uses `api/streams/<id>/sharing/` (GET who
-  it is shared with; POST `{"action": "share" | "revoke", "username"}`; a share
-  that can't be done answers 200 with `error`), offered where the thread's
-  `shareable` is true; `board_stream` gives the id. No sharing UI in the CLI or the
-  Android app; both work on a shared board by name or as the default board without
-  changes.
-- 0093 turns each profile pointing at another user's custom thread into an editor
-  share of that board, and clears a profile pointing at another user's built-in
-  board.
+- Their streams, the objects those belong to and the events in them go in one
+  cascade. The links from an object to its stream and from an event to its home
+  stream are `RESTRICT`: a stream can't be deleted while its subject or its events
+  exist, except together with them.
+- Deleting a user is refused when their events are filed under someone else's thread.
+  The production copy of 2026-11-11 has no such event.
+- An editor's commits stay on the owner's board as "committed by a deleted user"
+  (`Event.created_by` is `SET_NULL`). Deleting the owner takes the board, all its
+  commits, the editor's access, and clears the editor's default board.
+- Journalizing an observation deletes its events, the observation and the stream.
+  Attach and detach events on other observations that pointed at it go with it.
 
-## Critical files
-`tasks/apps/tree/models.py`, `signals.py`, `uuid_generators.py`, `serializers.py`,
-`forms.py`, `views*.py`, `board_operations.py`, `observation_operations.py`,
-`presenters.py`, `services/{today,trips,photos,journalling,breakthrough,observations}`,
-`migrations/0028`, `0037`, `0068`, `0074`, `tasks/fixtures/dev/initial_state.json`,
-`docker/development/scripts/run-development.sh`. Clients: thread names and
-`event_stream_id` stay the API contract, so `cli/` and `android/` need no changes.
+## Photos
+
+Photo originals belong to whoever owns the photo's home stream (the uploader's Daily
+journal), for trip and standalone photos alike. Upload keys keep
+`trips/{user_id}/{story_id}/…`, and the prefix is only checked on upload. Presigned
+URLs are made only for photos the user may see.
+
+## How it was built
+
+Each stage shipped on its own. Owners came before streams, because a stream needs an
+owner when it is created, and because the old computed ids gave every user's Daily
+the same stream.
+
+| Stage | Migrations | What |
+|---|---|---|
+| 1 | 0077–0082 | Threads, breakthroughs, habits, habit keywords and statistics get a user; `provision_user` |
+| 2 | 0083–0085 | `EventStream` and `EventStreamAccess`; each object creates its stream |
+| 3 | 0086 | `Event.event_stream` becomes a foreign key, converted in place |
+| 4 | 0087–0089 | `EventStreamEntry`; trips become streams and `StoryEvent` is dropped |
+| 5 | 0090–0092 | `Event.created_by` |
+| 6 | — | Every view, viewset and service scoped; the route isolation test |
+| 7 | — | View-only sharing of trips, observations and outcomes |
+| 8 | 0093, 0094 | Boards shared to edit |
+| 9 | 0095–0097 | Journal tags per user |
+
+What the data migrations decided:
+- Existing data went to one owner: the user named in the migration, otherwise the
+  first superuser, otherwise the first user.
+- Threads that shared a computed stream id: the first keeps it, the others get a new
+  one and their events follow. Board commits and journal entries filed under another
+  thread's stream moved to their own thread's.
+- The stream backfill stops on an event of an unknown kind or a stream mixing kinds.
+- `Event.created_by` was backfilled from the home stream's owner.
+- 0093 turned each profile whose default board was another user's custom thread into
+  an editor share of that board (on production, the joint "Razem" board), and
+  clears a profile pointing at another user's built-in board.
+- A journal tag went to that owner if they used it or nobody did, otherwise to
+  the first user who did. Every other user who used it got a copy, and their entries
+  moved to the copy.
+- `manage.py ensure_stream_entries` adds home entries for events the previous
+  release saved while Stage 4 was being deployed. The deploy only runs `migrate`, so
+  it was run by hand on production, once. It changes nothing when nothing is missing.
 
 ## Verification
-Per stage, in the dev containers (the local `.tasks-collector.ini` points at
-production — do not use the CLI to verify):
+
+In the dev containers. The local `.tasks-collector.ini` points at production, so
+don't use the CLI to verify.
+
 - `docker compose -f docker/development/docker-compose.yml exec tasks-backend python manage.py test`
-- `… python manage.py makemigrations --check --dry-run` reports no changes.
-- A `MigrationExecutor` test per data migration covering: zero users with seeded
-  habits, a closed observation, a journalized dangling attachment, a NULL-thread
-  board, two threads with the same slug.
-- Migrate a copy of the production dump in dev and compare before/after: event count,
-  distinct stream ids, per-type counts; after Stage 4, entries ≥ events.
-- Manual, from Stage 1: create a second user in admin, log in as each, confirm the
-  today page, board, diary and observation lists; from Stage 6 the second user sees
-  nothing of the first; in Stage 7 share a trip and an observation and confirm they
-  appear read-only for the second user and disappear on revoke.
+  (674 tests on 2026-11-11), and `makemigrations --check --dry-run` reports no changes.
+- `tests/test_route_isolation.py` calls every route of the app with every method as a
+  second user, with JSON and form-encoded bodies and query strings that name the
+  first user's objects. It does so as a stranger and as a viewer of a shared trip,
+  open observation, closed observation and outcome. No response may contain the
+  first user's data (the viewer may see what was shared, nothing else), none may be
+  a server error, the first user's data must be unchanged afterwards, and each of
+  their ids must answer like an id nobody has. API routes are also rendered as the
+  browsable API, and the first user's own pages are checked for a form nested in
+  another form. `targets` names the objects each route is called with; a route with
+  parameters that isn't listed fails the test.
+- Each data migration has a `MigrationExecutor` test (`tests/test_migration_*.py`).
+- Reviewed on 2026-11-11 through the web UI, the CLI and the Android app, as the
+  owner of a production copy, as a user created in the admin and as a viewer of
+  shared items. A stranger got nothing and changed nothing, every viewer write was
+  refused, and the viewer's personal pages showed nothing of what was shared.
+- On that copy: every stream has exactly one owner, who is its creator; every event
+  has its home entry and sits under a thread of its stream's owner.
+
+## Open items
+
+Checked on 2026-11-11 against the code and the dev database.
+
+From this work:
+- **`Board.thread` is still nullable.** No board is without a thread, so it is one
+  migration. A board without a thread is invisible to everyone, since boards are
+  found through their thread's user.
+- **Ownership is answered four ways:** `thread.user`; `Observation.user`,
+  `Story.user`, `Breakthrough.user`; the owner row in `EventStreamAccess`; and
+  `EventStream.created_by`. They agree on every row and nothing enforces it. Some
+  checks read `created_by`, against rule 3: `is_owner` on the closed observation
+  page, the shared lists on the breakthrough page, the edit link in
+  `insights_list.html`. `utils/statistics.py` counts by `thread__user` where the
+  pages use `owned_by`. All give the right answer while only owners write to these
+  streams. Settle it before editors reach anything but boards. The stream links'
+  `RESTRICT` and `EventStream.created_by`'s `CASCADE` need the same look then.
+- **One trip per event isn't enforced by the database.** `Story.add` checks, then
+  inserts, so two concurrent adds of one event to two trips can both pass.
+
+Older, found on the way:
+- **N+1 queries on habit routes.** As the owner of the production copy:
+  `/habits/<slug>/` runs one query per record (514 for a habit with 506),
+  `/habit/keywords/mine/?all=true` 70, `/events/` 63, `/profile/` 48, `/habits/` and
+  `/habit-api/` 32. Two sources. `Habit.get_keywords()` queries on every call, so a
+  prefetch can't help, and `build_keyword_to_habit_map` calls it per habit on every
+  journal entry, trip note and habit line; one query over the user's `HabitKeyword`
+  rows with their habits can build the map. And `HabitKeywordSerializer` nests the
+  habit, and the habit-event templates read `event.habit`, over querysets that don't
+  select it.
+- **N+1 on the thread** in `/journal/` (24 queries for 10 rows) and
+  `/observation-events/` (35): the viewsets don't select the thread.
+- **500 on a malformed date:** `/habit-api/?date=x` and `/api/events/daily/?date=x`.
+- **500 on `POST /updates/?observation_id=<own>`:** the query parameter picks a
+  serializer that doesn't set the observation.
+- **500 on photo upload confirm when the bucket can't be reached**
+  (`/api/v1/android/photo/`, `/api/v1/android/trip/photo/`): `object_exists` only
+  catches `ClientError`. It should answer 503.
+- **`boardmd` fails with `KeyError: 'state'`** on a board holding a task added
+  through `/boards/append/` or the Android app: `create_task_item` writes the state
+  under `data` only.
+- **The CLI `journal` saves entries an hour off in CET:** it sends a naive local
+  time, which the server reads as UTC.
+- **Tracking a keyword the user doesn't have** (`/habit/track/`, a CLI habit line)
+  records nothing and answers `{"ok": true}`.
+- **Cosmetic:** the breakthrough page's "Shared with you" list sits below the
+  two-column layout; the closed observation page prints a raw `timedelta` ("Opened
+  for 838 days, 0:41:48.069851") and `None` for an empty interpretation or approach.
+- **Dev: MinIO can't be reached.** Its container is on no Docker network and
+  publishes no port, so photo URLs don't load and upload confirms answer 500.
