@@ -145,7 +145,14 @@ explicitly with a request-scoped queryset, as was done for `event_stream_id`.
 
 ### 4. The attach picker offers shared observations that cannot be attached
 
-- [ ] Fix — read; reproduced by the audit
+- [x] Fixed — read; reproduced by the audit
+
+Fixed: in attach mode the observation lists show only the user's own observations,
+and `observation_search` with `observation` searches only those. Outside attach mode
+both still show shared ones. The list's "Enter Attach Mode" button is offered only on
+the user's own observations.
+
+What follows is the problem as found.
 
 `ObservationListView` (`views_observation.py:253`) and `observation_search`
 (`views_observation.py:854`, `:901`) use `visible_to`, while attaching requires

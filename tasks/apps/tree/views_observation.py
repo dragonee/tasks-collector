@@ -257,7 +257,25 @@ class ObservationListFilterMixin:
         return queryset.order_by(*self.sort_orderings[sort])
 
 
-class ObservationListView(ObservationListFilterMixin, LoginRequiredMixin, ListView):
+class AttachModeMixin:
+    """``?attach_mode=true&observation_id=<id>`` turns an open-observation list
+    into a picker of observations to attach to that one."""
+
+    def attach_mode(self):
+        return self.request.GET.get("attach_mode") == "true"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["attach_mode"] = self.attach_mode()
+        context["attach_observation_id"] = self.request.GET.get("observation_id")
+
+        return context
+
+
+class ObservationListView(
+    AttachModeMixin, ObservationListFilterMixin, LoginRequiredMixin, ListView
+):
     model = Observation
     paginate_by = 200
 
@@ -268,21 +286,18 @@ class ObservationListView(ObservationListFilterMixin, LoginRequiredMixin, ListVi
     annotate_last_event = True
 
     def get_queryset(self):
+        # Only your own observations can be attached, so attach mode offers
+        # no shared ones.
+        if self.attach_mode():
+            queryset = Observation.objects.owned_by(self.request.user)
+        else:
+            queryset = Observation.objects.visible_to(self.request.user)
         queryset = (
-            Observation.objects.visible_to(self.request.user)
-            .with_attached_count()
+            queryset.with_attached_count()
             .select_related("thread", "type", "user")
             .prefetch_related("observationupdated_set")
         )
         return self.apply_observation_filters(queryset)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        context["attach_mode"] = self.request.GET.get("attach_mode") == "true"
-        context["attach_observation_id"] = self.request.GET.get("observation_id")
-
-        return context
 
 
 class ObservationClosedListView(
@@ -298,7 +313,9 @@ class ObservationClosedListView(
         return self.apply_observation_filters(queryset)
 
 
-class ObservationMineListView(ObservationListFilterMixin, LoginRequiredMixin, ListView):
+class ObservationMineListView(
+    AttachModeMixin, ObservationListFilterMixin, LoginRequiredMixin, ListView
+):
     model = Observation
     template_name = "tree/observation_list.html"
     paginate_by = 200
@@ -317,14 +334,6 @@ class ObservationMineListView(ObservationListFilterMixin, LoginRequiredMixin, Li
             .prefetch_related("observationupdated_set")
         )
         return self.apply_observation_filters(queryset)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        context["attach_mode"] = self.request.GET.get("attach_mode") == "true"
-        context["attach_observation_id"] = self.request.GET.get("observation_id")
-
-        return context
 
 
 class InsightsListView(ObservationListFilterMixin, LoginRequiredMixin, ListView):
@@ -864,12 +873,17 @@ def observation_search(request):
     if query.startswith("#"):
         pk_query = query[1:]
 
+    # Searching for observations to attach (``observation`` given) finds only
+    # your own: observations shared with you can't be attached.
+    if observation_id:
+        observations = serializable_observations().owned_by(request.user)
+    else:
+        observations = serializable_observations().visible_to(request.user)
+
     if pk_query.isdigit():
         # Search by primary key pattern - find PKs that start with the number
         observations = (
-            serializable_observations()
-            .visible_to(request.user)
-            .annotate(id_text=Cast("id", CharField()))
+            observations.annotate(id_text=Cast("id", CharField()))
             .filter(id_text__startswith=pk_query)
             .order_by("id")
         )
@@ -914,9 +928,9 @@ def observation_search(request):
 
     # Search observations and rank by relevance
     observations = (
-        serializable_observations()
-        .visible_to(request.user)
-        .annotate(search=search_vector, rank=SearchRank(search_vector, search_query))
+        observations.annotate(
+            search=search_vector, rank=SearchRank(search_vector, search_query)
+        )
         .filter(search=search_query)
         .order_by("-rank", "-pub_date")
     )

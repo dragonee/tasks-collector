@@ -71,7 +71,7 @@
 
                 <div class="detail-actions">
                     <a href="{% url 'public-observation-edit' observation.pk %}" class="btn">Edit</a>
-                    {% if not attach_mode %}
+                    {% if not attach_mode and observation.user_id == request.user.id %}
                         <a href="?attach_mode=true&observation_id={{ observation.pk }}" class="btn btn-outline">Enter Attach Mode</a>
                     {% endif %}
                 </div>
