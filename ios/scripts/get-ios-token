@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# Issue an API token with the issue_mobile_token Django command and write it,
+# with the dev server's URL, into ios/Local.xcconfig (gitignored), so that a
+# debug build of the iOS app comes up logged in: the two end up in the app's
+# Info.plist as TasksDevAPIToken / TasksDevServerURL.
+#
+# Usage:
+#   ios/scripts/get-ios-token <username> [--server URL] [--rotate] [-f|--force]
+#
+# Examples:
+#   ios/scripts/get-ios-token django
+#   ios/scripts/get-ios-token django --server http://192.168.1.20:8000
+#   ios/scripts/get-ios-token django --rotate -f
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LOCAL_CONFIG="$REPO_ROOT/ios/Local.xcconfig"
+COMPOSE_FILE="$REPO_ROOT/docker/development/docker-compose.yml"
+ENV_FILE="$REPO_ROOT/docker/development/.env"
+
+# What the token is listed as in the account settings, apart from the ones
+# android/scripts/get-android-token issues (which --rotate must not revoke).
+TOKEN_NAME="issue_mobile_token (iOS)"
+
+# The simulator shares the Mac's network, so the app's port on localhost is
+# the server: 8000, or <prefix>000 in a development environment (/devenv).
+default_server_url() {
+  local prefix=""
+  if [[ -f "$ENV_FILE" ]]; then
+    prefix="$(sed -n 's/^TASKS_PORT_PREFIX=//p' "$ENV_FILE" | tail -n1)"
+  fi
+  if [[ -n "$prefix" ]]; then
+    echo "http://localhost:${prefix}000"
+  else
+    echo "http://localhost:8000"
+  fi
+}
+
+usage() {
+  cat >&2 <<EOF
+Usage: $(basename "$0") <username> [--server URL] [--rotate] [-f|--force]
+
+  --server URL    The server the app talks to (default: $(default_server_url))
+  --rotate        Revoke the tokens this script issued for the user before
+  -f, --force     Overwrite ios/Local.xcconfig if it has a token already
+EOF
+  exit 2
+}
+
+USERNAME=""
+SERVER_URL=""
+ROTATE=false
+FORCE=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --server)
+      [[ $# -lt 2 ]] && { echo "--server requires a value" >&2; usage; }
+      SERVER_URL="$2"; shift 2
+      ;;
+    --rotate)
+      ROTATE=true; shift
+      ;;
+    -f|--force)
+      FORCE=true; shift
+      ;;
+    -h|--help)
+      usage
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      usage
+      ;;
+    *)
+      if [[ -n "$USERNAME" ]]; then
+        echo "Unexpected extra argument: $1" >&2
+        usage
+      fi
+      USERNAME="$1"; shift
+      ;;
+  esac
+done
+
+[[ -z "$USERNAME" ]] && usage
+[[ -z "$SERVER_URL" ]] && SERVER_URL="$(default_server_url)"
+
+# Stop before touching the backend if there is a token already and --force
+# wasn't passed.
+if [[ -f "$LOCAL_CONFIG" ]] && grep -Eq '^TASKS_DEV_API_TOKEN *= *[^ ]' "$LOCAL_CONFIG" && ! $FORCE; then
+  echo "Error: $LOCAL_CONFIG has a token already." >&2
+  echo "Re-run with -f / --force to overwrite (add --rotate to revoke the old one)." >&2
+  exit 1
+fi
+
+DJANGO_CMD=(python manage.py issue_mobile_token "$USERNAME" --name "$TOKEN_NAME")
+$ROTATE && DJANGO_CMD+=(--rotate)
+
+echo "Issuing a token for '$USERNAME'..." >&2
+TOKEN="$(docker compose -f "$COMPOSE_FILE" exec -T tasks-backend "${DJANGO_CMD[@]}" | tr -d '\r\n')"
+
+if [[ -z "$TOKEN" ]]; then
+  echo "Error: issue_mobile_token gave no token (is the backend running?)" >&2
+  exit 1
+fi
+
+# An xcconfig file reads "//" as the start of a comment, wherever it is. The
+# empty $() between the slashes of the URL keeps them apart for the parser
+# and expands to nothing.
+XCCONFIG_URL="$(printf '%s' "$SERVER_URL" | sed 's|//|/$()/|g')"
+
+cat > "$LOCAL_CONFIG" <<EOF
+// Written by ios/scripts/get-ios-token. Not checked in.
+TASKS_DEV_SERVER_URL = $XCCONFIG_URL
+TASKS_DEV_API_TOKEN = $TOKEN
+EOF
+
+echo "Wrote $LOCAL_CONFIG:" >&2
+echo "  server  $SERVER_URL" >&2
+echo "  token   <hidden, ${#TOKEN} chars>" >&2
+echo "Build the app again (Debug) to pick them up." >&2

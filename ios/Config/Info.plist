@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>org.polybrain.tasks.health.refresh</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Steps, distance, energy and workouts of each day are sent to your Tasks Collector server.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location is added to trip notes and photos when you ask for it, and recorded as a trail while a trip is active.</string>
+	<key>TasksDevAPIToken</key>
+	<string>$(TASKS_DEV_API_TOKEN)</string>
+	<key>TasksDevServerURL</key>
+	<string>$(TASKS_DEV_SERVER_URL)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>location</string>
+	</array>
+</dict>
+</plist>

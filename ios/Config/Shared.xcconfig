@@ -1,0 +1,9 @@
+// Per-developer defaults for debug builds: the server the app comes up
+// pointed at and a token for it, so that Settings doesn't have to be filled
+// in after every install. Empty unless ios/Local.xcconfig (gitignored, written
+// by ios/scripts/get-ios-token) sets them. The Release configuration of the
+// target sets both to nothing, whatever is here.
+TASKS_DEV_SERVER_URL =
+TASKS_DEV_API_TOKEN =
+
+#include? "../Local.xcconfig"

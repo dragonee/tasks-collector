@@ -49,6 +49,7 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 - `tests/test_route_isolation.py` walks every route as a second user, a stranger and a viewer of shared items; a new route with URL parameters fails it until `targets` names the objects to call it with.
 - Design, history and open items: `docs/design/multiuser-event-streams.md`.
 - API tokens are `common.ApiToken` rows, one per device or script, revoked from the account settings. The Android app gets its own by logging in through the browser (`oauth/authorize/`, `oauth/token/` in `apps/common/oauth.py`); `manage.py issue_mobile_token` issues one for a script. In tests use `factories.make_token(user)`.
+- The phone apps are `android/` (Kotlin) and `ios/` (Swift, the same app reimplemented; `ios/README.md` says what stands in for what). They share the `api/v1/android/` endpoints; a change to one app's behaviour usually belongs in the other too.
 
 ### Key Architectural Patterns
 
