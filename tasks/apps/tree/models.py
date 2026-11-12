@@ -543,7 +543,7 @@ class Board(models.Model):
 
     focus = models.CharField(max_length=255, null=True, blank=True)
 
-    thread = models.ForeignKey(Thread, on_delete=models.CASCADE, null=True)
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
 
     objects = BoardQuerySet.as_manager()
 
