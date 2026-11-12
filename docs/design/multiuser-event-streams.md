@@ -191,6 +191,7 @@ the same stream.
 | 7 | — | View-only sharing of trips, observations and outcomes |
 | 8 | 0093, 0094 | Boards shared to edit |
 | 9 | 0095–0097 | Journal tags per user |
+| — | 0105 | `Board.thread` required |
 
 What the data migrations decided:
 - Existing data went to one owner: the user named in the migration, otherwise the
@@ -240,9 +241,6 @@ don't use the CLI to verify.
 Checked on 2026-11-11 against the code and the dev database.
 
 From this work:
-- **`Board.thread` is still nullable.** No board is without a thread, so it is one
-  migration. A board without a thread is invisible to everyone, since boards are
-  found through their thread's user.
 - **Ownership is answered four ways:** `thread.user`; `Observation.user`,
   `Story.user`, `Breakthrough.user`; the owner row in `EventStreamAccess`; and
   `EventStream.created_by`. They agree on every row and nothing enforces it. Some
