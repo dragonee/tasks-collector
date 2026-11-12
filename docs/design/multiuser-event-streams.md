@@ -256,8 +256,5 @@ From this work:
   inserts, so two concurrent adds of one event to two trips can both pass.
 
 Older, found on the way:
-- **Cosmetic:** the breakthrough page's "Shared with you" list sits below the
-  two-column layout; the closed observation page prints a raw `timedelta` ("Opened
-  for 838 days, 0:41:48.069851") and `None` for an empty interpretation or approach.
 - **Dev: MinIO can't be reached.** Its container is on no Docker network and
   publishes no port, so photo URLs don't load and upload confirms answer 500.

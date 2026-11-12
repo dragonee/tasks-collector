@@ -1,10 +1,10 @@
 {% include "tree/events/observation_event_meta.html" with title="Made an observation" %}
 
 <strong>Situation</strong>
-{{ event.situation|linebreaks }}
+{{ event.situation|default:""|linebreaks }}
 
 <strong>Interpretation</strong>
-{{ event.interpretation|linebreaks }}
+{{ event.interpretation|default:""|linebreaks }}
 
 <strong>Approach</strong>
-{{ event.approach|linebreaks }}
+{{ event.approach|default:""|linebreaks }}

@@ -3,12 +3,14 @@ removes the Observation row. The closed detail and insight pages look the
 close event up with get(), so a stream must never get two."""
 
 import threading
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.models.signals import post_save
 from django.test import RequestFactory, TransactionTestCase
+from django.urls import reverse
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -19,6 +21,7 @@ from ..models import (
     Observation,
     ObservationClosed,
     ObservationType,
+    ObservationUpdated,
 )
 from ..services.observations.closing import close_observation
 from .factories import make_thread
@@ -33,6 +36,38 @@ def _observation(user, thread, type):
         situation="what happened",
         approach="next time",
     )
+
+
+class ObservationClosedPageTestCase(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.user = User.objects.create_user(username="u", password="x")
+        cls.thread = make_thread(cls.user, "Daily")
+        cls.type = ObservationType.objects.create(name="Error", slug="error")
+
+    def test_the_page_says_how_long_it_was_open_and_leaves_empty_fields_blank(self):
+        observation = _observation(self.user, self.thread, self.type)
+        now = timezone.now()
+        ObservationUpdated.objects.create(
+            observation=observation,
+            thread=self.thread,
+            event_stream_id=observation.event_stream_id,
+            comment="on it",
+            published=now - timedelta(days=3, hours=2),
+        )
+        closed = close_observation(observation.pk, published=now)
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse(
+                "public-observation-closed-detail",
+                args=[closed.event_stream_id],
+            )
+        )
+
+        self.assertContains(response, "Opened for 3\xa0days, 2\xa0hours")
+        self.assertNotContains(response, "None")
 
 
 class ObservationCloseAPITestCase(APITestCase):
