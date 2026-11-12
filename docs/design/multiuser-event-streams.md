@@ -256,13 +256,6 @@ From this work:
   inserts, so two concurrent adds of one event to two trips can both pass.
 
 Older, found on the way:
-- **`test_route_isolation` never calls the router's detail routes with an id.**
-  `_routes` strips every `^`, which turns `(?P<pk>[^/.]+)` into `(?P<pk>[/.]+)`, so
-  `_url` doesn't substitute it and `/boards/(?P<pk>[/.]+)/` is requested literally.
-  `boards-detail`, `plan-detail`, `reflection-detail`, `journaladded-detail`,
-  `observation-detail`, `observationupdated-detail`, `event-detail`, `habit-detail`,
-  `thread-detail`, `profile-detail` and `stories-detail` are in `targets` but only
-  ever answer like an unknown URL.
 - **500 on a malformed date:** `/habit-api/?date=x` and `/api/events/daily/?date=x`.
 - **500 on `POST /updates/?observation_id=<own>`:** the query parameter picks a
   serializer that doesn't set the observation.
