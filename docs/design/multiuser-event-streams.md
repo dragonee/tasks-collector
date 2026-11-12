@@ -256,5 +256,3 @@ From this work:
   inserts, so two concurrent adds of one event to two trips can both pass.
 
 Older, found on the way:
-- **Dev: MinIO can't be reached.** Its container is on no Docker network and
-  publishes no port, so photo URLs don't load and upload confirms answer 500.
