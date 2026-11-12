@@ -238,9 +238,8 @@ don't use the CLI to verify.
 
 ## Open items
 
-Checked on 2026-11-11 against the code and the dev database.
+Checked on 2026-11-12 against the code and the dev database.
 
-From this work:
 - **Ownership is answered four ways:** `thread.user`; `Observation.user`,
   `Story.user`, `Breakthrough.user`; the owner row in `EventStreamAccess`; and
   `EventStream.created_by`. They agree on every row and nothing enforces it. Some
@@ -250,7 +249,3 @@ From this work:
   pages use `owned_by`. All give the right answer while only owners write to these
   streams. Settle it before editors reach anything but boards. The stream links'
   `RESTRICT` and `EventStream.created_by`'s `CASCADE` need the same look then.
-- **One trip per event isn't enforced by the database.** `Story.add` checks, then
-  inserts, so two concurrent adds of one event to two trips can both pass.
-
-Older, found on the way:
