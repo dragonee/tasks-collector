@@ -8,7 +8,7 @@ where the two platforms differ, this is what stands in for what:
 | Android | iOS |
 | --- | --- |
 | Health Connect | HealthKit (steps, walking + running distance, active + resting energy, workouts) |
-| WorkManager jobs (hourly, daily, outbox) | The outbox drains in the app (`Sync/OutboxSync.swift`: on every change, when the app comes to the front, when the network is back, with a growing wait between retries). The health sync runs when the app comes to the front and the last one is over an hour old, and from a background app refresh when iOS grants one. |
+| WorkManager jobs (hourly, daily, outbox, plans) | The outbox drains in the app (`Sync/OutboxSync.swift`: on every change, when the app comes to the front, when the network is back, with a growing wait between retries). The health sync runs when the app comes to the front and the last one is over an hour old, and from a background app refresh when iOS grants one. Today's and tomorrow's plans are fetched and kept (`Data/SavedPlans.swift`) at both of those moments too. |
 | Foreground service recording the trip's trail | Location updates that go on in the background on a "while using" permission (`Location/TripTracker.swift`) |
 | DataStore | UserDefaults, and the keychain for the token |
 | Navigation drawer, FAB, dialogs | Tabs, a "+" menu in the navigation bar, sheets |

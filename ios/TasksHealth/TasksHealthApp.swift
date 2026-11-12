@@ -38,6 +38,7 @@ final class AppServices {
 
     let settings: Settings
     let outbox: Outbox
+    let savedPlans: SavedPlans
     let breadcrumbs: BreadcrumbStore
     let outboxSync: OutboxSync
     let health = HealthRepository()
@@ -56,6 +57,7 @@ final class AppServices {
         let support = URL.applicationSupportDirectory
         settings = Settings()
         outbox = Outbox(dir: support.appending(path: "outbox"))
+        savedPlans = SavedPlans(dir: support.appending(path: "plans"))
         breadcrumbs = BreadcrumbStore(file: support.appending(path: "breadcrumbs.log"))
         outboxSync = OutboxSync(settings: settings, outbox: outbox)
         healthSync = HealthSync(settings: settings, health: health)
@@ -70,8 +72,19 @@ final class AppServices {
         tracker.resumeIfNeeded()
         Task {
             await main.refresh()
+            await refreshSavedPlans()
             await syncHealthIfDue()
         }
+    }
+
+    /// Keep today's and tomorrow's plans on the phone, so a plan written on
+    /// the web in the evening is on the Today list the next morning, with a
+    /// connection or without. Without one now, what is kept stays.
+    func refreshSavedPlans() async {
+        let snapshot = settings.snapshot
+        guard snapshot.isConfigured, let api = try? TasksClient(snapshot) else { return }
+        let account = SavedPlans.account(serverUrl: snapshot.serverUrl, apiToken: snapshot.apiToken)
+        try? await savedPlans.refresh(api, account: account)
     }
 
     /// Push the health metrics, unless that was done within the hour.
@@ -91,6 +104,7 @@ final class AppServices {
     /// to be woken again.
     func backgroundRefresh() async {
         BackgroundRefresh.schedule()
+        await refreshSavedPlans()
         await healthSync.run()
         await outboxSync.drainNow()
     }

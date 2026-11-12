@@ -299,6 +299,6 @@ them back, saying what the lines say.
 
 ## What is next
 
-Nothing is planned. One thing known to be missing: the phone keeps no copy of
-the plans, so opened without a connection its list is empty but for what is
-queued (`docs/design-tasks-on-android.md`, "Offline").
+Nothing is planned. The phones keep the plans they fetch, and today's and
+tomorrow's are fetched in the background, so the Today list works without a
+connection (`docs/design-tasks-on-android.md`, "Offline").
