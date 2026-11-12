@@ -15,6 +15,7 @@ from django.views.generic.list import ListView
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import api_view
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response as RestResponse
 
@@ -32,10 +33,13 @@ HABIT_KEY_LENGTH = 60
 def get_day_from_request(request):
     day = request.query_params.get("date")
 
-    if day is not None:
-        return datetime.datetime.strptime(day, "%Y-%m-%d").date()
+    if day is None:
+        return date.today()
 
-    return date.today()
+    try:
+        return datetime.datetime.strptime(day, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValidationError({"date": "A date, YYYY-MM-DD."})
 
 
 class HabitPagination(PageNumberPagination):

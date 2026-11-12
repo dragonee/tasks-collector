@@ -256,7 +256,6 @@ From this work:
   inserts, so two concurrent adds of one event to two trips can both pass.
 
 Older, found on the way:
-- **500 on a malformed date:** `/habit-api/?date=x` and `/api/events/daily/?date=x`.
 - **500 on `POST /updates/?observation_id=<own>`:** the query parameter picks a
   serializer that doesn't set the observation.
 - **500 on photo upload confirm when the bucket can't be reached**

@@ -104,6 +104,11 @@ class EventsBetweenTestCase(APITestCase):
             with self.subTest(params):
                 self.assertEqual(self._get(**params).status_code, 400)
 
+    def test_a_day_that_is_not_a_date(self):
+        response = self.client.get(reverse("daily-events"), {"date": "x"})
+
+        self.assertEqual(response.status_code, 400)
+
     def test_a_year_at_once(self):
         response = self._get(**{"from": MONDAY, "to": MONDAY + datetime.timedelta(365)})
 

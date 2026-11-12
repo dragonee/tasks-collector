@@ -107,6 +107,12 @@ class HabitEndpointsPerUserTestCase(APITestCase):
             set(Habit.objects.filter(user=self.bob).values_list("id", flat=True)),
         )
 
+    def test_habit_list_refuses_a_day_that_is_not_a_date(self):
+        response = self.client.get("/habit-api/", {"date": "x"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("date", response.json())
+
     def test_created_habit_belongs_to_the_caller(self):
         response = self.client.post(
             "/habit-api/", {"name": "Food", "slug": "food"}, format="json"

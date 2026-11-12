@@ -533,7 +533,15 @@ def daily_events(request):
     """What happened on ``date`` on one of the caller's threads, with that
     day's plan and reflection as text. ``anchors=1`` gives the text with
     anchors, for a client that sends lines back (``tc reflect``)."""
-    day = request.GET.get("date", timezone.now().date())
+    day = timezone.now().date()
+    if "date" in request.GET:
+        try:
+            day = date_cls.fromisoformat(request.GET["date"])
+        except ValueError:
+            return RestResponse(
+                {"detail": "date is a date, YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
     anchors = request.GET.get("anchors") in ("1", "true")
 
     thread_name = request.GET.get("thread", Thread.DAILY)
