@@ -22,7 +22,7 @@ from ..models import (
     SharedStory,
     Story,
 )
-from ..services.photos import attach_photo_urls
+from ..services.photos import StorageUnavailableError, attach_photo_urls
 from .factories import link_to_trip, make_profile, make_thread, trip_links
 
 STORAGE = "tasks.apps.tree.services.photos.storage"
@@ -547,6 +547,16 @@ class TripWebTestCase(TestCase):
         self.assertTrue(trip_links(story=self.story, event=photo).exists())
         self.assertContains(r, 'id="trip-entries"')
         self.assertContains(r, "At the beach")
+
+    @mock.patch(
+        f"{STORAGE}.object_exists",
+        side_effect=StorageUnavailableError("no connection"),
+    )
+    def test_photo_confirm_with_storage_unreachable_503(self, _exists):
+        key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
+        r = self._confirm(self.story.pk, key)
+        self.assertEqual(r.status_code, 503)
+        self.assertFalse(PhotoAdded.objects.exists())
 
     def test_photo_confirm_missing_key_400(self):
         r = self.client.post(

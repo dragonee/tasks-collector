@@ -3,12 +3,15 @@ from datetime import timezone as dt_timezone
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.test import SimpleTestCase
 from django.urls import reverse
 
+from botocore.exceptions import ClientError, EndpointConnectionError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..models import PhotoAdded, Story
+from ..services.photos import StorageUnavailableError, storage
 from .factories import make_profile, make_thread, make_token, trip_links
 
 PUB_AT = datetime_cls(2026, 5, 25, 14, 30, tzinfo=dt_timezone.utc).isoformat()
@@ -200,6 +203,16 @@ class PhotoAPITestCase(APITestCase):
         r = self._confirm(self.story.pk, key)
         self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
 
+    @mock.patch(
+        f"{STORAGE}.object_exists",
+        side_effect=StorageUnavailableError("no connection"),
+    )
+    def test_confirm_with_storage_unreachable_503(self, _exists):
+        key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
+        r = self._confirm(self.story.pk, key)
+        self.assertEqual(r.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertFalse(PhotoAdded.objects.exists())
+
     def test_confirm_missing_published_400(self):
         key = f"trips/{self.user.pk}/{self.story.pk}/abc.jpg"
         r = self.client.post(
@@ -246,3 +259,37 @@ class PhotoAPITestCase(APITestCase):
             r = self.client.get(reverse(name, args=[999999]))
             self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
             self.assertEqual(r.data, {"error": "photo not found"})
+
+
+class ObjectExistsTestCase(SimpleTestCase):
+    def _head_raising(self, error):
+        client = mock.Mock()
+        client.head_object.side_effect = error
+        return mock.patch(f"{STORAGE}._internal_client", return_value=client)
+
+    def _client_error(self, code, http_status):
+        return ClientError(
+            {
+                "Error": {"Code": code},
+                "ResponseMetadata": {"HTTPStatusCode": http_status},
+            },
+            "HeadObject",
+        )
+
+    def test_a_missing_object(self):
+        with self._head_raising(self._client_error("404", 404)):
+            self.assertFalse(storage.object_exists("k"))
+
+    def test_storage_that_cannot_be_reached(self):
+        for error in (
+            EndpointConnectionError(endpoint_url="http://minio"),
+            self._client_error("ServiceUnavailable", 503),
+        ):
+            with self.subTest(error=error), self._head_raising(error):
+                with self.assertRaises(StorageUnavailableError):
+                    storage.object_exists("k")
+
+    def test_access_denied_is_not_a_retry(self):
+        with self._head_raising(self._client_error("AccessDenied", 403)):
+            with self.assertRaises(ClientError):
+                storage.object_exists("k")

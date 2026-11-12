@@ -17,6 +17,7 @@ from .keys import (
 from .metadata import read_capture_datetime
 from .originals import PhotoNotFoundError, presign_photo_original
 from .standalone import add_standalone_photo, presign_standalone_photo
+from .storage import StorageUnavailableError
 
 __all__ = [
     "storage",
@@ -36,4 +37,5 @@ __all__ = [
     "presign_photo_original",
     "add_standalone_photo",
     "presign_standalone_photo",
+    "StorageUnavailableError",
 ]

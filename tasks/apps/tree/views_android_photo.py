@@ -20,12 +20,13 @@ from tasks.apps.common.authentication import TokenAuthentication
 from .services.photos import (
     PhotoNotFoundError,
     PhotoObjectMissingError,
+    StorageUnavailableError,
     add_standalone_photo,
     presign_photo_original,
     presign_standalone_photo,
 )
 from .utils.datetime import parse_aware_datetime
-from .views_android_trip import _bad_request, _conflict
+from .views_android_trip import _bad_request, _conflict, _storage_unavailable
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -88,6 +89,8 @@ class AndroidPhotoConfirmView(APIView):
             )
         except PhotoObjectMissingError:
             return _conflict("uploaded photo not found; re-upload and retry")
+        except StorageUnavailableError:
+            return _storage_unavailable()
         except ValueError as e:
             return _bad_request(str(e))
         return Response({"ok": True, "photo_id": photo.pk}, status=status.HTTP_200_OK)

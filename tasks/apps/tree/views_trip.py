@@ -25,7 +25,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import EventStreamEntry, PhotoAdded, Story
-from .services.photos import attach_photo_urls
+from .services.photos import StorageUnavailableError, attach_photo_urls
 from .services.trips import operations as trip_ops
 from .utils.datetime import parse_aware_datetime
 from .views_sharing import sharing_context
@@ -362,6 +362,8 @@ def trip_photo_confirm(request, story_id):
         return HttpResponse(status=409)
     except trip_ops.PhotoObjectMissingError:
         return HttpResponseBadRequest("uploaded object not found")
+    except StorageUnavailableError:
+        return HttpResponse("photo storage can't be reached; retry later", status=503)
     except ValueError as e:
         return HttpResponseBadRequest(str(e))
     return _render_entries(request, story_id)

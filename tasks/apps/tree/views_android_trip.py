@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from tasks.apps.common.authentication import TokenAuthentication
 
+from .services.photos import StorageUnavailableError
 from .services.trips import (
     InvalidStopTimeError,
     PhotoObjectMissingError,
@@ -39,6 +40,14 @@ def _not_found():
 
 def _conflict(message):
     return Response({"error": message}, status=status.HTTP_409_CONFLICT)
+
+
+def _storage_unavailable():
+    # A 5xx, so the phone keeps the upload queued and tries again.
+    return Response(
+        {"error": "photo storage can't be reached; retry later"},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
 
 
 def _serialize_story(story):
@@ -374,6 +383,8 @@ class AndroidTripPhotoConfirmView(APIView):
             return _conflict("trip is stopped; cannot add photos")
         except PhotoObjectMissingError:
             return _conflict("uploaded photo not found; re-upload and retry")
+        except StorageUnavailableError:
+            return _storage_unavailable()
         except ValueError as e:
             return _bad_request(str(e))
         return Response({"ok": True, "photo_id": photo.pk}, status=status.HTTP_200_OK)
