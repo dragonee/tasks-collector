@@ -92,7 +92,7 @@ def _routes(patterns=None, prefix=""):
     """
     for pattern in patterns if patterns is not None else get_resolver().url_patterns:
         if isinstance(pattern, URLResolver):
-            yield from _routes(pattern.url_patterns, prefix + str(pattern.pattern))
+            yield from _routes(pattern.url_patterns, prefix + _unanchored(pattern))
         elif isinstance(pattern, URLPattern):
             callback = pattern.callback
             view = getattr(callback, "cls", None) or getattr(
@@ -102,8 +102,17 @@ def _routes(patterns=None, prefix=""):
                 continue
             if "format" in pattern.pattern.regex.groupindex:
                 continue
-            route = (prefix + str(pattern.pattern)).replace("^", "").replace("$", "")
+            route = prefix + _unanchored(pattern)
             yield route, pattern.name or route, pattern
+
+
+def _unanchored(pattern):
+    """The pattern's text without a regex's leading ``^`` and trailing ``$``.
+
+    Only those: the router's ``[^/.]+`` keeps its ``^``, so that ``_url``
+    finds the parameter it stands for.
+    """
+    return str(pattern.pattern).removeprefix("^").removesuffix("$")
 
 
 def _url(route, kwargs):
