@@ -49,6 +49,7 @@ from .story import get_active_story, get_current_trip, get_story
 from .utils import (
     command_parser,
     get_cursor_position,
+    local_time,
     queue_failed_request,
     retry_failed_requests,
     sanitize_fields,
@@ -65,12 +66,17 @@ def yesterdays_date():
 
 
 def get_date_from_arguments(arguments):
+    """When the entry was written, with the offset it was written at."""
     if arguments.date:
-        return parse(arguments.date)
+        return local_time(parse(arguments.date))
     elif arguments.yesterday:
-        return yesterdays_date()
+        return local_time(yesterdays_date())
 
-    return datetime.now()
+    return local_time(datetime.now())
+
+
+def format_published(dt):
+    return dt.isoformat(sep=" ", timespec="seconds")
 
 
 def format_plan(plan, title):
@@ -118,7 +124,7 @@ def template_from_arguments(arguments, plans, comment="", story=None):
     return TEMPLATE.format(
         tags=arguments.tags or "",
         comment=comment,
-        published=get_date_from_arguments(arguments),
+        published=format_published(get_date_from_arguments(arguments)),
         thread=arguments.thread,
         plans=plans_text,
         story=story_meta_line(story),
@@ -177,6 +183,13 @@ def add_meta_to_payload(payload, name, item):
         # for the human writer. A blank/non-numeric value means "no story".
         m = re.match(r"^\s*(\d+)", item)
         item = int(m.group(1)) if m else None
+    elif name == "published":
+        # A time written in without an offset is local, as the one the
+        # template came with.
+        try:
+            item = format_published(local_time(parse(item)))
+        except ValueError, OverflowError:
+            pass  # sent as it is: the server says what is wrong with it
 
     payload[name] = item
 
@@ -452,7 +465,7 @@ def main(argv, prog):
     payload = {
         "comment": None,
         "thread": arguments.thread,
-        "published": datetime.now(),
+        "published": format_published(local_time(datetime.now())),
     }
 
     above_comment = parse_template(edited_content, payload)

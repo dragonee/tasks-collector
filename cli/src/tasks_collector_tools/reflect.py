@@ -34,7 +34,7 @@ from datetime import date, datetime, timedelta, timezone
 from dateutil.parser import parse
 
 from .config.tasks import TasksConfigFile
-from .utils import command_parser, get_cursor_position, tc_command
+from .utils import command_parser, get_cursor_position, local_time, tc_command
 
 
 def get_start_and_end_of_week(date):
@@ -142,7 +142,7 @@ def journal_payload_from_reflection_payload(payload, published, thread):
     comment = multi_line_re.sub("\n\n", comment)
 
     return {
-        "published": published.isoformat(),
+        "published": local_time(published).isoformat(),
         "comment": comment,
         "thread": thread,
         "tags": [],

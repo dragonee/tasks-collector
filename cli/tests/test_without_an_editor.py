@@ -4,6 +4,7 @@ nothing twice."""
 
 import io
 import json
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -306,3 +307,30 @@ def test_the_habits_as_data():
             "keywords": ["health", "health-metrics"],
         }
     ]
+
+
+def test_an_entry_is_sent_with_the_offset_it_was_written_at(server, monkeypatch):
+    # In CET a naive 12:00 would be saved as 12:00 UTC, an hour late.
+    monkeypatch.setenv("TZ", "Europe/Warsaw")
+    time.tzset()
+    stdin(monkeypatch, "Written at noon\n")
+
+    journal.main(["--no-edit", "-f", "-", "-d", "2026-11-12 12:00"], "tc journal")
+
+    assert server.posts[0][1]["published"] == "2026-11-12 12:00:00+01:00"
+
+
+def test_a_published_line_written_without_an_offset_is_local(monkeypatch):
+    monkeypatch.setenv("TZ", "Europe/Warsaw")
+    time.tzset()
+    payload = {}
+
+    journal.add_meta_to_payload(payload, "Published", "2026-07-01 09:30")
+
+    assert payload["published"] == "2026-07-01 09:30:00+02:00"
+
+
+@pytest.fixture(autouse=True)
+def restore_timezone():
+    yield
+    time.tzset()

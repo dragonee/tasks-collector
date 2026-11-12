@@ -256,8 +256,6 @@ From this work:
   inserts, so two concurrent adds of one event to two trips can both pass.
 
 Older, found on the way:
-- **The CLI `journal` saves entries an hour off in CET:** it sends a naive local
-  time, which the server reads as UTC.
 - **Tracking a keyword the user doesn't have** (`/habit/track/`, a CLI habit line)
   records nothing and answers `{"ok": true}`.
 - **Cosmetic:** the breakthrough page's "Shared with you" list sits below the

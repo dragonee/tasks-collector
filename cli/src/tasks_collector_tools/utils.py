@@ -117,6 +117,12 @@ def smart_open(filename=None, mode="r", pipe=None, **kwargs):
             fh.close()
 
 
+def local_time(dt):
+    """``dt`` with its offset, a naive one taken as local time. The server
+    reads a time without an offset as UTC."""
+    return dt if dt.tzinfo is not None else dt.astimezone()
+
+
 def sanitize_string(value):
     return value.strip().replace("\n", "\r\n") if value else None
 
