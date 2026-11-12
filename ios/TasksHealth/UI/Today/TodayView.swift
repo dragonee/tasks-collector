@@ -24,6 +24,9 @@ struct TodayView: View {
                 if let error = model.error {
                     ErrorBanner(message: "Error: \(error)") { model.error = nil }
                 }
+                if let savedAt = model.savedAt {
+                    SavedPlansNotice(savedAt: savedAt)
+                }
                 SyncStatus(
                     waiting: model.waiting,
                     failed: model.failed,
@@ -253,6 +256,22 @@ private struct TaskRow: View {
         }
         // A faint blue wash, so focus mode is plain at a glance.
         .listRowBackground(focused ? Color.blue.opacity(0.12) : nil)
+    }
+}
+
+/// The server couldn't be asked: the lists are the plans kept from the last
+/// fetch. The time alone when that was today.
+private struct SavedPlansNotice: View {
+    let savedAt: Date
+
+    var body: some View {
+        let when = Calendar.current.isDateInToday(savedAt)
+            ? savedAt.formatted(date: .omitted, time: .shortened)
+            : savedAt.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())
+        Text("No connection: the plans as of \(when)")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

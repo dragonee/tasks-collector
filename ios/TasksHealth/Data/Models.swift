@@ -118,7 +118,7 @@ func weekPlanLeft(_ weekPlan: [PlannedTask], today: [PlannedTask]) -> [PlannedTa
     return weekPlan.filter { !$0.done && !onTheDay.contains($0.key) }
 }
 
-struct AgendaPlan: Decodable, Sendable {
+struct AgendaPlan: Codable, Sendable, Equatable {
     var tasks: [PlannedTask] = []
 
     enum CodingKeys: String, CodingKey { case tasks }
@@ -134,7 +134,7 @@ struct AgendaPlan: Decodable, Sendable {
 /// GET api/v1/tasks/agenda/?date= — the plan of that day, of its week and of
 /// its month. Done is the task's: a task of the week ticked on another day
 /// comes back done here.
-struct AgendaResponse: Decodable, Sendable {
+struct AgendaResponse: Codable, Sendable, Equatable {
     var daily = AgendaPlan()
     var weekly = AgendaPlan()
     var monthly = AgendaPlan()

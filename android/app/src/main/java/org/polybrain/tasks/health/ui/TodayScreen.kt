@@ -1,5 +1,6 @@
 package org.polybrain.tasks.health.ui
 
+import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -58,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -89,6 +91,7 @@ fun TodayScreen(
     val focusedTask by vm.focusedTask.collectAsState()
     val waiting by vm.waiting.collectAsState()
     val failed by vm.failed.collectAsState()
+    val savedAt by vm.savedAt.collectAsState()
 
     var fabExpanded by remember { mutableStateOf(false) }
 
@@ -109,6 +112,8 @@ fun TodayScreen(
             AddTaskRow(onAdd = vm::add, enabled = configured)
 
             error?.let { ErrorBanner(message = it, onDismiss = vm::clearError) }
+
+            savedAt?.let { SavedPlansNotice(savedAt = it) }
 
             SyncStatus(
                 waiting = waiting,
@@ -874,6 +879,29 @@ private fun SyncStatus(
 
 // How long a task call may sit in the queue before the screen mentions it.
 private const val SYNC_NOTICE_DELAY_MS = 2_000L
+
+/**
+ * The server couldn't be asked: the lists are the plans kept from the last
+ * fetch, of [savedAt] (epoch ms). The time alone when that was today.
+ */
+@Composable
+private fun SavedPlansNotice(savedAt: Long) {
+    val context = LocalContext.current
+    val sameDay = DateUtils.isToday(savedAt)
+    val flags = DateUtils.FORMAT_SHOW_TIME or
+        if (sameDay) 0
+        else DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_WEEKDAY or
+            DateUtils.FORMAT_ABBREV_ALL
+    Text(
+        text = stringResource(
+            R.string.today_saved_plans,
+            DateUtils.formatDateTime(context, savedAt, flags),
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = 8.dp),
+    )
+}
 
 @Composable
 private fun ErrorBanner(message: String, onDismiss: () -> Unit) {

@@ -19,6 +19,7 @@ import org.polybrain.tasks.health.data.HabitKeyword
 import org.polybrain.tasks.health.data.Outbox
 import org.polybrain.tasks.health.data.OutboxItem
 import org.polybrain.tasks.health.data.QueuedTaskOps
+import org.polybrain.tasks.health.data.SavedPlans
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.Task
@@ -35,12 +36,15 @@ import org.polybrain.tasks.health.sync.SyncScheduler
  * queued in the [Outbox] (see [queueOp]) and delivered by the outbox worker,
  * now or when there is a connection again. The lists show what the server
  * last said with what is queued on top ([show]), so a tick shows at once and
- * stays through an offline spell.
+ * stays through an offline spell. What the server said is kept on the phone
+ * ([SavedPlans]): opened without a connection, the list is the day's plans
+ * as last fetched.
  */
 class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settings = Settings(application)
     private val outbox = Outbox(application)
+    private val savedPlans = SavedPlans(application)
     private val workManager = WorkManager.getInstance(application)
 
     /** The plans of [agendaDay] as the server last gave them. */
@@ -80,6 +84,13 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
+
+    /**
+     * When the plans on screen were fetched, if they are the ones kept on
+     * the phone (the server couldn't be asked); null when they are fresh.
+     */
+    private val _savedAt = MutableStateFlow<Long?>(null)
+    val savedAt: StateFlow<Long?> = _savedAt.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -424,11 +435,13 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         if (!snapshot.isConfigured) {
             agenda = AgendaResponse()
             agendaDay = null
+            _savedAt.value = null
             _tasks.value = emptyList()
             _weekPlan.value = emptyList()
             _activeTrip.value = null
             return
         }
+        val account = SavedPlans.account(snapshot.serverUrl, snapshot.apiToken)
         val generation = ++reloads
         val day = today()
         syncQueue()
@@ -438,11 +451,14 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val api = buildApi(snapshot)
             val fetched = api.agenda(day)
+            // Not kept (a full disk) is no reason not to show them.
+            withContext(Dispatchers.IO) { runCatching { savedPlans.save(account, day, fetched) } }
             val trip = api.listTrips(page = 1, pageSize = 1).active.firstOrNull()
             // A later fetch is on its way: its answer is the one to show.
             if (generation != reloads) return
             agenda = fetched
             agendaDay = day
+            _savedAt.value = null
             queue.fetched(covered)
             _activeTrip.value = trip
             _error.value = null
@@ -450,10 +466,14 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
             if (generation != reloads) return
             _error.value = t.message ?: t.javaClass.simpleName
             if (agendaDay != day) {
-                // Nothing of this day in hand (no connection): what is queued
-                // for it shows on an otherwise empty list.
-                agenda = AgendaResponse()
+                // Nothing of this day in hand (no connection): the plans kept
+                // from the last fetch, or else an empty list, with what is
+                // queued on top.
+                val saved = withContext(Dispatchers.IO) { savedPlans.load(account, day) }
+                if (generation != reloads) return
+                agenda = saved?.agenda ?: AgendaResponse()
                 agendaDay = day
+                _savedAt.value = saved?.savedAt
             }
         } finally {
             if (generation == reloads) _loading.value = false

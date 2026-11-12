@@ -83,8 +83,17 @@ after the app was killed or the phone restarted too.
   does not show it done. A line says how many calls are waiting once they have
   waited two seconds.
 
-Not kept offline: the plans themselves. Opened with no connection, the list is
-empty but for what is queued for that day.
+The plans are kept too (`data/SavedPlans.kt`): every agenda fetched is saved
+for its day, and opened with no connection the lists are the day's plans as
+last fetched, with the queued calls on top, and a line says when they were
+fetched. A day never fetched shows only what is queued for it.
+
+- **Today and tomorrow are fetched in the background** about hourly while there
+  is a connection (`sync/PlansRefreshWorker.kt`), so a plan written on the web
+  in the evening is on the phone the next morning.
+- **Each saved day names the account that fetched it** (a hash of the server
+  and the token): logged out, or logged in as someone else, none is shown.
+- Days more than two weeks from today are thrown away.
 
 ## Counted tasks
 
@@ -110,6 +119,8 @@ android/app/src/main/java/org/polybrain/tasks/health/
 ├── data/TasksClient.kt       # OkHttp + Authorization: Token interceptor
 ├── data/TaskOp.kt            # a queued task call; lists with the queue on top
 ├── data/Outbox.kt            # the queue (enqueueTask, tasks)
+├── data/SavedPlans.kt        # the plans of each day fetched, for offline
+├── sync/PlansRefreshWorker.kt # today's and tomorrow's plans, in the background
 ├── sync/OutboxDrainer.kt     # makes the calls (sendTask), one pass (drain)
 ├── ui/TodayScreen.kt         # the list, the week section, the dialogs, sync status
 ├── ui/TodayViewModel.kt      # tasks / weekPlan / pendingComplete / focus
@@ -122,5 +133,5 @@ the agenda again when calls have been sent.
 
 Tests: `app/src/test/.../data/TaskTest.kt` (decoding an agenda, row keys, the
 week section, request bodies), `data/TaskOpTest.kt` (the lists with queued calls
-on top), `data/OutboxTest.kt`, `sync/OutboxDrainerTest.kt` (each call, retries,
-the order of a pass). The server's side is `tests/test_tasks_api.py`.
+on top), `data/OutboxTest.kt`, `data/SavedPlansTest.kt`, `sync/OutboxDrainerTest.kt`
+(each call, retries, the order of a pass). The server's side is `tests/test_tasks_api.py`.

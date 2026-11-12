@@ -86,6 +86,7 @@
     <string name="today_not_configured">Set the server URL and log in from Settings first.</string>
     <string name="today_error_format">Error: %1$s</string>
     <string name="today_dismiss_error">Dismiss</string>
+    <string name="today_saved_plans">No connection: the plans as of %1$s</string>
 
     <plurals name="today_sync_waiting">
         <item quantity="one">%d change waiting to sync</item>

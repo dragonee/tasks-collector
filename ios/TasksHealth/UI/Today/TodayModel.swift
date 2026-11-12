@@ -5,7 +5,9 @@ import Observation
 /// queued in the `Outbox` (see `queueOp`) and delivered by `OutboxSync`, now
 /// or when there is a connection again. The lists show what the server last
 /// said with what is queued on top (`show`), so a tick shows at once and
-/// stays through an offline spell.
+/// stays through an offline spell. What the server said is kept on the phone
+/// (`SavedPlans`): opened without a connection, the list is the day's plans
+/// as last fetched.
 @MainActor
 @Observable
 final class TodayModel {
@@ -52,6 +54,9 @@ final class TodayModel {
     private(set) var failed: [OutboxItem] = []
     private(set) var loading = false
     var error: String?
+    /// When the plans on screen were fetched, if they are the ones kept on
+    /// the phone (the server couldn't be asked); nil when they are fresh.
+    private(set) var savedAt: Date?
     private(set) var configured = false
 
     /// The day in view. Every call the screen makes is about this day, so
@@ -283,11 +288,13 @@ final class TodayModel {
         guard snapshot.isConfigured else {
             agenda = AgendaResponse()
             agendaDay = nil
+            savedAt = nil
             tasks = []
             weekPlan = []
             activeTrip = nil
             return
         }
+        let account = SavedPlans.account(serverUrl: snapshot.serverUrl, apiToken: snapshot.apiToken)
         reloads += 1
         let generation = reloads
         let day = selectedDate.iso
@@ -298,11 +305,13 @@ final class TodayModel {
         do {
             let api = try TasksClient(snapshot)
             let fetched = try await api.agenda(date: day)
+            await services.savedPlans.save(account: account, day: day, agenda: fetched)
             let trip = try await api.listTrips(page: 1, pageSize: 1).active.first
             // A later fetch is on its way: its answer is the one to show.
             guard generation == reloads else { return }
             agenda = fetched
             agendaDay = day
+            savedAt = nil
             queue.fetched(covered)
             activeTrip = trip
             error = nil
@@ -310,10 +319,14 @@ final class TodayModel {
             guard generation == reloads else { return }
             self.error = error.localizedDescription
             if agendaDay != day {
-                // Nothing of this day in hand (no connection): what is
-                // queued for it shows on an otherwise empty list.
-                agenda = AgendaResponse()
+                // Nothing of this day in hand (no connection): the plans kept
+                // from the last fetch, or else an empty list, with what is
+                // queued on top.
+                let saved = await services.savedPlans.load(account: account, day: day)
+                guard generation == reloads else { return }
+                agenda = saved?.agenda ?? AgendaResponse()
                 agendaDay = day
+                savedAt = saved?.savedAt
             }
         }
         loading = false

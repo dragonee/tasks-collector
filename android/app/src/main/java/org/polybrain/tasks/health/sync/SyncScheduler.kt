@@ -23,6 +23,8 @@ object SyncScheduler {
     /** Unique-work name for the trip-outbox drain (see [OutboxWorker]). */
     const val OUTBOX = "outbox-drain"
 
+    private const val PLANS = "plans-refresh"
+
     private val networkConstraints = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
@@ -31,6 +33,26 @@ object SyncScheduler {
     fun schedule(context: Context) {
         schedulePeriodic(context)
         scheduleDaily(context)
+        schedulePlansRefresh(context)
+    }
+
+    /**
+     * Keep today's and tomorrow's plans on the phone, refreshed about hourly
+     * while there is a connection (see [PlansRefreshWorker]). Kept as it is
+     * when scheduled already, so calling it on every start doesn't push the
+     * next run back.
+     */
+    fun schedulePlansRefresh(context: Context) {
+        val request = PeriodicWorkRequestBuilder<PlansRefreshWorker>(Duration.ofHours(1))
+            .setConstraints(networkConstraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            PLANS,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
     }
 
     fun schedulePeriodic(context: Context) {
@@ -118,5 +140,6 @@ object SyncScheduler {
         wm.cancelUniqueWork(DAILY)
         wm.cancelUniqueWork(ONE_OFF)
         wm.cancelUniqueWork(OUTBOX)
+        wm.cancelUniqueWork(PLANS)
     }
 }

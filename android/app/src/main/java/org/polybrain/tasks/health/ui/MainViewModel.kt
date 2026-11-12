@@ -102,6 +102,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Resume any trip notes/photos queued offline in a previous session.
         // The worker no-ops when unconfigured, so this is safe to call always.
         SyncScheduler.drainOutbox(application)
+        // A phone logged in before plans were kept gets the job here; the
+        // job does nothing while logged out.
+        SyncScheduler.schedulePlansRefresh(application)
         viewModelScope.launch {
             // Resume location tracking if a trip was being tracked before the
             // app was killed (the foreground service doesn't survive that).
