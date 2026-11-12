@@ -47,6 +47,33 @@ class ObservationUpdatedAPITestCase(APITestCase):
         self.assertEqual(update.event_stream_id, self.observation.event_stream_id)
         self.assertEqual(update.thread, self.thread)
 
+    def test_create_with_the_list_filter_in_the_query_string(self):
+        resp = self.client.post(
+            f"{UPDATES_URL}?observation_id={self.observation.pk}",
+            {"comment": "progress", "observation": self.observation.pk},
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            ObservationUpdated.objects.get().observation_id, self.observation.pk
+        )
+
+    def test_the_list_filter_lists_one_observations_updates(self):
+        ObservationUpdated.objects.create(
+            observation=self.observation,
+            thread=self.thread,
+            comment="progress",
+            event_stream_id=self.observation.event_stream_id,
+        )
+
+        resp = self.client.get(UPDATES_URL, {"observation_id": self.observation.pk})
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        updates = resp.json()["results"]
+        self.assertEqual([u["comment"] for u in updates], ["progress"])
+        self.assertNotIn("observation_fields", updates[0])
+
     def test_create_without_observation_returns_400(self):
         for data in [{"comment": "orphan"}, {"comment": "orphan", "observation": None}]:
             with self.subTest(data=data):
