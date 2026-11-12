@@ -160,6 +160,31 @@ class HabitEndpointsPerUserTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertFalse(HabitTracked.objects.exists())
 
+    def test_a_line_naming_none_of_ones_habits_is_refused(self):
+        # Alice's "food" is no habit of Bob's.
+        response = self.client.post(
+            reverse("public-habit-track"), {"text": "#food pasta"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json(), {"text": ["No habits found"]})
+        self.assertFalse(HabitTracked.objects.exists())
+
+    def test_a_line_tracks_the_habits_it_names_past_a_hashtag_in_a_note(self):
+        bobs_food = make_habit(self.bob, "Food", keywords=["food"])
+
+        response = self.client.post(
+            reverse("public-habit-track"),
+            {"text": "#food pasta #yum"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            list(HabitTracked.objects.values_list("habit", "note")),
+            [(bobs_food.pk, "#food pasta")],
+        )
+
 
 class HabitCreationTestCase(TestCase):
     """The form on the habits page makes a habit of the user's."""

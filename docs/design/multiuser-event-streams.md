@@ -256,8 +256,6 @@ From this work:
   inserts, so two concurrent adds of one event to two trips can both pass.
 
 Older, found on the way:
-- **Tracking a keyword the user doesn't have** (`/habit/track/`, a CLI habit line)
-  records nothing and answers `{"ok": true}`.
 - **Cosmetic:** the breakthrough page's "Shared with you" list sits below the
   two-column layout; the closed observation page prints a raw `timedelta` ("Opened
   for 838 days, 0:41:48.069851") and `None` for an empty interpretation or approach.

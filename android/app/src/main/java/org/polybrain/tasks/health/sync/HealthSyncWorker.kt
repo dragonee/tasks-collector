@@ -12,6 +12,7 @@ import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TrackHabitRequest
 import org.polybrain.tasks.health.data.TrackHabitTextRequest
+import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -91,12 +92,19 @@ class HealthSyncWorker(
         // Use the ride's actual start time so the entry lands on the day
         // the ride happened, not the day the sync ran.
         val published = OffsetDateTime.ofInstant(ride.start, zone).toString()
-        api.trackHabitText(
-            TrackHabitTextRequest(
-                text = text,
-                published = published,
+        try {
+            api.trackHabitText(
+                TrackHabitTextRequest(
+                    text = text,
+                    published = published,
+                )
             )
-        )
+        } catch (e: HttpException) {
+            // 400: the user has no habit with the keyword. Sending it again
+            // won't change that, so the ride counts as synced, as it did
+            // when the server took it and tracked nothing.
+            if (e.code() != 400) throw e
+        }
     }
 
     companion object {

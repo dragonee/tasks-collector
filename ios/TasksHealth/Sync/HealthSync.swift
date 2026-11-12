@@ -64,17 +64,24 @@ actor HealthSync {
                     )
                 )
                 for ride in try await health.bikeSessions(day) where !posted.contains(ride.id) {
-                    try await api.trackHabitText(
-                        TrackHabitTextRequest(
-                            text: NoteFormatter.formatBikeRide(
-                                keyword: Self.workoutKeyword,
-                                durationMinutes: ride.durationMinutes
-                            ),
-                            // When the ride started, so the entry lands on
-                            // the day of the ride, not of the sync.
-                            published: IsoTime.string(ride.start)
+                    do {
+                        try await api.trackHabitText(
+                            TrackHabitTextRequest(
+                                text: NoteFormatter.formatBikeRide(
+                                    keyword: Self.workoutKeyword,
+                                    durationMinutes: ride.durationMinutes
+                                ),
+                                // When the ride started, so the entry lands on
+                                // the day of the ride, not of the sync.
+                                published: IsoTime.string(ride.start)
+                            )
                         )
-                    )
+                    } catch let error as HTTPError where error.code == 400 {
+                        // The user has no habit with the keyword. Sending it
+                        // again won't change that, so the ride counts as
+                        // synced, as it did when the server took it and
+                        // tracked nothing.
+                    }
                     // Remembered at once, so a sync that fails further on
                     // doesn't post the ride again next time.
                     posted.insert(ride.id)

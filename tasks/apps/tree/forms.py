@@ -114,6 +114,12 @@ class SingleHabitTrackedForm(UserThreadFormMixin, forms.Form):
             )
         except ValueError as e:
             self.add_error("text", str(e))
+            return cleaned_data
+
+        # A note may carry a #word that is no habit, so a line tracks what
+        # it names; one that names none of the user's habits is refused.
+        if not cleaned_data["triplets"]:
+            self.add_error("text", "No habits found")
 
         return cleaned_data
 
@@ -124,17 +130,6 @@ class OnlyTextSingleHabitTrackedForm(SingleHabitTrackedForm):
         self.fields["journal"].widget = forms.HiddenInput()
         self.fields["published"].widget = forms.HiddenInput()
         self.fields["thread"].widget = forms.HiddenInput()
-
-    def clean(self):
-        cleaned_data = super().clean()
-
-        triplets = cleaned_data.get("triplets")
-
-        if not triplets:
-            self.add_error("text", "No habits found")
-            return cleaned_data
-
-        return cleaned_data
 
 
 class BreakthroughForm(forms.ModelForm):
