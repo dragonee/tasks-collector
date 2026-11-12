@@ -2,10 +2,13 @@
 a trip note lives in its thread's journal and in the trip."""
 
 import io
+import threading
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase
+from django.db import connection
+from django.db.models.signals import post_save
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from ..models import (
@@ -122,6 +125,66 @@ class TripStreamsTestCase(TestCase):
 
         self.assertFalse(Story.objects.filter(pk=story.pk).exists())
         self.assertFalse(EventStream.objects.filter(pk=stream_id).exists())
+
+
+class ConcurrentTripAddTestCase(TransactionTestCase):
+    """One event added to two trips at once: one of them gets it."""
+
+    def setUp(self):
+        user = User.objects.create_user(username="u", password="x")
+        self.first, self.second = start_trip(user), start_trip(user)
+        self.journal = JournalAdded.objects.create(
+            thread=Thread.objects.daily(user), comment="walking"
+        )
+
+    def test_the_second_add_finds_the_first(self):
+        first_saved = threading.Event()
+        release_first = threading.Event()
+        results = {}
+
+        def hold_first_before_commit(sender, instance, **kwargs):
+            if threading.current_thread().name == "first":
+                first_saved.set()
+                release_first.wait(timeout=5)
+
+        def add(name, story):
+            def run():
+                try:
+                    story.add(self.journal)
+                    results[name] = "added"
+                except ValueError as e:
+                    results[name] = e
+                finally:
+                    connection.close()
+
+            thread = threading.Thread(target=run, name=name)
+            thread.start()
+            return thread
+
+        post_save.connect(hold_first_before_commit, sender=EventStreamEntry)
+        try:
+            first = add("first", self.first)
+            self.assertTrue(first_saved.wait(timeout=5))
+
+            # The first add has saved its entry but not committed. Give the
+            # second one time to run as far as it can before letting go.
+            second = add("second", self.second)
+            second.join(timeout=0.5)
+            release_first.set()
+
+            first.join(timeout=5)
+            second.join(timeout=5)
+        finally:
+            post_save.disconnect(hold_first_before_commit, sender=EventStreamEntry)
+
+        self.assertEqual(results["first"], "added")
+        self.assertIsInstance(results["second"], ValueError)
+        self.assertEqual(
+            EventStreamEntry.objects.filter(
+                event=self.journal, stream__type=EventStream.Type.TRIP
+            ).count(),
+            1,
+        )
 
 
 class EnsureHomeEntriesTestCase(TestCase):

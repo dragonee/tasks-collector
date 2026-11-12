@@ -1773,17 +1773,32 @@ class Story(models.Model):
 
     def add(self, event):
         """Make ``event`` part of this trip. An event belongs to one trip at
-        most; adding it to the same trip again changes nothing."""
-        other = (
-            event.stream_entries.filter(stream__type=EventStream.Type.TRIP)
-            .exclude(stream_id=self.event_stream_id)
-            .exists()
-        )
-        if other:
-            raise ValueError(f"Event #{event.pk} is already part of another trip.")
-        EventStreamEntry.objects.get_or_create(
-            stream_id=self.event_stream_id, event_id=event.pk
-        )
+        most; adding it to the same trip again changes nothing.
+
+        The event's row is taken first: two adds of one event, to two trips,
+        go one after the other, and the second finds the first's entry. A
+        unique constraint can't say it, since the stream's type is on
+        another table.
+        """
+        with transaction.atomic():
+            list(
+                Event.objects.non_polymorphic()
+                .select_for_update()
+                .filter(pk=event.pk)
+                .values_list("pk")
+            )
+            other = (
+                EventStreamEntry.objects.filter(
+                    event_id=event.pk, stream__type=EventStream.Type.TRIP
+                )
+                .exclude(stream_id=self.event_stream_id)
+                .exists()
+            )
+            if other:
+                raise ValueError(f"Event #{event.pk} is already part of another trip.")
+            EventStreamEntry.objects.get_or_create(
+                stream_id=self.event_stream_id, event_id=event.pk
+            )
 
     def __str__(self):
         return self.title or f"{self.get_type_display()} #{self.pk}"
