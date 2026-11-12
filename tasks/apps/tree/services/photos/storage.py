@@ -14,7 +14,12 @@ from django.conf import settings
 
 import boto3
 from botocore.client import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
+
+
+class StorageUnavailableError(Exception):
+    """The bucket can't be reached, or answered with an error of its own: a
+    retry later may succeed."""
 
 
 def _config():
@@ -110,14 +115,20 @@ def presign_get_web(key, expires=None):
 
 
 def object_exists(key):
-    """True if the object exists in the bucket."""
+    """True if the object exists in the bucket. Raises
+    ``StorageUnavailableError`` when the bucket can't say."""
     try:
         _internal_client().head_object(Bucket=settings.AWS_S3_BUCKET, Key=key)
         return True
     except ClientError as e:
         if e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound"):
             return False
+        if e.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0) >= 500:
+            raise StorageUnavailableError(str(e)) from e
         raise
+    except BotoCoreError as e:
+        # No connection, a timeout, an endpoint that doesn't answer.
+        raise StorageUnavailableError(str(e)) from e
 
 
 def download_bytes(key):

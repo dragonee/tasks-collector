@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..models import PhotoAdded
+from ..services.photos import StorageUnavailableError
 from .factories import make_profile, make_thread, make_token, trip_links
 
 PUB_AT = datetime_cls(2026, 5, 25, 14, 30, tzinfo=dt_timezone.utc).isoformat()
@@ -111,6 +112,15 @@ class StandalonePhotoAPITestCase(APITestCase):
         key = f"photos/{self.user.pk}/abc.jpg"
         r = self._confirm(key)
         self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
+
+    @mock.patch(
+        f"{STORAGE}.object_exists",
+        side_effect=StorageUnavailableError("no connection"),
+    )
+    def test_confirm_with_storage_unreachable_503(self, _exists):
+        r = self._confirm(f"photos/{self.user.pk}/abc.jpg")
+        self.assertEqual(r.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertFalse(PhotoAdded.objects.exists())
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
     def test_confirm_foreign_key_409(self, _exists):
