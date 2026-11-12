@@ -205,7 +205,11 @@ class ObservationUpdatedViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
         return super().get_queryset().owned_by(self.request.user)
 
     def get_serializer_class(self):
-        if self.request.query_params.get("observation_id"):
+        # The updates of one observation are listed without it; a write
+        # names its observation whatever the query string says.
+        if self.action in READ_ACTIONS and self.request.query_params.get(
+            "observation_id"
+        ):
             return MultipleObservationUpdatedSerializer
 
         return ObservationUpdatedSerializer
