@@ -405,8 +405,6 @@ def observation_closed_detail(request, event_stream_id):
         request.user,
     )
 
-    time_to_closed = events[-1].published - events[0].published
-
     insight = (
         InsightRefined.objects.filter(
             event_stream_id=observation_closed.event_stream_id
@@ -428,7 +426,8 @@ def observation_closed_detail(request, event_stream_id):
             "instance": observation_closed,
             "events": events,
             "updates": filter(lambda x: isinstance(x, ObservationUpdated), events),
-            "time_to_closed": time_to_closed,
+            "opened": events[0].published,
+            "closed": events[-1].published,
             "insight": insight,
             "complex_presenter": get_complex_presenter(
                 observation_closed, request.user
