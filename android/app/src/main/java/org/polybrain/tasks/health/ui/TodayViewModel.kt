@@ -50,6 +50,8 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
     /** The plans of [agendaDay] as the server last gave them. */
     private var agenda = AgendaResponse()
     private var agendaDay: String? = null
+    /** When [agenda] was fetched, if it is the one kept on the phone. */
+    private var agendaSavedAt: Long? = null
 
     /** The task calls shown on top of [agenda]. */
     private val queue = QueuedTaskOps()
@@ -435,6 +437,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         if (!snapshot.isConfigured) {
             agenda = AgendaResponse()
             agendaDay = null
+            agendaSavedAt = null
             _savedAt.value = null
             _tasks.value = emptyList()
             _weekPlan.value = emptyList()
@@ -458,7 +461,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
             if (generation != reloads) return
             agenda = fetched
             agendaDay = day
-            _savedAt.value = null
+            agendaSavedAt = null
             queue.fetched(covered)
             _activeTrip.value = trip
             _error.value = null
@@ -473,7 +476,7 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
                 if (generation != reloads) return
                 agenda = saved?.agenda ?: AgendaResponse()
                 agendaDay = day
-                _savedAt.value = saved?.savedAt
+                agendaSavedAt = saved?.savedAt
             }
         } finally {
             if (generation == reloads) _loading.value = false
@@ -536,6 +539,9 @@ class TodayViewModel(application: Application) : AndroidViewModel(application) {
         // Open ones first; the plan's order within each group (sortedBy is
         // stable).
         _tasks.value = agenda.daily.tasks.withPending(ops, day).sortedBy { it.done }
+        // Said with the list it is about: set earlier, it would show above
+        // the list still in view while the queue is read.
+        _savedAt.value = agendaSavedAt
         // Drop focus if its task is gone, otherwise the "exit focus mode"
         // item would vanish with the row.
         if (_focusedTask.value != null && _tasks.value.none { it.key == _focusedTask.value }) {
