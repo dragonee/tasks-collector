@@ -35,6 +35,8 @@ final class TodayModel {
     /// The plans of `agendaDay` as the server last gave them.
     @ObservationIgnored private var agenda = AgendaResponse()
     @ObservationIgnored private var agendaDay: String?
+    /// When `agenda` was fetched, if it is the one kept on the phone.
+    @ObservationIgnored private var agendaSavedAt: Date?
     /// The task calls shown on top of `agenda`.
     @ObservationIgnored private var queue = QueuedTaskOps()
     /// Counts fetches of the plans, so that only the latest one's answer is used.
@@ -288,6 +290,7 @@ final class TodayModel {
         guard snapshot.isConfigured else {
             agenda = AgendaResponse()
             agendaDay = nil
+            agendaSavedAt = nil
             savedAt = nil
             tasks = []
             weekPlan = []
@@ -311,7 +314,7 @@ final class TodayModel {
             guard generation == reloads else { return }
             agenda = fetched
             agendaDay = day
-            savedAt = nil
+            agendaSavedAt = nil
             queue.fetched(covered)
             activeTrip = trip
             error = nil
@@ -326,7 +329,7 @@ final class TodayModel {
                 guard generation == reloads else { return }
                 agenda = saved?.agenda ?? AgendaResponse()
                 agendaDay = day
-                savedAt = saved?.savedAt
+                agendaSavedAt = saved?.savedAt
             }
         }
         loading = false
@@ -394,6 +397,9 @@ final class TodayModel {
         // Open ones first; the plan's order within each group.
         let rows = agenda.daily.tasks.withPending(ops, on: day)
         tasks = rows.filter { !$0.done } + rows.filter(\.done)
+        // Said with the list it is about: set earlier, it would show above
+        // the list still in view while the queue is read.
+        savedAt = agendaSavedAt
         if let focusedTask, !tasks.contains(where: { $0.key == focusedTask }) {
             self.focusedTask = nil
         }
