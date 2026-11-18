@@ -2,6 +2,7 @@ package org.polybrain.tasks.health.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -53,6 +54,36 @@ data class HabitKeyword(
 data class HabitRef(
     @SerialName("id") val id: Long = 0,
     @SerialName("name") val name: String = "",
+    // What an entry of the habit records; the activity dialog asks for these.
+    @SerialName("metrics") val metrics: List<HabitMetric> = emptyList(),
+)
+
+// One thing a habit records with each entry (habit/keywords/mine/). [kind] is
+// number (in [unit], with [decimals]), duration (sent in seconds), pressure
+// (sent as [upper, lower]) or money (sent as {"amount", "currency"}).
+@Serializable
+data class HabitMetric(
+    @SerialName("key") val key: String,
+    @SerialName("label") val label: String = "",
+    @SerialName("kind") val kind: String = "number",
+    @SerialName("unit") val unit: String = "",
+    @SerialName("decimals") val decimals: Int = 0,
+)
+
+// POST api/v1/habit/tracked/ — a new entry of the habit [keyword] names, each
+// time; [values] of its metrics, by key, are written into [note] as tokens.
+@Serializable
+data class TrackedHabitRequest(
+    @SerialName("keyword") val keyword: String,
+    @SerialName("published") val published: String,
+    @SerialName("note") val note: String = "",
+    @SerialName("values") val values: JsonObject = JsonObject(emptyMap()),
+)
+
+@Serializable
+data class TrackedHabitResponse(
+    @SerialName("id") val id: Long = 0,
+    @SerialName("note") val note: String? = null,
 )
 
 // Server-derived health data for the Health screen. Currently just the most
@@ -398,6 +429,15 @@ interface TasksApi {
     // excludes habits already tracked that day. Returns a bare JSON array.
     @GET("habit/keywords/mine/")
     suspend fun listHabitKeywords(@Query("date") date: String): List<HabitKeyword>
+
+    // The same, keeping the habits already tracked that day: for the activity
+    // dialog, where twice a day is fine.
+    @GET("habit/keywords/mine/?with_tracked=true")
+    suspend fun listActivityKeywords(): List<HabitKeyword>
+
+    // A new entry of a habit, each time, with its metrics' values.
+    @POST("api/v1/habit/tracked/")
+    suspend fun trackHabitValues(@Body body: TrackedHabitRequest): TrackedHabitResponse
 
     // Server-derived health data (currently the last recorded body weight).
     @GET("api/v1/android/health/data/")

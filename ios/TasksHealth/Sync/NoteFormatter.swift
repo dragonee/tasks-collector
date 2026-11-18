@@ -23,6 +23,6 @@ enum NoteFormatter {
     /// into a HabitTracked of the `keyword` habit. No distance: a ride
     /// recorded by the phone alone has none to trust.
     static func formatBikeRide(keyword: String, durationMinutes: Int) -> String {
-        "#\(keyword) Bike ride (duration=\(durationMinutes) min)"
+        "#\(keyword) Bike ride (duration=\(durationMinutes)m)"
     }
 }

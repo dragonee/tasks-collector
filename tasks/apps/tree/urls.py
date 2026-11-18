@@ -75,6 +75,11 @@ urlpatterns = [
         views_habit_api.TrackHabitAPIView.as_view(),
         name="track-habit-api",
     ),
+    path(
+        "api/v1/habit/tracked/",
+        views_habit_api.TrackedHabitCreateView.as_view(),
+        name="habit-tracked-create",
+    ),
     # === Tasks by id (views_tasks) ===
     path("api/v1/tasks/agenda/", views_tasks.task_agenda, name="task-agenda"),
     path("api/v1/tasks/", views_tasks.task_create, name="task-create"),

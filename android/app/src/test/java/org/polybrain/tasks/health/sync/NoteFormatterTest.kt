@@ -54,7 +54,7 @@ class NoteFormatterTest {
     @Test
     fun `bike ride note carries hashtag duration and no distance`() {
         val text = NoteFormatter.formatBikeRide("workout", 45)
-        assertEquals("#workout Bike ride (duration=45 min)", text)
+        assertEquals("#workout Bike ride (duration=45m)", text)
     }
 
     @Test

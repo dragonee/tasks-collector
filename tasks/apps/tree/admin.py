@@ -18,11 +18,16 @@ class HabitKeywordInline(admin.TabularInline):
     extra = 1
 
 
+class HabitMetricInline(admin.TabularInline):
+    model = HabitMetric
+    extra = 0
+
+
 class HabitAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "user", "display_keywords", "event_stream_id")
     list_filter = ("user",)
     readonly_fields = ("event_stream_id",)
-    inlines = [HabitKeywordInline]
+    inlines = [HabitKeywordInline, HabitMetricInline]
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related("keywords")
@@ -136,6 +141,8 @@ class EventAdmin(PolymorphicParentModelAdmin):
 class HabitTrackedAdmin(PolymorphicChildModelAdmin):
     base_model = HabitTracked
     list_select_related = ("habit",)
+    # Read from the note on save.
+    readonly_fields = ("values",)
 
 
 class ObservationUpdatedAdmin(PolymorphicChildModelAdmin):

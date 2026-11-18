@@ -77,6 +77,17 @@ struct TasksClient: OutboxAPI {
         try await get("habit/keywords/mine/", query: ["date": date])
     }
 
+    /// The same, keeping the habits already tracked that day: for the
+    /// activity sheet, where twice a day is fine.
+    func listActivityKeywords() async throws -> [HabitKeyword] {
+        try await get("habit/keywords/mine/", query: ["with_tracked": "true"])
+    }
+
+    /// A new entry of a habit, each time, with its metrics' values.
+    func trackHabitValues(_ body: TrackedHabitRequest) async throws {
+        try await post("api/v1/habit/tracked/", body)
+    }
+
     func healthData() async throws -> HealthDataResponse {
         try await get("api/v1/android/health/data/")
     }

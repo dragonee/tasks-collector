@@ -4,9 +4,9 @@ from collections import namedtuple
 
 from django.db import transaction
 
-from ..models import Board, Habit, HabitKeyword, Profile, Thread
+from ..models import Board, Habit, HabitKeyword, HabitMetric, Profile, Thread
 
-BuiltinHabit = namedtuple("BuiltinHabit", "slug name description keywords")
+BuiltinHabit = namedtuple("BuiltinHabit", "slug name description keywords metrics")
 
 # Habits the code itself records: trip points of interest (``#poi`` lines in
 # trip notes and photos) and body weight from the Android Health screen
@@ -22,6 +22,7 @@ BUILTIN_HABITS = (
             "lat=<float> lng=<float> (and optionally acc=<float>)."
         ),
         keywords=("poi", "coords", "coordinates", "latlng"),
+        metrics=(),
     ),
     BuiltinHabit(
         slug="weight",
@@ -31,6 +32,15 @@ BUILTIN_HABITS = (
             "Tracked via the #weight hashtag; the note carries weight=<float>kg."
         ),
         keywords=("weight",),
+        metrics=(
+            {
+                "key": "weight",
+                "label": "Weight",
+                "kind": HabitMetric.Kind.NUMBER,
+                "unit": "kg",
+                "decimals": 1,
+            },
+        ),
     ),
 )
 
@@ -60,4 +70,8 @@ def provision_user(user):
             # A keyword the user already gave another habit stays theirs.
             HabitKeyword.objects.get_or_create(
                 user=user, keyword=keyword, defaults={"habit": habit}
+            )
+        for metric in builtin.metrics:
+            HabitMetric.objects.get_or_create(
+                habit=habit, key=metric["key"], defaults=metric
             )

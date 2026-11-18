@@ -22,6 +22,6 @@ object NoteFormatter {
      * (no GPS track from the watch).
      */
     fun formatBikeRide(keyword: String, durationMinutes: Long): String {
-        return "#$keyword Bike ride (duration=$durationMinutes min)"
+        return "#$keyword Bike ride (duration=${durationMinutes}m)"
     }
 }

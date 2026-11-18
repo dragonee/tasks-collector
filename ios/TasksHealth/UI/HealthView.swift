@@ -31,7 +31,7 @@ struct HealthView: View {
                 // allows. Tapping it opens the sheet on a new weight.
                 Section {
                     Button {
-                        model.openActivitySheet(.weight)
+                        model.openActivitySheet("weight")
                     } label: {
                         Text(weight).frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -60,8 +60,8 @@ struct HealthView: View {
             }
             .refreshable { await model.refresh() }
         }
-        .sheet(item: $model.activitySheet) { type in
-            TrackActivitySheet(model: model, initialType: type)
+        .sheet(item: $model.activitySheet) { sheet in
+            TrackActivitySheet(model: model, initialKeyword: sheet.keyword)
         }
     }
 
@@ -81,31 +81,28 @@ struct HealthView: View {
 
 private struct TrackActivitySheet: View {
     let model: MainModel
+    let initialKeyword: String?
 
     @Environment(\.dismiss) private var dismiss
-    @State private var type: ActivityType
+    @State private var chosen: String?
     @State private var note = ""
-    @State private var weightText = ""
-    @State private var distanceText = ""
-    @State private var minutes = 0
-    @State private var seconds = 0
+    @State private var inputs: [String: MetricInput] = [:]
 
-    init(model: MainModel, initialType: ActivityType) {
-        self.model = model
-        _type = State(initialValue: initialType)
+    /// The keyword asked for (weight from the weight row), else the first,
+    /// once the list is in.
+    private var selected: HabitKeyword? {
+        let keywords = model.activityKeywords
+        return keywords.first { $0.keyword == (chosen ?? initialKeyword) } ?? keywords.first
     }
 
-    /// A number typed with a dot or, as many keyboards have it, a comma.
-    private func number(_ text: String) -> Double? {
-        Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "."))
-    }
+    private var metrics: [HabitMetric] { selected?.metrics ?? [] }
 
+    private var values: [String: MetricValue]? { metricValues(metrics, inputs) }
+
+    /// A habit that records something needs it, or the entry says nothing.
     private var canConfirm: Bool {
-        switch type {
-        case .weight: (number(weightText) ?? 0) > 0
-        case .running: (number(distanceText) ?? 0) > 0 && (minutes > 0 || seconds > 0)
-        default: true
-        }
+        guard selected != nil, let values else { return false }
+        return metrics.isEmpty || !values.isEmpty || !note.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
@@ -114,25 +111,20 @@ private struct TrackActivitySheet: View {
                 Section {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(ActivityType.allCases) { option in
-                                FilterChip(label: "#\(option.keyword)", selected: option == type) { type = option }
+                            ForEach(model.activityKeywords) { option in
+                                FilterChip(label: "#\(option.keyword)", selected: option == selected) {
+                                    chosen = option.keyword
+                                    inputs = [:]
+                                }
                             }
                         }
                     }
                 }
                 Section {
-                    switch type {
-                    case .weight:
-                        TextField("Weight (kg)", text: $weightText).keyboardType(.decimalPad)
-                    case .running:
-                        TextField("Distance (km)", text: $distanceText).keyboardType(.decimalPad)
-                        HStack {
-                            wheel("Min", $minutes, 0...240)
-                            wheel("Sec", $seconds, 0...59)
-                        }
-                    default:
-                        NoteField(placeholder: "Add a note (optional)", text: $note)
+                    ForEach(metrics, id: \.key) { metric in
+                        field(metric)
                     }
+                    NoteField(placeholder: "Add a note (optional)", text: $note)
                     if let error = model.activityError {
                         Text(error).font(.footnote).foregroundStyle(.red)
                     }
@@ -154,19 +146,55 @@ private struct TrackActivitySheet: View {
     }
 
     private func track() async {
-        switch type {
-        case .weight:
-            if let kg = number(weightText) { await model.trackWeight(kg: kg) }
-        case .running:
-            if let km = number(distanceText) {
-                await model.trackRunning(distanceKm: km, minutes: minutes, seconds: seconds)
+        guard let selected, let values else { return }
+        await model.trackActivity(keyword: selected.keyword, note: note, values: values)
+    }
+
+    private func input(_ key: String) -> Binding<MetricInput> {
+        Binding(get: { inputs[key] ?? MetricInput() }, set: { inputs[key] = $0 })
+    }
+
+    /// The field for one metric of the habit, by its kind.
+    @ViewBuilder
+    private func field(_ metric: HabitMetric) -> some View {
+        let label = metric.label.isEmpty ? metric.key : metric.label
+        let value = input(metric.key)
+        switch metric.kind {
+        case "duration":
+            VStack(alignment: .leading) {
+                Text(label)
+                HStack {
+                    wheel("Min", minutes(value), 0...600)
+                    wheel("Sec", seconds(value), 0...59)
+                }
+            }
+        case "pressure":
+            HStack {
+                TextField("\(label) upper", text: value.first).keyboardType(.numberPad)
+                TextField("lower", text: value.second).keyboardType(.numberPad)
+            }
+        case "money":
+            HStack {
+                TextField(label, text: value.first).keyboardType(.decimalPad)
+                TextField("PLN", text: value.second)
+                    .textInputAutocapitalization(.characters)
+                    .frame(maxWidth: 70)
             }
         default:
-            await model.trackActivity(type, note: note)
+            TextField(metric.unit.isEmpty ? label : "\(label) (\(metric.unit))", text: value.first)
+                .keyboardType(metric.decimals > 0 ? .decimalPad : .numberPad)
         }
     }
 
-    /// A labelled wheel for one part of the run's time.
+    private func minutes(_ value: Binding<MetricInput>) -> Binding<Int> {
+        Binding(get: { Int(value.wrappedValue.first) ?? 0 }, set: { value.wrappedValue.first = String($0) })
+    }
+
+    private func seconds(_ value: Binding<MetricInput>) -> Binding<Int> {
+        Binding(get: { Int(value.wrappedValue.second) ?? 0 }, set: { value.wrappedValue.second = String($0) })
+    }
+
+    /// A labelled wheel for one part of a duration.
     private func wheel(_ label: String, _ value: Binding<Int>, _ range: ClosedRange<Int>) -> some View {
         VStack {
             Text(label).font(.footnote)

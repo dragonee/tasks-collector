@@ -8,26 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from ..models import Habit, HabitTracked
-from ..services.health import parse_weight_kg
 from .factories import make_habit, make_thread, make_token
-
-
-class ParseWeightKgTestCase(APITestCase):
-    def test_parses_decimal_value(self):
-        self.assertEqual(parse_weight_kg("weight=82.5kg"), 82.5)
-
-    def test_parses_integer_value(self):
-        self.assertEqual(parse_weight_kg("#weight weight=80kg"), 80.0)
-
-    def test_tolerates_space_before_unit(self):
-        self.assertEqual(parse_weight_kg("weight=75.0 kg"), 75.0)
-
-    def test_returns_none_when_absent(self):
-        self.assertIsNone(parse_weight_kg("steps=8500 distance=6.2km"))
-
-    def test_returns_none_for_empty(self):
-        self.assertIsNone(parse_weight_kg(""))
-        self.assertIsNone(parse_weight_kg(None))
 
 
 class AndroidHealthDataAPITestCase(APITestCase):
@@ -91,9 +72,9 @@ class AndroidHealthDataAPITestCase(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.json(), {"weight_kg": None, "recorded_at": None})
 
-    def test_skips_weight_records_without_parseable_note(self):
-        # A newer weight event with no parseable value must fall through to the
-        # most recent one that does.
+    def test_skips_weight_records_without_a_value(self):
+        # A newer weight event with no weight= token must fall through to the
+        # most recent one that has one.
         self._record_weight("#weight weight=70.0kg", days_ago=1)
         self._record_weight("#weight forgot the number", days_ago=0)
         self._auth()

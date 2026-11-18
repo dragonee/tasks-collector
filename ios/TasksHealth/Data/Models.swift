@@ -28,10 +28,99 @@ struct TrackHabitTextRequest: Encodable, Sendable {
     let published: String
 }
 
-/// One option of the "track a habit" picker (habit/keywords/mine/).
+/// One option of the "track a habit" picker (habit/keywords/mine/), with
+/// what an entry of its habit records.
 struct HabitKeyword: Decodable, Sendable, Identifiable, Equatable {
     let id: Int64
     let keyword: String
+    var metrics: [HabitMetric] = []
+
+    enum CodingKeys: String, CodingKey { case id, keyword, habit }
+    enum HabitKeys: String, CodingKey { case metrics }
+
+    init(id: Int64, keyword: String, metrics: [HabitMetric] = []) {
+        self.id = id
+        self.keyword = keyword
+        self.metrics = metrics
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int64.self, forKey: .id)
+        keyword = try c.decode(String.self, forKey: .keyword)
+        if (try? c.decodeNil(forKey: .habit)) == false,
+           let habit = try? c.nestedContainer(keyedBy: HabitKeys.self, forKey: .habit) {
+            metrics = try habit.value(.metrics, or: [])
+        }
+    }
+}
+
+/// One thing a habit records with each entry. `kind` is number (in `unit`,
+/// with `decimals`), duration (sent in seconds), pressure (sent as
+/// [upper, lower]) or money (sent as {"amount", "currency"}).
+struct HabitMetric: Decodable, Sendable, Equatable {
+    let key: String
+    var label: String = ""
+    var kind: String = "number"
+    var unit: String = ""
+    var decimals: Int = 0
+
+    enum CodingKeys: String, CodingKey { case key, label, kind, unit, decimals }
+
+    init(key: String, label: String = "", kind: String = "number", unit: String = "", decimals: Int = 0) {
+        self.key = key
+        self.label = label
+        self.kind = kind
+        self.unit = unit
+        self.decimals = decimals
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        key = try c.decode(String.self, forKey: .key)
+        label = try c.value(.label, or: "")
+        kind = try c.value(.kind, or: "number")
+        unit = try c.value(.unit, or: "")
+        decimals = try c.value(.decimals, or: 0)
+    }
+}
+
+/// A value sent for a metric, as the server takes its kind.
+enum MetricValue: Encodable, Sendable, Equatable {
+    case number(Double)
+    case seconds(Int)
+    case pressure(upper: Int, lower: Int)
+    case money(amount: Double, currency: String)
+
+    private enum MoneyKeys: String, CodingKey { case amount, currency }
+
+    func encode(to encoder: Encoder) throws {
+        switch self {
+        case .number(let value):
+            var c = encoder.singleValueContainer()
+            try c.encode(value)
+        case .seconds(let value):
+            var c = encoder.singleValueContainer()
+            try c.encode(value)
+        case .pressure(let upper, let lower):
+            var c = encoder.unkeyedContainer()
+            try c.encode(upper)
+            try c.encode(lower)
+        case .money(let amount, let currency):
+            var c = encoder.container(keyedBy: MoneyKeys.self)
+            try c.encode(amount, forKey: .amount)
+            try c.encode(currency, forKey: .currency)
+        }
+    }
+}
+
+/// POST api/v1/habit/tracked/: a new entry of the habit `keyword` names,
+/// each time; `values` of its metrics, by key, are written into `note`.
+struct TrackedHabitRequest: Encodable, Sendable {
+    let keyword: String
+    let published: String
+    let note: String
+    let values: [String: MetricValue]
 }
 
 /// Server-derived health data: the body weight last recorded, and when.

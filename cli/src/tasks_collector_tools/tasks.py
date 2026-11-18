@@ -340,7 +340,7 @@ def run_focus_journal(task_text, elapsed, complete=True, task_line=None):
     which task is meant however the line is reworded in the editor.
     """
     timer = format_focus_elapsed(elapsed)
-    focus_line = f"#focus time={timer} {task_text}\n"
+    focus_line = f"#focus duration={timer} {task_text}\n"
     if complete:
         content = f"- [x] {task_line or task_text}\n{focus_line}"
     else:
@@ -363,7 +363,7 @@ def record_focus_habit(task_text, elapsed, config):
     """Track the ``#focus`` habit for this session without crossing the task
     off or opening the journal."""
     timer = format_focus_elapsed(elapsed)
-    add_habit(config, f"#focus time={timer} {task_text}")
+    add_habit(config, f"#focus duration={timer} {task_text}")
 
 
 def add_focus_unscheduled_task(config, fd, old_settings):

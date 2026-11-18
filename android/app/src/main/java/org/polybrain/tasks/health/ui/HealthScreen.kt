@@ -43,6 +43,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import org.polybrain.tasks.health.R
+import org.polybrain.tasks.health.data.HabitMetric
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -114,7 +115,7 @@ fun HealthScreen(vm: MainViewModel) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { vm.openActivityDialog(ActivityType.Weight) }
+                    .clickable { vm.openActivityDialog("weight") }
                     .padding(vertical = 4.dp),
             ) {
                 val weightKg = healthData?.weightKg
@@ -172,87 +173,62 @@ fun HealthScreen(vm: MainViewModel) {
 private fun TrackActivityDialog(vm: MainViewModel) {
     val saving by vm.activitySaving.collectAsState()
     val error by vm.activityError.collectAsState()
+    val keywords by vm.activityKeywords.collectAsState()
+    val initialKeyword by vm.activityInitialKeyword.collectAsState()
 
-    var selectedType by remember { mutableStateOf(vm.activityInitialType.value) }
+    var chosen by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf("") }
-    var weightText by remember { mutableStateOf("") }
-    var distanceText by remember { mutableStateOf("") }
-    var minutes by remember { mutableStateOf(0) }
-    var seconds by remember { mutableStateOf(0) }
+    var inputs by remember { mutableStateOf(mapOf<String, MetricInput>()) }
 
-    val isWeight = selectedType == ActivityType.Weight
-    val isRunning = selectedType == ActivityType.Running
-    val weightKg = weightText.trim().toDoubleOrNull()
-    val distanceKm = distanceText.trim().toDoubleOrNull()
-    val canConfirm = when {
-        isWeight -> weightKg != null && weightKg > 0
-        isRunning -> distanceKm != null && distanceKm > 0 && (minutes > 0 || seconds > 0)
-        else -> true
+    // The keyword asked for (weight from the weight row), else the first,
+    // once the list is in.
+    val selected = keywords.firstOrNull { it.keyword == (chosen ?: initialKeyword) }
+        ?: keywords.firstOrNull()
+    val metrics = selected?.habit?.metrics.orEmpty()
+    val values = metricValues(metrics, inputs)
+    // A habit that records something needs it, or the entry says nothing.
+    val canConfirm = selected != null && values != null &&
+        (metrics.isEmpty() || values.isNotEmpty() || note.isNotBlank())
+
+    fun update(key: String, input: MetricInput) {
+        inputs = inputs + (key to input)
     }
 
     AlertDialog(
         onDismissRequest = { vm.closeActivityDialog() },
         title = { Text(stringResource(R.string.activity_dialog_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ActivityType.entries.forEach { type ->
+                    keywords.forEach { keyword ->
                         FilterChip(
-                            selected = type == selectedType,
-                            onClick = { selectedType = type },
-                            label = { Text("#${type.keyword}") },
+                            selected = keyword == selected,
+                            onClick = {
+                                chosen = keyword.keyword
+                                inputs = emptyMap()
+                            },
+                            label = { Text("#${keyword.keyword}") },
                         )
                     }
                 }
-                when {
-                    isWeight -> {
-                        OutlinedTextField(
-                            value = weightText,
-                            onValueChange = { weightText = it },
-                            placeholder = { Text(stringResource(R.string.weight_kg_hint)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    isRunning -> {
-                        OutlinedTextField(
-                            value = distanceText,
-                            onValueChange = { distanceText = it },
-                            placeholder = { Text(stringResource(R.string.running_distance_hint)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            DurationWheel(
-                                label = stringResource(R.string.running_minutes_label),
-                                value = minutes,
-                                range = 0..240,
-                                onValueChange = { minutes = it },
-                            )
-                            DurationWheel(
-                                label = stringResource(R.string.running_seconds_label),
-                                value = seconds,
-                                range = 0..59,
-                                onValueChange = { seconds = it },
-                            )
-                        }
-                    }
-                    else -> {
-                        OutlinedTextField(
-                            value = note,
-                            onValueChange = { note = it },
-                            placeholder = { Text(stringResource(R.string.activity_note_hint)) },
-                            singleLine = false,
-                            minLines = 3,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
+                metrics.forEach { metric ->
+                    MetricField(
+                        metric = metric,
+                        input = inputs[metric.key] ?: MetricInput(),
+                        onChange = { update(metric.key, it) },
+                    )
                 }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    placeholder = { Text(stringResource(R.string.activity_note_hint)) },
+                    singleLine = false,
+                    minLines = if (metrics.isEmpty()) 3 else 1,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 error?.let {
                     Text(
                         text = it,
@@ -265,10 +241,8 @@ private fun TrackActivityDialog(vm: MainViewModel) {
         confirmButton = {
             TextButton(
                 onClick = {
-                    when {
-                        isWeight -> weightKg?.let { vm.trackWeight(it) }
-                        isRunning -> distanceKm?.let { vm.trackRunning(it, minutes, seconds) }
-                        else -> vm.trackActivity(selectedType, note)
+                    if (selected != null && values != null) {
+                        vm.trackActivity(selected.keyword, note, values)
                     }
                 },
                 enabled = !saving && canConfirm,
@@ -287,8 +261,95 @@ private fun TrackActivityDialog(vm: MainViewModel) {
     )
 }
 
+/** The field for one metric of the habit, by its kind. */
+@Composable
+private fun MetricField(metric: HabitMetric, input: MetricInput, onChange: (MetricInput) -> Unit) {
+    val label = metric.label.ifBlank { metric.key }
+    when (metric.kind) {
+        "duration" -> Column {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DurationWheel(
+                    label = stringResource(R.string.running_minutes_label),
+                    value = input.first.toIntOrNull() ?: 0,
+                    range = 0..600,
+                    onValueChange = { onChange(input.copy(first = it.toString())) },
+                )
+                DurationWheel(
+                    label = stringResource(R.string.running_seconds_label),
+                    value = input.second.toIntOrNull() ?: 0,
+                    range = 0..59,
+                    onValueChange = { onChange(input.copy(second = it.toString())) },
+                )
+            }
+        }
+        "pressure" -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumberField(
+                value = input.first,
+                label = "$label ${stringResource(R.string.metric_upper)}",
+                decimal = false,
+                onChange = { onChange(input.copy(first = it)) },
+                modifier = Modifier.weight(1f),
+            )
+            NumberField(
+                value = input.second,
+                label = stringResource(R.string.metric_lower),
+                decimal = false,
+                onChange = { onChange(input.copy(second = it)) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        "money" -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumberField(
+                value = input.first,
+                label = label,
+                decimal = true,
+                onChange = { onChange(input.copy(first = it)) },
+                modifier = Modifier.weight(2f),
+            )
+            OutlinedTextField(
+                value = input.second,
+                onValueChange = { onChange(input.copy(second = it.take(3))) },
+                placeholder = { Text("PLN") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        else -> NumberField(
+            value = input.first,
+            label = if (metric.unit.isEmpty()) label else "$label (${metric.unit})",
+            decimal = metric.decimals > 0,
+            onChange = { onChange(input.copy(first = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun NumberField(
+    value: String,
+    label: String,
+    decimal: Boolean,
+    onChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
+        ),
+        modifier = modifier,
+    )
+}
+
 /**
- * A labelled spinning "wheel" for one component of the run duration. Compose has
+ * A labelled spinning "wheel" for one component of a duration. Compose has
  * no native wheel picker, so this wraps the platform [NumberPicker] View; the
  * label sits above it and [onValueChange] mirrors each scroll back into state.
  */
