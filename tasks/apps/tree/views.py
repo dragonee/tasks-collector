@@ -162,6 +162,7 @@ class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
             .prefetch_related(
                 "habit_keywords__habit__keywords",
                 "habit_keywords__habit__metrics",
+                "habit_keywords__habit__roles",
             )
         )
 
@@ -511,7 +512,7 @@ def _events_of(user, thread, **published):
         events,
         {
             JournalAdded: ["tags"],
-            HabitTracked: ["habit__keywords", "habit__metrics"],
+            HabitTracked: ["habit__keywords", "habit__metrics", "habit__roles"],
             ObservationMade: ["type"],
             ObservationClosed: ["type"],
             InsightRefined: ["type"],

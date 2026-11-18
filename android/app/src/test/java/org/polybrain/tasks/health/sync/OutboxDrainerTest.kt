@@ -37,7 +37,6 @@ import org.polybrain.tasks.health.data.TaskReopenRequest
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TrackHabitRequest
 import org.polybrain.tasks.health.data.TrackHabitResponse
-import org.polybrain.tasks.health.data.TrackHabitTextRequest
 import org.polybrain.tasks.health.data.TrackedHabitRequest
 import org.polybrain.tasks.health.data.TrackedHabitResponse
 import org.polybrain.tasks.health.data.TripDetailResponse
@@ -494,7 +493,6 @@ class OutboxDrainerTest {
 
         // --- unused endpoints ---
         override suspend fun trackHabit(body: TrackHabitRequest): TrackHabitResponse = nope()
-        override suspend fun trackHabitText(body: TrackHabitTextRequest): OkResponse = nope()
         override suspend fun listHabitKeywords(date: String): List<HabitKeyword> = nope()
         override suspend fun listActivityKeywords(): List<HabitKeyword> = nope()
         override suspend fun trackHabitValues(body: TrackedHabitRequest): TrackedHabitResponse = nope()

@@ -16,6 +16,7 @@ from .forms import BreakthroughForm, ProjectedOutcomeEvolvedForm, ProjectedOutco
 from .models import (
     Breakthrough,
     EventStream,
+    HabitRole,
     HabitTracked,
     ProjectedOutcome,
     ProjectedOutcomeClosed,
@@ -28,6 +29,7 @@ from .services.breakthrough.operations import (
     evolve_projected_outcome,
     move_projected_outcome_to_next_year,
 )
+from .services.habits.roles import habit_for
 from .views_sharing import sharing_context
 
 
@@ -79,8 +81,7 @@ def breakthrough(request, year):
 
     breakthrough_habits = HabitTracked.objects.filter(
         published__year=last_year,
-        habit__user=request.user,
-        habit__slug="breakthrough",
+        habit=habit_for(request.user, HabitRole.Role.BREAKTHROUGH),
     ).select_related("habit")
 
     # Get closed and moved ProjectedOutcomes for this year's breakthrough

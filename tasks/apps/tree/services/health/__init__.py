@@ -1,19 +1,17 @@
 """
 Health data helpers for the phones' Health screens.
 
-Body weight is the ``weight`` metric of each user's ``weight`` Habit
-(provisioned with the user, see services.provisioning). It is a separate Habit
-from the daily ``health-metrics`` one so the hourly background sync, which
-replaces the day's entry, never clobbers a weight recorded by hand.
+Body weight is the ``weight`` metric of the habit that fills each user's
+weight role (the built-in weight habit, provisioned with the user, unless they
+gave the role to another; see services.habits.roles).
 """
 
 import datetime
 from dataclasses import dataclass
 
-from ...models import Habit
+from ...models import HabitRole
 from ..habits.metrics import latest
-
-WEIGHT_SLUG = "weight"
+from ..habits.roles import habit_for
 
 
 @dataclass
@@ -24,7 +22,7 @@ class WeightRecord:
 
 def latest_weight(user):
     """Return ``user``'s most recently recorded weight, or None if none exists."""
-    habit = Habit.objects.filter(user=user, slug=WEIGHT_SLUG).first()
+    habit = habit_for(user, HabitRole.Role.WEIGHT)
     entry = latest(habit, "weight") if habit is not None else None
     if entry is None:
         return None

@@ -13,19 +13,14 @@ extension KeyedDecodingContainer {
 
 // MARK: - Habits and health
 
+/// POST api/v1/habit/track/: a habit's entry of a day, of the habit a
+/// `keyword` names or the one that fills a `role` (the server makes it when
+/// none does).
 struct TrackHabitRequest: Encodable, Sendable {
-    let keyword: String
+    var keyword: String? = nil
+    var role: String? = nil
     let date: String
     let note: String
-}
-
-struct TrackHabitTextRequest: Encodable, Sendable {
-    /// One line starting with '#' or '!'. The server makes one HabitTracked
-    /// per hashtag in it, so a habit can be tracked several times a day
-    /// (unlike the idempotent api/v1/habit/track/).
-    let text: String
-    /// When it happened, so the entry lands on that day.
-    let published: String
 }
 
 /// One option of the "track a habit" picker (habit/keywords/mine/), with
@@ -34,14 +29,17 @@ struct HabitKeyword: Decodable, Sendable, Identifiable, Equatable {
     let id: Int64
     let keyword: String
     var metrics: [HabitMetric] = []
+    /// What the code finds the habit by: weight, daily-health, bike-ride...
+    var roles: [String] = []
 
     enum CodingKeys: String, CodingKey { case id, keyword, habit }
-    enum HabitKeys: String, CodingKey { case metrics }
+    enum HabitKeys: String, CodingKey { case metrics, roles }
 
-    init(id: Int64, keyword: String, metrics: [HabitMetric] = []) {
+    init(id: Int64, keyword: String, metrics: [HabitMetric] = [], roles: [String] = []) {
         self.id = id
         self.keyword = keyword
         self.metrics = metrics
+        self.roles = roles
     }
 
     init(from decoder: Decoder) throws {
@@ -51,6 +49,7 @@ struct HabitKeyword: Decodable, Sendable, Identifiable, Equatable {
         if (try? c.decodeNil(forKey: .habit)) == false,
            let habit = try? c.nestedContainer(keyedBy: HabitKeys.self, forKey: .habit) {
             metrics = try habit.value(.metrics, or: [])
+            roles = try habit.value(.roles, or: [])
         }
     }
 }
@@ -114,13 +113,22 @@ enum MetricValue: Encodable, Sendable, Equatable {
     }
 }
 
-/// POST api/v1/habit/tracked/: a new entry of the habit `keyword` names,
-/// each time; `values` of its metrics, by key, are written into `note`.
+/// POST api/v1/habit/tracked/: a new entry, each time, of the habit
+/// `keyword` names or `role` is filled by; `values` of its metrics, by key,
+/// are written into `note`. Sent again with the same `idempotencyKey`, it
+/// makes nothing more.
 struct TrackedHabitRequest: Encodable, Sendable {
-    let keyword: String
+    var keyword: String? = nil
+    var role: String? = nil
     let published: String
     let note: String
     let values: [String: MetricValue]
+    var idempotencyKey: String? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case keyword, role, published, note, values
+        case idempotencyKey = "idempotency_key"
+    }
 }
 
 /// Server-derived health data: the body weight last recorded, and when.

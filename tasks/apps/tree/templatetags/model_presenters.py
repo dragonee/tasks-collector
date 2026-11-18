@@ -6,6 +6,7 @@ from django.template.defaultfilters import linebreaks, stringfilter
 from django.utils.safestring import mark_safe
 
 from ..forms import JournalTagNameForm, OnlyTextSingleHabitTrackedForm
+from ..models import HabitRole
 
 register = template.Library()
 
@@ -34,6 +35,7 @@ def get_habit_form(journal_added):
     return OnlyTextSingleHabitTrackedForm(
         initial={
             "journal": journal_added,
+            "role": HabitRole.Role.BREAKTHROUGH,
         }
     )
 

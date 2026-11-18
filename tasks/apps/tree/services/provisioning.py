@@ -4,9 +4,11 @@ from collections import namedtuple
 
 from django.db import transaction
 
-from ..models import Board, Habit, HabitKeyword, HabitMetric, Profile, Thread
+from ..models import Board, Habit, HabitKeyword, HabitMetric, HabitRole, Profile, Thread
 
-BuiltinHabit = namedtuple("BuiltinHabit", "slug name description keywords metrics")
+BuiltinHabit = namedtuple(
+    "BuiltinHabit", "slug name description keywords metrics roles"
+)
 
 # Habits the code itself records: trip points of interest (``#poi`` lines in
 # trip notes and photos) and body weight from the Android Health screen
@@ -23,6 +25,7 @@ BUILTIN_HABITS = (
         ),
         keywords=("poi", "coords", "coordinates", "latlng"),
         metrics=(),
+        roles=(),
     ),
     BuiltinHabit(
         slug="weight",
@@ -41,6 +44,7 @@ BUILTIN_HABITS = (
                 "decimals": 1,
             },
         ),
+        roles=(HabitRole.Role.WEIGHT,),
     ),
 )
 
@@ -74,4 +78,9 @@ def provision_user(user):
         for metric in builtin.metrics:
             HabitMetric.objects.get_or_create(
                 habit=habit, key=metric["key"], defaults=metric
+            )
+        for role in builtin.roles:
+            # A role the user gave another habit stays with it.
+            HabitRole.objects.get_or_create(
+                user=user, role=role, defaults={"habit": habit}
             )

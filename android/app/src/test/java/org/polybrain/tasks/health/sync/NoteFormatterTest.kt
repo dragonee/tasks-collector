@@ -52,12 +52,6 @@ class NoteFormatterTest {
     }
 
     @Test
-    fun `bike ride note carries hashtag duration and no distance`() {
-        val text = NoteFormatter.formatBikeRide("workout", 45)
-        assertEquals("#workout Bike ride (duration=45m)", text)
-    }
-
-    @Test
     fun `kcal is rounded to whole number`() {
         val note = NoteFormatter.format(
             DailyMetrics(

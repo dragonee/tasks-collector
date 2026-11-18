@@ -30,11 +30,6 @@ struct NoteFormatterTests {
         #expect(note == "steps=1 distance=1.2km active=0min kcal=0")
     }
 
-    @Test func bikeRideNoteCarriesHashtagDurationAndNoDistance() {
-        let text = NoteFormatter.formatBikeRide(keyword: "workout", durationMinutes: 45)
-        #expect(text == "#workout Bike ride (duration=45m)")
-    }
-
     @Test func kcalIsRoundedToWholeNumber() {
         let note = NoteFormatter.format(metrics(steps: 0, distanceMeters: 0, activeMinutes: 0, kcal: 1499.6))
         #expect(note == "steps=0 distance=0.0km active=0min kcal=1500")

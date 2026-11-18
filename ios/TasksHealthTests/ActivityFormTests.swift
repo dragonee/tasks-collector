@@ -59,11 +59,14 @@ struct ActivityFormTests {
     @Test func aKeywordComesWithItsHabitsMetrics() throws {
         let json = #"""
         [{"id": 1, "keyword": "running", "habit": {"id": 3, "name": "Workout",
-          "metrics": [{"key": "distance", "label": "Distance", "kind": "number", "unit": "km", "decimals": 1}]}},
+          "metrics": [{"key": "distance", "label": "Distance", "kind": "number", "unit": "km", "decimals": 1}],
+          "roles": ["bike-ride"]}},
          {"id": 2, "keyword": "food", "habit": null}]
         """#
         let keywords = try JSONDecoder().decode([HabitKeyword].self, from: Data(json.utf8))
         #expect(keywords[0].metrics == [HabitMetric(key: "distance", label: "Distance", kind: "number", unit: "km", decimals: 1)])
+        #expect(keywords[0].roles == ["bike-ride"])
         #expect(keywords[1].metrics.isEmpty)
+        #expect(keywords[1].roles.isEmpty)
     }
 }

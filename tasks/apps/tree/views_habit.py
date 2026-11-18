@@ -71,7 +71,7 @@ class HabitViewSet(viewsets.ModelViewSet):
                     "habittracked", filter=Q(habittracked__published__date=day)
                 ),
             )
-            .prefetch_related("keywords", "metrics")
+            .prefetch_related("keywords", "metrics", "roles")
         )
 
     def perform_create(self, serializer):
@@ -126,6 +126,7 @@ def track_habit(request):
                     thread=form.cleaned_data["thread"],
                     created_by=request.user,
                     idempotency_key=f"{key}:{index}" if key else None,
+                    role=form.cleaned_data.get("role") or "",
                 )
 
                 habits_tracked.append(obj)
@@ -348,7 +349,7 @@ def my_habit_keywords(request):
             request.user, target_date, all=everything
         )
     habit_keywords = habit_keywords.select_related("habit").prefetch_related(
-        "habit__keywords", "habit__metrics"
+        "habit__keywords", "habit__metrics", "habit__roles"
     )
 
     serializer = HabitKeywordSerializer(

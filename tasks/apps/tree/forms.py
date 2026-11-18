@@ -12,6 +12,7 @@ from .models import (
     Habit,
     HabitKeyword,
     HabitMetric,
+    HabitRole,
     JournalAdded,
     JournalTag,
     Observation,
@@ -24,6 +25,7 @@ User = get_user_model()
 
 from django.utils import timezone
 
+from .services.habits.roles import fill, habit_for_writing
 from .services.journalling import habits_line_to_habits_tracked
 
 
@@ -75,6 +77,12 @@ class InsightForm(forms.Form):
 class SingleHabitTrackedForm(UserThreadFormMixin, forms.Form):
     text = forms.CharField(max_length=255)
 
+    # A role names the habit instead of a hashtag (the +Breakthrough button):
+    # the text is then the note, as written.
+    role = forms.ChoiceField(
+        choices=[("", "")] + HabitRole.Role.choices, required=False
+    )
+
     journal = forms.ModelChoiceField(
         queryset=JournalAdded.objects.all(), required=False
     )
@@ -82,14 +90,6 @@ class SingleHabitTrackedForm(UserThreadFormMixin, forms.Form):
     published = forms.DateTimeField(required=False)
     # Limited to the user's threads by UserThreadFormMixin.
     thread = forms.ModelChoiceField(queryset=Thread.objects.none(), required=False)
-
-    def clean_text(self):
-        text = self.cleaned_data["text"]
-
-        if not text.startswith("!") and not text.startswith("#"):
-            raise ValidationError("Habit line must start with ! or #")
-
-        return text
 
     def clean(self):
         cleaned_data = super().clean()
@@ -108,6 +108,15 @@ class SingleHabitTrackedForm(UserThreadFormMixin, forms.Form):
 
         if not cleaned_data.get("thread"):
             cleaned_data["thread"] = Thread.objects.daily(self.user)
+
+        if cleaned_data.get("role"):
+            habit = habit_for_writing(self.user, cleaned_data["role"])
+            cleaned_data["triplets"] = [(True, habit, cleaned_data["text"])]
+            return cleaned_data
+
+        if not cleaned_data["text"].startswith(("!", "#")):
+            self.add_error("text", "Habit line must start with ! or #")
+            return cleaned_data
 
         try:
             cleaned_data["triplets"] = habits_line_to_habits_tracked(
@@ -131,6 +140,7 @@ class OnlyTextSingleHabitTrackedForm(SingleHabitTrackedForm):
         self.fields["journal"].widget = forms.HiddenInput()
         self.fields["published"].widget = forms.HiddenInput()
         self.fields["thread"].widget = forms.HiddenInput()
+        self.fields["role"].widget = forms.HiddenInput()
 
 
 class BreakthroughForm(forms.ModelForm):
@@ -374,6 +384,43 @@ class HabitMetricForm(forms.ModelForm):
         last = self.instance.habit.metrics.order_by("-order").first()
         self.instance.order = last.order + 1 if last else 0
         return super().save(commit)
+
+
+class HabitRolesForm(forms.Form):
+    """Which of ``user``'s habits fills each role. One left empty is filled
+    by the first write for it, with a habit made from the role."""
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        habits = Habit.objects.filter(user=user).order_by("name")
+        filled = dict(
+            HabitRole.objects.filter(user=user).values_list("role", "habit_id")
+        )
+        for role, label in HabitRole.Role.choices:
+            self.fields[self.field_name(role)] = forms.ModelChoiceField(
+                queryset=habits,
+                required=False,
+                label=label,
+                initial=filled.get(role),
+                empty_label="—",
+            )
+
+    @staticmethod
+    def field_name(role):
+        return "role_" + role.replace("-", "_")
+
+    def roles(self):
+        return [self[self.field_name(role)] for role in HabitRole.Role.values]
+
+    @transaction.atomic
+    def save(self):
+        for role in HabitRole.Role.values:
+            habit = self.cleaned_data[self.field_name(role)]
+            if habit is None:
+                HabitRole.objects.filter(user=self.user, role=role).delete()
+            else:
+                fill(role, habit)
 
 
 class MapProviderForm(forms.ModelForm):

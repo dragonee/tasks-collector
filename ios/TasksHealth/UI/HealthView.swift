@@ -31,7 +31,7 @@ struct HealthView: View {
                 // allows. Tapping it opens the sheet on a new weight.
                 Section {
                     Button {
-                        model.openActivitySheet("weight")
+                        model.openActivitySheet(role: "weight")
                     } label: {
                         Text(weight).frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -61,7 +61,7 @@ struct HealthView: View {
             .refreshable { await model.refresh() }
         }
         .sheet(item: $model.activitySheet) { sheet in
-            TrackActivitySheet(model: model, initialKeyword: sheet.keyword)
+            TrackActivitySheet(model: model, initialRole: sheet.role)
         }
     }
 
@@ -81,18 +81,20 @@ struct HealthView: View {
 
 private struct TrackActivitySheet: View {
     let model: MainModel
-    let initialKeyword: String?
+    let initialRole: String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var chosen: String?
     @State private var note = ""
     @State private var inputs: [String: MetricInput] = [:]
 
-    /// The keyword asked for (weight from the weight row), else the first,
-    /// once the list is in.
+    /// The keyword chosen, else the habit of the role asked for (weight from
+    /// the weight row), else the first, once the list is in.
     private var selected: HabitKeyword? {
         let keywords = model.activityKeywords
-        return keywords.first { $0.keyword == (chosen ?? initialKeyword) } ?? keywords.first
+        return keywords.first { $0.keyword == chosen }
+            ?? keywords.first { initialRole != nil && $0.roles.contains(initialRole!) }
+            ?? keywords.first
     }
 
     private var metrics: [HabitMetric] { selected?.metrics ?? [] }

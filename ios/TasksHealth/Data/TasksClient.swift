@@ -64,13 +64,6 @@ struct TasksClient: OutboxAPI {
         try await post("api/v1/habit/track/", body)
     }
 
-    /// A web endpoint (no api/v1/) that takes a free-form habit line and
-    /// makes one HabitTracked per hashtag: for things that happen several
-    /// times a day, which api/v1/habit/track/ would fold into one.
-    func trackHabitText(_ body: TrackHabitTextRequest) async throws {
-        try await post("habit/track/", body)
-    }
-
     /// The keywords the user can track on `date`: those of their profile,
     /// without the habits already tracked that day.
     func listHabitKeywords(date: String) async throws -> [HabitKeyword] {

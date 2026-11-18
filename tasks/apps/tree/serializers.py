@@ -11,6 +11,7 @@ from rest_framework.exceptions import NotFound
 from rest_polymorphic.serializers import PolymorphicSerializer
 
 from .models import *
+from .services.habits.roles import habit_for_writing
 from .services.habits.tracking import clean_values
 from .services.observations.event_creation import create_observation_change_events
 from .services.tasks import documents
@@ -124,6 +125,8 @@ class HabitSerializer(serializers.HyperlinkedModelSerializer):
     keywords = serializers.SerializerMethodField()
     # What an entry of the habit records: a phone builds its form from these.
     metrics = HabitMetricSerializer(many=True, read_only=True)
+    # What the code finds it by: weight, daily-health...
+    roles = serializers.SlugRelatedField(many=True, read_only=True, slug_field="role")
 
     def get_keywords(self, obj):
         return list(obj.get_keywords())
@@ -152,6 +155,7 @@ class HabitSerializer(serializers.HyperlinkedModelSerializer):
             "keywords",
             "today_tracked",
             "metrics",
+            "roles",
         ]
 
 
@@ -547,25 +551,40 @@ class HabitTrackedSerializer(serializers.ModelSerializer):
 
 
 class HabitWriteSerializer(serializers.Serializer):
-    """Which habit a write is for: the one a ``keyword`` names. ``values`` of
-    its metrics, by key, are written into the note as tokens."""
+    """Which habit a write is for: the one a ``keyword`` names, or the one
+    that fills a ``role`` (made when none does). ``values`` of its metrics, by
+    key, are written into the note as tokens."""
 
-    keyword = serializers.SlugField(max_length=255, allow_unicode=True)
+    keyword = serializers.SlugField(
+        max_length=255, allow_unicode=True, required=False, allow_null=True
+    )
+    role = serializers.ChoiceField(
+        choices=HabitRole.Role.choices, required=False, allow_null=True
+    )
     note = serializers.CharField(required=False, allow_blank=True, default="")
     values = serializers.DictField(required=False, default=dict)
 
     def validate(self, data):
         user = self.context["request"].user
-        keyword = (
-            HabitKeyword.objects.filter(user=user, keyword=data["keyword"])
-            .select_related("habit")
-            .first()
-        )
-        if keyword is None:
-            raise NotFound("You have no habit with this keyword.")
-        data["habit"] = keyword.habit
+        role = data.get("role") or ""
+        if role:
+            habit = habit_for_writing(user, role)
+        elif data.get("keyword"):
+            keyword = (
+                HabitKeyword.objects.filter(user=user, keyword=data["keyword"])
+                .select_related("habit")
+                .first()
+            )
+            if keyword is None:
+                raise NotFound("You have no habit with this keyword.")
+            habit = keyword.habit
+        else:
+            raise serializers.ValidationError(
+                {"keyword": ["Name the habit by a keyword or a role."]}
+            )
+        data["habit"], data["role"] = habit, role
         try:
-            data["values"] = clean_values(keyword.habit, data["values"])
+            data["values"] = clean_values(habit, data["values"])
         except DjangoValidationError as error:
             raise serializers.ValidationError({"values": error.message_dict})
         return data
