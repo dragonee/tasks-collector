@@ -342,7 +342,7 @@ class JournalArchiveContextMixin:
         # the whole month, no per-entry lookup for the badge). Materialise so
         # the attributes survive the template's repeated iteration of the list.
         entries = list(context["object_list"])
-        prefetch_related_objects(entries, Event.prefetch_trip())
+        prefetch_related_objects(entries, Event.prefetch_trip(), "location")
         attach_photo_urls(entries)
         context["object_list"] = entries
 
@@ -362,7 +362,7 @@ class EventArchiveContextMixin:
         # Photo entries render with presigned URLs and a trip badge, as in the
         # diary; without the URLs the template fails on any month with a photo.
         events = list(context["object_list"])
-        prefetch_related_objects(events, Event.prefetch_trip())
+        prefetch_related_objects(events, Event.prefetch_trip(), "location")
         Event.prefetch_related_by_kind(events, {HabitTracked: ["habit"]})
         ObservationEventMixin.prefetch_situations(events)
         load_other_observations(events, self.request.user)

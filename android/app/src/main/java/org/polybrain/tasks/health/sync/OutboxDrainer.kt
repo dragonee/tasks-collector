@@ -118,6 +118,9 @@ object OutboxDrainer {
                             comment = item.comment,
                             published = item.published,
                             idempotencyKey = item.id,
+                            lat = item.lat,
+                            lng = item.lng,
+                            acc = item.acc,
                         )
                     )
                 }
@@ -186,6 +189,9 @@ object OutboxDrainer {
                     published = current.published,
                     idempotencyKey = current.id,
                     contentHash = current.contentHash,
+                    lat = current.lat,
+                    lng = current.lng,
+                    acc = current.acc,
                 )
             )
         } else {
@@ -196,6 +202,9 @@ object OutboxDrainer {
                     contentType = contentType,
                     published = current.published,
                     idempotencyKey = current.id,
+                    lat = current.lat,
+                    lng = current.lng,
+                    acc = current.acc,
                 )
             )
         }

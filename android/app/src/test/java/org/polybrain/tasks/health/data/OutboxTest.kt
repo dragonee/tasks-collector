@@ -9,6 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.polybrain.tasks.health.location.LocationFix
 
 class OutboxTest {
 
@@ -28,13 +29,72 @@ class OutboxTest {
 
     @Test
     fun `enqueueNote persists a retrievable item`() {
-        val item = outbox.enqueueNote(7L, "#poi lat=1.0 lng=2.0\nhi", "2026-06-06T10:00:00Z")
+        val item = outbox.enqueueNote(7L, "hi", "2026-06-06T10:00:00Z")
         val all = outbox.all()
         assertEquals(1, all.size)
         assertEquals(item.id, all[0].id)
         assertEquals(OutboxItem.Kind.NOTE, all[0].kind)
         assertEquals(7L, all[0].storyId)
-        assertEquals("#poi lat=1.0 lng=2.0\nhi", all[0].comment)
+        assertEquals("hi", all[0].comment)
+    }
+
+    @Test
+    fun `a note keeps the place it was made at`() {
+        val item = outbox.enqueueNote(7L, "", "t", LocationFix(40.7128, -74.006, 5f))
+
+        val read = outbox.all().single()
+        assertEquals(item, read)
+        assertEquals(40.7128, read.lat!!, 0.0)
+        assertEquals(-74.006, read.lng!!, 0.0)
+        assertEquals(5f, read.acc!!, 0f)
+        // The place is not written into the text.
+        assertEquals("", read.comment)
+    }
+
+    @Test
+    fun `a photo keeps the place it was taken at, with or without its accuracy`() {
+        val fix = LocationFix(1.5, 2.5, null)
+        outbox.enqueuePhoto(3L, "cap", "t", "image/jpeg", byteArrayOf(1), fix)
+        outbox.enqueuePhoto(null, "", "t", "image/jpeg", byteArrayOf(2), fix)
+
+        for (read in outbox.all()) {
+            assertEquals(1.5, read.lat!!, 0.0)
+            assertEquals(2.5, read.lng!!, 0.0)
+            assertNull(read.acc)
+        }
+    }
+
+    @Test
+    fun `an item sent without a location has none`() {
+        outbox.enqueueNote(1L, "x", "t")
+        outbox.enqueuePhoto(1L, "c", "t", "image/jpeg", byteArrayOf(1))
+
+        for (read in outbox.all()) {
+            assertNull(read.lat)
+            assertNull(read.lng)
+            assertNull(read.acc)
+        }
+    }
+
+    @Test
+    fun `an item queued by an older build still reads, its place left in the comment`() {
+        // As a build from before lat, lng and acc wrote it.
+        File(dir, "0000000000000001-0b7c51d2.json").writeText(
+            """
+            {"id": "0b7c51d2-6f1e-4c55-9d1a-0f6f3b2f9a10", "kind": "NOTE",
+             "storyId": 3, "comment": "#poi lat=1.000000 lng=2.000000\nhi",
+             "published": "2026-06-06T10:00:00Z", "createdAt": 1,
+             "contentType": null, "photoFile": null, "contentHash": null,
+             "presignedKey": null, "uploaded": false, "task": null,
+             "attempts": 2, "lastError": "HTTP 503", "failedPermanently": false}
+            """,
+        )
+
+        val read = outbox.forStory(3L).single()
+        assertEquals("#poi lat=1.000000 lng=2.000000\nhi", read.comment)
+        assertNull(read.lat)
+        assertNull(read.lng)
+        assertEquals(2, read.attempts)
     }
 
     @Test

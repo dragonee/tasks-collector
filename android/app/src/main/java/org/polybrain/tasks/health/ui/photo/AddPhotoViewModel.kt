@@ -22,7 +22,6 @@ import kotlinx.coroutines.withContext
 import org.polybrain.tasks.health.data.Outbox
 import org.polybrain.tasks.health.location.GpsState
 import org.polybrain.tasks.health.location.LocationProvider
-import org.polybrain.tasks.health.location.composeComment
 import org.polybrain.tasks.health.sync.SyncScheduler
 
 /**
@@ -155,13 +154,14 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
 
     /**
      * Enqueue the photo with no story. [includeLocation] is the explicit "Save
-     * with location" choice; the default "Send" attaches no `#poi`. Bytes are
-     * read now because the picker's content `Uri` is only readable this session.
+     * with location" choice; the default "Send" attaches no location. Bytes
+     * are read now because the picker's content `Uri` is only readable this
+     * session.
      */
     fun sendPhoto(text: String, includeLocation: Boolean) {
         val uri = _selectedPhoto.value ?: return
         val fix = if (includeLocation) (_gps.value as? GpsState.Ready)?.fix else null
-        val comment = composeComment(fix, text)
+        val comment = text.trim()
         // A standalone photo is timestamped when it's added (now), not by the
         // image's capture/EXIF time — unlike a trip photo.
         val published = OffsetDateTime.now().toString()
@@ -178,7 +178,7 @@ class AddPhotoViewModel(application: Application) : AndroidViewModel(application
                 } ?: throw IOException("could not read the selected photo")
                 val item = withContext(Dispatchers.IO) {
                     // storyId = null -> delivered through the storyless endpoints.
-                    outbox.enqueuePhoto(null, comment, published, contentType, bytes)
+                    outbox.enqueuePhoto(null, comment, published, contentType, bytes, fix)
                 }
                 // Null means an identical image is already queued (deduped by
                 // content hash) — the existing copy is already watched, so

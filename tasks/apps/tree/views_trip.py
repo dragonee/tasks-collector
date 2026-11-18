@@ -14,7 +14,6 @@ a browser (``web=True``) rather than the device-facing endpoint.
 """
 
 import json
-import re
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
@@ -25,21 +24,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import EventStreamEntry, PhotoAdded, Story
+from .services.locations import location_of
 from .services.photos import StorageUnavailableError, attach_photo_urls
 from .services.trips import operations as trip_ops
 from .utils.datetime import parse_aware_datetime
 from .views_sharing import sharing_context
-
-# Trip notes/photos prepend a machine line like "#poi lat=.. lng=..". This is
-# the server-side twin of POI_LINE_RE in tasks/assets/app.js — keep the two in
-# sync. We parse coordinates here (rather than scraping the rendered DOM) so the
-# map gets clean data; app.js mutates that DOM to strip the same line.
-POI_LINE_RE = re.compile(
-    r"#(?:poi|coords|coordinates|latlng)\b"
-    r"[^\n]*?\blat\s*=\s*(-?\d+(?:\.\d+)?)"
-    r"[^\n]*?\blng\s*=\s*(-?\d+(?:\.\d+)?)",
-    re.IGNORECASE,
-)
 
 
 def _cover_photos_by_story(stories):
@@ -65,7 +54,7 @@ def _cover_photos_by_story(stories):
 
 
 def _map_points(events):
-    """POIs to plot on the trip map, one per event that carries coordinates.
+    """The places to plot on the trip map, one per event that has one.
 
     Each point is JSON-serialisable for ``json_script`` and carries enough to
     render a marker (photo miniature or note pin), a popup, and to cross-link
@@ -74,24 +63,19 @@ def _map_points(events):
     """
     points = []
     for event in events:
-        match = POI_LINE_RE.search(event.comment or "")
-        if not match:
+        place = location_of(event)
+        if place is None:
             continue
-
-        # The machine "#poi ..." line is the first line; the user's note (if
-        # any) is whatever follows it — mirrors app.js's DOM stripping.
-        _, _, note = (event.comment or "").partition("\n")
-        is_photo = bool(getattr(event, "is_photo", False))
 
         points.append(
             {
                 "id": event.id,
-                "lat": float(match.group(1)),
-                "lng": float(match.group(2)),
-                "is_photo": is_photo,
+                "lat": place.lat,
+                "lng": place.lng,
+                "is_photo": bool(getattr(event, "is_photo", False)),
                 "thumbnail_url": getattr(event, "thumbnail_url", None)
                 or getattr(event, "original_url", None),
-                "note": note.strip(),
+                "note": (event.comment or "").strip(),
                 "date": date_filter(event.published, "d M Y"),
                 "time": date_filter(event.published, "H:i"),
             }

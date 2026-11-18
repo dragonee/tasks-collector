@@ -10,47 +10,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-data class PoiCoords(val lat: Double, val lng: Double)
-
-data class ParsedTripNote(
-    /** Comment body with the leading "#poi lat=… lng=…" line removed. */
-    val text: String,
-    /** Coordinates from that line, or null if no leading POI marker. */
-    val poi: PoiCoords?,
-)
-
-/**
- * Strip a leading `#poi lat=<float> lng=<float>` line from a trip note
- * and surface the coordinates separately so the UI can offer an
- * "Open in Maps" action.
- *
- * Only the **first** line is examined — that's where the Android
- * client always writes the auto-prepended POI marker. POI markers
- * embedded mid-comment are intentionally left in the displayed text
- * (they're user-typed in that case and probably meant to be read).
- */
-// Anchored to the start of the comment. Only horizontal whitespace
-// ([ \t]) is allowed inside the marker line — '\s' would include the
-// trailing newline and the regex engine would then happily swallow the
-// rest of the body as part of the optional "extra on the same line"
-// segment. The trailing [^\n]* tolerates anything else after the lng=
-// value (accuracy, a label, …) up to but not including the newline.
-private val POI_LINE_RE = Regex(
-    """^[ \t]*#poi[ \t]+lat=(-?\d+(?:\.\d+)?)[ \t]+lng=(-?\d+(?:\.\d+)?)[^\n]*(?:\n|$)"""
-)
-
-fun parseTripNote(comment: String): ParsedTripNote {
-    val match = POI_LINE_RE.find(comment) ?: return ParsedTripNote(comment, null)
-    val lat = match.groupValues[1].toDoubleOrNull()
-    val lng = match.groupValues[2].toDoubleOrNull()
-    if (lat == null || lng == null) return ParsedTripNote(comment, null)
-    // The match already includes the trailing newline (or hits end of
-    // string), so the body starts right after it. Preserve the body
-    // verbatim — don't strip whitespace inside it, that's the user's.
-    val body = comment.substring(match.range.last + 1)
-    return ParsedTripNote(body, PoiCoords(lat, lng))
-}
-
 /**
  * Picks a `DateTimeFormatter` for showing event timestamps inside a
  * trip detail. Returns ``HH:mm`` when every relevant timestamp (the
@@ -111,8 +70,8 @@ private fun parseAsLocalDate(iso: String, zone: ZoneId): LocalDate =
  * app (Google Maps, OsmAnd, Organic Maps, …) opens the coordinates
  * with a pin dropped. Silently no-ops if no app can handle the URI.
  */
-fun openPoiInMaps(context: Context, poi: PoiCoords) {
-    val coords = String.format(Locale.US, "%f,%f", poi.lat, poi.lng)
+fun openInMaps(context: Context, lat: Double, lng: Double) {
+    val coords = String.format(Locale.US, "%f,%f", lat, lng)
     val uri = Uri.parse("geo:$coords?q=$coords")
     val intent = Intent(Intent.ACTION_VIEW, uri)
     try {

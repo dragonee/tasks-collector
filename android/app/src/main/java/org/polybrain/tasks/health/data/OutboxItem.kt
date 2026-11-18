@@ -7,11 +7,16 @@ import kotlinx.serialization.Serializable
  * something done to a task ([task]).
  *
  * Everything needed to send is frozen at enqueue time so the entry survives an
- * offline period, an app kill, or a reboot: the [comment] already carries the
- * `#poi lat=… lng=…` line (so the GPS fix is captured even with no network),
- * [published] is the moment the user acted (not the moment of eventual upload),
- * and for photos the bytes are copied into the outbox dir ([photoFile]) because
- * the picker's content `Uri` is only readable for the current session.
+ * offline period, an app kill, or a reboot: [lat], [lng] and [acc] hold the
+ * place it was made at, found when it was queued (so it is kept even with no
+ * network), [published] is the moment the user acted (not the moment of
+ * eventual upload), and for photos the bytes are copied into the outbox dir
+ * ([photoFile]) because the picker's content `Uri` is only readable for the
+ * current session.
+ *
+ * An item queued by an older build has no [lat]/[lng]: it carries its place as
+ * the first line of [comment] instead. It is sent as it is, and the server
+ * reads that line off.
  *
  * [id] doubles as the server `idempotency_key`, so a retry whose first response
  * was lost re-uses the existing event instead of creating a duplicate.
@@ -31,6 +36,12 @@ data class OutboxItem(
     val comment: String,
     val published: String,
     val createdAt: Long,
+    // Notes and photos: where it was made (degrees), and how far off that
+    // may be (metres, null when the fix didn't say). All null for one sent
+    // without a location.
+    val lat: Double? = null,
+    val lng: Double? = null,
+    val acc: Float? = null,
     // Photos only:
     val contentType: String? = null,
     val photoFile: String? = null,

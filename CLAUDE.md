@@ -67,6 +67,12 @@ This is a Django-based personal productivity application with a Vue.js frontend.
 - A task lives in the stream of a board, so access to the board is access to the task: `Task.objects.visible_to(user)` / `editable_by(user)`.
 - Design and what is left: `docs/design/tasks.md`.
 
+### Habits: metrics, roles and places
+- A habit entry's numbers are tokens in its note (`weight=80.5kg`, `duration=22m30s`, `pressure=120/80`, `amount=90EUR`). `HabitTracked.values` is what the habit's `HabitMetric` rows read from the note on every save (`services/habits/metrics.py`); write values with `metrics.write` / `tracking.track`, not by hand.
+- Code finds a habit by the role it fills (`HabitRole`, `services/habits/roles.py`: breakthrough, weight, daily-health, bike-ride), never by its slug or a keyword.
+- Where an event happened is its `EventLocation` (`services/locations.py`); the phones send `lat`/`lng`/`acc` as fields, and `split_place` reads the `#poi lat=… lng=…` line older phones put first in a comment.
+- Design and what is left: `docs/design/habit-metrics.md`.
+
 ### Frontend Architecture
 - **Vue 3** with Pinia for state management (the board page; the other pages are server-rendered)
 - **Rsbuild** for asset bundling (faster Rspack-based alternative to Webpack)

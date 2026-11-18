@@ -29,18 +29,6 @@ enum GpsState: Equatable, Sendable {
     }
 }
 
-/// A journal comment made of an optional location and the user's text. With
-/// a fix, a `#poi lat=… lng=…` line goes first (the server parses it into a
-/// HabitTracked); without one the trimmed text is used as it is. Shared by
-/// trip notes, trip photos and standalone photos, so the marker is the same
-/// in all of them.
-func composeComment(fix: LocationFix?, text: String) -> String {
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let fix else { return trimmed }
-    let prefix = String(format: "#poi lat=%.6f lng=%.6f", fix.lat, fix.lng)
-    return trimmed.isEmpty ? prefix : "\(prefix)\n\(trimmed)"
-}
-
 /// A photo's location from a trip's breadcrumb trail, by the time the photo
 /// was taken — so photos can be picked and uploaded long after (and far
 /// from) where they were taken and still get the right coordinates.

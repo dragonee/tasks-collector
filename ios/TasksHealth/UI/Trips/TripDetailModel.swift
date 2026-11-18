@@ -121,13 +121,14 @@ final class TripDetailModel {
     }
 
     /// Queue a note. `includeLocation` is the "Save with location" choice:
-    /// plain "Send" attaches no `#poi`, so a location lands only on the
+    /// plain "Send" sends no location, so a location lands only on the
     /// notes it is wanted on.
     func sendNote(text: String, includeLocation: Bool) {
         guard let story, story.stopped == nil else { return }
-        let comment = composeComment(fix: includeLocation ? gps.fix : nil, text: text)
-        // A note needs something in it: without a location line, some text.
-        guard !comment.isEmpty else { return }
+        let comment = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let location = includeLocation ? gps.fix : nil
+        // A note needs something in it: a place, or some text.
+        guard !comment.isEmpty || location != nil else { return }
         let published = IsoTime.string()
         noteSheetOpen = false
         gps = .idle
@@ -135,7 +136,12 @@ final class TripDetailModel {
         // Queued here and delivered by the outbox, now or when there is a
         // connection; the row shows at once.
         Task {
-            _ = await outbox.enqueueNote(storyId: story.id, comment: comment, published: published)
+            _ = await outbox.enqueueNote(
+                storyId: story.id,
+                comment: comment,
+                published: published,
+                location: location
+            )
             await refreshPending()
             services.outboxSync.kick()
         }
@@ -185,10 +191,11 @@ final class TripDetailModel {
     /// Queue the photo of the sheet. `includeLocation` as for a note.
     func sendPhoto(text: String, includeLocation: Bool) {
         guard let story, story.stopped == nil, let photo = selectedPhoto else { return }
-        let comment = composeComment(fix: includeLocation ? gps.fix : nil, text: text)
+        let comment = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let location = includeLocation ? gps.fix : nil
         closeAddPhoto()
         Task {
-            await enqueue(photo, comment: comment, storyId: story.id)
+            await enqueue(photo, comment: comment, location: location, storyId: story.id)
             await refreshPending()
             services.outboxSync.kick()
         }
@@ -208,7 +215,7 @@ final class TripDetailModel {
                 do {
                     let photo = try await PhotoLoader.load(item)
                     let fix = PhotoLocationResolver.resolve(crumbs, captureMs: photo.takenOrNow.epochMillis)
-                    await enqueue(photo, comment: composeComment(fix: fix, text: ""), storyId: story.id)
+                    await enqueue(photo, comment: "", location: fix, storyId: story.id)
                 } catch {
                     self.error = error.localizedDescription
                 }
@@ -218,12 +225,13 @@ final class TripDetailModel {
         }
     }
 
-    private func enqueue(_ photo: PickedPhoto, comment: String, storyId: Int64) async {
+    private func enqueue(_ photo: PickedPhoto, comment: String, location: LocationFix?, storyId: Int64) async {
         do {
             _ = try await outbox.enqueuePhoto(
                 storyId: storyId,
                 comment: comment,
                 published: IsoTime.string(photo.takenOrNow),
+                location: location,
                 contentType: photo.contentType,
                 bytes: photo.data
             )

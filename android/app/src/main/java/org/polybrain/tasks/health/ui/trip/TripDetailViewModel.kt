@@ -38,7 +38,6 @@ import org.polybrain.tasks.health.location.GpsState
 import org.polybrain.tasks.health.location.LocationProvider
 import org.polybrain.tasks.health.location.PhotoLocationResolver
 import org.polybrain.tasks.health.location.TripTracker
-import org.polybrain.tasks.health.location.composeComment
 import org.polybrain.tasks.health.sync.SyncScheduler
 import org.polybrain.tasks.health.ui.photo.captureMillisFor
 import org.polybrain.tasks.health.ui.photo.captureTimeFor
@@ -233,7 +232,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     /**
      * Enqueue a note. [includeLocation] is the explicit "Save with location"
-     * choice — the default "Send" attaches no `#poi`, so location lands only on
+     * choice — the default "Send" attaches no location, so it lands only on
      * notes where it's actually wanted.
      */
     fun sendNote(text: String, includeLocation: Boolean) {
@@ -241,9 +240,9 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         if (story.stopped != null) return
         val fix = if (includeLocation) (_gps.value as? GpsState.Ready)?.fix else null
 
-        val comment = composeComment(fix, text)
-        // A note needs content; without a location line that means some text.
-        if (comment.isBlank()) return
+        val comment = text.trim()
+        // A note needs content: some text, or the place it was made at.
+        if (comment.isEmpty() && fix == null) return
         val published = OffsetDateTime.now().toString()
         _noteDialogOpen.value = false
         _gps.value = GpsState.Idle
@@ -251,7 +250,9 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         // Queue locally and kick the drain; the item shows immediately and the
         // worker delivers it (now or when connectivity returns).
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { outbox.enqueueNote(story.id, comment, published) }
+            withContext(Dispatchers.IO) {
+                outbox.enqueueNote(story.id, comment, published, fix)
+            }
             refreshPending()
             SyncScheduler.drainOutbox(getApplication())
         }
@@ -264,7 +265,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
         val uri = _selectedPhoto.value ?: return
         val fix = if (includeLocation) (_gps.value as? GpsState.Ready)?.fix else null
 
-        val comment = composeComment(fix, text)
+        val comment = text.trim()
         // Close the dialog now; copy + enqueue happen in the background.
         _photoDialogOpen.value = false
         _selectedPhoto.value = null
@@ -281,7 +282,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                 } ?: throw IOException("could not read the selected photo")
                 val published = withContext(Dispatchers.IO) { captureTimeFor(resolver, uri) }
                 withContext(Dispatchers.IO) {
-                    outbox.enqueuePhoto(story.id, comment, published, contentType, bytes)
+                    outbox.enqueuePhoto(story.id, comment, published, contentType, bytes, fix)
                 }
                 refreshPending()
                 SyncScheduler.drainOutbox(getApplication())
@@ -296,7 +297,7 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
      * path). Each photo's location is resolved from the trip's recorded track
      * at its capture time — the same source as the single-photo "Save with
      * location" — and attached when a trusted fix exists, otherwise the photo
-     * is sent without a `#poi` line.
+     * is sent without one.
      */
     fun sendPhotosDirect(uris: List<Uri>) {
         val story = _story.value ?: return
@@ -318,10 +319,9 @@ class TripDetailViewModel(application: Application) : AndroidViewModel(applicati
                         captureMillisFor(resolver, uri) ?: System.currentTimeMillis()
                     }
                     val fix = PhotoLocationResolver.resolve(crumbs, captureMs)
-                    val comment = composeComment(fix, "")
                     val published = withContext(Dispatchers.IO) { captureTimeFor(resolver, uri) }
                     withContext(Dispatchers.IO) {
-                        outbox.enqueuePhoto(story.id, comment, published, contentType, bytes)
+                        outbox.enqueuePhoto(story.id, "", published, contentType, bytes, fix)
                     }
                 } catch (t: Throwable) {
                     _error.value = t.message ?: t.javaClass.simpleName

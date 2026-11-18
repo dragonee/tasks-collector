@@ -7,6 +7,7 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.serialization.json.Json
+import org.polybrain.tasks.health.location.LocationFix
 
 /**
  * Durable, file-backed queue of writes: trip notes and photos, and what is
@@ -34,7 +35,13 @@ class Outbox(private val dir: File) {
         encodeDefaults = true
     }
 
-    fun enqueueNote(storyId: Long, comment: String, published: String): OutboxItem {
+    /** Queue a trip note, made at [fix] (null for one with no location). */
+    fun enqueueNote(
+        storyId: Long,
+        comment: String,
+        published: String,
+        fix: LocationFix? = null,
+    ): OutboxItem {
         val item = OutboxItem(
             id = UUID.randomUUID().toString(),
             kind = OutboxItem.Kind.NOTE,
@@ -42,17 +49,21 @@ class Outbox(private val dir: File) {
             comment = comment,
             published = published,
             createdAt = System.currentTimeMillis(),
+            lat = fix?.lat,
+            lng = fix?.lng,
+            acc = fix?.accuracyMeters,
         )
         write(item)
         return item
     }
 
     /**
-     * Queue a photo. Returns null (and writes nothing) when the same image is
-     * already queued for this scope — the content hash dedups a rapid
-     * double-pick or an overlapping bulk selection *before* any S3 upload. A
-     * copy that already failed permanently is ignored for this check, so
-     * re-picking it gives a fresh attempt.
+     * Queue a photo, taken at [fix] (null for one with no location). Returns
+     * null (and writes nothing) when the same image is already queued for
+     * this scope — the content hash dedups a rapid double-pick or an
+     * overlapping bulk selection *before* any S3 upload. A copy that already
+     * failed permanently is ignored for this check, so re-picking it gives a
+     * fresh attempt.
      */
     fun enqueuePhoto(
         storyId: Long?,
@@ -60,6 +71,7 @@ class Outbox(private val dir: File) {
         published: String,
         contentType: String,
         bytes: ByteArray,
+        fix: LocationFix? = null,
     ): OutboxItem? {
         val contentHash = sha256Hex(bytes)
         val scope = if (storyId != null) forStory(storyId) else standalone()
@@ -77,6 +89,9 @@ class Outbox(private val dir: File) {
             comment = comment,
             published = published,
             createdAt = createdAt,
+            lat = fix?.lat,
+            lng = fix?.lng,
+            acc = fix?.accuracyMeters,
             contentType = contentType,
             photoFile = photoName,
             contentHash = contentHash,

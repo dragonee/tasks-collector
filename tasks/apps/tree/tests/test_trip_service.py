@@ -21,6 +21,7 @@ from ..models import (
     SharedStory,
     Story,
 )
+from ..services.locations import Place
 from ..services.photos import PhotoNotFoundError, presign_photo_original
 from ..services.trips import (
     InvalidStopTimeError,
@@ -141,20 +142,33 @@ class TripServiceTestCase(TestCase):
         )
         self.assertEqual(journal.thread, self.daily)
 
-    def test_add_trip_note_with_poi_creates_habittracked_linked_to_story(self):
+    def test_add_trip_note_keeps_its_place(self):
         story = start_trip(self.alice)
-        comment = "#poi lat=40.7128 lng=-74.0060\nCoffee at the corner"
+        journal = add_trip_note(
+            self.alice,
+            story.pk,
+            comment="Coffee at the corner",
+            published=timezone.now(),
+            place=Place(40.7128, -74.006, None),
+        )
+        self.assertEqual(
+            (journal.location.lat, journal.location.lng), (40.7128, -74.006)
+        )
+        self.assertIsNone(journal.location.acc)
+        self.assertTrue(trip_links(story=story, event=journal).exists())
+
+    def test_add_trip_note_reads_an_older_phones_place_line(self):
+        story = start_trip(self.alice)
+        comment = "#poi lat=40.7128 lng=-74.0060 acc=15\nCoffee at the corner"
         journal = add_trip_note(
             self.alice, story.pk, comment=comment, published=timezone.now()
         )
-        habits = HabitTracked.objects.filter(habit__slug="poi")
-        self.assertEqual(habits.count(), 1)
-        habit_event = habits.first()
-        self.assertIn("lat=40.7128", habit_event.note)
-        self.assertIn("lng=-74.0060", habit_event.note)
-        # both events linked
-        self.assertTrue(trip_links(story=story, event=journal).exists())
-        self.assertTrue(trip_links(story=story, event=habit_event).exists())
+        journal.refresh_from_db()
+        self.assertEqual(journal.comment, "Coffee at the corner")
+        self.assertEqual(
+            (journal.location.lat, journal.location.lng, journal.location.acc),
+            (40.7128, -74.006, 15.0),
+        )
 
     def test_add_trip_note_on_stopped_story_raises(self):
         story = start_trip(self.alice)
@@ -546,21 +560,19 @@ class TripPhotoServiceTestCase(TestCase):
         self.assertNotEqual(first.pk, second.pk)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
-    def test_add_trip_photo_with_poi_creates_habittracked(self, _exists):
+    def test_add_trip_photo_keeps_where_it_was_taken(self, _exists):
         story = start_trip(self.alice)
         key = f"trips/{self.alice.pk}/{story.pk}/abc.jpg"
-        comment = "#poi lat=40.7128 lng=-74.0060\nat the pier"
         photo = add_trip_photo(
             self.alice,
             story.pk,
             key=key,
-            comment=comment,
+            comment="at the pier",
             content_type="image/jpeg",
             published=timezone.now(),
+            place=Place(40.7128, -74.006, 5.0),
         )
-        habit = HabitTracked.objects.filter(habit__slug="poi").first()
-        self.assertIsNotNone(habit)
-        self.assertTrue(trip_links(story=story, event=habit).exists())
+        self.assertEqual((photo.location.lat, photo.location.lng), (40.7128, -74.006))
         self.assertTrue(trip_links(story=story, event=photo).exists())
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=False)

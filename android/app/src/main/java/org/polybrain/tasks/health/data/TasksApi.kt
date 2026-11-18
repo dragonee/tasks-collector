@@ -286,6 +286,7 @@ data class TripUpdateRequest(
 @Serializable
 data class TripNoteRequest(
     @SerialName("story_id") val storyId: Long,
+    // May be empty for a note that is a place alone (lat and lng given).
     @SerialName("comment") val comment: String,
     // Full ISO 8601 timestamp (OffsetDateTime.now().toString()).
     @SerialName("published") val published: String,
@@ -293,6 +294,11 @@ data class TripNoteRequest(
     // failure, so a request whose response was lost must not create a second
     // note — the server dedupes on this key.
     @SerialName("idempotency_key") val idempotencyKey: String,
+    // Where the note was made, in degrees, and how far off that may be in
+    // metres. All null for a note with no location.
+    @SerialName("lat") val lat: Double? = null,
+    @SerialName("lng") val lng: Double? = null,
+    @SerialName("acc") val acc: Float? = null,
 )
 
 @Serializable
@@ -315,12 +321,23 @@ data class TripListResponse(
     @SerialName("page_size") val pageSize: Int = 20,
 )
 
+// Where an event was made: degrees, and how far off that may be in metres
+// (null when the phone didn't know).
+@Serializable
+data class EventLocation(
+    @SerialName("lat") val lat: Double,
+    @SerialName("lng") val lng: Double,
+    @SerialName("acc") val acc: Float? = null,
+)
+
 @Serializable
 data class TripEvent(
     @SerialName("id") val id: Long,
     @SerialName("type") val type: String, // "journal" | "photo" | "habit" | "other"
     @SerialName("published") val published: String,
     @SerialName("comment") val comment: String? = null,
+    // Null for an event made with no location.
+    @SerialName("location") val location: EventLocation? = null,
     @SerialName("habit_slug") val habitSlug: String? = null,
     @SerialName("habit_name") val habitName: String? = null,
     @SerialName("occured") val occured: Boolean? = null,
@@ -357,6 +374,10 @@ data class PhotoConfirmRequest(
     // Hex SHA-256 of the bytes; lets the server dedup the same image within a
     // trip even across distinct idempotency keys (re-picks). Null if unknown.
     @SerialName("content_hash") val contentHash: String? = null,
+    // Where the photo was taken (see TripNoteRequest). All null for none.
+    @SerialName("lat") val lat: Double? = null,
+    @SerialName("lng") val lng: Double? = null,
+    @SerialName("acc") val acc: Float? = null,
 )
 
 @Serializable
@@ -379,6 +400,10 @@ data class StandalonePhotoConfirmRequest(
     @SerialName("content_type") val contentType: String,
     @SerialName("published") val published: String,
     @SerialName("idempotency_key") val idempotencyKey: String,
+    // Where the photo was taken (see TripNoteRequest). All null for none.
+    @SerialName("lat") val lat: Double? = null,
+    @SerialName("lng") val lng: Double? = null,
+    @SerialName("acc") val acc: Float? = null,
 )
 
 @Serializable

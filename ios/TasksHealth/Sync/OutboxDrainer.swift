@@ -76,7 +76,10 @@ enum OutboxDrainer {
                         storyId: storyId,
                         comment: item.comment,
                         published: item.published,
-                        idempotencyKey: item.id
+                        idempotencyKey: item.id,
+                        lat: item.lat,
+                        lng: item.lng,
+                        acc: item.acc
                     )
                 )
             case .photo:
@@ -145,7 +148,10 @@ enum OutboxDrainer {
                     contentType: contentType,
                     published: item.published,
                     idempotencyKey: item.id,
-                    contentHash: item.contentHash
+                    contentHash: item.contentHash,
+                    lat: item.lat,
+                    lng: item.lng,
+                    acc: item.acc
                 )
             )
         } else {
@@ -155,7 +161,10 @@ enum OutboxDrainer {
                     comment: item.comment,
                     contentType: contentType,
                     published: item.published,
-                    idempotencyKey: item.id
+                    idempotencyKey: item.id,
+                    lat: item.lat,
+                    lng: item.lng,
+                    acc: item.acc
                 )
             )
         }

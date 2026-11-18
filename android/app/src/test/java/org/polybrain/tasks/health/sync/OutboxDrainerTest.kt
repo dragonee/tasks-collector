@@ -51,6 +51,7 @@ import org.polybrain.tasks.health.data.TripStoryIdRequest
 import org.polybrain.tasks.health.data.TripUpdateRequest
 import org.polybrain.tasks.health.data.UnscheduledTaskRequest
 import org.polybrain.tasks.health.data.UnscheduledTaskResponse
+import org.polybrain.tasks.health.location.LocationFix
 import retrofit2.HttpException
 import retrofit2.Response
 
@@ -142,6 +143,92 @@ class OutboxDrainerTest {
         val confirm = api.standaloneConfirmRequests.single()
         assertEquals("photos/7/k.jpg", confirm.key)
         assertEquals(item.id, confirm.idempotencyKey)
+    }
+
+    // --- where a note or photo was made ---
+
+    private val pier = LocationFix(40.7128, -74.006, 5f)
+
+    @Test
+    fun `a note sends the place it was made at, and no text when it has none`() = runTest {
+        val item = outbox.enqueueNote(5L, "", "2026-06-06T10:00:00Z", pier)
+        val api = FakeApi()
+
+        assertTrue(OutboxDrainer.process(item, api, outbox, noopPut) is OutboxDrainer.Outcome.Sent)
+
+        assertEquals(
+            TripNoteRequest(
+                storyId = 5L,
+                comment = "",
+                published = "2026-06-06T10:00:00Z",
+                idempotencyKey = item.id,
+                lat = 40.7128,
+                lng = -74.006,
+                acc = 5f,
+            ),
+            api.noteRequests.single(),
+        )
+    }
+
+    @Test
+    fun `a trip photo sends the place it was taken at`() = runTest {
+        val item = outbox.enqueuePhoto(2L, "cap", "t", "image/jpeg", byteArrayOf(1), pier)!!
+        val api = FakeApi()
+
+        OutboxDrainer.process(item, api, outbox, noopPut)
+
+        val confirm = api.confirmRequests.single()
+        assertEquals(40.7128, confirm.lat!!, 0.0)
+        assertEquals(-74.006, confirm.lng!!, 0.0)
+        assertEquals(5f, confirm.acc!!, 0f)
+        assertEquals("cap", confirm.comment)
+    }
+
+    @Test
+    fun `a photo with no trip sends the place it was taken at`() = runTest {
+        val fix = LocationFix(1.5, 2.5, null)
+        val item = outbox.enqueuePhoto(null, "", "t", "image/jpeg", byteArrayOf(1), fix)!!
+        val api = FakeApi()
+
+        OutboxDrainer.process(item, api, outbox, noopPut)
+
+        val confirm = api.standaloneConfirmRequests.single()
+        assertEquals(1.5, confirm.lat!!, 0.0)
+        assertEquals(2.5, confirm.lng!!, 0.0)
+        assertNull(confirm.acc)
+    }
+
+    @Test
+    fun `a photo whose confirm is retried still sends its place`() = runTest {
+        val base = outbox.enqueuePhoto(2L, "cap", "t", "image/jpeg", byteArrayOf(1), pier)!!
+        val resumed = base.copy(uploaded = true, presignedKey = "trips/2/already.jpg")
+        outbox.update(resumed)
+        val api = FakeApi()
+
+        OutboxDrainer.process(outbox.forStory(2L).single(), api, outbox, noopPut)
+
+        assertEquals(40.7128, api.confirmRequests.single().lat!!, 0.0)
+    }
+
+    @Test
+    fun `an item with no place sends none, and its comment as it is`() = runTest {
+        // An item queued by an older build keeps its place as the comment's
+        // first line; the server reads it off, so it goes out untouched.
+        val note = outbox.enqueueNote(5L, "#poi lat=1.000000 lng=2.000000\nhi", "t")
+        val photo = outbox.enqueuePhoto(2L, "cap", "t", "image/jpeg", byteArrayOf(1))!!
+        val solo = outbox.enqueuePhoto(null, "", "t", "image/jpeg", byteArrayOf(2))!!
+        val api = FakeApi()
+
+        for (item in listOf(note, photo, solo)) OutboxDrainer.process(item, api, outbox, noopPut)
+
+        val sent = api.noteRequests.single()
+        assertEquals("#poi lat=1.000000 lng=2.000000\nhi", sent.comment)
+        val places = listOf(
+            Triple(sent.lat, sent.lng, sent.acc),
+            api.confirmRequests.single().let { Triple(it.lat, it.lng, it.acc) },
+            api.standaloneConfirmRequests.single().let { Triple(it.lat, it.lng, it.acc) },
+        )
+        assertEquals(List(3) { Triple(null, null, null) }, places)
     }
 
     @Test

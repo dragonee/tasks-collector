@@ -1,9 +1,8 @@
 """Standalone (storyless) photo operations.
 
 A standalone photo is the same ``PhotoAdded`` event as a trip photo — it lands
-on the Daily thread and runs through the journalling pipeline so a ``#poi`` line
-still creates a HabitTracked — except it is **not** part of any trip's
-stream. The only structural difference is the S3 key prefix
+on the Daily thread, runs through the journalling pipeline and keeps the place
+it was taken at — except it is **not** part of any trip's stream. The only structural difference is the S3 key prefix
 (``photos/{user}/`` instead of ``trips/{user}/{story}/``).
 
 Kept in the ``photos`` package (not ``trips``) so it shares the photo plumbing
@@ -19,6 +18,7 @@ from django.utils import timezone
 from ...models import PhotoAdded
 from ..idempotency import existing_event
 from ..journalling import process_journal_entry
+from ..locations import locate, split_place
 from . import storage as photo_storage
 from .events import PhotoObjectMissingError, daily_thread
 from .keys import content_type_matches_key, photo_key, photo_key_belongs_to
@@ -38,12 +38,13 @@ def presign_standalone_photo(user, content_type):
 
 @transaction.atomic
 def add_standalone_photo(
-    user, key, comment, content_type, published=None, idempotency_key=None
+    user, key, comment, content_type, published=None, idempotency_key=None, place=None
 ):
     """Confirm an uploaded storyless photo: create a ``PhotoAdded`` on the Daily
-    thread and run it through the journalling pipeline (so a ``#poi`` line in
-    ``comment`` still creates a HabitTracked). Enqueues the thumbnail task on
-    commit. Adds it to no trip's stream — the photo belongs to no trip.
+    thread and run it through the journalling pipeline. It was taken at
+    ``place``, or at the one an older phone wrote as the comment's first line
+    (read off it). Enqueues the thumbnail task on commit. Adds it to no
+    trip's stream — the photo belongs to no trip.
 
     Raises ``PhotoObjectMissingError`` if the object isn't in the bucket (or the
     key doesn't belong to this user's ``photos/{user}/`` prefix), ``ValueError``
@@ -72,6 +73,7 @@ def add_standalone_photo(
         # Nested savepoint so a unique-key collision (concurrent retry) rolls
         # back only this insert, leaving the outer transaction usable.
         with transaction.atomic():
+            comment, written = split_place(comment)
             photo = PhotoAdded.objects.create(
                 thread=daily_thread(user),
                 created_by=user,
@@ -81,6 +83,7 @@ def add_standalone_photo(
                 published=published or timezone.now(),
                 idempotency_key=idempotency_key,
             )
+            locate(photo, place or written)
             process_journal_entry(photo, story=None)
     except IntegrityError:
         existing = existing_event(PhotoAdded, user, idempotency_key)

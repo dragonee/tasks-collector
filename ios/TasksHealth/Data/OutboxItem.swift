@@ -4,11 +4,10 @@ import Foundation
 /// something done to a task (`task`).
 ///
 /// Everything needed to send is frozen when it is queued, so the entry
-/// survives an offline spell or the app being killed: the `comment` already
-/// carries the `#poi lat=… lng=…` line (the GPS fix is captured even with no
-/// network), `published` is the moment the user acted (not the moment of the
-/// upload), and a photo's bytes are copied into the outbox directory
-/// (`photoFile`).
+/// survives an offline spell or the app being killed: the location is the
+/// fix taken when the user saved it (a GPS fix needs no network),
+/// `published` is the moment the user acted (not the moment of the upload),
+/// and a photo's bytes are copied into the outbox directory (`photoFile`).
 ///
 /// `id` doubles as the server's `idempotency_key`, so a retry whose first
 /// answer was lost reuses the existing event instead of making a duplicate.
@@ -30,6 +29,14 @@ struct OutboxItem: Codable, Sendable, Equatable, Identifiable {
     var comment: String
     var published: String
     let createdAt: Int64
+
+    /// Notes and photos saved with their location: where they were made, in
+    /// degrees, and the fix's accuracy in metres when it had one. An item
+    /// queued by an older build has none of these and keeps its place in
+    /// the first line of `comment`, which the server still reads off.
+    var lat: Double?
+    var lng: Double?
+    var acc: Float?
 
     // Photos only:
     var contentType: String?
@@ -53,6 +60,12 @@ struct OutboxItem: Codable, Sendable, Equatable, Identifiable {
     /// A refusal the outbox won't retry by itself (e.g. the trip is
     /// stopped); kept so the user can retry or discard it.
     var failedPermanently = false
+
+    /// Where it was made, for its row while it waits; nil without a place.
+    var location: EventLocation? {
+        guard let lat, let lng else { return nil }
+        return EventLocation(lat: lat, lng: lng, acc: acc)
+    }
 
     var isPhoto: Bool { kind == .photo }
 

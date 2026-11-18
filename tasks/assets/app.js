@@ -64,11 +64,6 @@ const addInlineFormListener = (event, { button: buttonSelector, form: formSelect
     Object.values(INLINE_FORMS).forEach((inlineForm) => addInlineFormListener(event, inlineForm));
 });
 
-// Trip notes/photos prepend a machine line like "#poi lat=.. lng=..". Hide
-// that line from the rendered comment and surface the coordinates as a small
-// map pin instead. The leading token may be #poi/#coords/#coordinates/#latlng.
-const POI_LINE_RE = /^#(?:poi|coords|coordinates|latlng)\b[^\n<]*?\blat\s*=\s*(-?\d+(?:\.\d+)?)[^\n<]*?\blng\s*=\s*(-?\d+(?:\.\d+)?)/i;
-
 // Map link for a coordinate, per the user's profile preference (data-map-provider
 // on <body>). Defaults to OpenStreetMap.
 const mapUrlFor = (lat, lng) => {
@@ -79,47 +74,15 @@ const mapUrlFor = (lat, lng) => {
     return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
 };
 
-const decorateTripMarkers = (event) => {
-    const comment = event.querySelector('.journal-comment');
-    if (!comment) {
-        return;
+// A journal entry's place (journal_added.html) opens in the user's map
+// service. Delegated, so entries HTMX swaps in work too; the href is set
+// as the click happens, before the browser follows it.
+document.addEventListener('click', (e) => {
+    const pin = e.target.closest('a.trip-pin[data-lat]');
+    if (pin) {
+        pin.href = mapUrlFor(pin.dataset.lat, pin.dataset.lng);
     }
-
-    const paragraph = comment.querySelector('p') || comment;
-    const html = paragraph.innerHTML;
-    const brMatch = html.match(/<br\s*\/?>/i);
-    const brIndex = brMatch ? html.indexOf(brMatch[0]) : -1;
-    const firstLine = (brIndex === -1 ? html : html.slice(0, brIndex)).trim();
-
-    const coords = firstLine.match(POI_LINE_RE);
-    if (!coords) {
-        return;
-    }
-
-    // Drop the machine line, keep the user's note (everything after the <br>).
-    if (brIndex === -1) {
-        paragraph.innerHTML = '';
-    } else {
-        paragraph.innerHTML = html.slice(brIndex + brMatch[0].length).replace(/^\s+/, '');
-    }
-    if (!comment.textContent.trim()) {
-        comment.style.display = 'none';
-    }
-
-    const lat = parseFloat(coords[1]);
-    const lng = parseFloat(coords[2]);
-    const markers = event.querySelector('.trip-markers') || event;
-
-    const pin = document.createElement('a');
-    pin.className = 'trip-pin';
-    pin.href = mapUrlFor(lat, lng);
-    pin.target = '_blank';
-    pin.rel = 'noopener';
-    pin.textContent = `📍 ${lat.toFixed(2)}, ${lng.toFixed(2)}`;
-    markers.appendChild(pin);
-};
-
-[...journalAddedEvents].forEach(decorateTripMarkers);
+});
 
 // Copy the public share link from the trip-detail share control. Delegated so
 // it keeps working after HTMX swaps the control on share/unshare.

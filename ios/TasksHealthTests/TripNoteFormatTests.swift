@@ -6,51 +6,57 @@ struct TripNoteFormatTests {
 
     private let utc = TimeZone.gmt
 
-    // MARK: parseTripNote
+    // MARK: Where a note or photo was made
 
-    @Test func parsesLeadingPoiLineAndStripsItFromText() {
-        let parsed = parseTripNote("#poi lat=40.7128 lng=-74.0060\nCoffee at the corner")
-        #expect(parsed.text == "Coffee at the corner")
-        #expect(parsed.poi?.lat == 40.7128)
-        #expect(parsed.poi?.lng == -74.0060)
+    private func decodeEvent(_ json: String) throws -> TripEvent {
+        try JSONDecoder().decode(TripEvent.self, from: Data(json.utf8))
     }
 
-    @Test func parsesPoiLineOnItsOwnWithNoBody() {
-        let parsed = parseTripNote("#poi lat=10.0 lng=20.0")
-        #expect(parsed.text == "")
-        #expect(parsed.poi != nil)
+    @Test func aNoteWithAPlaceHasItsLocationAndItsTextAsWritten() throws {
+        let event = try decodeEvent(
+            """
+            {"id": 3, "type": "journal", "published": "2026-05-25T11:00:00Z",
+             "comment": "Coffee at the corner\\n",
+             "location": {"lat": 40.7128, "lng": -74.006, "acc": 12.5}}
+            """
+        )
+        #expect(event.location == EventLocation(lat: 40.7128, lng: -74.006, acc: 12.5))
+        #expect(event.comment == "Coffee at the corner\n")
     }
 
-    @Test func leavesCommentAloneWhenNoPoiLineIsPresent() {
-        let parsed = parseTripNote("Plain note without coordinates")
-        #expect(parsed.text == "Plain note without coordinates")
-        #expect(parsed.poi == nil)
+    @Test func aPlaceWithNoAccuracyIsStillAPlace() throws {
+        let event = try decodeEvent(
+            """
+            {"id": 4, "type": "photo", "published": "2026-05-25T11:00:00Z", "comment": "",
+             "thumbnail_url": null, "ready": false,
+             "location": {"lat": -33.8688, "lng": 151.2093, "acc": null}}
+            """
+        )
+        #expect(event.location == EventLocation(lat: -33.8688, lng: 151.2093))
     }
 
-    @Test func doesNotStripPoiMentionFromInsideTheBody() {
-        let parsed = parseTripNote("Saw a #poi sign here\nbut no coords")
-        #expect(parsed.text == "Saw a #poi sign here\nbut no coords")
-        #expect(parsed.poi == nil)
+    @Test func anEventWithNoPlaceHasNoLocation() throws {
+        let saidSo = try decodeEvent(
+            """
+            {"id": 5, "type": "journal", "published": "2026-05-25T11:00:00Z",
+             "comment": "Plain note", "location": null}
+            """
+        )
+        #expect(saidSo.location == nil)
+        #expect(saidSo.comment == "Plain note")
+        // A habit event, or a server from before locations: no key at all.
+        let leftOut = try decodeEvent(
+            """
+            {"id": 6, "type": "habit", "published": "2026-05-25T11:00:00Z",
+             "habit_slug": "walk", "habit_name": "Walk", "occured": true, "note": ""}
+            """
+        )
+        #expect(leftOut.location == nil)
     }
 
-    @Test func acceptsNegativeCoordinates() {
-        let parsed = parseTripNote("#poi lat=-33.8688 lng=151.2093\nSydney")
-        #expect(parsed.poi?.lat == -33.8688)
-        #expect(parsed.poi?.lng == 151.2093)
-    }
-
-    @Test func preservesMultiLineBodyVerbatim() {
-        let parsed = parseTripNote("#poi lat=1 lng=2\nFirst line\n\nThird line  with trailing  ")
-        #expect(parsed.text == "First line\n\nThird line  with trailing  ")
-    }
-
-    @Test func toleratesExtraTextOnThePoiLineItself() {
-        // A later client may add an accuracy, an altitude or a label to the
-        // line; the body still starts on the next one.
-        let parsed = parseTripNote("#poi lat=10 lng=20 acc=5\nThe note body stays whole")
-        #expect(parsed.text == "The note body stays whole")
-        #expect(parsed.poi?.lat == 10)
-        #expect(parsed.poi?.lng == 20)
+    @Test func aLocationOpensInMapsWithAPinOnIt() {
+        let url = EventLocation(lat: 52.229676, lng: 21.012229).mapsUrl
+        #expect(url?.absoluteString == "https://maps.apple.com/?ll=52.229676,21.012229&q=52.229676,21.012229")
     }
 
     // MARK: EventTimeStyle

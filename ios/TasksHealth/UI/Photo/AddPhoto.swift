@@ -102,10 +102,11 @@ final class AddPhotoModel {
     }
 
     /// Queue the photo with no story. `includeLocation` is the "Save with
-    /// location" choice; plain "Send" attaches no `#poi`.
+    /// location" choice; plain "Send" sends no location.
     func send(text: String, includeLocation: Bool) {
         guard let photo = selectedPhoto else { return }
-        let comment = composeComment(fix: includeLocation ? gps.fix : nil, text: text)
+        let comment = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let location = includeLocation ? gps.fix : nil
         // A standalone photo is dated when it is added (now), not when it
         // was taken — unlike a trip photo.
         let published = IsoTime.string()
@@ -117,6 +118,7 @@ final class AddPhotoModel {
                     storyId: nil,
                     comment: comment,
                     published: published,
+                    location: location,
                     contentType: photo.contentType,
                     bytes: photo.data
                 )
