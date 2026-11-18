@@ -2,21 +2,11 @@ import AuthenticationServices
 import Observation
 import UIKit
 
-/// The activities the Health screen can register, each the hashtag the
-/// server parses into a HabitTracked. The keyword is sent as it is (Unicode
-/// is fine) after a '#'.
-///
-/// Weight carries a number of kilograms instead of a note
-/// (`MainModel.trackWeight`), and running a distance and a time
-/// (`MainModel.trackRunning`).
-enum ActivityType: String, CaseIterable, Identifiable, Sendable {
-    case gym = "siłka"
-    case workout
-    case running
-    case weight
-
-    var id: String { rawValue }
-    var keyword: String { rawValue }
+/// The "register activity" sheet while it is open, with the keyword it
+/// opens on (weight when opened from the weight row; nil for the first).
+struct ActivitySheet: Identifiable, Equatable {
+    let id = UUID()
+    let keyword: String?
 }
 
 /// Behind the Health and Settings screens: logging in and out, the health
@@ -34,9 +24,11 @@ final class MainModel {
     /// Server-derived health data (the weight last recorded); nil until loaded.
     private(set) var healthData: HealthDataResponse?
 
-    /// The "register activity" sheet: nil while closed, else the activity
-    /// it opens on (weight when opened from the weight row).
-    var activitySheet: ActivityType?
+    /// The "register activity" sheet: nil while closed.
+    var activitySheet: ActivitySheet?
+    /// The habits the sheet offers, by keyword, each with what it records;
+    /// fetched again each time it opens.
+    private(set) var activityKeywords: [HabitKeyword] = []
     /// True while an activity is being posted.
     private(set) var activitySaving = false
     private(set) var activityError: String?
@@ -164,38 +156,43 @@ final class MainModel {
 
     // MARK: Activities
 
-    func openActivitySheet(_ type: ActivityType = .gym) {
+    func openActivitySheet(_ keyword: String? = nil) {
         activityError = nil
-        activitySheet = type
+        activitySheet = ActivitySheet(keyword: keyword)
+        Task { await loadActivityKeywords() }
     }
 
-    /// Post one `#keyword note` line through the text endpoint, which makes
-    /// one HabitTracked per hashtag. Several a day are meant to be possible
-    /// (two visits to the gym).
-    func trackActivity(_ type: ActivityType, note: String) async {
-        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        await postHabitLine(trimmed.isEmpty ? "#\(type.keyword)" : "#\(type.keyword) \(trimmed)")
+    private func loadActivityKeywords() async {
+        let snapshot = settings.snapshot
+        guard snapshot.isConfigured else {
+            activityError = notConfiguredMessage
+            return
+        }
+        do {
+            activityKeywords = try await TasksClient(snapshot).listActivityKeywords()
+        } catch {
+            activityError = error.localizedDescription
+        }
     }
 
-    /// Record body weight as `#weight weight=<x.x>kg`. Weight is a habit of
-    /// its own (not the sync's `health-metrics`), so every entry is kept.
-    func trackWeight(kg: Double) async {
-        let line = "#\(ActivityType.weight.keyword) weight=\(String(format: "%.1f", kg))kg"
-        if await postHabitLine(line) { await refreshHealthData() }
+    /// Record an activity: a new entry of `keyword`'s habit each time (two
+    /// gym visits a day are two), its note the hashtag and what was written,
+    /// and `values` of the habit's metrics, which the server writes into the
+    /// note. The weight shown is read again: it may have been a weigh-in.
+    func trackActivity(keyword: String, note: String, values: [String: MetricValue]) async {
+        let body = TrackedHabitRequest(
+            keyword: keyword,
+            // The moment of the tap, so the entry lands on today.
+            published: IsoTime.string(),
+            note: activityNote(keyword: keyword, note: note),
+            values: values
+        )
+        if await postActivity(body) { await refreshHealthData() }
     }
 
-    /// Record a run as `#running distance=<x.x>km, time=<m>m<s>s`.
-    func trackRunning(distanceKm: Double, minutes: Int, seconds: Int) async {
-        let distance = String(format: "%.1f", distanceKm)
-        await postHabitLine("#\(ActivityType.running.keyword) distance=\(distance)km, time=\(minutes)m\(seconds)s")
-    }
-
-    /// Send a habit line; closes the sheet when it worked.
-    @discardableResult
-    private func postHabitLine(_ text: String) async -> Bool {
+    /// Send an activity; closes the sheet when it worked.
+    private func postActivity(_ body: TrackedHabitRequest) async -> Bool {
         guard !activitySaving else { return false }
-        // The moment of the tap, so the entry lands on today.
-        let published = IsoTime.string()
         let snapshot = settings.snapshot
         guard snapshot.isConfigured else {
             activityError = notConfiguredMessage
@@ -205,7 +202,7 @@ final class MainModel {
         activityError = nil
         defer { activitySaving = false }
         do {
-            try await TasksClient(snapshot).trackHabitText(TrackHabitTextRequest(text: text, published: published))
+            try await TasksClient(snapshot).trackHabitValues(body)
             activitySheet = nil
             return true
         } catch {

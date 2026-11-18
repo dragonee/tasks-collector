@@ -4,6 +4,8 @@ from collections import defaultdict
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -508,6 +510,60 @@ class HabitKeyword(models.Model):
         return f"{self.habit.name}: {self.keyword}"
 
 
+class HabitMetric(models.Model):
+    """Something a habit records with each entry: the weight on a weigh-in,
+    the distance of a run. An entry's note carries it as a token
+    (``services.habits.metrics``); ``HabitTracked.values`` is what is read."""
+
+    class Kind(models.TextChoices):
+        NUMBER = "number", _("Number")
+        DURATION = "duration", _("Duration")
+        PRESSURE = "pressure", _("Blood pressure")
+        MONEY = "money", _("Money")
+
+    habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name="metrics")
+
+    # The token's key: weight=80.5kg. Fixed once entries carry it.
+    key = models.CharField(
+        max_length=32,
+        validators=[
+            RegexValidator(
+                r"^[a-z][a-z_]*$", "Lowercase letters and _, starting with a letter."
+            )
+        ],
+    )
+    label = models.CharField(max_length=255)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.NUMBER)
+
+    # A number's unit, written after it: kg, km, min. None for the other kinds.
+    unit = models.CharField(
+        max_length=16,
+        blank=True,
+        validators=[RegexValidator(r"^[A-Za-z%]*$", "Letters or %.")],
+    )
+    decimals = models.PositiveSmallIntegerField(default=0)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ("order", "pk")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["habit", "key"], name="habitmetric_habit_key_unique"
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.kind != self.Kind.NUMBER and self.unit:
+            raise ValidationError({"unit": "Only a number has a unit."})
+        if self.unit in ("m", "s"):
+            # <n>m and <n>m<s>s are how a duration is written.
+            raise ValidationError({"unit": "m and s are a duration's."})
+
+    def __str__(self):
+        return f"{self.habit.name}: {self.label}"
+
+
 class HabitTracked(Event):
     # thread must be set manually
 
@@ -517,10 +573,23 @@ class HabitTracked(Event):
 
     note = models.TextField(null=True, blank=True)
 
+    # What the habit's metrics read from the note, by key; kept with it on
+    # every save (services.habits.metrics).
+    values = models.JSONField(default=dict, blank=True, editable=False)
+
     template = "tree/events/habit_tracked.html"
 
     def derived_event_stream_id(self):
         return self.habit.event_stream_id
+
+    def save(self, *args, **kwargs):
+        from .services.habits.metrics import read
+
+        self.values = read(self.note, self.habit.metrics.all())
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "values" not in update_fields:
+            kwargs["update_fields"] = [*update_fields, "values"]
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return "{} {}".format(self.habit, self.published)

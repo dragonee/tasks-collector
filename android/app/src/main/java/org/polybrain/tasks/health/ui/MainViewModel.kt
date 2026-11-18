@@ -12,13 +12,13 @@ import org.polybrain.tasks.health.data.OAuthLogin
 import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.SettingsSnapshot
 import org.polybrain.tasks.health.data.TasksClient
-import org.polybrain.tasks.health.data.TrackHabitTextRequest
+import org.polybrain.tasks.health.data.HabitKeyword
+import org.polybrain.tasks.health.data.TrackedHabitRequest
 import org.polybrain.tasks.health.location.TripTracker
 import org.polybrain.tasks.health.sync.SyncScheduler
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,24 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-/**
- * The activities the FAB on the Health screen can register, each mapped to the
- * hashtag the backend parses into a [HabitTracked]. [Gym] is the default
- * subtype. The keyword is sent verbatim (Unicode is fine) prefixed with '#'.
- *
- * [Weight] is special: instead of a free-text note it carries a numeric
- * kilogram value, posted as `#weight weight=<x.x>kg` (see [MainViewModel.trackWeight]).
- *
- * [Running] is likewise special: it carries a distance and a duration, posted
- * as `#running distance=<x.x>km, time=<m>m<s>s` (see [MainViewModel.trackRunning]).
- */
-enum class ActivityType(val keyword: String) {
-    Gym("siłka"),
-    Workout("workout"),
-    Running("running"),
-    Weight("weight"),
-}
+import kotlinx.serialization.json.JsonObject
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -71,10 +54,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _activityDialogOpen = MutableStateFlow(false)
     val activityDialogOpen: StateFlow<Boolean> = _activityDialogOpen.asStateFlow()
 
-    /** Activity type the dialog should preselect when it opens (e.g. Weight when
-     *  the dialog is opened by tapping the weight section). */
-    private val _activityInitialType = MutableStateFlow(ActivityType.Gym)
-    val activityInitialType: StateFlow<ActivityType> = _activityInitialType.asStateFlow()
+    /** The keyword the dialog should preselect when it opens (weight when it is
+     *  opened by tapping the weight section); null for the first one. */
+    private val _activityInitialKeyword = MutableStateFlow<String?>(null)
+    val activityInitialKeyword: StateFlow<String?> = _activityInitialKeyword.asStateFlow()
+
+    /** The habits the dialog offers, by keyword, each with what it records.
+     *  Empty until [loadActivityKeywords] first succeeds. */
+    private val _activityKeywords = MutableStateFlow<List<HabitKeyword>>(emptyList())
+    val activityKeywords: StateFlow<List<HabitKeyword>> = _activityKeywords.asStateFlow()
 
     /** True while an activity is being posted; gates the dialog buttons. */
     private val _activitySaving = MutableStateFlow(false)
@@ -250,10 +238,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshHealthDataAsync()
     }
 
-    fun openActivityDialog(initialType: ActivityType = ActivityType.Gym) {
-        _activityInitialType.value = initialType
+    fun openActivityDialog(initialKeyword: String? = null) {
+        _activityInitialKeyword.value = initialKeyword
         _activityError.value = null
         _activityDialogOpen.value = true
+        loadActivityKeywords()
     }
 
     fun closeActivityDialog() {
@@ -261,50 +250,50 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _activityDialogOpen.value = false
     }
 
-    /**
-     * Posts a single `#keyword note` line through the non-idempotent text
-     * endpoint, which creates one [HabitTracked] per parsed hashtag. Unlike a
-     * trip note this records no JournalAdded — it is purely the habit entry.
-     * Multiple posts on the same day are intentional (e.g. two gym visits).
-     */
-    fun trackActivity(type: ActivityType, note: String) {
-        val trimmed = note.trim()
-        val text = if (trimmed.isEmpty()) "#${type.keyword}" else "#${type.keyword} $trimmed"
-        postHabitLine(text)
+    /** Fetch the habits the dialog offers, again each time it opens: their
+     *  metrics may have changed on the web. */
+    private fun loadActivityKeywords() {
+        viewModelScope.launch {
+            val snapshot = settings.snapshot()
+            if (!snapshot.isConfigured) {
+                _activityError.value = "Configure server URL and API token first."
+                return@launch
+            }
+            try {
+                _activityKeywords.value =
+                    TasksClient.build(snapshot.serverUrl, snapshot.apiToken).listActivityKeywords()
+            } catch (t: Throwable) {
+                _activityError.value = t.message ?: t.javaClass.simpleName
+            }
+        }
     }
 
     /**
-     * Records body weight as `#weight weight=<x.x>kg` through the same
-     * non-idempotent text endpoint. Weight uses its own habit (separate from
-     * the sync's `health-metrics`), so each entry is preserved. Refreshes the
-     * last-weight display on success.
+     * Records an activity: a new entry of [keyword]'s habit each time (two gym
+     * visits a day are two), its note the hashtag and what was written, and
+     * [values] of the habit's metrics, which the server writes into the note.
+     * Refreshes the last-weight display on success: it may have been a weigh-in.
      */
-    fun trackWeight(kg: Double) {
-        val text = "#${ActivityType.Weight.keyword} weight=${"%.1f".format(Locale.US, kg)}kg"
-        postHabitLine(text) { refreshHealthDataAsync() }
+    fun trackActivity(keyword: String, note: String, values: JsonObject) {
+        postActivity(
+            TrackedHabitRequest(
+                keyword = keyword,
+                // Wall-clock moment of the tap, so the entry lands on today.
+                published = OffsetDateTime.now().toString(),
+                note = activityNote(keyword, note),
+                values = values,
+            )
+        ) { refreshHealthDataAsync() }
     }
 
     /**
-     * Records a run as `#running distance=<x.x>km, time=<m>m<s>s` through the
-     * same non-idempotent text endpoint. Distance is formatted with one decimal
-     * (US locale, so the separator is a dot the backend can parse).
-     */
-    fun trackRunning(distanceKm: Double, minutes: Int, seconds: Int) {
-        val distance = "%.1f".format(Locale.US, distanceKm)
-        val text = "#${ActivityType.Running.keyword} distance=${distance}km, time=${minutes}m${seconds}s"
-        postHabitLine(text)
-    }
-
-    /**
-     * Shared post path for the activity dialog: sends a habit line, gating the
+     * Shared post path for the activity dialog: sends the entry, gating the
      * dialog buttons via [activitySaving] and surfacing failures in
      * [activityError]. Closes the dialog and runs [onSuccess] when the post
      * succeeds.
      */
-    private fun postHabitLine(text: String, onSuccess: () -> Unit = {}) {
+    private fun postActivity(body: TrackedHabitRequest, onSuccess: () -> Unit = {}) {
         if (_activitySaving.value) return
-        // Wall-clock moment of the tap, so the entry lands on today.
-        val published = OffsetDateTime.now().toString()
         _activitySaving.value = true
         _activityError.value = null
         viewModelScope.launch {
@@ -316,7 +305,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             try {
                 val api = TasksClient.build(snapshot.serverUrl, snapshot.apiToken)
-                api.trackHabitText(TrackHabitTextRequest(text = text, published = published))
+                api.trackHabitValues(body)
                 _activityDialogOpen.value = false
                 onSuccess()
             } catch (t: Throwable) {

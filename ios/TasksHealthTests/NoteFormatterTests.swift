@@ -32,7 +32,7 @@ struct NoteFormatterTests {
 
     @Test func bikeRideNoteCarriesHashtagDurationAndNoDistance() {
         let text = NoteFormatter.formatBikeRide(keyword: "workout", durationMinutes: 45)
-        #expect(text == "#workout Bike ride (duration=45 min)")
+        #expect(text == "#workout Bike ride (duration=45m)")
     }
 
     @Test func kcalIsRoundedToWholeNumber() {

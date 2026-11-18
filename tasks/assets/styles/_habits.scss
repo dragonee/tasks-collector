@@ -70,3 +70,63 @@
         color: #999;
     }
 }
+
+// Single-habit page: what an entry records, with its latest value, and the
+// form that adds to it (styled as .habit-new).
+.habit-metrics {
+    ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    li + li {
+        margin-top: 0.6rem;
+    }
+
+    .habit-metric {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+
+        code {
+            color: #777;
+            font-size: 0.85rem;
+        }
+    }
+
+    .habit-metric-delete {
+        margin-left: auto;
+
+        button {
+            padding: 0 0.3rem;
+            border: none;
+            background: none;
+            color: #999;
+            cursor: pointer;
+
+            &:hover {
+                color: #c92a2a;
+            }
+        }
+    }
+
+    .habit-metric-latest {
+        color: #555;
+        font-size: 0.9rem;
+    }
+}
+
+.habit-new {
+    select,
+    input[type="number"] {
+        width: 100%;
+        padding: 0.45rem 0.6rem;
+
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+        color: #343434;
+        font: inherit;
+    }
+}

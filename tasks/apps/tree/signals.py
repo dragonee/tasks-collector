@@ -9,12 +9,14 @@ an event belongs to is decided by the event itself (``Event.save``).
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import ProtectedError
-from django.db.models.signals import post_save, pre_delete, pre_save
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
 from .models import (
     Event,
+    Habit,
     HabitKeyword,
+    HabitMetric,
     Observation,
     Profile,
     ProjectedOutcome,
@@ -22,6 +24,7 @@ from .models import (
     Thread,
 )
 from .services.breakthrough.event_creation import create_projected_outcome_change_events
+from .services.habits.metrics import refresh as refresh_habit_values
 from .services.provisioning import provision_user
 from .utils.db import field_has_changed
 
@@ -113,3 +116,16 @@ def add_new_habit_keyword_to_owners_profile(sender, instance, created, **kwargs)
     if created:
         for profile in Profile.objects.filter(user=instance.user_id):
             profile.habit_keywords.add(instance)
+
+
+# Habit metrics
+
+
+@receiver(post_save, sender=HabitMetric)
+@receiver(post_delete, sender=HabitMetric)
+def read_habit_values_again(sender, instance, raw=False, **kwargs):
+    """A habit's entries keep the values its metrics read from their notes.
+    Nothing to read when the habit itself is going."""
+    habit = None if raw else Habit.objects.filter(pk=instance.habit_id).first()
+    if habit is not None:
+        refresh_habit_values(habit)

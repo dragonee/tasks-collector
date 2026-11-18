@@ -1,24 +1,19 @@
 """
-Health data helpers for the Android Health screen.
+Health data helpers for the phones' Health screens.
 
-Body weight is recorded as a HabitTracked under each user's dedicated
-``weight`` Habit (provisioned with the user, see services.provisioning). It is
-intentionally a separate Habit from
-``health-metrics`` so the hourly background sync — which upserts on
-(habit, date) — never clobbers a manually recorded weight.
+Body weight is the ``weight`` metric of each user's ``weight`` Habit
+(provisioned with the user, see services.provisioning). It is a separate Habit
+from the daily ``health-metrics`` one so the hourly background sync, which
+replaces the day's entry, never clobbers a weight recorded by hand.
 """
 
 import datetime
-import re
 from dataclasses import dataclass
 
-from ...models import HabitTracked
+from ...models import Habit
+from ..habits.metrics import latest
 
 WEIGHT_SLUG = "weight"
-
-# Matches the ``weight=<float>kg`` token the Android client writes (whitespace
-# before ``kg`` is tolerated). The number is captured for parsing.
-_WEIGHT_RE = re.compile(r"weight=([0-9]+(?:\.[0-9]+)?)\s*kg")
 
 
 @dataclass
@@ -27,29 +22,10 @@ class WeightRecord:
     recorded_at: datetime.datetime
 
 
-def parse_weight_kg(note):
-    """Extract the kilogram value from a habit note, or None if absent."""
-    if not note:
-        return None
-    match = _WEIGHT_RE.search(note)
-    if match is None:
-        return None
-    return float(match.group(1))
-
-
 def latest_weight(user):
-    """Return ``user``'s most recently recorded weight, or None if none exists.
-
-    Walks the user's weight events newest-first and returns the first whose
-    note carries a parseable ``weight=<float>kg`` token.
-    """
-    events = HabitTracked.objects.filter(
-        habit__user=user, habit__slug=WEIGHT_SLUG, occured=True
-    ).order_by("-published")
-
-    for event in events:
-        value = parse_weight_kg(event.note)
-        if value is not None:
-            return WeightRecord(value_kg=value, recorded_at=event.published)
-
-    return None
+    """Return ``user``'s most recently recorded weight, or None if none exists."""
+    habit = Habit.objects.filter(user=user, slug=WEIGHT_SLUG).first()
+    entry = latest(habit, "weight") if habit is not None else None
+    if entry is None:
+        return None
+    return WeightRecord(value_kg=entry.values["weight"], recorded_at=entry.published)

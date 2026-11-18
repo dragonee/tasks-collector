@@ -19,9 +19,15 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response as RestResponse
 
-from .forms import HabitForm, OnlyTextSingleHabitTrackedForm, SingleHabitTrackedForm
+from .forms import (
+    HabitForm,
+    HabitMetricForm,
+    OnlyTextSingleHabitTrackedForm,
+    SingleHabitTrackedForm,
+)
 from .models import Habit, HabitTracked, Profile, Thread
 from .serializers import HabitKeywordSerializer, HabitSerializer
+from .services.habits.metrics import latest, shown
 from .services.idempotency import existing_event
 from .utils.datetime import DayCount, adjust_start_date_to_monday, date_range_generator
 from .utils.itertools import itemize
@@ -65,7 +71,7 @@ class HabitViewSet(viewsets.ModelViewSet):
                     "habittracked", filter=Q(habittracked__published__date=day)
                 ),
             )
-            .prefetch_related("keywords")
+            .prefetch_related("keywords", "metrics")
         )
 
     def perform_create(self, serializer):
@@ -204,6 +210,7 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
         start = timezone.now() - datetime.timedelta(days=365)
         end = timezone.now() + datetime.timedelta(days=1)
 
+        kwargs.setdefault("metric_form", HabitMetricForm(habit=self.object))
         context = super().get_context_data(**kwargs)
 
         context.update(
@@ -211,10 +218,43 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
                 "event_calendar": habit_calendar(self.object, start, end),
                 "tracked_habits": self.tracked_habits,
                 "total_event_count": self.tracked_habits.count(),
+                "metrics": self.metrics(),
             }
         )
 
         return context
+
+    def metrics(self):
+        """Each metric of the habit with its latest value, shown, and when."""
+        result = []
+        for metric in self.object.metrics.all():
+            entry = latest(self.object, metric.key)
+            result.append(
+                {
+                    "metric": metric,
+                    "latest": (
+                        shown(metric, entry.values[metric.key]) if entry else None
+                    ),
+                    "published": entry.published if entry else None,
+                }
+            )
+        return result
+
+    def post(self, request, *args, **kwargs):
+        """Add a metric to the habit, or take one away."""
+        self.object = self.get_object()
+        url = f"{reverse('public-habit-detail', args=[self.object.slug])}#metrics"
+
+        key = request.POST.get("delete_metric")
+        if key is not None:
+            self.object.metrics.filter(key=key).delete()
+            return redirect(url)
+
+        form = HabitMetricForm(request.POST, habit=self.object)
+        if form.is_valid():
+            form.save()
+            return redirect(url)
+        return self.render_to_response(self.get_context_data(metric_form=form))
 
 
 class HabitListView(LoginRequiredMixin, ListView):
@@ -280,6 +320,7 @@ def my_habit_keywords(request):
     Query parameters:
     - all=true: Return all habit keywords instead of just filtered ones
     - date=YYYY-MM-DD: Filter out keywords for habits already tracked on this date (defaults to today)
+    - with_tracked=true: Keep them: for an activity that can happen twice a day
 
     If the user's profile has no keywords selected, returns all keywords.
     If habits have been tracked on the specified date, their keywords are excluded.
@@ -299,12 +340,15 @@ def my_habit_keywords(request):
     else:
         target_date = datetime.date.today()
 
-    habit_keywords = (
-        get_habit_keywords_for_user_and_date(
-            request.user, target_date, all=request.query_params.get("all") == "true"
+    everything = request.query_params.get("all") == "true"
+    if request.query_params.get("with_tracked") == "true":
+        habit_keywords = get_habit_keywords_for_user(request.user, all=everything)
+    else:
+        habit_keywords = get_habit_keywords_for_user_and_date(
+            request.user, target_date, all=everything
         )
-        .select_related("habit")
-        .prefetch_related("habit__keywords")
+    habit_keywords = habit_keywords.select_related("habit").prefetch_related(
+        "habit__keywords", "habit__metrics"
     )
 
     serializer = HabitKeywordSerializer(

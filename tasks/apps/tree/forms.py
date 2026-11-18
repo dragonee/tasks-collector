@@ -11,6 +11,7 @@ from .models import (
     Breakthrough,
     Habit,
     HabitKeyword,
+    HabitMetric,
     JournalAdded,
     JournalTag,
     Observation,
@@ -341,6 +342,38 @@ class HabitForm(forms.ModelForm):
         for keyword in self.cleaned_data["keywords"]:
             HabitKeyword.objects.create(habit=habit, keyword=keyword)
         return habit
+
+
+class HabitMetricForm(forms.ModelForm):
+    """A new metric of ``habit`` (a required keyword argument), last in its
+    order."""
+
+    class Meta:
+        model = HabitMetric
+        fields = ["label", "key", "kind", "unit", "decimals"]
+        widgets = {
+            "key": forms.TextInput(attrs={"placeholder": "weight"}),
+            "unit": forms.TextInput(attrs={"placeholder": "kg"}),
+        }
+        help_texts = {
+            "key": "What a note writes it as: weight=80.5kg.",
+            "unit": "A number's, written after it.",
+        }
+
+    def __init__(self, *args, habit, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance.habit = habit
+
+    def clean_key(self):
+        key = self.cleaned_data["key"]
+        if self.instance.habit.metrics.filter(key=key).exists():
+            raise ValidationError(f"{self.instance.habit.name} already records {key}.")
+        return key
+
+    def save(self, commit=True):
+        last = self.instance.habit.metrics.order_by("-order").first()
+        self.instance.order = last.order + 1 if last else 0
+        return super().save(commit)
 
 
 class MapProviderForm(forms.ModelForm):

@@ -2,13 +2,16 @@ from functools import partial
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
 from rest_polymorphic.serializers import PolymorphicSerializer
 
 from .models import *
+from .services.habits.tracking import clean_values
 from .services.observations.event_creation import create_observation_change_events
 from .services.tasks import documents
 from .templatetags.model_presenters import first_line
@@ -110,9 +113,17 @@ class ThreadSerializer(serializers.HyperlinkedModelSerializer):
         fields = ["id", "name", "shared_by", "board_stream", "shareable"]
 
 
+class HabitMetricSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HabitMetric
+        fields = ["key", "label", "kind", "unit", "decimals"]
+
+
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
     today_tracked = serializers.IntegerField(read_only=True)
     keywords = serializers.SerializerMethodField()
+    # What an entry of the habit records: a phone builds its form from these.
+    metrics = HabitMetricSerializer(many=True, read_only=True)
 
     def get_keywords(self, obj):
         return list(obj.get_keywords())
@@ -133,7 +144,15 @@ class HabitSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Habit
-        fields = ["id", "name", "description", "slug", "keywords", "today_tracked"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "slug",
+            "keywords",
+            "today_tracked",
+            "metrics",
+        ]
 
 
 class HabitKeywordSerializer(serializers.ModelSerializer):
@@ -524,13 +543,46 @@ class HabitTrackedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = HabitTracked
-        fields = ["id", "published", "habit", "occured", "note"]
+        fields = ["id", "published", "habit", "occured", "note", "values"]
 
 
-class TrackHabitAPISerializer(serializers.Serializer):
+class HabitWriteSerializer(serializers.Serializer):
+    """Which habit a write is for: the one a ``keyword`` names. ``values`` of
+    its metrics, by key, are written into the note as tokens."""
+
     keyword = serializers.SlugField(max_length=255, allow_unicode=True)
-    date = serializers.DateField()
     note = serializers.CharField(required=False, allow_blank=True, default="")
+    values = serializers.DictField(required=False, default=dict)
+
+    def validate(self, data):
+        user = self.context["request"].user
+        keyword = (
+            HabitKeyword.objects.filter(user=user, keyword=data["keyword"])
+            .select_related("habit")
+            .first()
+        )
+        if keyword is None:
+            raise NotFound("You have no habit with this keyword.")
+        data["habit"] = keyword.habit
+        try:
+            data["values"] = clean_values(keyword.habit, data["values"])
+        except DjangoValidationError as error:
+            raise serializers.ValidationError({"values": error.message_dict})
+        return data
+
+
+class TrackHabitAPISerializer(HabitWriteSerializer):
+    """The habit's entry of a day."""
+
+    date = serializers.DateField()
+
+
+class TrackedHabitSerializer(HabitWriteSerializer):
+    """A new entry of the habit, each time."""
+
+    published = serializers.DateTimeField(required=False)
+    occured = serializers.BooleanField(required=False, default=True)
+    idempotency_key = IdempotencyKeyField()
 
 
 class ProjectedOutcomeMadeSerializer(serializers.ModelSerializer):
