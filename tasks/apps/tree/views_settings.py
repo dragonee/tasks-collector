@@ -12,6 +12,7 @@ from .forms import (
     ApiTokenForm,
     DefaultBoardForm,
     HabitKeywordsForm,
+    HabitRolesForm,
     MapProviderForm,
     UserForm,
 )
@@ -142,10 +143,12 @@ def habits(request):
     form = HabitKeywordsForm(
         _posted(request), instance=_profile(request.user), user=request.user
     )
-    if form.is_valid():
+    roles_form = HabitRolesForm(_posted(request), user=request.user)
+    if form.is_valid() and roles_form.is_valid():
         form.save()
+        roles_form.save()
         return _saved(request, HABITS)
-    return _page(request, HABITS, form=form)
+    return _page(request, HABITS, form=form, roles_form=roles_form)
 
 
 @login_required

@@ -564,6 +564,41 @@ class HabitMetric(models.Model):
         return f"{self.habit.name}: {self.label}"
 
 
+class HabitRole(models.Model):
+    """The habit that fills a role for its user: what code finds a habit by,
+    whatever its slug or keywords (services.habits.roles)."""
+
+    class Role(models.TextChoices):
+        BREAKTHROUGH = "breakthrough", _("Breakthroughs")
+        WEIGHT = "weight", _("Body weight")
+        DAILY_HEALTH = "daily-health", _("The phone's daily health")
+        BIKE_RIDE = "bike-ride", _("Bike rides from the phone")
+
+    # Always the habit's owner (set on save): a role is filled once per user.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="habit_roles",
+        editable=False,
+    )
+    role = models.CharField(max_length=32, choices=Role.choices)
+    habit = models.ForeignKey(Habit, on_delete=models.CASCADE, related_name="roles")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "role"], name="habitrole_user_role_unique"
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.user_id = self.habit.user_id
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.get_role_display()}: {self.habit.name}"
+
+
 class HabitTracked(Event):
     # thread must be set manually
 
@@ -576,6 +611,12 @@ class HabitTracked(Event):
     # What the habit's metrics read from the note, by key; kept with it on
     # every save (services.habits.metrics).
     values = models.JSONField(default=dict, blank=True, editable=False)
+
+    # The role it was written for, if any. A role of one entry a day (the
+    # phone's daily health) replaces its own entry of the day, and only it.
+    role = models.CharField(
+        max_length=32, blank=True, default="", choices=HabitRole.Role.choices
+    )
 
     template = "tree/events/habit_tracked.html"
 

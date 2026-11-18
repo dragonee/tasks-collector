@@ -54,10 +54,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _activityDialogOpen = MutableStateFlow(false)
     val activityDialogOpen: StateFlow<Boolean> = _activityDialogOpen.asStateFlow()
 
-    /** The keyword the dialog should preselect when it opens (weight when it is
-     *  opened by tapping the weight section); null for the first one. */
-    private val _activityInitialKeyword = MutableStateFlow<String?>(null)
-    val activityInitialKeyword: StateFlow<String?> = _activityInitialKeyword.asStateFlow()
+    /** The role whose habit the dialog should preselect when it opens (weight
+     *  when it is opened by tapping the weight section); null for the first. */
+    private val _activityInitialRole = MutableStateFlow<String?>(null)
+    val activityInitialRole: StateFlow<String?> = _activityInitialRole.asStateFlow()
 
     /** The habits the dialog offers, by keyword, each with what it records.
      *  Empty until [loadActivityKeywords] first succeeds. */
@@ -238,8 +238,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshHealthDataAsync()
     }
 
-    fun openActivityDialog(initialKeyword: String? = null) {
-        _activityInitialKeyword.value = initialKeyword
+    fun openActivityDialog(initialRole: String? = null) {
+        _activityInitialRole.value = initialRole
         _activityError.value = null
         _activityDialogOpen.value = true
         loadActivityKeywords()

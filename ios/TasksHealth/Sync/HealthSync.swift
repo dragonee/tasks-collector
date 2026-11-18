@@ -1,17 +1,18 @@
 import Foundation
 import HealthKit
 
-/// Pushes the health metrics of the last days to the server: one
-/// `health-metrics` habit entry per day (the server keeps one per day and
-/// updates it), and one `workout` entry per bike ride.
+/// Pushes the health metrics of the last days to the server: one entry of
+/// the daily-health role per day (the server keeps one per day and updates
+/// it), and one of the bike-ride role per ride, in whatever habits fill those
+/// roles (the server makes them when none do).
 ///
 /// An actor with one sync at a time: a second caller waits for the one under
 /// way. Two at once would both see a ride as not posted yet and post it
 /// twice.
 actor HealthSync {
 
-    static let habitKeyword = "health-metrics"
-    static let workoutKeyword = "workout"
+    static let dailyHealthRole = "daily-health"
+    static let bikeRideRole = "bike-ride"
 
     /// Days synced each time, today included. Watches fill in earlier days
     /// late, so a day can still change after it is over.
@@ -58,29 +59,28 @@ actor HealthSync {
                 let metrics = try await health.aggregateDay(day)
                 try await api.trackHabit(
                     TrackHabitRequest(
-                        keyword: Self.habitKeyword,
+                        role: Self.dailyHealthRole,
                         date: day.iso,
                         note: NoteFormatter.format(metrics)
                     )
                 )
                 for ride in try await health.bikeSessions(day) where !posted.contains(ride.id) {
                     do {
-                        try await api.trackHabitText(
-                            TrackHabitTextRequest(
-                                text: NoteFormatter.formatBikeRide(
-                                    keyword: Self.workoutKeyword,
-                                    durationMinutes: ride.durationMinutes
-                                ),
+                        try await api.trackHabitValues(
+                            TrackedHabitRequest(
+                                role: Self.bikeRideRole,
                                 // When the ride started, so the entry lands on
                                 // the day of the ride, not of the sync.
-                                published: IsoTime.string(ride.start)
+                                published: IsoTime.string(ride.start),
+                                note: "Bike ride",
+                                values: ["duration": .seconds(ride.durationMinutes * 60)],
+                                // A ride sent twice is one entry.
+                                idempotencyKey: String("\(Self.bikeRideRole):\(ride.id)".prefix(64))
                             )
                         )
                     } catch let error as HTTPError where error.code == 400 {
-                        // The user has no habit with the keyword. Sending it
-                        // again won't change that, so the ride counts as
-                        // synced, as it did when the server took it and
-                        // tracked nothing.
+                        // The server won't take the ride as it is. Sending it
+                        // again won't change that, so it counts as synced.
                     }
                     // Remembered at once, so a sync that fails further on
                     // doesn't post the ride again next time.

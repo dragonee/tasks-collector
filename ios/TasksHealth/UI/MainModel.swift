@@ -2,11 +2,12 @@ import AuthenticationServices
 import Observation
 import UIKit
 
-/// The "register activity" sheet while it is open, with the keyword it
-/// opens on (weight when opened from the weight row; nil for the first).
+/// The "register activity" sheet while it is open, with the role whose
+/// habit it opens on (weight when opened from the weight row; nil for the
+/// first).
 struct ActivitySheet: Identifiable, Equatable {
     let id = UUID()
-    let keyword: String?
+    let role: String?
 }
 
 /// Behind the Health and Settings screens: logging in and out, the health
@@ -156,9 +157,9 @@ final class MainModel {
 
     // MARK: Activities
 
-    func openActivitySheet(_ keyword: String? = nil) {
+    func openActivitySheet(role: String? = nil) {
         activityError = nil
-        activitySheet = ActivitySheet(keyword: keyword)
+        activitySheet = ActivitySheet(role: role)
         Task { await loadActivityKeywords() }
     }
 

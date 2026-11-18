@@ -23,11 +23,16 @@ class HabitMetricInline(admin.TabularInline):
     extra = 0
 
 
+class HabitRoleInline(admin.TabularInline):
+    model = HabitRole
+    extra = 0
+
+
 class HabitAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "user", "display_keywords", "event_stream_id")
     list_filter = ("user",)
     readonly_fields = ("event_stream_id",)
-    inlines = [HabitKeywordInline, HabitMetricInline]
+    inlines = [HabitKeywordInline, HabitMetricInline, HabitRoleInline]
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related("keywords")

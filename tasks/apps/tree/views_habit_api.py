@@ -19,6 +19,7 @@ from .serializers import (
     TrackHabitAPISerializer,
 )
 from .services.habits.metrics import write
+from .services.habits.roles import ROLES, one_per_day_role
 from .services.habits.tracking import track
 from .services.idempotency import existing_event
 
@@ -31,13 +32,15 @@ def _aware_midday(date: datetime.date):
 class TrackHabitAPIView(APIView):
     """JSON endpoint for mobile clients to record a habit's entry of a day.
 
-    Resolves the target Habit by HabitKeyword text (the same hashtag the user
-    would type in the journal), so the mobile contract doesn't depend on the
-    Habit table's slug column. ``values`` of its metrics, by key, are written
-    into the note as tokens.
+    The habit is the one a ``keyword`` names (the same hashtag the user would
+    type in the journal) or the one that fills a ``role``, made when none
+    does. ``values`` of its metrics, by key, are written into the note.
 
-    Idempotent on (habit, date): a second POST for the same day updates the
-    existing event's note rather than inserting a duplicate.
+    One entry a day: a second POST for the same day updates the entry rather
+    than adding one. For a role of one entry a day (the phone's daily health)
+    that is the role's own entry, never one typed by hand; the role's own
+    keyword (health-metrics, from phones before they said the role) counts as
+    the role. Any other write replaces the day's entry that is no role's.
     """
 
     authentication_classes = [TokenAuthentication]
@@ -50,19 +53,26 @@ class TrackHabitAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         habit = data["habit"]
+        role = data["role"] or one_per_day_role(habit, data.get("keyword"))
         note = write(data["note"], habit.metrics.all(), data["values"])
         thread = Thread.objects.daily(request.user)
         published = _aware_midday(data["date"])
 
-        existing = HabitTracked.objects.filter(
+        same_day = HabitTracked.objects.filter(
             habit=habit, published__date=data["date"]
-        ).first()
+        )
+        if role and ROLES[role].one_per_day:
+            same_day = same_day.filter(role=role)
+        else:
+            same_day = same_day.filter(role="")
+        existing = same_day.first()
 
         if existing is not None:
             existing.note = note
             existing.occured = True
             existing.thread = thread
             existing.published = published
+            existing.role = role
             existing.save()
         else:
             HabitTracked.objects.create(
@@ -72,14 +82,16 @@ class TrackHabitAPIView(APIView):
                 thread=thread,
                 published=published,
                 created_by=request.user,
+                role=role,
             )
 
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
 class TrackedHabitCreateView(APIView):
-    """POST api/v1/habit/tracked/: a new entry of the habit a keyword names,
-    each time, with its metrics' ``values`` (by key) written into the note.
+    """POST api/v1/habit/tracked/: a new entry, each time, of the habit a
+    ``keyword`` names or a ``role`` is filled by (made when none is), with its
+    metrics' ``values`` (by key) written into the note.
 
     Sent again with the same ``idempotency_key``, it gives back the entry the
     first one made (200) and makes nothing more.
@@ -105,6 +117,7 @@ class TrackedHabitCreateView(APIView):
                         published=data.get("published"),
                         occured=data["occured"],
                         idempotency_key=key,
+                        role=data["role"],
                     )
             except IntegrityError:
                 # The same key, sent twice at once: the other one made it.

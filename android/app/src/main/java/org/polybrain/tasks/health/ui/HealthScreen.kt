@@ -174,15 +174,16 @@ private fun TrackActivityDialog(vm: MainViewModel) {
     val saving by vm.activitySaving.collectAsState()
     val error by vm.activityError.collectAsState()
     val keywords by vm.activityKeywords.collectAsState()
-    val initialKeyword by vm.activityInitialKeyword.collectAsState()
+    val initialRole by vm.activityInitialRole.collectAsState()
 
     var chosen by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf("") }
     var inputs by remember { mutableStateOf(mapOf<String, MetricInput>()) }
 
-    // The keyword asked for (weight from the weight row), else the first,
-    // once the list is in.
-    val selected = keywords.firstOrNull { it.keyword == (chosen ?: initialKeyword) }
+    // The keyword chosen, else the habit of the role asked for (weight from
+    // the weight row), else the first, once the list is in.
+    val selected = keywords.firstOrNull { it.keyword == chosen }
+        ?: keywords.firstOrNull { initialRole != null && initialRole in it.habit?.roles.orEmpty() }
         ?: keywords.firstOrNull()
     val metrics = selected?.habit?.metrics.orEmpty()
     val values = metricValues(metrics, inputs)

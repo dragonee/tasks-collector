@@ -10,9 +10,12 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
+// POST api/v1/habit/track/ — a habit's entry of a day: the habit a [keyword]
+// names, or the one that fills a [role] (the server makes it when none does).
 @Serializable
 data class TrackHabitRequest(
-    @SerialName("keyword") val keyword: String,
+    @SerialName("keyword") val keyword: String? = null,
+    @SerialName("role") val role: String? = null,
     @SerialName("date") val date: String,
     @SerialName("note") val note: String,
 )
@@ -20,18 +23,6 @@ data class TrackHabitRequest(
 @Serializable
 data class TrackHabitResponse(
     @SerialName("ok") val ok: Boolean,
-)
-
-@Serializable
-data class TrackHabitTextRequest(
-    // Single line starting with '#' or '!'. The server parses out the
-    // hashtag and creates one HabitTracked per tag found, so multiple
-    // entries per day for the same habit are supported (unlike the
-    // idempotent /api/v1/habit/track/).
-    @SerialName("text") val text: String,
-    // ISO 8601 timestamp; the server uses this as the event's published
-    // time so the entry lands on the day the activity actually happened.
-    @SerialName("published") val published: String,
 )
 
 @Serializable
@@ -56,6 +47,8 @@ data class HabitRef(
     @SerialName("name") val name: String = "",
     // What an entry of the habit records; the activity dialog asks for these.
     @SerialName("metrics") val metrics: List<HabitMetric> = emptyList(),
+    // What the code finds it by: weight, daily-health, bike-ride, breakthrough.
+    @SerialName("roles") val roles: List<String> = emptyList(),
 )
 
 // One thing a habit records with each entry (habit/keywords/mine/). [kind] is
@@ -70,14 +63,18 @@ data class HabitMetric(
     @SerialName("decimals") val decimals: Int = 0,
 )
 
-// POST api/v1/habit/tracked/ — a new entry of the habit [keyword] names, each
-// time; [values] of its metrics, by key, are written into [note] as tokens.
+// POST api/v1/habit/tracked/ — a new entry, each time, of the habit [keyword]
+// names or [role] is filled by; [values] of its metrics, by key, are written
+// into [note] as tokens. Sent again with the same [idempotencyKey], it makes
+// nothing more.
 @Serializable
 data class TrackedHabitRequest(
-    @SerialName("keyword") val keyword: String,
+    @SerialName("keyword") val keyword: String? = null,
+    @SerialName("role") val role: String? = null,
     @SerialName("published") val published: String,
     @SerialName("note") val note: String = "",
     @SerialName("values") val values: JsonObject = JsonObject(emptyMap()),
+    @SerialName("idempotency_key") val idempotencyKey: String? = null,
 )
 
 @Serializable
@@ -414,14 +411,6 @@ data class TripDetailResponse(
 interface TasksApi {
     @POST("api/v1/habit/track/")
     suspend fun trackHabit(@Body body: TrackHabitRequest): TrackHabitResponse
-
-    // Non-API web endpoint (no /api/v1/ prefix) that accepts a free-form
-    // habit line and creates one HabitTracked per parsed hashtag. Used for
-    // per-event activities like individual bike rides, where the
-    // upsert-by-(habit, date) behavior of /api/v1/habit/track/ would
-    // collapse multiple events into one.
-    @POST("habit/track/")
-    suspend fun trackHabitText(@Body body: TrackHabitTextRequest): OkResponse
 
     // The current user's available habit keywords for the "track a habit"
     // picker. Scoped to the profile's selection (the server falls back to all

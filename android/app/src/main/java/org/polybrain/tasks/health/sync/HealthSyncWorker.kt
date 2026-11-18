@@ -11,7 +11,9 @@ import org.polybrain.tasks.health.data.Settings
 import org.polybrain.tasks.health.data.TasksApi
 import org.polybrain.tasks.health.data.TasksClient
 import org.polybrain.tasks.health.data.TrackHabitRequest
-import org.polybrain.tasks.health.data.TrackHabitTextRequest
+import org.polybrain.tasks.health.data.TrackedHabitRequest
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import retrofit2.HttpException
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -61,7 +63,7 @@ class HealthSyncWorker(
                     val note = NoteFormatter.format(metrics)
                     api.trackHabit(
                         TrackHabitRequest(
-                            keyword = HABIT_KEYWORD,
+                            role = DAILY_HEALTH_ROLE,
                             date = day.toString(),
                             note = note,
                         )
@@ -88,28 +90,32 @@ class HealthSyncWorker(
     }
 
     private suspend fun postBikeRide(api: TasksApi, ride: BikeSession, zone: ZoneId) {
-        val text = NoteFormatter.formatBikeRide(WORKOUT_KEYWORD, ride.durationMinutes)
-        // Use the ride's actual start time so the entry lands on the day
-        // the ride happened, not the day the sync ran.
-        val published = OffsetDateTime.ofInstant(ride.start, zone).toString()
         try {
-            api.trackHabitText(
-                TrackHabitTextRequest(
-                    text = text,
-                    published = published,
+            api.trackHabitValues(
+                TrackedHabitRequest(
+                    role = BIKE_RIDE_ROLE,
+                    // The ride's start, so the entry lands on the day it
+                    // happened, not the day the sync ran.
+                    published = OffsetDateTime.ofInstant(ride.start, zone).toString(),
+                    note = "Bike ride",
+                    values = buildJsonObject { put("duration", ride.durationMinutes * 60) },
+                    // A ride sent twice (a crash before it was kept as synced)
+                    // is one entry.
+                    idempotencyKey = "$BIKE_RIDE_ROLE:${ride.id}".take(64),
                 )
             )
         } catch (e: HttpException) {
-            // 400: the user has no habit with the keyword. Sending it again
-            // won't change that, so the ride counts as synced, as it did
-            // when the server took it and tracked nothing.
+            // 400: the server won't take the ride as it is. Sending it again
+            // won't change that, so it counts as synced.
             if (e.code() != 400) throw e
         }
     }
 
     companion object {
-        const val HABIT_KEYWORD = "health-metrics"
-        const val WORKOUT_KEYWORD = "workout"
+        // The roles the server files the day and the rides under, in
+        // whatever habit fills them (it makes one when none does).
+        const val DAILY_HEALTH_ROLE = "daily-health"
+        const val BIKE_RIDE_ROLE = "bike-ride"
 
         /** Days re-synced per run, counting today. Covers late wearable back-fills. */
         const val SYNC_WINDOW_DAYS = 7

@@ -15,6 +15,13 @@
         <p class="settings-help">Tick the keywords to track. With none ticked, every habit shows.</p>
         {{ form.habit_keywords.errors }}
     </fieldset>
+    <fieldset class="settings-field">
+        <legend>Used for</legend>
+        <p class="settings-help">The habit each of these goes to. Left empty, the first one recorded makes a habit for it.</p>
+        {% for field in roles_form.roles %}
+            {% include "tree/settings/_field.html" with field=field %}
+        {% endfor %}
+    </fieldset>
     <div class="settings-actions">
         <button type="submit" class="submit">Save</button>
     </div>

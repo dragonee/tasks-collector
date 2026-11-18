@@ -36,7 +36,7 @@ const journalAddedEvents = document.querySelectorAll('.event-content.journal-add
 // since they sit over its Save button. The form is looked up on every click:
 // htmx swaps it for a fresh one after each save.
 const INLINE_FORMS = {
-    breakthrough: { button: '.add-breakthrough-button', form: '.habit-form', field: 'text', prefill: '#breakthrough ' },
+    breakthrough: { button: '.add-breakthrough-button', form: '.habit-form', field: 'text', prefill: '' },
     tag: { button: '.add-tag-button', form: '.tag-form', field: 'name', prefill: '' },
 };
 

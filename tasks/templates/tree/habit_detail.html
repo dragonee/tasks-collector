@@ -14,6 +14,9 @@
     </div>
     <div class="lower-pane">
         Total events: {{ total_event_count }}
+        {% for role in object.roles.all %}
+            · {{ role.get_role_display }}
+        {% endfor %}
     </div>
 </div>
 

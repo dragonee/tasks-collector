@@ -14,14 +14,4 @@ object NoteFormatter {
             "active=${metrics.activeMinutes}min " +
             "kcal=$kcalStr"
     }
-
-    /**
-     * Formats a bike ride as a habit-line that the server's hashtag parser
-     * will turn into a HabitTracked under the [keyword] habit. Distance is
-     * deliberately omitted — phone-only rides have no reliable distance
-     * (no GPS track from the watch).
-     */
-    fun formatBikeRide(keyword: String, durationMinutes: Long): String {
-        return "#$keyword Bike ride (duration=${durationMinutes}m)"
-    }
 }
