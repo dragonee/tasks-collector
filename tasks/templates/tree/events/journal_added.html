@@ -1,4 +1,4 @@
-{% load model_presenters %}
+{% load l10n model_presenters %}
 
 <div class="event-content journal-added" data-id="{{ event.id }}" data-time="{{ event.published|time:"H:i" }}">
     {% if not readonly %}
@@ -35,5 +35,10 @@
                 {% endif %}
             {% endwith %}
         {% endif %}
+        {% with place=event.location %}
+            {% if place %}
+                <a class="trip-pin" href="https://www.openstreetmap.org/?mlat={{ place.lat|unlocalize }}&amp;mlon={{ place.lng|unlocalize }}" data-lat="{{ place.lat|unlocalize }}" data-lng="{{ place.lng|unlocalize }}" target="_blank" rel="noopener">📍 {{ place.lat|floatformat:"2u" }}, {{ place.lng|floatformat:"2u" }}</a>
+            {% endif %}
+        {% endwith %}
     </div>
 </div>

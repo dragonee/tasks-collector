@@ -1,43 +1,12 @@
 import Foundation
 
-struct PoiCoords: Equatable, Sendable {
-    let lat: Double
-    let lng: Double
-
-    /// The coordinates with a pin on them, in Maps.
+extension EventLocation {
+    /// The place with a pin on it, in Maps: what a note's or photo's
+    /// "Open in Maps" opens.
     var mapsUrl: URL? {
         let coords = String(format: "%f,%f", lat, lng)
         return URL(string: "https://maps.apple.com/?ll=\(coords)&q=\(coords)")
     }
-}
-
-struct ParsedTripNote: Equatable, Sendable {
-    /// The comment without its leading "#poi lat=… lng=…" line.
-    let text: String
-    /// The coordinates of that line, or nil when there is none.
-    let poi: PoiCoords?
-}
-
-/// Take a leading `#poi lat=<float> lng=<float>` line off a trip note and
-/// give its coordinates apart, so the row can offer "Open in Maps".
-///
-/// Only the first line is looked at: that is where the app writes the
-/// marker. One in the middle of a comment was typed by the user, and stays
-/// in the text.
-func parseTripNote(_ comment: String) -> ParsedTripNote {
-    // Only spaces and tabs inside the marker line: \s would take the newline
-    // and with it the body. Whatever follows the lng= value on that line (an
-    // accuracy, a label) goes with the marker.
-    let marker = #/^[ \t]*#poi[ \t]+lat=(-?\d+(?:\.\d+)?)[ \t]+lng=(-?\d+(?:\.\d+)?)[^\n]*(?:\n|$)/#
-    guard let match = comment.prefixMatch(of: marker),
-          let lat = Double(match.1),
-          let lng = Double(match.2)
-    else { return ParsedTripNote(text: comment, poi: nil) }
-    // The body as the user wrote it, whitespace included.
-    return ParsedTripNote(
-        text: String(comment[match.range.upperBound...]),
-        poi: PoiCoords(lat: lat, lng: lng)
-    )
 }
 
 /// How event times are shown inside a trip: the time alone when the trip and

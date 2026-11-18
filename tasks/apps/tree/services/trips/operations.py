@@ -14,6 +14,7 @@ from django.utils import timezone
 from ...models import JournalAdded, PhotoAdded, SharedStory, Story
 from ..idempotency import existing_event
 from ..journalling import process_journal_entry
+from ..locations import locate, location_of, split_place
 from ..photos import key_belongs_to, original_key
 from ..photos import storage as photo_storage
 from ..photos.events import (
@@ -149,10 +150,14 @@ def get_shared_story(share_uuid):
 
 
 @transaction.atomic
-def add_trip_note(user, story_id, comment, published=None, idempotency_key=None):
+def add_trip_note(
+    user, story_id, comment, published=None, idempotency_key=None, place=None
+):
     """Create a JournalAdded linked to ``story``, processed through the
     journalling pipeline so embedded hashtags create HabitTracked
-    entries that are also linked to the story.
+    entries that are also linked to the story. It happened at ``place`` (a
+    ``locations.Place``), or at the one an older phone wrote as the comment's
+    first line (read off it).
 
     Raises ``StoryStoppedError`` if the story is already stopped.
 
@@ -175,6 +180,7 @@ def add_trip_note(user, story_id, comment, published=None, idempotency_key=None)
         # back only this insert, leaving the outer transaction usable for the
         # re-fetch below.
         with transaction.atomic():
+            comment, written = split_place(comment)
             journal_added = JournalAdded.objects.create(
                 thread=_journal_thread_for(user),
                 created_by=user,
@@ -182,6 +188,7 @@ def add_trip_note(user, story_id, comment, published=None, idempotency_key=None)
                 published=published or timezone.now(),
                 idempotency_key=idempotency_key,
             )
+            locate(journal_added, place or written)
             process_journal_entry(journal_added, story=story)
     except IntegrityError:
         existing = existing_event(JournalAdded, user, idempotency_key)
@@ -222,10 +229,12 @@ def add_trip_photo(
     published=None,
     idempotency_key=None,
     content_hash=None,
+    place=None,
 ):
     """Confirm an uploaded photo: create a PhotoAdded linked to ``story`` and
-    run it through the journalling pipeline (so a ``#poi`` line in ``comment``
-    still creates a HabitTracked). Enqueues the thumbnail task on commit.
+    run it through the journalling pipeline. It was taken at ``place``, or at
+    the one an older phone wrote as the comment's first line (read off it).
+    Enqueues the thumbnail task on commit.
 
     Raises ``StoryStoppedError`` if stopped, ``PhotoObjectMissingError`` if the
     object isn't in the bucket (or the key doesn't belong to this user/story),
@@ -284,6 +293,7 @@ def add_trip_photo(
         # Nested savepoint so a unique-key collision (concurrent retry) rolls
         # back only this insert, leaving the outer transaction usable.
         with transaction.atomic():
+            comment, written = split_place(comment)
             photo = PhotoAdded.objects.create(
                 thread=_journal_thread_for(user),
                 created_by=user,
@@ -294,6 +304,7 @@ def add_trip_photo(
                 idempotency_key=idempotency_key,
                 content_hash=content_hash,
             )
+            locate(photo, place or written)
             process_journal_entry(photo, story=story)
     except IntegrityError:
         existing = existing_event(PhotoAdded, user, idempotency_key)
@@ -334,19 +345,18 @@ def story_entries(story):
     as real model instances.
 
     HabitTracked rows that were attached as a side-effect of journal
-    processing (e.g. POI extraction from ``#poi`` hashtags) are
-    intentionally *not* included here — the JournalAdded already carries
-    the same information in its comment, and the clients derive map pins
-    from there.
+    processing (a hashtag in a note) are intentionally *not* included here:
+    the JournalAdded already carries the same information in its comment.
+    Each comes with its location (``EventLocation``), when it has one.
 
     Queried through the polymorphic JournalAdded manager so the subclass rows
     load in one query per type rather than one ``get_real_instance()`` query
     per entry. Shared by the Android detail endpoint and the web trip pages.
     """
     return list(
-        JournalAdded.objects.filter(
-            stream_entries__stream=story.event_stream_id
-        ).order_by("-published")
+        JournalAdded.objects.filter(stream_entries__stream=story.event_stream_id)
+        .prefetch_related("location")
+        .order_by("-published")
     )
 
 
@@ -356,6 +366,10 @@ def get_detail(user, story_id):
     story = _get_owned_story(user, story_id)
     events = []
     for event in story_entries(story):
+        place = location_of(event)
+        location = (
+            {"lat": place.lat, "lng": place.lng, "acc": place.acc} if place else None
+        )
         # PhotoAdded is-a JournalAdded, so it must be checked first.
         if isinstance(event, PhotoAdded):
             events.append(
@@ -363,6 +377,7 @@ def get_detail(user, story_id):
                     "id": event.pk,
                     "type": "photo",
                     "published": event.published,
+                    "location": location,
                     "comment": event.comment,
                     "thumbnail_url": (
                         photo_storage.presign_get(event.thumbnail_key)
@@ -378,6 +393,7 @@ def get_detail(user, story_id):
                     "id": event.pk,
                     "type": "journal",
                     "published": event.published,
+                    "location": location,
                     "comment": event.comment,
                 }
             )

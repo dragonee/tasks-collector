@@ -26,6 +26,7 @@ from ...models import (
 from ...services import streams
 from ...services.boards import items
 from ...services.journalling import process_journal_entry
+from ...services.locations import Place
 from ...services.observations.event_creation import create_observation_change_events
 from ...services.tasks import agenda, documents
 from ...services.tasks import operations as tasks
@@ -207,8 +208,9 @@ class Seed:
         add_trip_note(
             self.user,
             story.pk,
-            "Coffee at the trailhead #poi lat=49.2992 lng=19.9496",
+            "Coffee at the trailhead",
             published=started + datetime.timedelta(hours=1),
+            place=Place(49.2992, 19.9496, 15.0),
         )
         add_trip_note(
             self.user,

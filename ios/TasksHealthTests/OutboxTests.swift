@@ -16,15 +16,60 @@ final class OutboxTests {
     }
 
     @Test func enqueueNotePersistsARetrievableItem() async {
-        let item = await outbox.enqueueNote(
-            storyId: 7, comment: "#poi lat=1.0 lng=2.0\nhi", published: "2026-06-06T10:00:00Z"
-        )
+        let item = await outbox.enqueueNote(storyId: 7, comment: "hi", published: "2026-06-06T10:00:00Z")
         let all = await outbox.all()
         #expect(all.count == 1)
         #expect(all.first?.id == item.id)
         #expect(all.first?.kind == .note)
         #expect(all.first?.storyId == 7)
-        #expect(all.first?.comment == "#poi lat=1.0 lng=2.0\nhi")
+        #expect(all.first?.comment == "hi")
+        #expect(all.first?.location == nil)
+    }
+
+    // MARK: Where it was made
+
+    private let warsaw = LocationFix(lat: 52.229676, lng: 21.012229, accuracyMeters: 8.5)
+
+    @Test func aNoteKeepsThePlaceItWasSavedWith() async throws {
+        let item = await outbox.enqueueNote(storyId: 7, comment: "", published: "t", location: warsaw)
+
+        let read = try #require(await outbox.all().first)
+        #expect(read == item)
+        #expect(read.lat == 52.229676)
+        #expect(read.lng == 21.012229)
+        #expect(read.acc == 8.5)
+        #expect(read.location == EventLocation(lat: 52.229676, lng: 21.012229, acc: 8.5))
+        // The place is not written into the text.
+        #expect(read.comment == "")
+    }
+
+    @Test func aPhotoKeepsThePlaceItWasSavedWith() async throws {
+        let fixWithNoAccuracy = LocationFix(lat: -33.8688, lng: 151.2093)
+        _ = try await outbox.enqueuePhoto(
+            storyId: nil, comment: "cap", published: "t", location: fixWithNoAccuracy,
+            contentType: "image/jpeg", bytes: Data([3])
+        )
+
+        let read = try #require(await outbox.standalone().first)
+        #expect(read.location == EventLocation(lat: -33.8688, lng: 151.2093))
+        #expect(read.acc == nil)
+        #expect(read.comment == "cap")
+    }
+
+    @Test func anItemQueuedByAnOlderBuildStillReadsWithItsPlaceInTheComment() async throws {
+        // As a build from before the location fields wrote it: the place is
+        // the first line of the comment, and there is no lat, lng or acc.
+        let json = """
+            {"id": "0ld1d000-0000-4000-8000-000000000000", "kind": "NOTE", "storyId": 7,
+             "comment": "#poi lat=1.000000 lng=2.000000\\nhi", "published": "2026-06-06T10:00:00Z",
+             "createdAt": 1780000000000, "uploaded": false, "attempts": 0, "failedPermanently": false}
+            """
+        try Data(json.utf8).write(to: dir.appending(path: "0001780000000000-0ld1d000.json"))
+
+        let read = try #require(await outbox.forStory(7).first)
+        #expect(read.kind == .note)
+        #expect(read.location == nil)
+        #expect(read.comment == "#poi lat=1.000000 lng=2.000000\nhi")
     }
 
     @Test func enqueuePhotoWritesThePhotoBytesAlongsideTheItem() async throws {

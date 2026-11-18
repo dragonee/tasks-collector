@@ -17,10 +17,11 @@ final class OutboxDrainerTests {
 
     private let noopPut: OutboxDrainer.PhotoPutter = { _, _, _ in }
 
-    private func enqueuePhoto(storyId: Int64?, bytes: [UInt8]) async throws -> OutboxItem {
+    private func enqueuePhoto(storyId: Int64?, bytes: [UInt8], location: LocationFix? = nil) async throws -> OutboxItem {
         try #require(
             try await outbox.enqueuePhoto(
-                storyId: storyId, comment: "cap", published: "t", contentType: "image/jpeg", bytes: Data(bytes)
+                storyId: storyId, comment: "cap", published: "t", location: location,
+                contentType: "image/jpeg", bytes: Data(bytes)
             )
         )
     }
@@ -86,6 +87,86 @@ final class OutboxDrainerTests {
         let confirms = await api.standaloneConfirmRequests
         #expect(confirms.map(\.key) == ["photos/7/k.jpg"])
         #expect(confirms.map(\.idempotencyKey) == [item.id])
+    }
+
+    // MARK: Where it was made
+
+    private let warsaw = LocationFix(lat: 52.229676, lng: 21.012229, accuracyMeters: 8.5)
+
+    @Test func aNoteSendsThePlaceItWasSavedWith() async throws {
+        // A place alone: no text is needed.
+        let item = await outbox.enqueueNote(storyId: 5, comment: "", published: "t", location: warsaw)
+        let api = FakeAPI()
+
+        #expect(await OutboxDrainer.process(item, api: api, outbox: outbox, put: noopPut).isSent)
+
+        let sent = try #require(await api.noteRequests.first)
+        #expect(sent.lat == 52.229676)
+        #expect(sent.lng == 21.012229)
+        #expect(sent.acc == 8.5)
+        #expect(sent.comment == "")
+        let body = try jsonKeys(sent)
+        #expect(body["lat"] as? Double == 52.229676)
+        #expect(body["lng"] as? Double == 21.012229)
+        #expect(body["acc"] as? Double == 8.5)
+    }
+
+    @Test func tripAndStandalonePhotosSendThePlaceTheyWereSavedWith() async throws {
+        let onTrip = try await enqueuePhoto(storyId: 2, bytes: [1], location: warsaw)
+        let alone = try await enqueuePhoto(
+            storyId: nil, bytes: [2], location: LocationFix(lat: -33.8688, lng: 151.2093)
+        )
+        let api = FakeAPI()
+
+        #expect(await OutboxDrainer.process(onTrip, api: api, outbox: outbox, put: noopPut).isSent)
+        #expect(await OutboxDrainer.process(alone, api: api, outbox: outbox, put: noopPut).isSent)
+
+        let trip = try #require(await api.confirmRequests.first)
+        #expect([trip.lat, trip.lng] == [52.229676, 21.012229])
+        #expect(trip.acc == 8.5)
+        let standalone = try #require(await api.standaloneConfirmRequests.first)
+        #expect([standalone.lat, standalone.lng] == [-33.8688, 151.2093])
+        // A fix with no accuracy sends none.
+        #expect(standalone.acc == nil)
+        #expect(try jsonKeys(standalone)["acc"] == nil)
+    }
+
+    @Test func anItemWithNoPlaceSendsNoLocation() async throws {
+        let note = await outbox.enqueueNote(storyId: 5, comment: "hello", published: "t")
+        let photo = try await enqueuePhoto(storyId: 2, bytes: [1])
+        let api = FakeAPI()
+
+        _ = await OutboxDrainer.process(note, api: api, outbox: outbox, put: noopPut)
+        _ = await OutboxDrainer.process(photo, api: api, outbox: outbox, put: noopPut)
+
+        let sentNote = try #require(await api.noteRequests.first)
+        let sentPhoto = try #require(await api.confirmRequests.first)
+        // Left out of the body, not sent as null.
+        for keys in try [jsonKeys(sentNote), jsonKeys(sentPhoto)] {
+            #expect(keys["lat"] == nil)
+            #expect(keys["lng"] == nil)
+            #expect(keys["acc"] == nil)
+        }
+    }
+
+    @Test func anOlderItemIsSentWithItsCommentAsItIs() async throws {
+        // Queued by a build that wrote the place into the comment: the
+        // server reads that line off, so it goes as it is, with no location.
+        var old = await outbox.enqueueNote(storyId: 5, comment: "", published: "t")
+        old.comment = "#poi lat=1.000000 lng=2.000000\nhi"
+        let api = FakeAPI()
+
+        _ = await OutboxDrainer.process(old, api: api, outbox: outbox, put: noopPut)
+
+        let sent = try #require(await api.noteRequests.first)
+        #expect(sent.comment == "#poi lat=1.000000 lng=2.000000\nhi")
+        #expect(sent.lat == nil)
+    }
+
+    /// The JSON body a request makes, as a dictionary.
+    private func jsonKeys(_ request: some Encodable) throws -> [String: Any] {
+        let data = try JSONEncoder().encode(request)
+        return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
     @Test func status4xxIsPermanent() async {

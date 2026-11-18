@@ -190,14 +190,15 @@ private struct PhotoViewer: View {
 
 /// The text of a note or photo, with a pin that opens its location in Maps.
 private struct CommentLine: View {
-    let note: ParsedTripNote
+    let text: String
+    let location: EventLocation?
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        if !note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || note.poi != nil {
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || location != nil {
             HStack(alignment: .top) {
-                Text(note.text).frame(maxWidth: .infinity, alignment: .leading)
-                if let url = note.poi?.mapsUrl {
+                Text(text).frame(maxWidth: .infinity, alignment: .leading)
+                if let url = location?.mapsUrl {
                     Button {
                         openURL(url)
                     } label: {
@@ -217,14 +218,11 @@ private struct EventRow: View {
     let onOpenPhoto: (Int64) -> Void
 
     var body: some View {
-        // A journal's and a photo's comment may start with a #poi line: it
-        // becomes the pin, and the rest the text.
-        let note = parseTripNote(event.comment ?? "")
         VStack(alignment: .leading, spacing: 6) {
             Text(time).font(.caption).foregroundStyle(.secondary)
             switch event.type {
             case "journal":
-                CommentLine(note: note)
+                CommentLine(text: event.comment ?? "", location: event.location)
             case "photo":
                 Button {
                     onOpenPhoto(event.id)
@@ -247,7 +245,7 @@ private struct EventRow: View {
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .trailing)
-                CommentLine(note: note)
+                CommentLine(text: event.comment ?? "", location: event.location)
             default:
                 Text(event.type)
             }
@@ -274,7 +272,7 @@ private struct PendingRow: View {
                     .frame(maxWidth: 240, maxHeight: 240)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            CommentLine(note: parseTripNote(item.comment))
+            CommentLine(text: item.comment, location: item.location)
             if item.failedPermanently {
                 Text("Couldn't sync: \(item.lastError ?? "")").font(.caption).foregroundStyle(.red)
                 HStack(spacing: 16) {

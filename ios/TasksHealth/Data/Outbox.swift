@@ -22,28 +22,38 @@ actor Outbox {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }
 
-    func enqueueNote(storyId: Int64, comment: String, published: String) -> OutboxItem {
+    /// Queue a note. `location` is the fix it is saved with, nil for none.
+    func enqueueNote(
+        storyId: Int64,
+        comment: String,
+        published: String,
+        location: LocationFix? = nil
+    ) -> OutboxItem {
         let item = OutboxItem(
             id: Self.newId(),
             kind: .note,
             storyId: storyId,
             comment: comment,
             published: published,
-            createdAt: Date().epochMillis
+            createdAt: Date().epochMillis,
+            lat: location?.lat,
+            lng: location?.lng,
+            acc: location?.accuracyMeters
         )
         write(item)
         return item
     }
 
-    /// Queue a photo. Returns nil (and writes nothing) when the same image
-    /// is queued for this scope already: the content hash dedups a quick
-    /// double pick or an overlapping selection before anything is uploaded.
-    /// A copy that failed for good is not counted, so picking it again gives
-    /// it a fresh try.
+    /// Queue a photo, with the fix it is saved with (nil for none). Returns
+    /// nil (and writes nothing) when the same image is queued for this scope
+    /// already: the content hash dedups a quick double pick or an
+    /// overlapping selection before anything is uploaded. A copy that failed
+    /// for good is not counted, so picking it again gives it a fresh try.
     func enqueuePhoto(
         storyId: Int64?,
         comment: String,
         published: String,
+        location: LocationFix? = nil,
         contentType: String,
         bytes: Data
     ) throws -> OutboxItem? {
@@ -63,6 +73,9 @@ actor Outbox {
             comment: comment,
             published: published,
             createdAt: createdAt,
+            lat: location?.lat,
+            lng: location?.lng,
+            acc: location?.accuracyMeters,
             contentType: contentType,
             photoFile: photoName,
             contentHash: contentHash

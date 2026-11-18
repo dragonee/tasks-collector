@@ -411,6 +411,22 @@ class EventStreamEntry(models.Model):
         return f"{self.stream} <- event #{self.event_id}"
 
 
+class EventLocation(models.Model):
+    """Where an event happened, as the phone had it when it was written: a
+    trip's note or photo. Any event may have one (services.locations)."""
+
+    event = models.OneToOneField(
+        Event, on_delete=models.CASCADE, primary_key=True, related_name="location"
+    )
+    lat = models.FloatField()
+    lng = models.FloatField()
+    # How far off it may be, in metres, when the phone said.
+    acc = models.FloatField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.lat:.6f}, {self.lng:.6f}"
+
+
 class BoardCommitted(Event):
     # thread set manually from board
 

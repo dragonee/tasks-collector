@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from tasks.apps.common.authentication import TokenAuthentication
 
+from .services.locations import place_from
 from .services.photos import StorageUnavailableError
 from .services.trips import (
     InvalidStopTimeError,
@@ -79,6 +80,8 @@ def _serialize_event(event):
         "type": event["type"],
         "published": event["published"].isoformat(),
     }
+    if "location" in event:
+        out["location"] = event["location"]
     if event["type"] == "journal":
         out["comment"] = event["comment"]
     elif event["type"] == "photo":
@@ -214,12 +217,12 @@ class AndroidTripShareRevokeView(APIView):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AndroidTripNoteView(APIView):
-    """Add a journal note to an active trip.
+    """Add a journal note to an active trip, written at the place ``lat``,
+    ``lng`` and ``acc`` name, if any: a note may be a place alone.
 
-    The ``comment`` is fed through ``process_journal_entry`` so any
-    ``#poi``/``#coords``/``#coordinates``/``#latlng`` hashtag inside it
-    also creates a ``HabitTracked``; both the ``JournalAdded`` itself
-    and any extracted ``HabitTracked`` are added to the trip's stream.
+    The ``comment`` is fed through ``process_journal_entry`` so a hashtag in
+    it creates a ``HabitTracked``; both the ``JournalAdded`` itself and any
+    extracted ``HabitTracked`` are added to the trip's stream.
     """
 
     authentication_classes = [TokenAuthentication]
@@ -229,8 +232,12 @@ class AndroidTripNoteView(APIView):
         story_id = _story_id_from(request)
         if story_id is None:
             return _bad_request("story_id is required")
-        comment = request.data.get("comment")
-        if not isinstance(comment, str) or not comment.strip():
+        try:
+            place = place_from(request.data)
+        except ValueError as e:
+            return _bad_request(str(e))
+        comment = request.data.get("comment", "")
+        if not isinstance(comment, str) or not (comment.strip() or place):
             return _bad_request("comment is required")
         published = parse_aware_datetime(request.data.get("published"))
         if published is None:
@@ -245,6 +252,7 @@ class AndroidTripNoteView(APIView):
                 comment=comment,
                 published=published,
                 idempotency_key=idempotency_key,
+                place=place,
             )
         except StoryNotFoundError:
             return _not_found()
@@ -335,10 +343,11 @@ class AndroidTripPhotoPresignView(APIView):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AndroidTripPhotoConfirmView(APIView):
-    """Confirm an uploaded photo and create the PhotoAdded event.
+    """Confirm an uploaded photo and create the PhotoAdded event, taken at
+    the place ``lat``, ``lng`` and ``acc`` name, if any.
 
     Like ``AndroidTripNoteView``, the ``comment`` runs through
-    ``process_journal_entry`` so a ``#poi`` line still creates a HabitTracked.
+    ``process_journal_entry``.
     """
 
     authentication_classes = [TokenAuthentication]
@@ -376,6 +385,7 @@ class AndroidTripPhotoConfirmView(APIView):
                 published=published,
                 idempotency_key=idempotency_key,
                 content_hash=content_hash,
+                place=place_from(request.data),
             )
         except StoryNotFoundError:
             return _not_found()

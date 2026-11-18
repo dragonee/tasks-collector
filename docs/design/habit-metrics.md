@@ -1,34 +1,63 @@
 # Habit metrics
 
-How the numbers in habit notes are written, and how the habits the code depends
-on come apart from it. Current as of 2026-11-18 (migrations through 0106). "What
-is next" lists what is planned and not built.
+How the numbers in habit notes are written, what code finds a habit by, and
+where an event happened. Current as of 2026-11-18 (migrations through 0112).
+"What is next" lists what is planned and not built.
 
-## Habits the code depends on
+## Roles (0109, 0110)
 
-| Hashtag → habit | Written by | Note | Read by |
-|---|---|---|---|
-| `#breakthrough` | the web "+Breakthrough" button, prefilled `#breakthrough ` (`app.js`) | free text | the Breakthrough page, by slug `breakthrough` (`views_breakthrough.py`) |
-| `#poi` `#coords` `#coordinates` `#latlng` → `poi` (built-in) | the phones, as the first line of a trip note or photo | `lat=… lng=… [acc=…]` | four regexes, one per client: `views_trip.py`, `app.js`, `TripNoteFormat.kt`, `TripNoteFormat.swift` |
-| `#weight` → `weight` (built-in) | the Health screens of both apps | `weight=<x>kg` | `services/health`, by slug `weight`, served at `api/v1/android/health/data/` |
-| `#health-metrics` | the hourly sync of both apps, through `TrackHabitAPIView` (one entry a day, replaced) | `steps= distance=km active=min kcal=` | nothing |
-| `#workout` | bike rides from the sync | `Bike ride (duration=<n> min)` | nothing |
-| `#siłka` `#workout` `#running` | the activity dialog, an `ActivityType` enum in both apps | free text; `distance=<x>km, time=<m>m<s>s` for a run | nothing |
-| `#focus` | tc focus mode | `time=<m>m<s>s <task>` | nothing |
+Code finds a habit by what it is for, never by its slug or a keyword, which are
+the user's to change:
 
-What ties them to the code:
+| Role | Written by | Read by |
+|---|---|---|
+| `breakthrough` | the web "+Breakthrough" button (the text is the note) | the Breakthrough page |
+| `weight` | the phones' activity dialog, opened from the weight row | `latest_weight`: the Health screens, `api/v1/android/health/data/` |
+| `daily-health` | the phones' hourly sync, one entry a day | — |
+| `bike-ride` | the phones' sync, one entry a ride | — |
 
-- Writers find a habit by keyword, readers by slug: two identifiers that only
-  happen to agree, both editable. Renaming one empties a page without an error.
-- Only `poi` and `weight` are provisioned. For anyone without a
-  `health-metrics` keyword the phone sync gets a 404 and retries forever, and
-  the bike rides after it in the loop are never sent.
-- A hashtag matches the keyword sharing the longest prefix of at least three
-  letters (`habit_extraction.py`): `#breakthrough` from the button can land on
-  someone's `#breathing`, a bike ride's `#workout` on `#work`.
-- Replacing the day's entry belongs to the endpoint, not the habit, and it
-  replaces whichever entry of the habit that day comes first, one typed by
-  hand included. Weight is a habit of its own only to stay out of its way.
+```python
+class HabitRole(models.Model):
+    user = FK(User)                 # the habit's owner, set on save
+    role = CharField(choices=Role)
+    habit = FK(Habit, related_name="roles")
+    # unique (user, role); one habit may fill several roles
+
+class HabitTracked(Event):
+    ...
+    role = CharField(blank=True)    # the role it was written for, if any
+```
+
+- `services/habits/roles.py` says what each role is: the name, keywords and
+  metrics of the habit made for it, and whether it is one entry a day.
+  `habit_for(user, role)` reads; `habit_for_writing` writes, and when no habit
+  fills the role it makes one from the role (a numbered slug when the user has
+  that slug, only the keywords nobody has) and fills it. Writing for a role
+  also gives its habit the role's metrics it lacks.
+- Writers name a `role` instead of a `keyword`: `api/v1/habit/track/` (the
+  day's entry) and `api/v1/habit/tracked/` (a new entry each time).
+- One entry a day is the role's own entry of the day: the sync never
+  overwrites an entry typed by hand. The role's own keyword counts as the
+  role, so phones that still send `health-metrics` get it too; any other
+  write of the day (the Today screen's habit dialog) replaces only an entry
+  that is no role's.
+- New users' built-in weight habit fills `weight`. Habit settings choose the
+  habit for each role ("Used for"); one left empty is filled by the next write
+  for it. Moving a role leaves past entries where they are. The habit's page
+  says which roles it fills; habits carry `roles` in the API.
+- 0110 filled the roles from the habits that played them (slugs `breakthrough`
+  and `weight`, the habits of the `health-metrics` and `workout` keywords) and
+  marked the entries the phones had written for them. On the production dump:
+  5 roles, 200 entries marked. Reversing empties both.
+- `focus`, gym and running need no role: tc's focus line is a hashtag the
+  journal reads anyway, and the activity dialog lists habits with metrics.
+
+Before roles, writers found a habit by keyword and readers by slug, two
+identifiers that only happened to agree; only `poi` and `weight` were
+provisioned, so the sync answered 404 for everyone else and retried forever;
+the day's entry replaced whichever entry of the habit came first, one typed
+by hand included; and a hashtag from code could land on any keyword sharing
+three letters (`#breakthrough` on `#breathing`).
 
 ## The note format
 
@@ -45,7 +74,7 @@ A note's metrics are tokens; prose around them is for people.
 - A note with tokens is read from them alone: "6km (30min na 4km) (distance=6km)"
   has a distance and no duration.
 - `active=80min` from the sync stays minutes, as the phones write it.
-- Places, times of day and paces have no token: places become `EventLocation`
+- Places, times of day and paces have no token: a place is an `EventLocation`
   (below); a time of day ("pobudka 7:30") and a pace ("7:30 na km") stay prose.
 
 ## Migration 0106
@@ -79,91 +108,104 @@ needs nothing but the format above.
 - Left unknown: sets and repetitions (`3x63kg`, `x3`), ranges (`15-20k`),
   counts in parentheses, dates. Nothing reads them yet.
 
-## What is next
+## HabitMetric (0107, 0108)
 
-### Drop what 0106 kept
-
-`tree_habittracked_before_0106` goes with a later migration, once the new
-notes are settled. After that, reversing 0106 changes nothing.
-
-### Clients write the format
-
-tc writes `#focus time=…`; the phones write a run's `time=…` and a bike ride's
-`duration=<n> min`. All three write `duration=<m>m<s>s` from now on. Until they
-do, new notes come in the older forms.
-
-### EventLocation
-
-A location attachable to any event (`lat`, `lng`, `acc`), sent by the phones as
-fields of a note or a photo instead of a `#poi lat=… lng=…` line. The trip map,
-the pin and both apps read it; the four regexes and the line stripping in
-`app.js` go. A migration moves the existing lines (`#poi lat=… lng=…`, and the
-older `#poi <lat>,<lng>`) into rows. `#poi` can stay a plain habit.
-
-### HabitMetric
-
-What a habit records, declared on it:
+What a habit records with each entry, declared on it:
 
 ```python
 class HabitMetric(models.Model):
     habit = FK(Habit, related_name="metrics")
-    key = SlugField()               # the token's key; fixed once values exist
+    key = CharField()               # the token's key; fixed once entries carry it
     label = CharField()
     kind = CharField()              # number, duration, pressure, money
-    unit = CharField(blank=True)    # kg, km; none for duration, pressure, money
+    unit = CharField(blank=True)    # a number's: kg, km, min; never m or s
     decimals = PositiveSmallIntegerField(default=0)
     order = PositiveSmallIntegerField(default=0)
     # unique (habit, key)
 
 class HabitTracked(Event):
     ...
-    values = JSONField(default=dict)    # {"weight": 80.5}, by HabitMetric.key
+    values = JSONField(default=dict)    # read from the note on every save
 ```
 
-- Values are read from a note's tokens, for the keys its habit declares, and
-  are optional on every entry (a gym visit has no distance).
-- The API takes `values` as fields; an unknown key or a wrong kind is a 400.
-- The apps' weight and running dialogs become one form, built from the
-  habit's metrics and loaded from the server instead of `ActivityType`.
-- `latest_weight` becomes the latest value of a metric; any metric can be
-  charted.
-- A migration declares each habit's metrics from the keys its notes carry and
-  fills `values`.
+- The note is what is kept; `values` is what the habit's metrics read from it
+  (`services/habits/metrics.py`), on every save and again for every entry
+  when a metric is added or taken away. A value as stored: a number as is, a
+  duration in seconds, blood pressure `[upper, lower]`, money
+  `{"amount": 90, "currency": "EUR"}`.
+- A token stands on its own (after the start, a space, `(`, `,` or `;`; before
+  the end, a space or `,;.)`), so `?v=4dSL` in a link is not one. Only the keys
+  the habit declares are read, and only in a form that fits the kind.
+- `POST api/v1/habit/tracked/` makes a new entry each time, from `keyword`,
+  `note`, `values` (by key) and `published`, with an `idempotency_key`; the
+  values are written into the note as tokens. `api/v1/habit/track/` (one entry
+  a day) takes `values` too. An unknown key or a value that doesn't fit is a
+  400.
+- Habits come with `metrics` wherever the API sends them;
+  `habit/keywords/mine/?with_tracked=true` keeps the habits tracked today.
+- The habit's page lists its metrics with their latest values, and adds or
+  takes them away. So does the admin.
+- The phones' activity dialog offers the profile's keywords and asks for the
+  chosen habit's metrics by kind (a number, minutes and seconds, upper and
+  lower, an amount and a currency); the note is the hashtag and what was
+  written. Bike rides from the sync are sent with their `duration` as a value
+  (and a key, so a ride sent twice is one entry); tc's focus line writes
+  `duration=<m>m<s>s`.
+- The built-in weight habit records `weight` in kg; `latest_weight` is the
+  latest value of the habit that fills the weight role.
+- 0108 declared each habit's metrics from the tokens its notes carry: the form
+  gives the kind, the units the unit, the most precise the decimals; `lat` and
+  `lng` are a place. On the production dump: 29 metrics, 615 entries with
+  values. Reversing takes them away.
 
-### Roles
+## EventLocation (0111, 0112)
 
-Code finds a habit by what it is for, not by its slug or keyword:
-
-| Role | Writes | Reads |
-|---|---|---|
-| `breakthrough` | the "+Breakthrough" button | the Breakthrough page |
-| `weight` | the weight dialog | the Health screen |
-| `daily-health` | the hourly sync, one entry a day | — |
-| `bike-ride` | the sync, one entry a ride | — |
+Where an event happened, attachable to any event:
 
 ```python
-class HabitRole(models.Model):
-    user = FK(User)
-    role = CharField(choices=ROLES)   # ROLES in code: name, keywords, metrics
-    habit = FK(Habit, related_name="roles")
-    # unique (user, role); habit.user == user
+class EventLocation(models.Model):
+    event = OneToOneField(Event, primary_key=True, related_name="location")
+    lat = FloatField()
+    lng = FloatField()
+    acc = FloatField(null=True)     # metres, when the phone knows
 ```
 
-- One habit may fill several roles.
-- Writers send the role instead of a hashtag; hashtags stay for people.
-- The first write for a role nobody fills creates the habit from the role
-  (name, metrics, keywords that are free) and fills it. That ends the sync's
-  404 without giving everyone Health and Workout habits up front. A page
-  reading an unfilled role shows its empty state.
-- One entry a day replaces the role's own entry for that day, not any entry
-  of the habit.
-- A migration fills the roles from today's slugs and keywords, and marks the
-  past sync entries as the role's. Installed apps keep the keyword paths
-  until both send roles.
-- Habit settings get "Used for" per role. Moving a role to another habit
-  leaves the past entries where they are.
-- `focus`, gym and running need no role: tc's focus line is a hashtag the
-  journal reads anyway, and the dialog lists habits with metrics.
+- The phones send `lat`, `lng` and `acc` as fields of a trip note, a trip
+  photo or a standalone photo; a trip note may be a place alone.
+  `services/locations.py` reads them (`place_from`) and attaches them
+  (`locate`).
+- An older phone writes the place as the comment's first line,
+  `#poi lat=… lng=…` (or `#coords`, `#coordinates`, `#latlng`), and its
+  outbox may still hold such notes: `split_place` reads the line off and makes
+  it the location. That is the one parser of the line left, until no such
+  phone is in use. A place is no longer a `poi` habit entry; `#poi` typed in
+  the journal is an ordinary hashtag.
+- The trip map plots the events that have a location; a journal entry with
+  one shows its pin (`journal_added.html`), and `app.js` only points the pin
+  at the user's map service. The trip detail API gives each entry its
+  `location`, and both apps show it from there.
+- 0112 made each comment's place line its location and took the line out of
+  the comment: 212 on the production dump, 178 of them a place alone. What it
+  changed is kept in `tree_journaladded_before_0112`; reversing puts the lines
+  back, except where a comment changed since.
+
+On the production dump, 0106 to 0112 forward, backward, forward and backward
+again left every tracked habit, membership, habit and journal comment as it
+was, row for row, and both forwards the same.
+
+## What is next
+
+### Drop what 0106 and 0112 kept
+
+`tree_habittracked_before_0106` and `tree_journaladded_before_0112` go with a
+later migration, once the new notes are settled. After that, reversing either
+changes nothing.
+
+### Deploy the server before the apps
+
+The apps send roles, values and places that only this server takes. Phones
+not updated keep working: the server reads their keywords, `#poi` lines and
+older tokens.
 
 ### Open
 
@@ -171,3 +213,4 @@ class HabitRole(models.Model):
 - Buckets for what stayed unknown: sets and repetitions, ranges.
 - Which metrics `breakthrough` declares: its notes carry weight, distance and
   days.
+- Charts of a metric on the habit's page.

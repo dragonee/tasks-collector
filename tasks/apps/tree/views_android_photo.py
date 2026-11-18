@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 
 from tasks.apps.common.authentication import TokenAuthentication
 
+from .services.locations import place_from
 from .services.photos import (
     PhotoNotFoundError,
     PhotoObjectMissingError,
@@ -53,10 +54,11 @@ class AndroidPhotoPresignView(APIView):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class AndroidPhotoConfirmView(APIView):
-    """Confirm an uploaded storyless photo and create the PhotoAdded event.
+    """Confirm an uploaded storyless photo and create the PhotoAdded event,
+    taken at the place ``lat``, ``lng`` and ``acc`` name, if any.
 
     Like the trip-photo confirm, ``comment`` runs through
-    ``process_journal_entry`` so a ``#poi`` line still creates a HabitTracked.
+    ``process_journal_entry``.
     """
 
     authentication_classes = [TokenAuthentication]
@@ -86,6 +88,7 @@ class AndroidPhotoConfirmView(APIView):
                 content_type=content_type,
                 published=published,
                 idempotency_key=idempotency_key,
+                place=place_from(request.data),
             )
         except PhotoObjectMissingError:
             return _conflict("uploaded photo not found; re-upload and retry")

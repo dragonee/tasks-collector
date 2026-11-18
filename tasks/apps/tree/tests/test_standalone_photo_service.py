@@ -8,6 +8,7 @@ from django.utils import timezone
 from PIL import Image
 
 from ..models import HabitTracked, JournalAdded, PhotoAdded
+from ..services.locations import Place
 from ..services.photos import (
     PhotoNotFoundError,
     PhotoObjectMissingError,
@@ -145,20 +146,34 @@ class StandalonePhotoServiceTestCase(TestCase):
         self.assertEqual(PhotoAdded.objects.filter(idempotency_key="ph-1").count(), 1)
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=True)
-    def test_add_standalone_photo_with_poi_creates_unlinked_habittracked(self, _exists):
-        comment = "#poi lat=40.7128 lng=-74.0060\nat the pier"
+    def test_add_standalone_photo_keeps_where_it_was_taken(self, _exists):
         photo = add_standalone_photo(
             self.alice,
             key=f"photos/{self.alice.pk}/abc.jpg",
-            comment=comment,
+            comment="at the pier",
+            content_type="image/jpeg",
+            published=timezone.now(),
+            place=Place(40.7128, -74.006, 12.0),
+        )
+        self.assertEqual(
+            (photo.location.lat, photo.location.lng, photo.location.acc),
+            (40.7128, -74.006, 12.0),
+        )
+        self.assertEqual(trip_links(event=photo).count(), 0)
+
+    @mock.patch(f"{STORAGE}.object_exists", return_value=True)
+    def test_an_older_phones_place_line_becomes_the_location(self, _exists):
+        photo = add_standalone_photo(
+            self.alice,
+            key=f"photos/{self.alice.pk}/abc.jpg",
+            comment="#poi lat=40.7128 lng=-74.0060\nat the pier",
             content_type="image/jpeg",
             published=timezone.now(),
         )
-        habit = HabitTracked.objects.filter(habit__slug="poi").first()
-        self.assertIsNotNone(habit)
-        # Neither the photo nor its extracted habit is linked to any story.
-        self.assertEqual(trip_links(event=photo).count(), 0)
-        self.assertEqual(trip_links(event=habit).count(), 0)
+        photo.refresh_from_db()
+        self.assertEqual(photo.comment, "at the pier")
+        self.assertEqual((photo.location.lat, photo.location.lng), (40.7128, -74.006))
+        self.assertFalse(HabitTracked.objects.filter(habit__slug="poi").exists())
 
     @mock.patch(f"{STORAGE}.object_exists", return_value=False)
     def test_add_standalone_photo_missing_object_raises(self, _exists):

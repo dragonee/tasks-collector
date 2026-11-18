@@ -171,16 +171,65 @@ class TripAPITestCase(APITestCase):
         self.assertEqual(journal.comment, "walking around")
         self.assertTrue(trip_links(story_id=sid, event=journal).exists())
 
-    def test_note_with_poi_tag_creates_linked_habit_tracked(self):
+    def test_a_note_keeps_the_place_it_was_written_at(self):
         self._auth()
         sid = self._start().json()["story"]["id"]
-        comment = "#poi lat=40.7128 lng=-74.0060\nat the pier"
-        r = self._note(sid, comment)
+        r = self.client.post(
+            reverse("android-trip-note"),
+            {
+                "story_id": sid,
+                "comment": "at the pier",
+                "published": PUB_AT,
+                "lat": 40.7128,
+                "lng": -74.006,
+                "acc": 8,
+            },
+            format="json",
+        )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        habits = HabitTracked.objects.filter(habit__slug="poi")
-        self.assertEqual(habits.count(), 1)
-        # Both events linked to the story.
-        self.assertEqual(trip_links(story_id=sid).count(), 2)
+        journal = JournalAdded.objects.get(pk=r.json()["journal_id"])
+        self.assertEqual(
+            (journal.location.lat, journal.location.lng, journal.location.acc),
+            (40.7128, -74.006, 8.0),
+        )
+        self.assertEqual(
+            self._detail(sid).json()["events"][0]["location"],
+            {"lat": 40.7128, "lng": -74.006, "acc": 8.0},
+        )
+
+    def test_a_note_may_be_a_place_alone(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        r = self.client.post(
+            reverse("android-trip-note"),
+            {"story_id": sid, "comment": "", "published": PUB_AT, "lat": 1, "lng": 2},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(JournalAdded.objects.get().comment, "")
+
+    def test_a_place_off_the_earth_is_refused(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        r = self.client.post(
+            reverse("android-trip-note"),
+            {"story_id": sid, "comment": "x", "published": PUB_AT, "lat": 91, "lng": 0},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(JournalAdded.objects.exists())
+
+    def test_an_older_phones_place_line_becomes_the_location(self):
+        self._auth()
+        sid = self._start().json()["story"]["id"]
+        r = self._note(sid, "#poi lat=40.7128 lng=-74.0060\nat the pier")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        journal = JournalAdded.objects.get(pk=r.json()["journal_id"])
+        self.assertEqual(journal.comment, "at the pier")
+        self.assertEqual(
+            (journal.location.lat, journal.location.lng), (40.7128, -74.006)
+        )
+        self.assertFalse(HabitTracked.objects.filter(habit__slug="poi").exists())
 
     def test_note_on_stopped_story_returns_409(self):
         self._auth()

@@ -409,7 +409,7 @@ def today(request):
             published__range=period.as_tuple(),
             thread=thread,
         )
-        .prefetch_related(JournalAdded.prefetch_trip())
+        .prefetch_related(JournalAdded.prefetch_trip(), "location")
         .order_by("published")
     )
     attach_photo_urls(journals)

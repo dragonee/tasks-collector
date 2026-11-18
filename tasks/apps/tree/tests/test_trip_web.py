@@ -16,6 +16,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from ..models import (
+    EventLocation,
     JournalAdded,
     PhotoAdded,
     Profile,
@@ -46,11 +47,13 @@ class TripWebTestCase(TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def _note(self, comment, story=None, published=None):
+    def _note(self, comment, story=None, published=None, place=None):
         note = JournalAdded.objects.create(
             thread=self.daily, comment=comment, published=published or timezone.now()
         )
         link_to_trip(story=story or self.story, event=note)
+        if place is not None:
+            EventLocation.objects.create(event=note, lat=place[0], lng=place[1])
         return note
 
     def _photo(self, comment="", story=None, thumbnail_key="trips/1/1/x_thumb.webp"):
@@ -152,10 +155,11 @@ class TripWebTestCase(TestCase):
         # With located entries the trip detail page is a two-column map (left) +
         # history (right) layout — no day-jump rail even across several days.
         self._note(
-            "#poi lat=38.7 lng=-9.1\nDay one",
+            "Day one",
             published=timezone.now() - timedelta(days=2),
+            place=(38.7, -9.1),
         )
-        self._note("#poi lat=38.8 lng=-9.2\nDay three", published=timezone.now())
+        self._note("Day three", published=timezone.now(), place=(38.8, -9.2))
 
         r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
         self.assertEqual(r.status_code, 200)
@@ -181,9 +185,9 @@ class TripWebTestCase(TestCase):
         self.assertContains(r, "content-rail no-rail")
 
     def test_trip_detail_map_points_only_for_entries_with_coords(self):
-        # Notes carrying a #poi/#coords line become map points (id + lat/lng);
-        # notes without coordinates are left off the map.
-        located = self._note("#coords lat=38.71 lng=-9.14\nMiradouro")
+        # Notes with a location become map points (id + lat/lng); notes
+        # without one are left off the map.
+        located = self._note("Miradouro", place=(38.71, -9.14))
         self._note("Just a plain note, no location")
 
         r = self.client.get(reverse("trip-detail", args=[self.story.pk]))
@@ -650,11 +654,13 @@ class SharedTripWebTestCase(TestCase):
     def _url(self, share_uuid=None):
         return reverse("trip-shared-detail", args=[share_uuid or self.share.uuid])
 
-    def _note(self, comment, published=None):
+    def _note(self, comment, published=None, place=None):
         note = JournalAdded.objects.create(
             thread=self.daily, comment=comment, published=published or timezone.now()
         )
         link_to_trip(story=self.story, event=note)
+        if place is not None:
+            EventLocation.objects.create(event=note, lat=place[0], lng=place[1])
         return note
 
     def test_public_page_renders_without_auth(self):
@@ -689,7 +695,7 @@ class SharedTripWebTestCase(TestCase):
         self.assertEqual(r.status_code, 404)
 
     def test_public_page_renders_map_for_located_entries(self):
-        self._note("#poi lat=38.7 lng=-9.1\nMiradouro")
+        self._note("Miradouro", place=(38.7, -9.1))
         r = self.client.get(self._url())
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "trip-map-layout")

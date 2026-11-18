@@ -425,17 +425,6 @@ private fun EventRow(
     formatter: DateTimeFormatter,
     onOpenPhoto: (Long) -> Unit,
 ) {
-    val context = LocalContext.current
-    // Journal and photo events both carry a comment that may start with a
-    // #poi line; parse it so the location pin and clean body text show.
-    val parsed = remember(event.id, event.comment) {
-        if (event.type == "journal" || event.type == "photo") {
-            parseTripNote(event.comment.orEmpty())
-        } else {
-            null
-        }
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -449,29 +438,20 @@ private fun EventRow(
         )
         when (event.type) {
             "journal" -> {
-                val poi = parsed?.poi
+                val location = event.location
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = parsed?.text.orEmpty(),
+                        text = event.comment.orEmpty(),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
-                    if (poi != null) {
-                        IconButton(onClick = { openPoiInMaps(context, poi) }) {
-                            Icon(
-                                imageVector = Icons.Filled.Place,
-                                contentDescription = stringResource(
-                                    R.string.trip_detail_open_in_maps
-                                ),
-                            )
-                        }
-                    }
+                    if (location != null) MapPin(location.lat, location.lng)
                 }
             }
-            "photo" -> PhotoEventBody(event, parsed, onOpenPhoto)
+            "photo" -> PhotoEventBody(event, onOpenPhoto)
             else -> Text(
                 text = event.type,
                 style = MaterialTheme.typography.bodyMedium,
@@ -483,17 +463,16 @@ private fun EventRow(
 @Composable
 private fun PhotoEventBody(
     event: TripEvent,
-    parsed: ParsedTripNote?,
     onOpenPhoto: (Long) -> Unit,
 ) {
-    val context = LocalContext.current
+    val body = event.comment.orEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         val thumb = event.thumbnailUrl
         if (thumb != null) {
             // Right-aligned, full frame visible (no crop).
             AsyncImage(
                 model = thumb,
-                contentDescription = parsed?.text,
+                contentDescription = body,
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.CenterEnd,
                 modifier = Modifier
@@ -520,9 +499,8 @@ private fun PhotoEventBody(
                 )
             }
         }
-        val body = parsed?.text.orEmpty()
-        val poi = parsed?.poi
-        if (body.isNotBlank() || poi != null) {
+        val location = event.location
+        if (body.isNotBlank() || location != null) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -532,16 +510,7 @@ private fun PhotoEventBody(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                if (poi != null) {
-                    IconButton(onClick = { openPoiInMaps(context, poi) }) {
-                        Icon(
-                            imageVector = Icons.Filled.Place,
-                            contentDescription = stringResource(
-                                R.string.trip_detail_open_in_maps
-                            ),
-                        )
-                    }
-                }
+                if (location != null) MapPin(location.lat, location.lng)
             }
         }
     }
@@ -561,9 +530,6 @@ private fun PendingRow(
     onRetry: () -> Unit,
     onDiscard: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val parsed = remember(item.id, item.comment) { parseTripNote(item.comment) }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -580,7 +546,7 @@ private fun PendingRow(
         if (item.isPhoto && photoFile != null) {
             AsyncImage(
                 model = photoFile,
-                contentDescription = parsed.text,
+                contentDescription = item.comment,
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.CenterEnd,
                 modifier = Modifier
@@ -590,28 +556,19 @@ private fun PendingRow(
             )
         }
 
-        val body = parsed.text
-        val poi = parsed.poi
-        if (body.isNotBlank() || poi != null) {
+        val lat = item.lat
+        val lng = item.lng
+        if (item.comment.isNotBlank() || (lat != null && lng != null)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = body,
+                    text = item.comment,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                if (poi != null) {
-                    IconButton(onClick = { openPoiInMaps(context, poi) }) {
-                        Icon(
-                            imageVector = Icons.Filled.Place,
-                            contentDescription = stringResource(
-                                R.string.trip_detail_open_in_maps
-                            ),
-                        )
-                    }
-                }
+                if (lat != null && lng != null) MapPin(lat, lng)
             }
         }
 
@@ -639,6 +596,18 @@ private fun PendingRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** The pin beside an entry made at a place: opens it in the maps app. */
+@Composable
+private fun MapPin(lat: Double, lng: Double) {
+    val context = LocalContext.current
+    IconButton(onClick = { openInMaps(context, lat, lng) }) {
+        Icon(
+            imageVector = Icons.Filled.Place,
+            contentDescription = stringResource(R.string.trip_detail_open_in_maps),
+        )
     }
 }
 

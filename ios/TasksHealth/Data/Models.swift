@@ -422,6 +422,8 @@ struct TripUpdateRequest: Encodable, Sendable {
     }
 }
 
+/// A trip note: some text, a place, or both (the comment may be empty when
+/// the note is a place alone).
 struct TripNoteRequest: Encodable, Sendable, Equatable {
     let storyId: Int64
     let comment: String
@@ -429,11 +431,17 @@ struct TripNoteRequest: Encodable, Sendable, Equatable {
     /// The outbox retries, so a request whose answer was lost must not make
     /// a second note: the server dedupes on this key.
     let idempotencyKey: String
+    /// Where the note was made, in degrees, and how sure the fix was, in
+    /// metres. Nil ones are left out of the body: a note with no place.
+    var lat: Double?
+    var lng: Double?
+    var acc: Float?
 
     enum CodingKeys: String, CodingKey {
         case storyId = "story_id"
         case comment, published
         case idempotencyKey = "idempotency_key"
+        case lat, lng, acc
     }
 }
 
@@ -459,6 +467,14 @@ struct TripListResponse: Decodable, Sendable {
     }
 }
 
+/// Where a trip note or photo was made: degrees, and how sure the phone was
+/// of it in metres when it knew.
+struct EventLocation: Decodable, Sendable, Equatable {
+    let lat: Double
+    let lng: Double
+    var acc: Float?
+}
+
 struct TripEvent: Decodable, Sendable, Equatable {
     let id: Int64
     /// "journal" | "photo" | "habit" | "other"
@@ -468,9 +484,11 @@ struct TripEvent: Decodable, Sendable, Equatable {
     /// Photo events: a short-lived presigned thumbnail URL, nil until the
     /// server has made the thumbnail.
     var thumbnailUrl: String?
+    /// Journal and photo events saved with a place; nil for the others.
+    var location: EventLocation?
 
     enum CodingKeys: String, CodingKey {
-        case id, type, published, comment
+        case id, type, published, comment, location
         case thumbnailUrl = "thumbnail_url"
     }
 }
@@ -533,6 +551,10 @@ struct PhotoConfirmRequest: Encodable, Sendable, Equatable {
     /// Hex SHA-256 of the bytes: lets the server dedup the same image within
     /// a trip even across idempotency keys (a photo picked twice).
     var contentHash: String?
+    /// Where the photo was taken, as for a note (`TripNoteRequest`).
+    var lat: Double?
+    var lng: Double?
+    var acc: Float?
 
     enum CodingKeys: String, CodingKey {
         case storyId = "story_id"
@@ -541,6 +563,7 @@ struct PhotoConfirmRequest: Encodable, Sendable, Equatable {
         case published
         case idempotencyKey = "idempotency_key"
         case contentHash = "content_hash"
+        case lat, lng, acc
     }
 }
 
@@ -558,12 +581,17 @@ struct StandalonePhotoConfirmRequest: Encodable, Sendable, Equatable {
     let contentType: String
     let published: String
     let idempotencyKey: String
+    /// Where the photo was added, as for a note (`TripNoteRequest`).
+    var lat: Double?
+    var lng: Double?
+    var acc: Float?
 
     enum CodingKeys: String, CodingKey {
         case key, comment
         case contentType = "content_type"
         case published
         case idempotencyKey = "idempotency_key"
+        case lat, lng, acc
     }
 }
 
