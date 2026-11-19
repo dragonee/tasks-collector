@@ -2,9 +2,10 @@ import AuthenticationServices
 import Observation
 import UIKit
 
-/// The "register activity" sheet while it is open, with the role whose
-/// habit it opens on (weight when opened from the weight row; nil for the
-/// first).
+/// The "register activity" sheet while it is open, with the role it records
+/// for (weight when opened from the weight row: it asks for what the role's
+/// habit records, `HealthDataResponse.roles`, and writes by the role; nil
+/// offers the profile's habits).
 struct ActivitySheet: Identifiable, Equatable {
     let id = UUID()
     let role: String?
@@ -160,7 +161,13 @@ final class MainModel {
     func openActivitySheet(role: String? = nil) {
         activityError = nil
         activitySheet = ActivitySheet(role: role)
-        Task { await loadActivityKeywords() }
+        // A role's habit is in the health data; read it again, as the
+        // keywords are, in case it changed on the web.
+        if role == nil {
+            Task { await loadActivityKeywords() }
+        } else {
+            Task { await refreshHealthData() }
+        }
     }
 
     private func loadActivityKeywords() async {
@@ -179,10 +186,13 @@ final class MainModel {
     /// Record an activity: a new entry of `keyword`'s habit each time (two
     /// gym visits a day are two), its note the hashtag and what was written,
     /// and `values` of the habit's metrics, which the server writes into the
-    /// note. The weight shown is read again: it may have been a weigh-in.
-    func trackActivity(keyword: String, note: String, values: [String: MetricValue]) async {
+    /// note. For a `role`, the habit is the one that fills it, named by the
+    /// role (`keyword` is the role habit's, "" for none). The weight shown is
+    /// read again: it may have been a weigh-in.
+    func trackActivity(keyword: String, role: String? = nil, note: String, values: [String: MetricValue]) async {
         let body = TrackedHabitRequest(
-            keyword: keyword,
+            keyword: role == nil ? keyword : nil,
+            role: role,
             // The moment of the tap, so the entry lands on today.
             published: IsoTime.string(),
             note: activityNote(keyword: keyword, note: note),

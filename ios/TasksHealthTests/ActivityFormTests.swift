@@ -56,6 +56,11 @@ struct ActivityFormTests {
         #expect(activityNote(keyword: "running", note: " park ") == "#running park")
     }
 
+    @Test func aHabitWithoutAKeywordHasNoHashtag() {
+        #expect(activityNote(keyword: "", note: "  ") == "")
+        #expect(activityNote(keyword: "", note: " park ") == "park")
+    }
+
     @Test func aKeywordComesWithItsHabitsMetrics() throws {
         let json = #"""
         [{"id": 1, "keyword": "running", "habit": {"id": 3, "name": "Workout",
@@ -68,5 +73,30 @@ struct ActivityFormTests {
         #expect(keywords[0].roles == ["bike-ride"])
         #expect(keywords[1].metrics.isEmpty)
         #expect(keywords[1].roles.isEmpty)
+    }
+
+    @Test func healthDataSaysWhatEachRoleRecords() throws {
+        let json = #"""
+        {"weight_kg": null, "recorded_at": null,
+         "roles": {
+           "weight": {"name": "Weight", "keyword": "weight", "metrics": [
+             {"key": "weight", "label": "Weight", "kind": "number", "unit": "kg", "decimals": 1}]},
+           "bike-ride": {"name": "Workout", "keyword": "", "metrics": []}}}
+        """#
+        let data = try JSONDecoder().decode(HealthDataResponse.self, from: Data(json.utf8))
+        #expect(data.weightKg == nil)
+        #expect(data.roles["weight"] == RoleHabit(
+            name: "Weight",
+            keyword: "weight",
+            metrics: [HabitMetric(key: "weight", label: "Weight", kind: "number", unit: "kg", decimals: 1)]
+        ))
+        #expect(data.roles["bike-ride"]?.keyword == "")
+    }
+
+    @Test func aServerThatSaysNoRolesGivesNone() throws {
+        let json = #"{"weight_kg": 80.5, "recorded_at": "2026-11-19T08:00:00+01:00"}"#
+        let data = try JSONDecoder().decode(HealthDataResponse.self, from: Data(json.utf8))
+        #expect(data.weightKg == 80.5)
+        #expect(data.roles.isEmpty)
     }
 }

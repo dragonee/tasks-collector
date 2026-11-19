@@ -63,4 +63,10 @@ class ActivityFormTest {
         assertEquals("#running", activityNote("running", "  "))
         assertEquals("#running park", activityNote("running", " park "))
     }
+
+    @Test
+    fun `a habit without a keyword has no hashtag`() {
+        assertEquals("", activityNote("", "  "))
+        assertEquals("park", activityNote("", " park "))
+    }
 }

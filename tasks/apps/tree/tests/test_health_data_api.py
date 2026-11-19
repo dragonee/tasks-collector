@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from ..models import Habit, HabitTracked
+from ..models import Habit, HabitMetric, HabitRole, HabitTracked
 from .factories import make_habit, make_thread, make_token
 
 
@@ -39,7 +39,9 @@ class AndroidHealthDataAPITestCase(APITestCase):
         self._auth()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), {"weight_kg": None, "recorded_at": None})
+        body = response.json()
+        self.assertIsNone(body["weight_kg"])
+        self.assertIsNone(body["recorded_at"])
 
     def test_returns_latest_weight_and_date(self):
         event = self._record_weight("#weight weight=82.5kg")
@@ -70,7 +72,7 @@ class AndroidHealthDataAPITestCase(APITestCase):
         )
         self._auth()
         response = self.client.get(self.url)
-        self.assertEqual(response.json(), {"weight_kg": None, "recorded_at": None})
+        self.assertIsNone(response.json()["weight_kg"])
 
     def test_skips_weight_records_without_a_value(self):
         # A newer weight event with no weight= token must fall through to the
@@ -80,6 +82,63 @@ class AndroidHealthDataAPITestCase(APITestCase):
         self._auth()
         response = self.client.get(self.url)
         self.assertEqual(response.json()["weight_kg"], 70.0)
+
+    def test_the_weight_role_is_the_provisioned_habit(self):
+        self._auth()
+        roles = self.client.get(self.url).json()["roles"]
+        self.assertEqual(
+            roles["weight"],
+            {
+                "name": "Weight",
+                "keyword": "weight",
+                "metrics": [
+                    {
+                        "key": "weight",
+                        "label": "Weight",
+                        "kind": "number",
+                        "unit": "kg",
+                        "decimals": 1,
+                    }
+                ],
+            },
+        )
+
+    def test_every_role_is_there_filled_or_not(self):
+        # Nobody fills daily-health: what its first write would make.
+        self._auth()
+        roles = self.client.get(self.url).json()["roles"]
+        self.assertEqual(set(roles), set(HabitRole.Role.values))
+        self.assertEqual(roles["daily-health"]["name"], "Health")
+        self.assertEqual(roles["daily-health"]["keyword"], "health-metrics")
+        self.assertEqual(
+            [metric["key"] for metric in roles["daily-health"]["metrics"]],
+            ["steps", "distance", "active", "kcal"],
+        )
+
+    def test_an_unfilled_role_does_not_offer_a_keyword_already_taken(self):
+        make_habit(self.user, "Gym", keywords=("workout",))
+        self._auth()
+        roles = self.client.get(self.url).json()["roles"]
+        self.assertEqual(roles["bike-ride"]["keyword"], "")
+
+    def test_a_role_given_to_another_habit_is_that_habit(self):
+        scale = make_habit(self.user, "Scale", keywords=("scale", "body"))
+        HabitMetric.objects.create(
+            habit=scale, key="weight", label="Mass", unit="kg", decimals=2
+        )
+        HabitRole.objects.filter(user=self.user, role="weight").update(habit=scale)
+        self._auth()
+        weight = self.client.get(self.url).json()["roles"]["weight"]
+        self.assertEqual(weight["name"], "Scale")
+        self.assertEqual(weight["keyword"], "body")
+        self.assertEqual(weight["metrics"][0]["label"], "Mass")
+
+    def test_a_role_s_own_keyword_comes_first(self):
+        health = make_habit(self.user, "Health", keywords=("health", "health-metrics"))
+        HabitRole.objects.create(user=self.user, role="daily-health", habit=health)
+        self._auth()
+        roles = self.client.get(self.url).json()["roles"]
+        self.assertEqual(roles["daily-health"]["keyword"], "health-metrics")
 
     def test_requires_authentication(self):
         response = self.client.get(self.url)

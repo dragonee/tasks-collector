@@ -40,10 +40,12 @@ func metricValues(_ metrics: [HabitMetric], _ inputs: [String: MetricInput]) -> 
     return values
 }
 
-/// The note of an activity: its hashtag, then what was written.
+/// The note of an activity: its hashtag (none for a habit without a
+/// keyword), then what was written.
 func activityNote(keyword: String, note: String) -> String {
+    let hashtag = keyword.isEmpty ? "" : "#\(keyword)"
     let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-    return trimmed.isEmpty ? "#\(keyword)" : "#\(keyword) \(trimmed)"
+    return [hashtag, trimmed].filter { !$0.isEmpty }.joined(separator: " ")
 }
 
 /// A number as typed, with a dot or, as many keyboards have it, a comma.

@@ -120,6 +120,15 @@ class HabitMetricSerializer(serializers.ModelSerializer):
         fields = ["key", "label", "kind", "unit", "decimals"]
 
 
+class RoleHabitSerializer(serializers.Serializer):
+    """What a write for a role records (``roles.role_habits``): a phone builds
+    its form for the role from it."""
+
+    name = serializers.CharField()
+    keyword = serializers.CharField()
+    metrics = HabitMetricSerializer(many=True)
+
+
 class HabitSerializer(serializers.HyperlinkedModelSerializer):
     today_tracked = serializers.IntegerField(read_only=True)
     keywords = serializers.SerializerMethodField()

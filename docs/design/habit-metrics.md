@@ -45,6 +45,11 @@ class HabitTracked(Event):
   habit for each role ("Used for"); one left empty is filled by the next write
   for it. Moving a role leaves past entries where they are. The habit's page
   says which roles it fills; habits carry `roles` in the API.
+- `api/v1/android/health/data/` carries `roles`: by role, the name, keyword
+  (the role's own when its habit has it) and metrics of the habit a write for
+  it goes to (`role_habits`). A role nobody fills says what its first write
+  makes, so every role is there. The phones' weight row builds its dialog
+  from `roles.weight`, whatever the profile selects, and writes by the role.
 - 0110 filled the roles from the habits that played them (slugs `breakthrough`
   and `weight`, the habits of the `health-metrics` and `workout` keywords) and
   marked the entries the phones had written for them. On the production dump:
@@ -145,10 +150,10 @@ class HabitTracked(Event):
   `habit/keywords/mine/?with_tracked=true` keeps the habits tracked today.
 - The habit's page lists its metrics with their latest values, and adds or
   takes them away. So does the admin.
-- The phones' activity dialog offers the profile's keywords and asks for the
-  chosen habit's metrics by kind (a number, minutes and seconds, upper and
-  lower, an amount and a currency); the note is the hashtag and what was
-  written. Bike rides from the sync are sent with their `duration` as a value
+- The phones' activity dialog (the + button) offers the profile's keywords
+  and asks for the chosen habit's metrics by kind (a number, minutes and
+  seconds, upper and lower, an amount and a currency); the note is the
+  hashtag and what was written. Bike rides from the sync are sent with their `duration` as a value
   (and a key, so a ride sent twice is one entry); tc's focus line writes
   `duration=<m>m<s>s`.
 - The built-in weight habit records `weight` in kg; `latest_weight` is the

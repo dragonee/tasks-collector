@@ -57,10 +57,11 @@ fun metricValues(metrics: List<HabitMetric>, inputs: Map<String, MetricInput>): 
     return JsonObject(values)
 }
 
-/** The note of an activity: its hashtag, then what was written. */
+/** The note of an activity: its hashtag (none for a habit without a
+ *  keyword), then what was written. */
 fun activityNote(keyword: String, note: String): String {
-    val trimmed = note.trim()
-    return if (trimmed.isEmpty()) "#$keyword" else "#$keyword $trimmed"
+    val hashtag = if (keyword.isBlank()) "" else "#$keyword"
+    return listOf(hashtag, note.trim()).filter { it.isNotEmpty() }.joinToString(" ")
 }
 
 /** A number as typed, with a dot or a comma. */

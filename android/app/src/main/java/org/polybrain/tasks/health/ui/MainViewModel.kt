@@ -54,10 +54,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _activityDialogOpen = MutableStateFlow(false)
     val activityDialogOpen: StateFlow<Boolean> = _activityDialogOpen.asStateFlow()
 
-    /** The role whose habit the dialog should preselect when it opens (weight
-     *  when it is opened by tapping the weight section); null for the first. */
-    private val _activityInitialRole = MutableStateFlow<String?>(null)
-    val activityInitialRole: StateFlow<String?> = _activityInitialRole.asStateFlow()
+    /** The role the dialog records for (weight, when the weight section is
+     *  tapped): it asks for what the role's habit records ([HealthDataResponse.roles])
+     *  and writes by the role. Null: it offers the profile's habits. */
+    private val _activityRole = MutableStateFlow<String?>(null)
+    val activityRole: StateFlow<String?> = _activityRole.asStateFlow()
 
     /** The habits the dialog offers, by keyword, each with what it records.
      *  Empty until [loadActivityKeywords] first succeeds. */
@@ -238,11 +239,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshHealthDataAsync()
     }
 
-    fun openActivityDialog(initialRole: String? = null) {
-        _activityInitialRole.value = initialRole
+    fun openActivityDialog(role: String? = null) {
+        _activityRole.value = role
         _activityError.value = null
         _activityDialogOpen.value = true
-        loadActivityKeywords()
+        // A role's habit is in the health data; read it again, as the
+        // keywords are, in case it changed on the web.
+        if (role == null) loadActivityKeywords() else refreshHealthDataAsync()
     }
 
     fun closeActivityDialog() {
@@ -272,12 +275,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Records an activity: a new entry of [keyword]'s habit each time (two gym
      * visits a day are two), its note the hashtag and what was written, and
      * [values] of the habit's metrics, which the server writes into the note.
+     * Opened for a role, the habit is the one that fills it, named by the role
+     * ([keyword] is the role habit's, "" for none).
      * Refreshes the last-weight display on success: it may have been a weigh-in.
      */
     fun trackActivity(keyword: String, note: String, values: JsonObject) {
+        val role = _activityRole.value
         postActivity(
             TrackedHabitRequest(
-                keyword = keyword,
+                keyword = keyword.takeIf { role == null },
+                role = role,
                 // Wall-clock moment of the tap, so the entry lands on today.
                 published = OffsetDateTime.now().toString(),
                 note = activityNote(keyword, note),
