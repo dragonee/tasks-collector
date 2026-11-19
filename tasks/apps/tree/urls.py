@@ -64,6 +64,7 @@ urlpatterns = [
     path("api/v1/plans/today/", views.today_plans, name="today-plans"),
     # === Habits (views_habit) ===
     path("habits/", views_habit.HabitListView.as_view(), name="public-habit-list"),
+    path("metrics/", views_habit.MetricsView.as_view(), name="metrics"),
     path(
         "habits/<slug:slug>/",
         views_habit.HabitDetailView.as_view(),

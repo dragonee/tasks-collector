@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block body_class %}page-rail{% endblock %}
+
+{% block title %}Metrics | Tasks Collector{% endblock %}
+
+{% block content %}
+
+<div class="split-layout content-rail">
+
+<div class="topbar">
+    <div class="upper-pane"><h1>Metrics</h1></div>
+    <div class="lower-pane">What habit entries record, written in their notes as <code>key=value</code>.</div>
+</div>
+
+<div class="split-left">
+    <section class="journal">
+        <main class="metric-keys">
+            {% for key, uses in keys.items %}
+                <section class="metric-key" id="metric-{{ key }}">
+                    <h3><code>{{ key }}=</code></h3>
+                    <ul>
+                        {% for use in uses %}
+                            <li>
+                                <div class="metric-use">
+                                    <span><strong>{{ use.metric.label }}</strong> on <a href="{% url 'public-habit-detail' use.metric.habit.slug %}">{{ use.metric.habit.name }}</a></span>
+                                    <form method="post" action="{% url 'metrics' %}" class="metric-delete">
+                                        {% csrf_token %}
+                                        <button type="submit" name="delete_metric" value="{{ use.metric.pk }}" title="Stop recording {{ use.metric.label }} on {{ use.metric.habit.name }}">&times;</button>
+                                    </form>
+                                </div>
+                                <div class="metric-use-info">
+                                    {{ use.metric.get_kind_display }}{% if use.metric.unit %} in {{ use.metric.unit }}{% endif %}{% if use.metric.decimals %}, {{ use.metric.decimals }} decimal{{ use.metric.decimals|pluralize }}{% endif %}
+                                    · {{ use.entries }} entr{{ use.entries|pluralize:"y,ies" }}
+                                    {% if use.last %}· last {{ use.last|date:"d M Y" }}{% endif %}
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% empty %}
+                <p>No metrics yet: a habit's entries are just whether it happened.</p>
+            {% endfor %}
+        </main>
+    </section>
+</div>
+
+<div class="split-right">
+    <aside class="habit-new" id="new">
+        <h2>New metric</h2>
+        <form method="post" action="{% url 'metrics' %}">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <label for="{{ form.habit.id_for_label }}">Habit</label>
+            {{ form.habit }}
+            {{ form.habit.errors }}
+
+            <label for="{{ form.label.id_for_label }}">Name</label>
+            {{ form.label }}
+            {{ form.label.errors }}
+
+            <label for="{{ form.key.id_for_label }}">Key</label>
+            {{ form.key }}
+            <p class="habit-new-help">{{ form.key.help_text }}</p>
+            {{ form.key.errors }}
+
+            <label for="{{ form.kind.id_for_label }}">Kind</label>
+            {{ form.kind }}
+            {{ form.kind.errors }}
+
+            <label for="{{ form.unit.id_for_label }}">Unit</label>
+            {{ form.unit }}
+            <p class="habit-new-help">{{ form.unit.help_text }}</p>
+            {{ form.unit.errors }}
+
+            <label for="{{ form.decimals.id_for_label }}">Decimals</label>
+            {{ form.decimals }}
+            {{ form.decimals.errors }}
+
+            <button type="submit" class="submit">Add metric</button>
+        </form>
+    </aside>
+</div>
+
+</div>
+{% endblock %}

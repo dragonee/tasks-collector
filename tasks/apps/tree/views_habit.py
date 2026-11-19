@@ -10,6 +10,7 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 
@@ -25,9 +26,9 @@ from .forms import (
     OnlyTextSingleHabitTrackedForm,
     SingleHabitTrackedForm,
 )
-from .models import Habit, HabitTracked, Profile, Thread
+from .models import Habit, HabitMetric, HabitTracked, Profile, Thread
 from .serializers import HabitKeywordSerializer, HabitSerializer
-from .services.habits.metrics import latest, shown
+from .services.habits.metrics import in_use, latest, shown
 from .services.idempotency import existing_event
 from .utils.datetime import DayCount, adjust_start_date_to_monday, date_range_generator
 from .utils.itertools import itemize
@@ -211,7 +212,6 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
         start = timezone.now() - datetime.timedelta(days=365)
         end = timezone.now() + datetime.timedelta(days=1)
 
-        kwargs.setdefault("metric_form", HabitMetricForm(habit=self.object))
         context = super().get_context_data(**kwargs)
 
         context.update(
@@ -241,21 +241,39 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
             )
         return result
 
+
+class MetricsView(LoginRequiredMixin, TemplateView):
+    """What the user's habits record, by key: each metric with the habit that
+    records it, how many entries carry a value and the last of them. Adds a
+    metric to a habit (``?habit=<slug>`` chooses it) or takes one away."""
+
+    template_name = "tree/metrics.html"
+
+    def get_context_data(self, **kwargs):
+        if "form" not in kwargs:
+            habit = Habit.objects.filter(
+                user=self.request.user, slug=self.request.GET.get("habit", "")
+            ).first()
+            kwargs["form"] = HabitMetricForm(
+                user=self.request.user, initial={"habit": habit and habit.pk}
+            )
+        kwargs["keys"] = in_use(self.request.user)
+        return super().get_context_data(**kwargs)
+
     def post(self, request, *args, **kwargs):
-        """Add a metric to the habit, or take one away."""
-        self.object = self.get_object()
-        url = f"{reverse('public-habit-detail', args=[self.object.slug])}#metrics"
+        url = reverse("metrics")
 
-        key = request.POST.get("delete_metric")
-        if key is not None:
-            self.object.metrics.filter(key=key).delete()
+        pk = request.POST.get("delete_metric")
+        if pk is not None:
+            if pk.isdigit():
+                HabitMetric.objects.filter(pk=pk, habit__user=request.user).delete()
             return redirect(url)
 
-        form = HabitMetricForm(request.POST, habit=self.object)
+        form = HabitMetricForm(request.POST, user=request.user)
         if form.is_valid():
-            form.save()
-            return redirect(url)
-        return self.render_to_response(self.get_context_data(metric_form=form))
+            metric = form.save()
+            return redirect(f"{url}#metric-{metric.key}")
+        return self.render_to_response(self.get_context_data(form=form))
 
 
 class HabitListView(LoginRequiredMixin, ListView):

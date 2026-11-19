@@ -16,6 +16,7 @@ A value as stored: a number as is, a duration in seconds, blood pressure as
 """
 
 import re
+from collections import Counter, namedtuple
 
 from django.core.exceptions import ValidationError
 
@@ -183,6 +184,40 @@ def latest(habit, key):
         .order_by("-published")
         .first()
     )
+
+
+MetricUse = namedtuple("MetricUse", "metric entries last")
+
+
+def in_use(user):
+    """``user``'s metrics by key, in key order, each with how many entries of
+    its habit carry a value for it and when the last of them was published."""
+    from ...models import HabitMetric, HabitTracked
+
+    entries, last = Counter(), {}
+    rows = (
+        HabitTracked.objects.filter(habit__user=user)
+        .exclude(values={})
+        .values_list("habit_id", "values", "published")
+    )
+    for habit_id, values, published in rows.iterator():
+        for key in values:
+            at = (habit_id, key)
+            entries[at] += 1
+            last[at] = max(published, last.get(at, published))
+
+    by_key = {}
+    metrics = (
+        HabitMetric.objects.filter(habit__user=user)
+        .select_related("habit")
+        .order_by("key", "habit__name")
+    )
+    for metric in metrics:
+        at = (metric.habit_id, metric.key)
+        by_key.setdefault(metric.key, []).append(
+            MetricUse(metric, entries[at], last.get(at))
+        )
+    return by_key
 
 
 def shown(metric, value):
