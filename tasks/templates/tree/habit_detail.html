@@ -26,65 +26,69 @@
             {% include "tree/calendar.html" %}
         </div>
 
-        <main>
-            {% regroup tracked_habits by published|date:"F Y" as tracked_by_month %}
-            {% for month, month_events in tracked_by_month %}
-                <section class="habit-month" id="{{ month_events.0.published|date:"Y-m" }}">
-                    <h3>{{ month }}</h3>
-                    <ul>
-                        {% regroup month_events by published.date as entries_by_date %}
-                        {% for date, entries in entries_by_date %}
-                            <li id="{{ date|date:"b-d" }}">
-                                <strong>{{ date|date:"d F" }}</strong>
-                                <ul>
-                                    {% for event in entries %}
-                                        <li>
-                                            {% include event.template %}
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </section>
-            {% empty %}
-                <p>No occurrences yet.</p>
-            {% endfor %}
-        </main>
+        <nav class="habit-tabs" aria-label="{{ object.name }}">
+            {% if metrics %}
+                <a href="?tab=metrics"{% if tab == "metrics" %} class="active" aria-current="page"{% endif %}>Metrics</a>
+            {% endif %}
+            <a href="?tab=history"{% if tab == "history" %} class="active" aria-current="page"{% endif %}>History</a>
+        </nav>
+
+        {% if tab == "metrics" %}
+            <section class="habit-metrics" id="metrics">
+                <ul>
+                    {% for row in metrics %}
+                        <li>
+                            <strong>{{ row.metric.label }}</strong>
+                            <div class="habit-metric-latest">
+                                {% if row.latest %}
+                                    {{ row.latest }} · {{ row.published|date:"d M Y" }}
+                                {% else %}
+                                    Nothing recorded yet.
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <p class="habit-metrics-note"><a href="{% url 'metric-add' %}?habit={{ object.slug }}">Add a metric</a> · <a href="{% url 'metrics' %}">Edit metrics</a></p>
+            </section>
+        {% else %}
+            <main>
+                {% regroup tracked_habits by published|date:"F Y" as tracked_by_month %}
+                {% for month, month_events in tracked_by_month %}
+                    <section class="habit-month" id="{{ month_events.0.published|date:"Y-m" }}">
+                        <h3>{{ month }}</h3>
+                        <ul>
+                            {% regroup month_events by published.date as entries_by_date %}
+                            {% for date, entries in entries_by_date %}
+                                <li id="{{ date|date:"b-d" }}">
+                                    <strong>{{ date|date:"d F" }}</strong>
+                                    <ul>
+                                        {% for event in entries %}
+                                            <li>
+                                                {% include event.template %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+                {% empty %}
+                    <p>No occurrences yet.</p>
+                {% endfor %}
+            </main>
+        {% endif %}
     </section>
 </div>
 
 <div class="split-right">
-    <aside class="habit-metrics" id="metrics">
-        <h2>Metrics</h2>
-        {% if metrics %}
-            <ul>
-                {% for row in metrics %}
-                    <li>
-                        <strong>{{ row.metric.label }}</strong>
-                        <div class="habit-metric-latest">
-                            {% if row.latest %}
-                                {{ row.latest }} · {{ row.published|date:"d M Y" }}
-                            {% else %}
-                                Nothing recorded yet.
-                            {% endif %}
-                        </div>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p class="habit-metrics-note">Nothing recorded: an entry is just whether it happened.</p>
-        {% endif %}
-        <p class="habit-metrics-note"><a href="{% url 'metric-add' %}?habit={{ object.slug }}">Add a metric</a> · <a href="{% url 'metrics' %}">Edit metrics</a></p>
-    </aside>
-
     <aside class="months">
         <h2>Archive</h2>
         <ul>
             {% regroup tracked_habits by published|date:"F Y" as tracked_by_month %}
             {% for month, month_events in tracked_by_month %}
                 <li>
-                    <a href="#{{ month_events.0.published|date:"Y-m" }}">
+                    <a href="{% if tab != "history" %}?tab=history{% endif %}#{{ month_events.0.published|date:"Y-m" }}">
                         {{ month }} ({{ month_events|length }})
                     </a>
                 </li>

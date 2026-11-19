@@ -9,7 +9,10 @@
 <div class="split-layout content-rail no-rail">
 
 <div class="topbar">
-    <div class="upper-pane"><h1>Metrics</h1></div>
+    <div class="upper-pane">
+        <h1>Metrics</h1>
+        <a href="{% url 'metric-add' %}" class="topbar-action on-right">New metric</a>
+    </div>
     <div class="lower-pane">What habit entries record, written in their notes as <code>key=value</code>.</div>
 </div>
 

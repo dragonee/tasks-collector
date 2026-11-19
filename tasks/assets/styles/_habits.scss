@@ -79,9 +79,38 @@
     }
 }
 
-// Single-habit page: what an entry records, with its latest value; the
-// metrics are edited on the Metrics page.
+// Single-habit page: Metrics | History under the calendar.
+.habit-tabs {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    border-bottom: 1px solid #efefef;
+
+    a {
+        margin-bottom: -1px;
+        padding: 0.4rem 0;
+        border-bottom: 2px solid transparent;
+
+        color: #777;
+        font-weight: 600;
+        text-decoration: none;
+
+        &:hover {
+            color: #205e7d;
+        }
+
+        &.active {
+            border-bottom-color: #205e7d;
+            color: #343434;
+        }
+    }
+}
+
+// Single-habit page, Metrics tab: what an entry records, with its latest
+// value; the metrics are edited on the Metrics page.
 .habit-metrics {
+    margin-top: 1rem;
+
     ul {
         margin: 0;
         padding: 0;

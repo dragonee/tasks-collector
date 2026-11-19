@@ -214,17 +214,27 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
         end = timezone.now() + datetime.timedelta(days=1)
 
         context = super().get_context_data(**kwargs)
+        metrics = self.metrics()
 
         context.update(
             {
                 "event_calendar": habit_calendar(self.object, start, end),
                 "tracked_habits": self.tracked_habits,
                 "total_event_count": self.tracked_habits.count(),
-                "metrics": self.metrics(),
+                "metrics": metrics,
+                "tab": self.tab(metrics),
             }
         )
 
         return context
+
+    def tab(self, metrics):
+        """The tab shown under the calendar (``?tab=``): what the habit
+        records, else its history. A habit that records nothing has only its
+        history."""
+        tabs = ("metrics", "history") if metrics else ("history",)
+        tab = self.request.GET.get("tab")
+        return tab if tab in tabs else tabs[0]
 
     def metrics(self):
         """Each metric of the habit with its latest value, shown, and when."""
