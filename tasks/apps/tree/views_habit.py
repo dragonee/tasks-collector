@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.generic.base import TemplateView
 from django.views.generic.detail import DetailView
+from django.views.generic.edit import FormView
 from django.views.generic.list import ListView
 
 from rest_framework import status, viewsets
@@ -244,36 +245,41 @@ class HabitDetailView(LoginRequiredMixin, DetailView):
 
 class MetricsView(LoginRequiredMixin, TemplateView):
     """What the user's habits record, by key: each metric with the habit that
-    records it, how many entries carry a value and the last of them. Adds a
-    metric to a habit (``?habit=<slug>`` chooses it) or takes one away."""
+    records it, how many entries carry a value and the last of them. Takes a
+    metric away; MetricCreateView adds one."""
 
     template_name = "tree/metrics.html"
 
     def get_context_data(self, **kwargs):
-        if "form" not in kwargs:
-            habit = Habit.objects.filter(
-                user=self.request.user, slug=self.request.GET.get("habit", "")
-            ).first()
-            kwargs["form"] = HabitMetricForm(
-                user=self.request.user, initial={"habit": habit and habit.pk}
-            )
         kwargs["keys"] = in_use(self.request.user)
         return super().get_context_data(**kwargs)
 
     def post(self, request, *args, **kwargs):
-        url = reverse("metrics")
+        pk = request.POST.get("delete_metric", "")
+        if pk.isdigit():
+            HabitMetric.objects.filter(pk=pk, habit__user=request.user).delete()
+        return redirect(reverse("metrics"))
 
-        pk = request.POST.get("delete_metric")
-        if pk is not None:
-            if pk.isdigit():
-                HabitMetric.objects.filter(pk=pk, habit__user=request.user).delete()
-            return redirect(url)
 
-        form = HabitMetricForm(request.POST, user=request.user)
-        if form.is_valid():
-            metric = form.save()
-            return redirect(f"{url}#metric-{metric.key}")
-        return self.render_to_response(self.get_context_data(form=form))
+class MetricCreateView(LoginRequiredMixin, FormView):
+    """A new metric of one of the user's habits (``?habit=<slug>`` chooses
+    it); it is then shown under its key on the Metrics page."""
+
+    template_name = "tree/metric_add.html"
+    form_class = HabitMetricForm
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
+    def get_initial(self):
+        habit = Habit.objects.filter(
+            user=self.request.user, slug=self.request.GET.get("habit", "")
+        ).first()
+        return {"habit": habit and habit.pk}
+
+    def form_valid(self, form):
+        metric = form.save()
+        return redirect(f"{reverse('metrics')}#metric-{metric.key}")
 
 
 class HabitListView(LoginRequiredMixin, ListView):
@@ -282,19 +288,19 @@ class HabitListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         return Habit.objects.filter(user=self.request.user).prefetch_related("keywords")
 
-    def get_context_data(self, **kwargs):
-        kwargs.setdefault("form", HabitForm(user=self.request.user))
-        return super().get_context_data(**kwargs)
 
-    def post(self, request, *args, **kwargs):
-        """Make a habit of the user's, then show it in the list."""
-        form = HabitForm(request.POST, user=request.user)
-        if form.is_valid():
-            habit = form.save()
-            return redirect(f"{reverse('public-habit-list')}#habit-{habit.slug}")
+class HabitCreateView(LoginRequiredMixin, FormView):
+    """A new habit of the user's; it is then shown in the list."""
 
-        self.object_list = self.get_queryset()
-        return self.render_to_response(self.get_context_data(form=form))
+    template_name = "tree/habit_add.html"
+    form_class = HabitForm
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
+    def form_valid(self, form):
+        habit = form.save()
+        return redirect(f"{reverse('public-habit-list')}#habit-{habit.slug}")
 
 
 def get_habit_keywords_for_user(user, all=False):

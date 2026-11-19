@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block body_class %}page-rail{% endblock %}
+
+{% block title %}New habit | Habits | Tasks Collector{% endblock %}
+
+{% block content %}
+
+<div class="split-layout content-rail no-rail">
+
+<div class="topbar"><div class="upper-pane"><h1>New habit</h1></div></div>
+
+<div class="split-left">
+    <section class="habit-new">
+        <form method="post" action="{% url 'public-habit-add' %}">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <label for="{{ form.name.id_for_label }}">Name</label>
+            {{ form.name }}
+            {{ form.name.errors }}
+
+            <label for="{{ form.keywords.id_for_label }}">Hashtags</label>
+            {{ form.keywords }}
+            <p class="habit-new-help">What you write in the journal to track it. Left empty, it is the name.</p>
+            {{ form.keywords.errors }}
+
+            <label for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+            {{ form.description.errors }}
+
+            <div class="habit-new-actions">
+                <button type="submit" class="submit">Add habit</button>
+                <a href="{% url 'public-habit-list' %}">Cancel</a>
+            </div>
+        </form>
+    </section>
+</div>
+
+</div>
+{% endblock %}

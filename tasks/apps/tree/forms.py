@@ -287,6 +287,9 @@ class HabitForm(forms.ModelForm):
     # matches.
     MIN_KEYWORD_LENGTH = 3
 
+    # Slugs the habits pages use for themselves: habits/add/.
+    RESERVED_SLUGS = {"add"}
+
     keywords = forms.CharField(
         required=False,
         max_length=255,
@@ -308,6 +311,10 @@ class HabitForm(forms.ModelForm):
         slug = slugify(name)
         if not slug:
             raise ValidationError("A habit name needs a letter or a digit.")
+        if slug in self.RESERVED_SLUGS:
+            raise ValidationError(
+                f"A habit can't be called {name}: habits/{slug}/ is a page of its own."
+            )
         if Habit.objects.filter(user=self.instance.user, slug=slug).exists():
             raise ValidationError("You already have a habit with this name.")
         self.instance.slug = slug

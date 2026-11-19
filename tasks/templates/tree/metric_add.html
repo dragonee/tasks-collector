@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block body_class %}page-rail{% endblock %}
+
+{% block title %}New metric | Metrics | Tasks Collector{% endblock %}
+
+{% block content %}
+
+<div class="split-layout content-rail no-rail">
+
+<div class="topbar">
+    <div class="upper-pane"><h1>New metric</h1></div>
+    <div class="lower-pane">Something a habit records with each entry, written in its notes as <code>key=value</code>.</div>
+</div>
+
+<div class="split-left">
+    <section class="habit-new">
+        <form method="post" action="{% url 'metric-add' %}">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <label for="{{ form.habit.id_for_label }}">Habit</label>
+            {{ form.habit }}
+            {{ form.habit.errors }}
+
+            <label for="{{ form.label.id_for_label }}">Name</label>
+            {{ form.label }}
+            {{ form.label.errors }}
+
+            <label for="{{ form.key.id_for_label }}">Key</label>
+            {{ form.key }}
+            <p class="habit-new-help">{{ form.key.help_text }}</p>
+            {{ form.key.errors }}
+
+            <label for="{{ form.kind.id_for_label }}">Kind</label>
+            {{ form.kind }}
+            {{ form.kind.errors }}
+
+            <label for="{{ form.unit.id_for_label }}">Unit</label>
+            {{ form.unit }}
+            <p class="habit-new-help">{{ form.unit.help_text }}</p>
+            {{ form.unit.errors }}
+
+            <label for="{{ form.decimals.id_for_label }}">Decimals</label>
+            {{ form.decimals }}
+            {{ form.decimals.errors }}
+
+            <div class="habit-new-actions">
+                <button type="submit" class="submit">Add metric</button>
+                <a href="{% url 'metrics' %}">Cancel</a>
+            </div>
+        </form>
+    </section>
+</div>
+
+</div>
+{% endblock %}

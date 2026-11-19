@@ -4,8 +4,10 @@
     height: 4em;
 }
 
-// Habits page: the form in the rail that makes a new habit.
+// The New habit and New metric pages: a form in the content column.
 .habit-new {
+    max-width: 32rem;
+
     label {
         display: block;
         margin: 0.9rem 0 0.3rem;
@@ -50,8 +52,14 @@
         font-size: 0.85rem;
     }
 
-    button.submit {
+    .habit-new-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
         margin-top: 1rem;
+    }
+
+    button.submit {
         padding: 0.55em 1.4em;
     }
 }
@@ -97,7 +105,7 @@
 }
 
 // Metrics page: by key, each habit that records it, with how many entries
-// carry a value. The form in the rail is styled as .habit-new.
+// carry a value.
 .metric-key {
     margin-top: 2rem;
 

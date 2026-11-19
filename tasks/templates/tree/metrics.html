@@ -6,7 +6,7 @@
 
 {% block content %}
 
-<div class="split-layout content-rail">
+<div class="split-layout content-rail no-rail">
 
 <div class="topbar">
     <div class="upper-pane"><h1>Metrics</h1></div>
@@ -39,48 +39,10 @@
                     </ul>
                 </section>
             {% empty %}
-                <p>No metrics yet: a habit's entries are just whether it happened.</p>
+                <p>No metrics yet: a habit's entries are just whether it happened. <a href="{% url 'metric-add' %}">Add one</a>.</p>
             {% endfor %}
         </main>
     </section>
-</div>
-
-<div class="split-right">
-    <aside class="habit-new" id="new">
-        <h2>New metric</h2>
-        <form method="post" action="{% url 'metrics' %}">
-            {% csrf_token %}
-            {{ form.non_field_errors }}
-
-            <label for="{{ form.habit.id_for_label }}">Habit</label>
-            {{ form.habit }}
-            {{ form.habit.errors }}
-
-            <label for="{{ form.label.id_for_label }}">Name</label>
-            {{ form.label }}
-            {{ form.label.errors }}
-
-            <label for="{{ form.key.id_for_label }}">Key</label>
-            {{ form.key }}
-            <p class="habit-new-help">{{ form.key.help_text }}</p>
-            {{ form.key.errors }}
-
-            <label for="{{ form.kind.id_for_label }}">Kind</label>
-            {{ form.kind }}
-            {{ form.kind.errors }}
-
-            <label for="{{ form.unit.id_for_label }}">Unit</label>
-            {{ form.unit }}
-            <p class="habit-new-help">{{ form.unit.help_text }}</p>
-            {{ form.unit.errors }}
-
-            <label for="{{ form.decimals.id_for_label }}">Decimals</label>
-            {{ form.decimals }}
-            {{ form.decimals.errors }}
-
-            <button type="submit" class="submit">Add metric</button>
-        </form>
-    </aside>
 </div>
 
 </div>

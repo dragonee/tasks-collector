@@ -187,7 +187,7 @@ class HabitEndpointsPerUserTestCase(APITestCase):
 
 
 class HabitCreationTestCase(TestCase):
-    """The form on the habits page makes a habit of the user's."""
+    """The New habit page makes a habit of the user's."""
 
     @classmethod
     def setUpTestData(cls):
@@ -199,7 +199,7 @@ class HabitCreationTestCase(TestCase):
         self.client.force_login(self.bob)
 
     def add(self, **data):
-        return self.client.post(reverse("public-habit-list"), data)
+        return self.client.post(reverse("public-habit-add"), data)
 
     def rejected(self, response, field):
         """The page came back with an error on ``field`` and no new habit."""
@@ -211,9 +211,14 @@ class HabitCreationTestCase(TestCase):
         )
 
     def test_page_shows_the_form(self):
-        response = self.client.get(reverse("public-habit-list"))
+        response = self.client.get(reverse("public-habit-add"))
 
         self.assertContains(response, "Add habit")
+
+    def test_the_list_has_no_form(self):
+        response = self.client.get(reverse("public-habit-list"))
+
+        self.assertNotContains(response, 'name="keywords"')
 
     def test_habit_is_made_for_the_user_and_shown_in_the_list(self):
         response = self.add(name="Morning Run", description="Before work.")
@@ -267,6 +272,12 @@ class HabitCreationTestCase(TestCase):
 
     def test_name_needs_a_letter_or_a_digit(self):
         self.rejected(self.add(name="!!!"), "name")
+
+    def test_name_can_not_be_the_add_page(self):
+        response = self.add(name="Add", keywords="#addition")
+
+        self.rejected(response, "name")
+        self.assertContains(response, "habits/add/ is a page of its own")
 
     def test_own_hashtag_can_not_be_given_to_another_habit(self):
         response = self.add(name="Places", keywords="#places #poi")
