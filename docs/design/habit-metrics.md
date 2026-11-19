@@ -152,9 +152,11 @@ class HabitTracked(Event):
   their latest values, the calendar and the archive. Metrics are edited on
   the Metrics page (`/metrics/`, in the menu): every metric of the user's
   habits by key, with the habits that record it, how many entries carry a
-  value and the last of them, and the form that adds one to a habit
-  (`?habit=<slug>` chooses it; the habit's page links there). So does the
-  admin.
+  value and the last of them; × takes one away. The New metric page
+  (`/metrics/add/`, the menu's +) adds one to a habit (`?habit=<slug>`
+  chooses it; the habit's page links there). So does the admin.
+- A new habit is made on its own page too (`/habits/add/`, the menu's + by
+  Habits), so no habit can be called "add".
 - The phones' activity dialog (the + button) offers the profile's keywords
   and asks for the chosen habit's metrics by kind (a number, minutes and
   seconds, upper and lower, an amount and a currency); the note is the

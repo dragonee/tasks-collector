@@ -75,7 +75,7 @@
         {% else %}
             <p class="habit-metrics-note">Nothing recorded: an entry is just whether it happened.</p>
         {% endif %}
-        <p class="habit-metrics-note"><a href="{% url 'metrics' %}?habit={{ object.slug }}#new">Edit metrics</a></p>
+        <p class="habit-metrics-note"><a href="{% url 'metric-add' %}?habit={{ object.slug }}">Add a metric</a> · <a href="{% url 'metrics' %}">Edit metrics</a></p>
     </aside>
 
     <aside class="months">

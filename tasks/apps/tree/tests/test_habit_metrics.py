@@ -351,7 +351,7 @@ class HabitPageMetricsTest(TestCase):
         page = self.client.get(self.url)
         self.assertContains(page, "5.5 km")
         self.assertContains(page, "Nothing recorded yet.")
-        self.assertContains(page, f"{reverse('metrics')}?habit=run#new")
+        self.assertContains(page, f"{reverse('metric-add')}?habit=run")
         self.assertNotContains(page, "delete_metric")
 
     def test_the_page_changes_nothing(self):
@@ -363,8 +363,8 @@ class HabitPageMetricsTest(TestCase):
 
 
 class MetricsPageTest(TestCase):
-    """The Metrics page: every metric by key, with the habits that record it,
-    and the form that adds one."""
+    """The Metrics page: every metric by key, with the habits that record it;
+    the New metric page adds one."""
 
     @classmethod
     def setUpTestData(cls):
@@ -377,7 +377,7 @@ class MetricsPageTest(TestCase):
 
     def add(self, **fields):
         data = {"habit": self.habit.pk, "kind": "number", "decimals": 0}
-        return self.client.post(self.url, {**data, **fields})
+        return self.client.post(reverse("metric-add"), {**data, **fields})
 
     def test_a_metric_added_reads_the_entries_and_counts_them(self):
         HabitTracked.objects.create(
@@ -434,8 +434,12 @@ class MetricsPageTest(TestCase):
 
     def test_the_habit_page_link_chooses_the_habit(self):
         make_habit(self.user, "Another", keywords=["another"])
-        page = self.client.get(self.url, {"habit": "run"})
+        page = self.client.get(reverse("metric-add"), {"habit": "run"})
         self.assertEqual(page.context["form"]["habit"].value(), self.habit.pk)
+
+    def test_the_list_has_no_form(self):
+        page = self.client.get(self.url)
+        self.assertNotContains(page, 'name="key"')
 
     def test_someone_elses_habit_cannot_be_chosen(self):
         bob = User.objects.create_user(username="bob", password="x")

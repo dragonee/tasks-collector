@@ -64,7 +64,10 @@ urlpatterns = [
     path("api/v1/plans/today/", views.today_plans, name="today-plans"),
     # === Habits (views_habit) ===
     path("habits/", views_habit.HabitListView.as_view(), name="public-habit-list"),
+    # Before habits/<slug>/: a habit can't be named "add" (HabitForm).
+    path("habits/add/", views_habit.HabitCreateView.as_view(), name="public-habit-add"),
     path("metrics/", views_habit.MetricsView.as_view(), name="metrics"),
+    path("metrics/add/", views_habit.MetricCreateView.as_view(), name="metric-add"),
     path(
         "habits/<slug:slug>/",
         views_habit.HabitDetailView.as_view(),
