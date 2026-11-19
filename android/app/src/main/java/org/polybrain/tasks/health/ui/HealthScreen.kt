@@ -174,21 +174,23 @@ private fun TrackActivityDialog(vm: MainViewModel) {
     val saving by vm.activitySaving.collectAsState()
     val error by vm.activityError.collectAsState()
     val keywords by vm.activityKeywords.collectAsState()
-    val initialRole by vm.activityInitialRole.collectAsState()
+    val role by vm.activityRole.collectAsState()
+    val healthData by vm.healthData.collectAsState()
 
     var chosen by remember { mutableStateOf<String?>(null) }
     var note by remember { mutableStateOf("") }
     var inputs by remember { mutableStateOf(mapOf<String, MetricInput>()) }
 
-    // The keyword chosen, else the habit of the role asked for (weight from
-    // the weight row), else the first, once the list is in.
-    val selected = keywords.firstOrNull { it.keyword == chosen }
-        ?: keywords.firstOrNull { initialRole != null && initialRole in it.habit?.roles.orEmpty() }
-        ?: keywords.firstOrNull()
-    val metrics = selected?.habit?.metrics.orEmpty()
+    // Opened for a role (weight from the weight row): the habit that fills it,
+    // from the health data. Otherwise the keyword chosen, else the first, once
+    // the list is in.
+    val roleHabit = role?.let { healthData?.roles?.get(it) }
+    val selected = keywords.firstOrNull { it.keyword == chosen } ?: keywords.firstOrNull()
+    val keyword = if (role != null) roleHabit?.keyword else selected?.keyword
+    val metrics = if (role != null) roleHabit?.metrics.orEmpty() else selected?.habit?.metrics.orEmpty()
     val values = metricValues(metrics, inputs)
     // A habit that records something needs it, or the entry says nothing.
-    val canConfirm = selected != null && values != null &&
+    val canConfirm = keyword != null && values != null &&
         (metrics.isEmpty() || values.isNotEmpty() || note.isNotBlank())
 
     fun update(key: String, input: MetricInput) {
@@ -197,22 +199,28 @@ private fun TrackActivityDialog(vm: MainViewModel) {
 
     AlertDialog(
         onDismissRequest = { vm.closeActivityDialog() },
-        title = { Text(stringResource(R.string.activity_dialog_title)) },
+        title = {
+            // A role's habit by its name: there is nothing else to choose.
+            val habitName = roleHabit?.name.orEmpty()
+            Text(habitName.ifBlank { stringResource(R.string.activity_dialog_title) })
+        },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    keywords.forEach { keyword ->
-                        FilterChip(
-                            selected = keyword == selected,
-                            onClick = {
-                                chosen = keyword.keyword
-                                inputs = emptyMap()
-                            },
-                            label = { Text("#${keyword.keyword}") },
-                        )
+                if (role == null) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        keywords.forEach { keyword ->
+                            FilterChip(
+                                selected = keyword == selected,
+                                onClick = {
+                                    chosen = keyword.keyword
+                                    inputs = emptyMap()
+                                },
+                                label = { Text("#${keyword.keyword}") },
+                            )
+                        }
                     }
                 }
                 metrics.forEach { metric ->
@@ -242,8 +250,8 @@ private fun TrackActivityDialog(vm: MainViewModel) {
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (selected != null && values != null) {
-                        vm.trackActivity(selected.keyword, note, values)
+                    if (keyword != null && values != null) {
+                        vm.trackActivity(keyword, note, values)
                     }
                 },
                 enabled = !saving && canConfirm,

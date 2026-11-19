@@ -83,13 +83,25 @@ data class TrackedHabitResponse(
     @SerialName("note") val note: String? = null,
 )
 
-// Server-derived health data for the Health screen. Currently just the most
-// recently recorded body weight and when it was recorded; both null when
-// nothing has been recorded yet.
+// Server-derived health data for the Health screen: the most recently recorded
+// body weight and when it was recorded (both null when nothing has been
+// recorded yet), and by role (weight, daily-health...) what a write for it
+// records.
 @Serializable
 data class HealthDataResponse(
     @SerialName("weight_kg") val weightKg: Double? = null,
     @SerialName("recorded_at") val recordedAt: String? = null,
+    @SerialName("roles") val roles: Map<String, RoleHabit> = emptyMap(),
+)
+
+// The habit a write for a role goes to: its name, the keyword its note starts
+// with ("" for none) and what it records. Every role has one, filled or not:
+// the server makes the habit on the role's first write.
+@Serializable
+data class RoleHabit(
+    @SerialName("name") val name: String = "",
+    @SerialName("keyword") val keyword: String = "",
+    @SerialName("metrics") val metrics: List<HabitMetric> = emptyList(),
 )
 
 // A task as the server describes it (api/v1/tasks/). One of today's lines, or

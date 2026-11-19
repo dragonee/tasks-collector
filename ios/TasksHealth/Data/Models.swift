@@ -131,14 +131,54 @@ struct TrackedHabitRequest: Encodable, Sendable {
     }
 }
 
-/// Server-derived health data: the body weight last recorded, and when.
+/// Server-derived health data: the body weight last recorded, and when, and
+/// by role (weight, daily-health...) what a write for it records.
 struct HealthDataResponse: Decodable, Sendable, Equatable {
     var weightKg: Double?
     var recordedAt: String?
+    var roles: [String: RoleHabit] = [:]
 
     enum CodingKeys: String, CodingKey {
         case weightKg = "weight_kg"
         case recordedAt = "recorded_at"
+        case roles
+    }
+
+    init(weightKg: Double? = nil, recordedAt: String? = nil, roles: [String: RoleHabit] = [:]) {
+        self.weightKg = weightKg
+        self.recordedAt = recordedAt
+        self.roles = roles
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        weightKg = try c.decodeIfPresent(Double.self, forKey: .weightKg)
+        recordedAt = try c.decodeIfPresent(String.self, forKey: .recordedAt)
+        roles = try c.value(.roles, or: [:])
+    }
+}
+
+/// The habit a write for a role goes to: its name, the keyword its note
+/// starts with ("" for none) and what it records. Every role has one, filled
+/// or not: the server makes the habit on the role's first write.
+struct RoleHabit: Decodable, Sendable, Equatable {
+    var name: String = ""
+    var keyword: String = ""
+    var metrics: [HabitMetric] = []
+
+    enum CodingKeys: String, CodingKey { case name, keyword, metrics }
+
+    init(name: String = "", keyword: String = "", metrics: [HabitMetric] = []) {
+        self.name = name
+        self.keyword = keyword
+        self.metrics = metrics
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.value(.name, or: "")
+        keyword = try c.value(.keyword, or: "")
+        metrics = try c.value(.metrics, or: [])
     }
 }
 

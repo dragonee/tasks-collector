@@ -8,6 +8,8 @@ from rest_framework.views import APIView
 
 from tasks.apps.common.authentication import TokenAuthentication
 
+from .serializers import RoleHabitSerializer
+from .services.habits.roles import role_habits
 from .services.health import latest_weight
 from .services.today import NoBoardError, list_board_items
 
@@ -59,9 +61,10 @@ class AndroidBoardListView(APIView):
 class AndroidHealthDataView(APIView):
     """Return server-side health data for the Health screen.
 
-    Currently just the most recently recorded body weight and when it was
-    recorded; both null when nothing has been recorded yet. Named generically
-    so other server-derived metrics can be added here later.
+    The most recently recorded body weight and when it was recorded (both
+    null when nothing has been recorded yet), and by role what a write for it
+    records: the habit's name, keyword and metrics (``roles.role_habits``),
+    from which the phone builds the form of a role, such as weight.
     """
 
     authentication_classes = [TokenAuthentication]
@@ -69,15 +72,15 @@ class AndroidHealthDataView(APIView):
 
     def get(self, request):
         record = latest_weight(request.user)
-        if record is None:
-            return Response(
-                {"weight_kg": None, "recorded_at": None},
-                status=status.HTTP_200_OK,
-            )
+        roles = {
+            role: RoleHabitSerializer(habit).data
+            for role, habit in role_habits(request.user).items()
+        }
         return Response(
             {
-                "weight_kg": record.value_kg,
-                "recorded_at": record.recorded_at.isoformat(),
+                "weight_kg": record.value_kg if record else None,
+                "recorded_at": record.recorded_at.isoformat() if record else None,
+                "roles": roles,
             },
             status=status.HTTP_200_OK,
         )

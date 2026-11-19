@@ -60,6 +60,40 @@ def habit_for(user, role):
     return Habit.objects.filter(roles__user=user, roles__role=role).first()
 
 
+RoleHabit = namedtuple("RoleHabit", "name keyword metrics")
+
+
+def role_habits(user):
+    """By role, what a write for it records for ``user``: the name, the
+    keyword (the role's own when the habit has it) and the metrics of the
+    habit that fills it. For a role nobody fills, those of the habit its first
+    write makes, so that a phone can always ask for a role's values."""
+    filled = {
+        row.role: row.habit
+        for row in HabitRole.objects.filter(user=user)
+        .select_related("habit")
+        .prefetch_related("habit__keywords", "habit__metrics")
+    }
+    habits = {}
+    for role, spec in ROLES.items():
+        habit = filled.get(role)
+        if habit is None:
+            free = [
+                keyword
+                for keyword in spec.keywords
+                if not HabitKeyword.objects.filter(user=user, keyword=keyword).exists()
+            ]
+            metrics = [HabitMetric(**metric) for metric in spec.metrics]
+            habits[role] = RoleHabit(spec.name, next(iter(free), ""), metrics)
+            continue
+        keywords = [keyword.keyword for keyword in habit.keywords.all()]
+        own = [keyword for keyword in spec.keywords if keyword in keywords]
+        habits[role] = RoleHabit(
+            habit.name, next(iter(own + keywords), ""), list(habit.metrics.all())
+        )
+    return habits
+
+
 def roles_of(habit):
     """The roles ``habit`` fills."""
     return list(habit.roles.values_list("role", flat=True))

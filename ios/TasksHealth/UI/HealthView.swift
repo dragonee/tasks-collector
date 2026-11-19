@@ -61,7 +61,7 @@ struct HealthView: View {
             .refreshable { await model.refresh() }
         }
         .sheet(item: $model.activitySheet) { sheet in
-            TrackActivitySheet(model: model, initialRole: sheet.role)
+            TrackActivitySheet(model: model, role: sheet.role)
         }
     }
 
@@ -81,42 +81,49 @@ struct HealthView: View {
 
 private struct TrackActivitySheet: View {
     let model: MainModel
-    let initialRole: String?
+    let role: String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var chosen: String?
     @State private var note = ""
     @State private var inputs: [String: MetricInput] = [:]
 
-    /// The keyword chosen, else the habit of the role asked for (weight from
-    /// the weight row), else the first, once the list is in.
-    private var selected: HabitKeyword? {
-        let keywords = model.activityKeywords
-        return keywords.first { $0.keyword == chosen }
-            ?? keywords.first { initialRole != nil && $0.roles.contains(initialRole!) }
-            ?? keywords.first
+    /// Opened for a role (weight from the weight row): the habit that fills
+    /// it, from the health data.
+    private var roleHabit: RoleHabit? {
+        role.flatMap { model.healthData?.roles[$0] }
     }
 
-    private var metrics: [HabitMetric] { selected?.metrics ?? [] }
+    /// Otherwise the keyword chosen, else the first, once the list is in.
+    private var selected: HabitKeyword? {
+        let keywords = model.activityKeywords
+        return keywords.first { $0.keyword == chosen } ?? keywords.first
+    }
+
+    private var keyword: String? { role != nil ? roleHabit?.keyword : selected?.keyword }
+
+    private var metrics: [HabitMetric] { (role != nil ? roleHabit?.metrics : selected?.metrics) ?? [] }
 
     private var values: [String: MetricValue]? { metricValues(metrics, inputs) }
 
     /// A habit that records something needs it, or the entry says nothing.
     private var canConfirm: Bool {
-        guard selected != nil, let values else { return false }
+        guard keyword != nil, let values else { return false }
         return metrics.isEmpty || !values.isEmpty || !note.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(model.activityKeywords) { option in
-                                FilterChip(label: "#\(option.keyword)", selected: option == selected) {
-                                    chosen = option.keyword
-                                    inputs = [:]
+                if role == nil {
+                    Section {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(model.activityKeywords) { option in
+                                    FilterChip(label: "#\(option.keyword)", selected: option == selected) {
+                                        chosen = option.keyword
+                                        inputs = [:]
+                                    }
                                 }
                             }
                         }
@@ -132,7 +139,8 @@ private struct TrackActivitySheet: View {
                     }
                 }
             }
-            .navigationTitle("Register activity")
+            // A role's habit by its name: there is nothing else to choose.
+            .navigationTitle(roleHabit.map(\.name).flatMap { $0.isEmpty ? nil : $0 } ?? "Register activity")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -148,8 +156,8 @@ private struct TrackActivitySheet: View {
     }
 
     private func track() async {
-        guard let selected, let values else { return }
-        await model.trackActivity(keyword: selected.keyword, note: note, values: values)
+        guard let keyword, let values else { return }
+        await model.trackActivity(keyword: keyword, role: role, note: note, values: values)
     }
 
     private func input(_ key: String) -> Binding<MetricInput> {
