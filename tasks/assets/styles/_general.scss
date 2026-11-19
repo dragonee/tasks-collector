@@ -92,8 +92,9 @@ body, html {
     }
 
     // Shared primary-action button for top bars (Daily Submit, Breakthrough Save,
-    // Board commit).
-    button {
+    // Board commit), and a link that looks like one (New habit, New metric).
+    button,
+    a.topbar-action {
         padding: 0.5rem 1rem;
         font-size: 1.2rem;
 
@@ -109,6 +110,10 @@ body, html {
             background-color: #0057c1;
             color: #c1d8f5;
         }
+    }
+
+    a.topbar-action {
+        text-decoration: none;
     }
 }
 

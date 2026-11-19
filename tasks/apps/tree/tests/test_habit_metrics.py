@@ -354,6 +354,44 @@ class HabitPageMetricsTest(TestCase):
         self.assertContains(page, f"{reverse('metric-add')}?habit=run")
         self.assertNotContains(page, "delete_metric")
 
+    def entry(self, note="#run (distance=5.5km)"):
+        return HabitTracked.objects.create(
+            habit=self.habit,
+            note=note,
+            thread=Thread.objects.daily(self.user),
+            published=timezone.now(),
+        )
+
+    def test_a_habit_with_metrics_opens_on_them(self):
+        HabitMetric.objects.create(habit=self.habit, key="distance", unit="km")
+        self.entry()
+        page = self.client.get(self.url)
+        self.assertEqual(page.context["tab"], "metrics")
+        self.assertContains(page, 'class="active" aria-current="page">Metrics<')
+        self.assertNotContains(page, 'class="habit-month"')
+        month = timezone.now().strftime("%Y-%m")
+        self.assertContains(page, f'href="?tab=history#{month}"')
+
+    def test_a_habit_without_metrics_has_only_its_history(self):
+        self.entry()
+        for query in ({}, {"tab": "metrics"}):
+            page = self.client.get(self.url, query)
+            self.assertEqual(page.context["tab"], "history")
+            self.assertContains(page, 'class="habit-month"')
+            self.assertNotContains(page, 'href="?tab=metrics"')
+            self.assertNotContains(page, 'id="metrics"')
+        month = timezone.now().strftime("%Y-%m")
+        self.assertContains(page, f'href="#{month}"')
+
+    def test_a_tab_is_chosen_by_the_link(self):
+        HabitMetric.objects.create(habit=self.habit, key="distance", unit="km")
+        self.entry()
+        page = self.client.get(self.url, {"tab": "history"})
+        self.assertEqual(page.context["tab"], "history")
+        self.assertContains(page, 'class="habit-month"')
+        page = self.client.get(self.url, {"tab": "elsewhere"})
+        self.assertEqual(page.context["tab"], "metrics")
+
     def test_the_page_changes_nothing(self):
         response = self.client.post(
             self.url, {"label": "D", "key": "d", "kind": "number", "decimals": 0}
@@ -437,9 +475,12 @@ class MetricsPageTest(TestCase):
         page = self.client.get(reverse("metric-add"), {"habit": "run"})
         self.assertEqual(page.context["form"]["habit"].value(), self.habit.pk)
 
-    def test_the_list_has_no_form(self):
+    def test_the_list_links_to_the_form_from_its_header(self):
         page = self.client.get(self.url)
         self.assertNotContains(page, 'name="key"')
+        self.assertContains(
+            page, f'<a href="{reverse("metric-add")}" class="topbar-action on-right">'
+        )
 
     def test_someone_elses_habit_cannot_be_chosen(self):
         bob = User.objects.create_user(username="bob", password="x")

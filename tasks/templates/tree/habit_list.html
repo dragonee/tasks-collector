@@ -8,7 +8,12 @@
 
 <div class="split-layout content-rail no-rail">
 
-<div class="topbar"><div class="upper-pane"><h1>Habits</h1></div></div>
+<div class="topbar">
+    <div class="upper-pane">
+        <h1>Habits</h1>
+        <a href="{% url 'public-habit-add' %}" class="topbar-action on-right">New habit</a>
+    </div>
+</div>
 
 <div class="split-left">
     <section class="journal">

@@ -148,15 +148,18 @@ class HabitTracked(Event):
   400.
 - Habits come with `metrics` wherever the API sends them;
   `habit/keywords/mine/?with_tracked=true` keeps the habits tracked today.
-- The habit's page (`/habits/<slug>/`) is for reading: its metrics with
-  their latest values, the calendar and the archive. Metrics are edited on
-  the Metrics page (`/metrics/`, in the menu): every metric of the user's
-  habits by key, with the habits that record it, how many entries carry a
-  value and the last of them; × takes one away. The New metric page
-  (`/metrics/add/`, the menu's +) adds one to a habit (`?habit=<slug>`
-  chooses it; the habit's page links there). So does the admin.
-- A new habit is made on its own page too (`/habits/add/`, the menu's + by
-  Habits), so no habit can be called "add".
+- The habit's page (`/habits/<slug>/`) is for reading: the calendar, then
+  two tabs (`?tab=`), Metrics (each with its latest value; only for a habit
+  that records something, and then the one it opens on) and History (the
+  entries by month, which the archive in the rail jumps to). Metrics are
+  edited on the Metrics page (`/metrics/`, in the menu): every metric of the
+  user's habits by key, with the habits that record it, how many entries
+  carry a value and the last of them; × takes one away. The New metric page
+  (`/metrics/add/`, the button in the Metrics header) adds one to a habit
+  (`?habit=<slug>` chooses it; the habit's Metrics tab links there). So does
+  the admin.
+- A new habit is made on its own page too (`/habits/add/`, the button in the
+  Habits header), so no habit can be called "add".
 - The phones' activity dialog (the + button) offers the profile's keywords
   and asks for the chosen habit's metrics by kind (a number, minutes and
   seconds, upper and lower, an amount and a currency); the note is the

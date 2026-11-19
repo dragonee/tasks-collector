@@ -215,10 +215,14 @@ class HabitCreationTestCase(TestCase):
 
         self.assertContains(response, "Add habit")
 
-    def test_the_list_has_no_form(self):
+    def test_the_list_links_to_the_form_from_its_header(self):
         response = self.client.get(reverse("public-habit-list"))
 
         self.assertNotContains(response, 'name="keywords"')
+        self.assertContains(
+            response,
+            f'<a href="{reverse("public-habit-add")}" class="topbar-action on-right">',
+        )
 
     def test_habit_is_made_for_the_user_and_shown_in_the_list(self):
         response = self.add(name="Morning Run", description="Before work.")
