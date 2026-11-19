@@ -71,8 +71,8 @@
     }
 }
 
-// Single-habit page: what an entry records, with its latest value, and the
-// form that adds to it (styled as .habit-new).
+// Single-habit page: what an entry records, with its latest value; the
+// metrics are edited on the Metrics page.
 .habit-metrics {
     ul {
         margin: 0;
@@ -84,18 +84,49 @@
         margin-top: 0.6rem;
     }
 
-    .habit-metric {
+    .habit-metric-latest {
+        color: #555;
+        font-size: 0.9rem;
+    }
+
+    .habit-metrics-note {
+        margin: 0.8rem 0 0;
+        color: #777;
+        font-size: 0.85rem;
+    }
+}
+
+// Metrics page: by key, each habit that records it, with how many entries
+// carry a value. The form in the rail is styled as .habit-new.
+.metric-key {
+    margin-top: 2rem;
+
+    &:first-child {
+        margin-top: 1rem;
+    }
+
+    h3 {
+        margin: 0 0 0.5rem;
+        color: #999;
+    }
+
+    ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    li + li {
+        margin-top: 0.6rem;
+    }
+
+    .metric-use {
         display: flex;
         align-items: baseline;
         gap: 0.5rem;
-
-        code {
-            color: #777;
-            font-size: 0.85rem;
-        }
     }
 
-    .habit-metric-delete {
+    .metric-delete {
         margin-left: auto;
 
         button {
@@ -111,7 +142,7 @@
         }
     }
 
-    .habit-metric-latest {
+    .metric-use-info {
         color: #555;
         font-size: 0.9rem;
     }

@@ -83,6 +83,14 @@ Two tiers: primary `.nav-item` rows and smaller, indented `.nav-item.sub` rows.
         </div>
 
         <div class="nav-row">
+            {% url 'metrics' as metrics_url %}
+            <a href="{{ metrics_url }}" class="nav-item sub{% if request.path == metrics_url %} active{% endif %}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></span>
+                <span class="nav-label">Metrics</span>
+            </a>
+        </div>
+
+        <div class="nav-row">
             <a href="/breakthrough/{{ current_year }}/" class="nav-item{% if '/breakthrough' in request.path %} active{% endif %}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"/></svg></span>
                 <span class="nav-label">Breakthrough</span>

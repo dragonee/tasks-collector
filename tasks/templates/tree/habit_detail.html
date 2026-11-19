@@ -56,60 +56,26 @@
 
 <div class="split-right">
     <aside class="habit-metrics" id="metrics">
-        <h2>Records</h2>
+        <h2>Metrics</h2>
         {% if metrics %}
             <ul>
                 {% for row in metrics %}
                     <li>
-                        <div class="habit-metric">
-                            <strong>{{ row.metric.label }}</strong>
-                            <code>{{ row.metric.key }}=</code>
-                            <form method="post" class="habit-metric-delete">
-                                {% csrf_token %}
-                                <button type="submit" name="delete_metric" value="{{ row.metric.key }}" title="Stop recording {{ row.metric.label }}">&times;</button>
-                            </form>
+                        <strong>{{ row.metric.label }}</strong>
+                        <div class="habit-metric-latest">
+                            {% if row.latest %}
+                                {{ row.latest }} · {{ row.published|date:"d M Y" }}
+                            {% else %}
+                                Nothing recorded yet.
+                            {% endif %}
                         </div>
-                        {% if row.latest %}
-                            <div class="habit-metric-latest">{{ row.latest }} · {{ row.published|date:"d M Y" }}</div>
-                        {% endif %}
                     </li>
                 {% endfor %}
             </ul>
         {% else %}
-            <p class="habit-new-help">Nothing yet: an entry is just whether it happened.</p>
+            <p class="habit-metrics-note">Nothing recorded: an entry is just whether it happened.</p>
         {% endif %}
-    </aside>
-
-    <aside class="habit-new">
-        <h2>Record with each entry</h2>
-        <form method="post" action="#metrics">
-            {% csrf_token %}
-            {{ metric_form.non_field_errors }}
-
-            <label for="{{ metric_form.label.id_for_label }}">Name</label>
-            {{ metric_form.label }}
-            {{ metric_form.label.errors }}
-
-            <label for="{{ metric_form.key.id_for_label }}">Key</label>
-            {{ metric_form.key }}
-            <p class="habit-new-help">{{ metric_form.key.help_text }}</p>
-            {{ metric_form.key.errors }}
-
-            <label for="{{ metric_form.kind.id_for_label }}">Kind</label>
-            {{ metric_form.kind }}
-            {{ metric_form.kind.errors }}
-
-            <label for="{{ metric_form.unit.id_for_label }}">Unit</label>
-            {{ metric_form.unit }}
-            <p class="habit-new-help">{{ metric_form.unit.help_text }}</p>
-            {{ metric_form.unit.errors }}
-
-            <label for="{{ metric_form.decimals.id_for_label }}">Decimals</label>
-            {{ metric_form.decimals }}
-            {{ metric_form.decimals.errors }}
-
-            <button type="submit" class="submit">Add</button>
-        </form>
+        <p class="habit-metrics-note"><a href="{% url 'metrics' %}?habit={{ object.slug }}#new">Edit metrics</a></p>
     </aside>
 
     <aside class="months">

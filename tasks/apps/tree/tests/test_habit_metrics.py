@@ -326,6 +326,8 @@ class TrackedHabitAPITest(APITestCase):
 
 
 class HabitPageMetricsTest(TestCase):
+    """The habit's page shows what its entries recorded; it changes nothing."""
+
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user(username="alice", password="x")
@@ -335,56 +337,123 @@ class HabitPageMetricsTest(TestCase):
     def setUp(self):
         self.client.force_login(self.user)
 
-    def test_a_metric_added_reads_the_entries_and_shows_the_latest(self):
+    def test_the_latest_value_is_shown_for_people(self):
+        HabitMetric.objects.create(
+            habit=self.habit, key="distance", label="Distance", unit="km", decimals=1
+        )
+        HabitMetric.objects.create(habit=self.habit, key="pace", label="Pace")
         HabitTracked.objects.create(
             habit=self.habit,
             note="#run (distance=5.5km)",
             thread=Thread.objects.daily(self.user),
             published=timezone.now(),
         )
+        page = self.client.get(self.url)
+        self.assertContains(page, "5.5 km")
+        self.assertContains(page, "Nothing recorded yet.")
+        self.assertContains(page, f"{reverse('metrics')}?habit=run#new")
+        self.assertNotContains(page, "delete_metric")
+
+    def test_the_page_changes_nothing(self):
         response = self.client.post(
-            self.url,
-            {
-                "label": "Distance",
-                "key": "distance",
-                "kind": "number",
-                "unit": "km",
-                "decimals": 1,
-            },
+            self.url, {"label": "D", "key": "d", "kind": "number", "decimals": 0}
         )
-        self.assertRedirects(response, f"{self.url}#metrics")
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(self.habit.metrics.exists())
+
+
+class MetricsPageTest(TestCase):
+    """The Metrics page: every metric by key, with the habits that record it,
+    and the form that adds one."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username="alice", password="x")
+        cls.habit = make_habit(cls.user, "Run", keywords=["run"])
+        cls.url = reverse("metrics")
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def add(self, **fields):
+        data = {"habit": self.habit.pk, "kind": "number", "decimals": 0}
+        return self.client.post(self.url, {**data, **fields})
+
+    def test_a_metric_added_reads_the_entries_and_counts_them(self):
+        HabitTracked.objects.create(
+            habit=self.habit,
+            note="#run (distance=5.5km)",
+            thread=Thread.objects.daily(self.user),
+            published=timezone.now(),
+        )
+        response = self.add(label="Distance", key="distance", unit="km", decimals=1)
+        self.assertRedirects(response, f"{self.url}#metric-distance")
 
         page = self.client.get(self.url)
-        self.assertContains(page, "Distance")
-        self.assertContains(page, "5.5 km")
+        self.assertContains(page, 'id="metric-distance"')
+        self.assertContains(page, "Number in km, 1 decimal")
+        self.assertContains(page, "1 entry")
+        habit_page = self.client.get(reverse("public-habit-detail", args=["run"]))
+        self.assertContains(habit_page, "5.5 km")
+
+    def test_a_key_lists_every_habit_that_records_it(self):
+        walk = make_habit(self.user, "Walk", keywords=["walk"])
+        HabitMetric.objects.create(habit=self.habit, key="distance", label="Run")
+        HabitMetric.objects.create(habit=walk, key="distance", label="Walked")
+        for note in ("#walk distance=2", "#walk distance=3"):
+            HabitTracked.objects.create(
+                habit=walk,
+                note=note,
+                thread=Thread.objects.daily(self.user),
+                published=timezone.now(),
+            )
+        page = self.client.get(self.url)
+        uses = page.context["keys"]["distance"]
+        self.assertEqual(
+            [(use.metric.habit.name, use.entries) for use in uses],
+            [("Run", 0), ("Walk", 2)],
+        )
+        self.assertContains(page, "0 entries")
+        self.assertContains(page, "2 entries")
 
     def test_a_metric_that_does_not_fit_is_refused(self):
         HabitMetric.objects.create(habit=self.habit, key="distance", unit="km")
-        response = self.client.post(
-            self.url,
-            {"label": "Again", "key": "distance", "kind": "number", "decimals": 0},
-        )
+        response = self.add(label="Again", key="distance")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "already records distance")
+        self.assertContains(response, "Run already records distance.")
 
-        response = self.client.post(
-            self.url,
-            {"label": "Time", "key": "time", "kind": "duration", "unit": "min"},
-        )
+        response = self.add(label="Time", key="time", kind="duration", unit="min")
         self.assertContains(response, "Only a number has a unit.")
         self.assertEqual(self.habit.metrics.count(), 1)
 
     def test_a_metric_taken_away(self):
-        HabitMetric.objects.create(habit=self.habit, key="distance", unit="km")
-        response = self.client.post(self.url, {"delete_metric": "distance"})
-        self.assertRedirects(response, f"{self.url}#metrics")
+        distance = HabitMetric.objects.create(habit=self.habit, key="distance")
+        response = self.client.post(self.url, {"delete_metric": distance.pk})
+        self.assertRedirects(response, self.url)
         self.assertFalse(self.habit.metrics.exists())
 
-    def test_someone_elses_habit_cannot_be_changed(self):
+    def test_the_habit_page_link_chooses_the_habit(self):
+        make_habit(self.user, "Another", keywords=["another"])
+        page = self.client.get(self.url, {"habit": "run"})
+        self.assertEqual(page.context["form"]["habit"].value(), self.habit.pk)
+
+    def test_someone_elses_habit_cannot_be_chosen(self):
         bob = User.objects.create_user(username="bob", password="x")
         self.client.force_login(bob)
-        response = self.client.post(
-            self.url, {"label": "D", "key": "d", "kind": "number", "decimals": 0}
-        )
-        self.assertEqual(response.status_code, 404)
+        response = self.add(label="D", key="d")
+        self.assertEqual(response.status_code, 200)
         self.assertFalse(self.habit.metrics.exists())
+
+    def test_someone_elses_metric_cannot_be_taken_away(self):
+        distance = HabitMetric.objects.create(habit=self.habit, key="distance")
+        bob = User.objects.create_user(username="bob", password="x")
+        self.client.force_login(bob)
+        self.client.post(self.url, {"delete_metric": distance.pk})
+        self.assertTrue(HabitMetric.objects.filter(pk=distance.pk).exists())
+
+    def test_someone_elses_metrics_are_not_listed(self):
+        HabitMetric.objects.create(habit=self.habit, key="distance")
+        bob = User.objects.create_user(username="bob", password="x")
+        self.client.force_login(bob)
+        page = self.client.get(self.url)
+        self.assertNotIn("distance", page.context["keys"])

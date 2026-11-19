@@ -355,12 +355,13 @@ class HabitForm(forms.ModelForm):
 
 
 class HabitMetricForm(forms.ModelForm):
-    """A new metric of ``habit`` (a required keyword argument), last in its
-    order."""
+    """A new metric of one of ``user``'s habits (``user`` is a required
+    keyword argument), last in its order."""
 
     class Meta:
         model = HabitMetric
-        fields = ["label", "key", "kind", "unit", "decimals"]
+        fields = ["habit", "label", "key", "kind", "unit", "decimals"]
+        labels = {"label": "Name"}
         widgets = {
             "key": forms.TextInput(attrs={"placeholder": "weight"}),
             "unit": forms.TextInput(attrs={"placeholder": "kg"}),
@@ -370,15 +371,16 @@ class HabitMetricForm(forms.ModelForm):
             "unit": "A number's, written after it.",
         }
 
-    def __init__(self, *args, habit, **kwargs):
+    def __init__(self, *args, user, **kwargs):
         super().__init__(*args, **kwargs)
-        self.instance.habit = habit
+        self.fields["habit"].queryset = Habit.objects.filter(user=user).order_by("name")
 
-    def clean_key(self):
-        key = self.cleaned_data["key"]
-        if self.instance.habit.metrics.filter(key=key).exists():
-            raise ValidationError(f"{self.instance.habit.name} already records {key}.")
-        return key
+    def clean(self):
+        cleaned = super().clean()
+        habit, key = cleaned.get("habit"), cleaned.get("key")
+        if habit is not None and key and habit.metrics.filter(key=key).exists():
+            self.add_error("key", f"{habit.name} already records {key}.")
+        return cleaned
 
     def save(self, commit=True):
         last = self.instance.habit.metrics.order_by("-order").first()

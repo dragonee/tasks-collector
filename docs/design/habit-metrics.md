@@ -148,8 +148,13 @@ class HabitTracked(Event):
   400.
 - Habits come with `metrics` wherever the API sends them;
   `habit/keywords/mine/?with_tracked=true` keeps the habits tracked today.
-- The habit's page lists its metrics with their latest values, and adds or
-  takes them away. So does the admin.
+- The habit's page (`/habits/<slug>/`) is for reading: its metrics with
+  their latest values, the calendar and the archive. Metrics are edited on
+  the Metrics page (`/metrics/`, in the menu): every metric of the user's
+  habits by key, with the habits that record it, how many entries carry a
+  value and the last of them, and the form that adds one to a habit
+  (`?habit=<slug>` chooses it; the habit's page links there). So does the
+  admin.
 - The phones' activity dialog (the + button) offers the profile's keywords
   and asks for the chosen habit's metrics by kind (a number, minutes and
   seconds, upper and lower, an amount and a currency); the note is the
