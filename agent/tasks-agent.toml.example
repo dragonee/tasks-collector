@@ -1,0 +1,31 @@
+# tasks-agent configuration.
+#
+# Copy to one of (searched in this order, later overrides earlier):
+#   ~/.config/tasks-agent/config.toml
+#   ~/.tasks-agent.toml
+#   ./tasks-agent.toml         (cwd - handy when running from the agent/ dir)
+#
+# Backend connection (url/user/password) is NOT here -- it is read from the same
+# ~/.tasks-collector.ini [Tasks] section the cli uses.
+
+[agent]
+# Where the agent keeps context, drafts, run logs and state.
+workdir = "~/.tasks-agent"
+
+[ollama]
+base_url = "http://localhost:11434"
+default_model = "llama3.1:8b"
+
+# Per-task model map: key = job name -> ollama model + params.
+# A job with no entry here falls back to ollama.default_model.
+[models.review]
+model = "llama3.1:8b"
+temperature = 0.7
+max_tokens = 2000
+# num_ctx = 8192            # optional ollama-specific knob, passed through to the LM
+
+# Schedule consumed by `tasks-agent tick` (one crontab line drives everything).
+[schedule.review]
+cron = "0 7 * * 1"          # Mondays 07:00 -> weekly review
+enabled = true
+params = { window = "weekly" }

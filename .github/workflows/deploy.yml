@@ -9,6 +9,7 @@ on:
       - '**.md'
       - 'android/**'
       - 'cli/**'
+      - 'agent/**'
       - 'tasks/apps/tree/tests/**'
       - 'tasks/settings/local.py'
       - 'requirements/local.txt'

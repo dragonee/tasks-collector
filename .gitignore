@@ -8,6 +8,11 @@
 /tasks/logs/*
 !/tasks/logs/.gitkeep
 
+# Local knowledge graph database (sqlite + its wal/shm sidecars)
+/knowledge.sqlite3
+/knowledge.sqlite3-shm
+/knowledge.sqlite3-wal
+
 # Created by https://www.gitignore.io/api/vim,node,linux,macos,django,python,windows,notepadpp,sublimetext
 
 /src
